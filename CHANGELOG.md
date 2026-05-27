@@ -8,6 +8,15 @@ to **Deployed** with the date.
 
 ## Pending Deploy
 
+### Sidebar navigation tweaks
+- Show list now appears under **All Shows** (links to show detail).
+- New **Schedule Builder** section above Databases, with per-show links
+  going straight to the schedule overview, plus Day Templates moved
+  here from Databases.
+- Crew Roster keeps its existing per-show sub-list (each goes to that
+  show's crew page).
+- Extracted the repeated show-link markup into a single Jinja macro.
+
 ### OSS (On-Site Schedule) — first version
 - New OSS hub at `/shows/<id>/oss` with tabs:
   Master Schedule, Dock, Haze, Doors, Security, F&B, House LX, HVAC,
