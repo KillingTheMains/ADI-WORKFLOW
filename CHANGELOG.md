@@ -8,6 +8,36 @@ to **Deployed** with the date.
 
 ## Pending Deploy
 
+### Wristbands tab — rebuilt as a derived day-by-day count
+- No more "add entry" form. The Wristbands tab is now a single editable
+  table with one row per scheduled day.
+- **Crew on day** is auto-derived from the schedule: unique named crew
+  + sum of unnamed qty across every activity on that day.
+- **Override** input lets you replace the auto count when the schedule's
+  headcount isn't quite right.
+- **Extras** input adds on top (VIPs, talent, sponsor walkthroughs).
+- **Total** = (Override or Auto) + Extras, with a show-wide grand total
+  in the footer.
+- Per-day **Notes** field saved alongside the counts.
+- Schema: schedule_days gets wristband_crew_override / wristband_extras /
+  wristband_notes columns (auto-migration).
+
+### COMS tab — rebuilt as a per-crew gear assignment table
+- No more "add entry" form. The COMS tab now manages two things:
+  1. **Show channel list** — define the channels this show uses
+     (Main, LX, Cam, etc.) once. Add/remove with one click. Removing a
+     channel automatically clears it from any crew assignment that
+     referenced it.
+  2. **Crew assignment table** — one row per crew assigned to the show
+     (auto-created on first view), with checkboxes for 📻 Radio and
+     🎧 Headset, dropdowns for Wired/Wireless and Brand (Riedel /
+     ClearCom / Telex / HME / Other), a multi-select of channels (only
+     enabled when Headset is checked), and Notes.
+- Summary header counts radios, wireless packs, wired packs, and any
+  crew not yet assigned comms.
+- Schema: two new tables — show_comm_channels and crew_comm_assignments
+  (auto-created by db.create_all()).
+
 ### Meal-break F&B detection (Piece 2)
 - The app now recognizes activities containing LUNCH, DINNER, BREAKFAST,
   or MEAL as meal breaks.

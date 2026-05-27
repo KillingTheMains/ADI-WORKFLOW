@@ -19,6 +19,8 @@ from extensions import db
 from models import (
     Show, ScheduleDay, ScheduleActivity, SubScheduleEntry,
     SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break,
+    ShowCommChannel, CrewCommAssignment, ShowCrewAssignment,
+    CrewMember, COM_PACK_TYPES, COM_PACK_BRANDS,
 )
 
 oss_bp = Blueprint("oss", __name__)
@@ -118,18 +120,78 @@ def oss_hub(show_id):
                                            show_id=show.id, day_id=d.id),
                 })
 
+    # ── Wristbands tab data ─────────────────────────────────────────────
+    # Simple: just pass show.days. The ScheduleDay model has the helpers
+    # (computed_crew_count / effective_crew_count / total_wristbands).
+    wristband_grand_total = sum(d.total_wristbands for d in show.days) if show.days else 0
+
+    # ── COMS tab data ───────────────────────────────────────────────────
+    coms_channels    = (ShowCommChannel.query
+                        .filter_by(show_id=show_id)
+                        .order_by(ShowCommChannel.sort_order, ShowCommChannel.id)
+                        .all())
+    coms_assignments = _build_coms_assignments(show)
+
+    # Summary counts for the COMS header
+    coms_summary = {
+        "radios":    sum(1 for a in coms_assignments if a["assignment"].radio),
+        "wireless":  sum(1 for a in coms_assignments if a["assignment"].headset
+                         and a["assignment"].pack_type == "Wireless"),
+        "wired":     sum(1 for a in coms_assignments if a["assignment"].headset
+                         and a["assignment"].pack_type == "Wired"),
+        "no_comms":  sum(1 for a in coms_assignments if not a["assignment"].radio
+                         and not a["assignment"].headset),
+    }
+
     return render_template(
         "oss/index.html",
-        show              = show,
-        active_tab        = tab,
-        ordered_types     = _ordered_types(),
-        meta              = SUB_SCHEDULE_META,
-        grouped           = grouped,
-        all_entries       = all_entries,
-        days              = show.days,
-        activities_by_day = activities_by_day,
-        missing_fb        = missing_fb,
+        show                  = show,
+        active_tab            = tab,
+        ordered_types         = _ordered_types(),
+        meta                  = SUB_SCHEDULE_META,
+        grouped               = grouped,
+        all_entries           = all_entries,
+        days                  = show.days,
+        activities_by_day     = activities_by_day,
+        missing_fb            = missing_fb,
+        wristband_grand_total = wristband_grand_total,
+        coms_channels         = coms_channels,
+        coms_assignments      = coms_assignments,
+        coms_summary          = coms_summary,
+        com_pack_types        = COM_PACK_TYPES,
+        com_pack_brands       = COM_PACK_BRANDS,
     )
+
+
+def _build_coms_assignments(show):
+    """
+    Return a list of {crew_member, assignment} dicts, one per crew member
+    assigned to the show. Auto-create CrewCommAssignment rows on demand so
+    the table always shows every assigned crew member.
+    """
+    rows = (
+        db.session.query(CrewMember, ShowCrewAssignment)
+        .join(ShowCrewAssignment, ShowCrewAssignment.crew_member_id == CrewMember.id)
+        .filter(ShowCrewAssignment.show_id == show.id)
+        .order_by(CrewMember.last_name, CrewMember.first_name)
+        .all()
+    )
+    # Existing comm assignments for this show, keyed by crew_member_id
+    existing = {a.crew_member_id: a
+                for a in CrewCommAssignment.query.filter_by(show_id=show.id).all()}
+
+    out = []
+    created = False
+    for crew, _show_assign in rows:
+        a = existing.get(crew.id)
+        if a is None:
+            a = CrewCommAssignment(show_id=show.id, crew_member_id=crew.id)
+            db.session.add(a)
+            created = True
+        out.append({"crew_member": crew, "assignment": a})
+    if created:
+        db.session.commit()
+    return out
 
 
 # ── Create / update / delete entries ─────────────────────────────────────────
@@ -246,3 +308,117 @@ def delete_entry(show_id, entry_id):
 def show_book(show_id):
     show = Show.query.get_or_404(show_id)
     return render_template("oss/show_book.html", show=show)
+
+
+
+# ── Wristbands tab — batch save ──────────────────────────────────────────────
+
+@oss_bp.route("/<int:show_id>/oss/wristbands/save", methods=["POST"])
+def wristbands_save(show_id):
+    """
+    Save extras / override / notes for every day of the show in one POST.
+    Form fields are keyed by day id:
+        override_<day_id>, extras_<day_id>, notes_<day_id>
+    Blanks clear the value (NULL for ints, empty for notes).
+    """
+    show = Show.query.get_or_404(show_id)
+    for day in show.days:
+        raw_override = (request.form.get(f"override_{day.id}") or "").strip()
+        raw_extras   = (request.form.get(f"extras_{day.id}")   or "").strip()
+        raw_notes    = (request.form.get(f"notes_{day.id}")    or "").strip()
+        try:
+            day.wristband_crew_override = int(raw_override) if raw_override else None
+        except ValueError:
+            flash(f"Bad override value on {day.day_header}; skipped.", "danger")
+        try:
+            day.wristband_extras = int(raw_extras) if raw_extras else None
+        except ValueError:
+            flash(f"Bad extras value on {day.day_header}; skipped.", "danger")
+        day.wristband_notes = raw_notes or None
+    db.session.commit()
+    flash("Wristbands saved.", "success")
+    return redirect(url_for("oss.oss_hub", show_id=show_id, tab="Wristbands"))
+
+
+# ── COMS tab — channel CRUD ──────────────────────────────────────────────────
+
+@oss_bp.route("/<int:show_id>/oss/coms/channels/add", methods=["POST"])
+def coms_channel_add(show_id):
+    """Add a single channel to the show's channel list."""
+    show = Show.query.get_or_404(show_id)
+    name = (request.form.get("name") or "").strip()
+    if not name:
+        flash("Channel name is required.", "danger")
+        return redirect(url_for("oss.oss_hub", show_id=show_id, tab="COMS"))
+    if len(name) > 50:
+        name = name[:50]
+    last_sort = (db.session.query(db.func.max(ShowCommChannel.sort_order))
+                 .filter_by(show_id=show_id).scalar() or 0)
+    ch = ShowCommChannel(show_id=show_id, name=name, sort_order=last_sort + 10)
+    db.session.add(ch)
+    db.session.commit()
+    flash(f"Added channel '{name}'.", "success")
+    return redirect(url_for("oss.oss_hub", show_id=show_id, tab="COMS"))
+
+
+@oss_bp.route("/<int:show_id>/oss/coms/channels/<int:channel_id>/delete", methods=["POST"])
+def coms_channel_delete(show_id, channel_id):
+    """Delete a channel and strip it from any crew assignment that references it."""
+    ch = ShowCommChannel.query.get_or_404(channel_id)
+    if ch.show_id != show_id:
+        flash("Channel does not belong to this show.", "danger")
+        return redirect(url_for("oss.oss_hub", show_id=show_id, tab="COMS"))
+    name = ch.name
+    # Strip this channel ID out of any assignment's channel_ids CSV
+    deleted_id = str(channel_id)
+    for a in CrewCommAssignment.query.filter_by(show_id=show_id).all():
+        if not a.channel_ids:
+            continue
+        ids = [s.strip() for s in a.channel_ids.split(",") if s.strip()]
+        ids = [s for s in ids if s != deleted_id]
+        a.channel_ids = ",".join(ids) if ids else None
+    db.session.delete(ch)
+    db.session.commit()
+    flash(f"Removed channel '{name}'.", "success")
+    return redirect(url_for("oss.oss_hub", show_id=show_id, tab="COMS"))
+
+
+# ── COMS tab — batch save crew assignments ───────────────────────────────────
+
+@oss_bp.route("/<int:show_id>/oss/coms/save", methods=["POST"])
+def coms_save(show_id):
+    """
+    Batch-save every crew member's comm assignment. Form fields are keyed
+    by assignment id:
+        radio_<aid>, headset_<aid>, pack_type_<aid>, pack_brand_<aid>,
+        pack_brand_other_<aid>, notes_<aid>, channels_<aid> (multi-value)
+    Missing checkboxes mean False (HTML form semantics).
+    """
+    show = Show.query.get_or_404(show_id)
+    assignments = CrewCommAssignment.query.filter_by(show_id=show_id).all()
+    for a in assignments:
+        aid    = str(a.id)
+        a.radio   = bool(request.form.get(f"radio_{aid}"))
+        a.headset = bool(request.form.get(f"headset_{aid}"))
+        # Pack details only when headset is checked; clear otherwise so the
+        # form state stays consistent.
+        if a.headset:
+            pt = (request.form.get(f"pack_type_{aid}") or "").strip()
+            pb = (request.form.get(f"pack_brand_{aid}") or "").strip()
+            po = (request.form.get(f"pack_brand_other_{aid}") or "").strip()
+            a.pack_type        = pt if pt in COM_PACK_TYPES else None
+            a.pack_brand       = pb if pb in COM_PACK_BRANDS else None
+            a.pack_brand_other = po or None
+            # Multi-select channels — list of channel ids from <select multiple>
+            picked = request.form.getlist(f"channels_{aid}")
+            picked_ids = [int(p) for p in picked if p.isdigit()]
+            a.channel_id_list = picked_ids
+        else:
+            a.pack_type = None
+            a.pack_brand = None
+            a.pack_brand_other = None
+            a.channel_ids = None
+        a.notes = (request.form.get(f"notes_{aid}") or "").strip() or None
+    db.session.commit()
+    flash("COMS assignments saved.", "success")
+    return redirect(url_for("oss.oss_hub", show_id=show_id, tab="COMS"))

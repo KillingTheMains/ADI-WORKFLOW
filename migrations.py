@@ -39,6 +39,12 @@ MIGRATIONS = [
     ("sub_schedule_entries", "count",            "INTEGER"),
     # 2026-05-27 — OSS optional activity link
     ("sub_schedule_entries", "activity_id",      "INTEGER REFERENCES schedule_activities(id)"),
+    # 2026-05-27 — Wristbands tab (per-day extras / override / notes)
+    ("schedule_days", "wristband_crew_override", "INTEGER"),
+    ("schedule_days", "wristband_extras",        "INTEGER"),
+    ("schedule_days", "wristband_notes",         "TEXT"),
+    # COMS tables (show_comm_channels, crew_comm_assignments) are created
+    # automatically by db.create_all() since they're brand-new tables.
 ]
 
 

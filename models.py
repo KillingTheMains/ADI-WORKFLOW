@@ -198,6 +198,12 @@ class ScheduleDay(db.Model):
     travel_hotel_name      = db.Column(db.String(200))
     travel_hotel_confirm   = db.Column(db.String(100))
 
+    # Wristbands (OSS Wristbands tab). The "crew on day" count is derived
+    # from the activity crew rows, but the override (if set) replaces it.
+    wristband_crew_override = db.Column(db.Integer)     # NULL → use auto-derived
+    wristband_extras        = db.Column(db.Integer)     # additional bands (VIPs, talent, etc.)
+    wristband_notes         = db.Column(db.Text)
+
     show        = db.relationship("Show", back_populates="days")
     activities  = db.relationship("ScheduleActivity", back_populates="day",
                                   order_by="ScheduleActivity.sort_order",
@@ -223,6 +229,38 @@ class ScheduleDay(db.Model):
         if self.milestones:
             return [m.strip() for m in self.milestones.splitlines() if m.strip()]
         return []
+
+    # ── Wristband helpers ────────────────────────────────────────────────
+    @property
+    def computed_crew_count(self):
+        """
+        Auto-derived headcount for this day: unique named crew + sum of
+        unnamed qty across all activities. Counts each named person once
+        even if they appear in multiple activities; unnamed rows are summed
+        as 'qty' since each represents a distinct slot.
+        """
+        named_ids = set()
+        unnamed_total = 0
+        for act in self.activities:
+            for row in act.crew_rows:
+                if row.is_group_header:
+                    continue
+                if row.crew_member_id:
+                    named_ids.add(row.crew_member_id)
+                else:
+                    unnamed_total += (row.qty or 1)
+        return len(named_ids) + unnamed_total
+
+    @property
+    def effective_crew_count(self):
+        """Override (when set) beats auto-derived count."""
+        if self.wristband_crew_override is not None:
+            return self.wristband_crew_override
+        return self.computed_crew_count
+
+    @property
+    def total_wristbands(self):
+        return self.effective_crew_count + (self.wristband_extras or 0)
 
     def __repr__(self):
         return f"<ScheduleDay {self.date}>"
@@ -498,3 +536,76 @@ class SubScheduleEntry(db.Model):
 
     def __repr__(self):
         return f"<SubSchedule {self.type} day={self.schedule_day_id} act={self.activity_id} {self.time}>"
+
+
+
+# ── COMS (intercom + radio assignments per show) ─────────────────────────────
+#
+# Two tables:
+#   * ShowCommChannel       — per-show channel names ("Main", "LX", "Cam", ...)
+#   * CrewCommAssignment    — per-crew-member gear spec on this show
+#
+# The OSS COMS tab renders both together: the channel list is editable at the
+# top, the crew table beneath is one row per ShowCrewAssignment and stores
+# radio/headset/pack details + selected channels.
+
+COM_PACK_TYPES  = ["Wired", "Wireless"]
+COM_PACK_BRANDS = ["Riedel", "ClearCom", "Telex", "HME", "Other"]
+
+
+class ShowCommChannel(db.Model):
+    """A single COMS channel defined for a show (e.g. 'Main', 'LX', 'Cam')."""
+    __tablename__ = "show_comm_channels"
+    id         = db.Column(db.Integer, primary_key=True)
+    show_id    = db.Column(db.Integer, db.ForeignKey("shows.id"), nullable=False)
+    name       = db.Column(db.String(50), nullable=False)
+    sort_order = db.Column(db.Integer, default=0)
+
+    show       = db.relationship("Show")
+
+    def __repr__(self):
+        return f"<ShowCommChannel show={self.show_id} '{self.name}'>"
+
+
+class CrewCommAssignment(db.Model):
+    """
+    A crew member's COMS gear assignment for a specific show.
+    Auto-created on first view of the COMS tab for any crew that's assigned
+    to the show but doesn't have an assignment row yet.
+    """
+    __tablename__ = "crew_comm_assignments"
+    id              = db.Column(db.Integer, primary_key=True)
+    show_id         = db.Column(db.Integer, db.ForeignKey("shows.id"),       nullable=False)
+    crew_member_id  = db.Column(db.Integer, db.ForeignKey("crew_members.id"), nullable=False)
+    radio           = db.Column(db.Boolean, default=False)   # two-way radio
+    headset         = db.Column(db.Boolean, default=False)   # intercom pack (Bolero / HelixNet / etc.)
+    pack_type       = db.Column(db.String(20))               # Wired / Wireless
+    pack_brand      = db.Column(db.String(50))               # Riedel / ClearCom / Telex / HME / Other
+    pack_brand_other = db.Column(db.String(100))             # used when pack_brand == "Other"
+    channel_ids     = db.Column(db.Text)                     # CSV of ShowCommChannel ids
+    notes           = db.Column(db.Text)
+
+    __table_args__  = (db.UniqueConstraint("show_id", "crew_member_id",
+                                           name="uq_show_crewcomm"),)
+
+    show            = db.relationship("Show")
+    crew_member     = db.relationship("CrewMember")
+
+    @property
+    def channel_id_list(self):
+        """Parsed list of int channel ids."""
+        if not self.channel_ids:
+            return []
+        out = []
+        for piece in self.channel_ids.split(","):
+            piece = piece.strip()
+            if piece.isdigit():
+                out.append(int(piece))
+        return out
+
+    @channel_id_list.setter
+    def channel_id_list(self, ids):
+        self.channel_ids = ",".join(str(i) for i in ids) if ids else None
+
+    def __repr__(self):
+        return f"<CrewCommAssignment show={self.show_id} crew={self.crew_member_id}>"

@@ -155,6 +155,11 @@
   {% set entries = grouped[t] %}
   <div class="tab-pane oss-tab-pane {% if active_tab == t %}show active{% endif %}"
        id="tab-{{ loop.index }}" role="tabpanel">
+    {% if t == 'Wristbands' %}
+      {% include 'oss/_wristbands_tab.html' %}
+    {% elif t == 'COMS' %}
+      {% include 'oss/_coms_tab.html' %}
+    {% else %}
     {% if t == 'F&B' and missing_fb %}
     <div class="alert alert-warning py-2 px-3" style="font-size:.82rem;">
       <strong>⚠ {{ missing_fb|length }} meal break{% if missing_fb|length != 1 %}s{% endif %}
@@ -312,6 +317,7 @@
         </div>
       </div>
     </form>
+    {% endif %}{# end of Wristbands/COMS-vs-generic if/elif/else #}
   </div>
   {% endfor %}
 

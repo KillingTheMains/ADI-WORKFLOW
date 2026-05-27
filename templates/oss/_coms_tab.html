@@ -1,0 +1,212 @@
+{# COMS tab — per-show channel list + per-crew gear assignments. #}
+
+<div class="oss-section-help">
+  🎧 <strong>COMS</strong> — radio and intercom gear assignments for crew
+  on this show. Define your channel list first, then check off who needs a
+  radio and/or comm pack, and assign each pack the channels they'll be
+  listening to.
+</div>
+
+{# ── Channel manager (per-show channel list) ─────────────────────────────── #}
+<div class="card mb-3">
+  <div class="card-header d-flex align-items-center justify-content-between"
+       style="background:#F0EDE0;border-bottom:1px solid #E8DCA8;">
+    <span style="font-size:.82rem;font-weight:700;">
+      📡 Show channels
+      <span class="text-muted" style="font-weight:400;">({{ coms_channels|length }})</span>
+    </span>
+    <span class="text-muted" style="font-size:.72rem;">
+      e.g. Main · LX · A · V · Cam · FX · Rig · Stage
+    </span>
+  </div>
+  <div class="card-body p-3">
+    {% if coms_channels %}
+    <div class="d-flex flex-wrap gap-2 mb-2">
+      {% for ch in coms_channels %}
+      <div class="d-flex align-items-center gap-1 px-2 py-1"
+           style="background:#FFF8EC;border:1px solid #E8DCA8;border-radius:14px;
+                  font-size:.78rem;font-weight:600;">
+        <span>{{ ch.name }}</span>
+        <form method="POST"
+              action="{{ url_for('oss.coms_channel_delete', show_id=show.id, channel_id=ch.id) }}"
+              style="display:inline;"
+              onsubmit="return confirm('Remove channel {{ ch.name }}? It will be cleared from any crew assignments that reference it.');">
+          <button type="submit" class="btn btn-sm btn-link p-0 text-danger"
+                  style="font-size:.78rem;line-height:1;" title="Remove">✕</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-muted mb-2" style="font-size:.82rem;font-style:italic;">
+      No channels yet. Add the channels this show uses below.
+    </div>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('oss.coms_channel_add', show_id=show.id) }}"
+          class="d-flex align-items-end gap-2">
+      <div class="flex-grow-1" style="max-width:250px;">
+        <input type="text" name="name" maxlength="50" required
+               placeholder="Channel name (e.g. 'Main', 'LX', 'Cam')"
+               class="form-control form-control-sm">
+      </div>
+      <button type="submit" class="btn btn-sm btn-adi" style="font-size:.78rem;">+ Add channel</button>
+    </form>
+  </div>
+</div>
+
+{# ── Summary header ──────────────────────────────────────────────────────── #}
+<div class="d-flex flex-wrap gap-2 mb-2" style="font-size:.78rem;">
+  <span class="oss-pill" style="background:#1C2333;color:#C9A84C;">
+    📻 {{ coms_summary.radios }} radio{{ '' if coms_summary.radios == 1 else 's' }}
+  </span>
+  <span class="oss-pill" style="background:#1C2333;color:#C9A84C;">
+    🎧 {{ coms_summary.wireless }} wireless pack{{ '' if coms_summary.wireless == 1 else 's' }}
+  </span>
+  <span class="oss-pill" style="background:#1C2333;color:#C9A84C;">
+    🔌 {{ coms_summary.wired }} wired pack{{ '' if coms_summary.wired == 1 else 's' }}
+  </span>
+  {% if coms_summary.no_comms %}
+  <span class="oss-pill" style="background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;">
+    ⚠ {{ coms_summary.no_comms }} crew without comms
+  </span>
+  {% endif %}
+</div>
+
+{# ── Crew assignment table ──────────────────────────────────────────────── #}
+{% if not coms_assignments %}
+<div class="oss-empty">
+  No crew assigned to this show yet. Add crew on the
+  <a href="{{ url_for('show_crew.show_crew', show_id=show.id) }}">Show Crew page</a>
+  first.
+</div>
+{% else %}
+
+<form method="POST" action="{{ url_for('oss.coms_save', show_id=show.id) }}">
+  <table class="table table-sm oss-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Position</th>
+        <th style="width:55px;text-align:center;">📻</th>
+        <th style="width:55px;text-align:center;">🎧</th>
+        <th style="width:110px;">Wired/Wireless</th>
+        <th style="width:130px;">Brand</th>
+        <th>Channels</th>
+        <th style="width:180px;">Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in coms_assignments %}
+      {% set a = row.assignment %}
+      {% set cm = row.crew_member %}
+      <tr data-aid="{{ a.id }}">
+        <td style="font-weight:600;">{{ cm.full_name }}</td>
+        <td class="text-muted" style="font-size:.78rem;">
+          {{ cm.position.title if cm.position else '—' }}
+        </td>
+        <td style="text-align:center;">
+          <input type="checkbox" name="radio_{{ a.id }}" value="1"
+                 class="form-check-input"
+                 {% if a.radio %}checked{% endif %}>
+        </td>
+        <td style="text-align:center;">
+          <input type="checkbox" name="headset_{{ a.id }}" value="1"
+                 class="form-check-input coms-headset-toggle"
+                 data-aid="{{ a.id }}"
+                 {% if a.headset %}checked{% endif %}>
+        </td>
+        <td>
+          <select name="pack_type_{{ a.id }}"
+                  class="form-select form-select-sm coms-pack-field-{{ a.id }}"
+                  {% if not a.headset %}disabled{% endif %}
+                  style="font-size:.78rem;">
+            <option value="">—</option>
+            {% for t in com_pack_types %}
+            <option value="{{ t }}" {% if a.pack_type == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </td>
+        <td>
+          <div class="d-flex gap-1">
+            <select name="pack_brand_{{ a.id }}"
+                    class="form-select form-select-sm coms-pack-field-{{ a.id }} coms-brand-{{ a.id }}"
+                    {% if not a.headset %}disabled{% endif %}
+                    style="font-size:.78rem;flex:1;">
+              <option value="">—</option>
+              {% for b in com_pack_brands %}
+              <option value="{{ b }}" {% if a.pack_brand == b %}selected{% endif %}>{{ b }}</option>
+              {% endfor %}
+            </select>
+            <input type="text" name="pack_brand_other_{{ a.id }}"
+                   value="{{ a.pack_brand_other or '' }}"
+                   placeholder="(brand)"
+                   class="form-control form-control-sm coms-other-{{ a.id }}"
+                   style="font-size:.78rem;width:80px;display:{% if a.pack_brand == 'Other' %}block{% else %}none{% endif %};">
+          </div>
+        </td>
+        <td>
+          {% if coms_channels %}
+          <select name="channels_{{ a.id }}" multiple size="3"
+                  class="form-select form-select-sm coms-pack-field-{{ a.id }}"
+                  {% if not a.headset %}disabled{% endif %}
+                  style="font-size:.76rem;min-height:54px;">
+            {% set picked = a.channel_id_list %}
+            {% for ch in coms_channels %}
+            <option value="{{ ch.id }}" {% if ch.id in picked %}selected{% endif %}>{{ ch.name }}</option>
+            {% endfor %}
+          </select>
+          {% else %}
+          <span class="text-muted" style="font-size:.72rem;font-style:italic;">
+            Add channels above first
+          </span>
+          {% endif %}
+        </td>
+        <td>
+          <input type="text" name="notes_{{ a.id }}"
+                 value="{{ a.notes or '' }}"
+                 class="form-control form-control-sm"
+                 style="font-size:.78rem;">
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="d-flex justify-content-between align-items-center mt-2">
+    <div class="text-muted" style="font-size:.74rem;">
+      Hold <kbd>⌘</kbd>/<kbd>Ctrl</kbd> to multi-select channels.
+      Pack fields are only saved when 🎧 is checked.
+    </div>
+    <button type="submit" class="btn btn-sm btn-adi">💾 Save COMS</button>
+  </div>
+</form>
+
+<script>
+  // Enable/disable pack fields based on the headset checkbox per row.
+  // Also show/hide the "Other brand" text input based on brand selection.
+  (function () {
+    document.querySelectorAll('.coms-headset-toggle').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const aid = cb.dataset.aid;
+        document.querySelectorAll('.coms-pack-field-' + aid).forEach(f => {
+          f.disabled = !cb.checked;
+        });
+        if (!cb.checked) {
+          // Hide the "Other brand" textbox too
+          const other = document.querySelector('.coms-other-' + aid);
+          if (other) other.style.display = 'none';
+        }
+      });
+    });
+    document.querySelectorAll('[class*="coms-brand-"]').forEach(sel => {
+      const aid = sel.className.match(/coms-brand-(\d+)/)[1];
+      const other = document.querySelector('.coms-other-' + aid);
+      sel.addEventListener('change', () => {
+        if (other) other.style.display = sel.value === 'Other' ? 'block' : 'none';
+      });
+    });
+  })();
+</script>
+
+{% endif %}

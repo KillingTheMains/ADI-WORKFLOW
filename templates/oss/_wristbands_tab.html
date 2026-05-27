@@ -1,0 +1,105 @@
+{# Wristbands tab — per-day credential count for the show.
+   Crew count is auto-derived from the schedule. Override + Extras + Notes
+   are editable per day; total = (override or crew) + extras. #}
+
+<div class="oss-section-help">
+  🎫 <strong>Wristbands</strong> — daily credential counts. The <em>Crew</em>
+  column is auto-derived from the schedule (unique named crew + unnamed
+  qty across every activity that day). Use <em>Override</em> when the
+  schedule's headcount isn't the right number, and <em>Extras</em> for
+  guests, VIPs, talent, etc.
+</div>
+
+{% if not show.days %}
+<div class="oss-empty">
+  No schedule days yet. Add days in the
+  <a href="{{ url_for('schedule.overview', show_id=show.id) }}">Schedule Builder</a>
+  before assigning wristbands.
+</div>
+{% else %}
+
+<form method="POST" action="{{ url_for('oss.wristbands_save', show_id=show.id) }}">
+  <table class="table table-sm oss-table">
+    <thead>
+      <tr>
+        <th style="width:130px;">Date</th>
+        <th style="width:100px;">Phase</th>
+        <th style="width:70px;text-align:right;">Crew<br><span style="font-weight:400;color:#888;font-size:.7rem;">(auto)</span></th>
+        <th style="width:90px;">Override</th>
+        <th style="width:90px;">Extras</th>
+        <th style="width:80px;text-align:right;">Total</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in days %}
+      <tr>
+        <td>
+          <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=d.id) }}"
+             style="font-weight:600;text-decoration:none;">
+            {{ d.date.strftime('%a %-m/%-d') }}
+          </a>
+          {% if d.label %}
+          <div style="font-size:.7rem;color:#888;">{{ d.label }}</div>
+          {% endif %}
+        </td>
+        <td>
+          {% if d.phase %}
+          <span class="oss-pill">{{ d.phase }}</span>
+          {% else %}—{% endif %}
+        </td>
+        <td style="text-align:right;font-weight:600;color:var(--adi-blue,#1C2333);">
+          {{ d.computed_crew_count }}
+        </td>
+        <td>
+          <input type="number" name="override_{{ d.id }}" min="0" step="1"
+                 value="{{ d.wristband_crew_override if d.wristband_crew_override is not none else '' }}"
+                 placeholder="auto"
+                 class="form-control form-control-sm"
+                 style="font-size:.8rem;text-align:right;">
+        </td>
+        <td>
+          <input type="number" name="extras_{{ d.id }}" min="0" step="1"
+                 value="{{ d.wristband_extras if d.wristband_extras is not none else '' }}"
+                 placeholder="0"
+                 class="form-control form-control-sm"
+                 style="font-size:.8rem;text-align:right;">
+        </td>
+        <td style="text-align:right;font-weight:700;font-size:.95rem;
+                   color:{{ '#C9A84C' if d.total_wristbands else '#999' }};">
+          {{ d.total_wristbands }}
+        </td>
+        <td>
+          <input type="text" name="notes_{{ d.id }}"
+                 value="{{ d.wristband_notes or '' }}"
+                 placeholder="e.g. VIPs, talent, sponsor walkthrough"
+                 class="form-control form-control-sm"
+                 style="font-size:.8rem;">
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr style="background:#1C2333;color:#C9A84C;">
+        <td colspan="5" style="text-align:right;font-weight:700;
+                              text-transform:uppercase;letter-spacing:.04em;
+                              font-size:.78rem;padding:8px;">
+          Show-wide grand total
+        </td>
+        <td style="text-align:right;font-weight:700;font-size:1.05rem;padding:8px;">
+          {{ wristband_grand_total }}
+        </td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="d-flex justify-content-between align-items-center mt-2">
+    <div class="text-muted" style="font-size:.74rem;">
+      Override blank = use auto-derived crew count. Extras blank = 0.
+    </div>
+    <button type="submit" class="btn btn-sm btn-adi">💾 Save wristbands</button>
+  </div>
+</form>
+
+{% endif %}
