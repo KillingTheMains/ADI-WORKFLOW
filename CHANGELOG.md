@@ -8,6 +8,20 @@ to **Deployed** with the date.
 
 ## Pending Deploy
 
+### OSS entries can link to schedule activities
+- Each OSS entry now optionally links to a specific activity on the day
+  it belongs to (e.g. an F&B "Crew lunch" entry can link to the
+  "LUNCH BREAK" activity on the schedule).
+- When linked, the entry's displayed time follows the activity's time —
+  no more double-bookkeeping when the schedule shifts.
+- When not linked, freeform time still works (good for Dock arrivals
+  and other operational items that don't map to show activities).
+- UI: linked entries show a 🔗 next to the time. The add/edit forms have
+  a per-day activity dropdown; selecting an activity locks the time
+  field to the activity's value.
+- Schema: added nullable `activity_id` FK to `sub_schedule_entries`
+  (auto-migration handles it).
+
 ### Sidebar navigation tweaks
 - Show list now appears under **All Shows** (links to show detail).
 - New **Schedule Builder** section above Databases, with per-show links

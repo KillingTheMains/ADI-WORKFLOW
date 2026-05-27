@@ -116,9 +116,18 @@
           {% set ns.prev_day = e.schedule_day_id %}
           {% endif %}
           <tr>
-            <td>{{ e.time or '—' }}</td>
+            <td>
+              {{ e.effective_time or '—' }}
+              {% if e.is_linked %}<span title="Linked to a schedule activity — time follows the activity"
+                                        style="color:#C9A84C;font-size:.72rem;">🔗</span>{% endif %}
+            </td>
             <td><span class="oss-pill">{{ e.meta.icon }} {{ e.meta.label }}</span></td>
-            <td>{{ e.activity or '—' }}</td>
+            <td>
+              {{ e.activity or '—' }}
+              {% if e.is_linked and e.linked_activity %}
+                <div style="font-size:.7rem;color:#888;">↳ {{ e.linked_activity.description }}</div>
+              {% endif %}
+            </td>
             <td>{{ e.count if e.count is not none else '—' }}</td>
             <td>{{ e.duration_hrs if e.duration_hrs is not none else '—' }}</td>
             <td class="text-muted" style="font-size:.78rem;">{{ e.notes or '' }}</td>
@@ -174,8 +183,17 @@
                 <div style="font-size:.7rem;color:#888;">{{ e.schedule_day.phase }}</div>
               {% endif %}
             </td>
-            <td>{{ e.time or '—' }}</td>
-            <td>{{ e.activity or '—' }}</td>
+            <td>
+              {{ e.effective_time or '—' }}
+              {% if e.is_linked %}<span title="Linked to a schedule activity — time follows the activity"
+                                        style="color:#C9A84C;font-size:.72rem;">🔗</span>{% endif %}
+            </td>
+            <td>
+              {{ e.activity or '—' }}
+              {% if e.is_linked and e.linked_activity %}
+                <div style="font-size:.7rem;color:#888;">↳ {{ e.linked_activity.description }}</div>
+              {% endif %}
+            </td>
             <td>{{ e.count if e.count is not none else '—' }}</td>
             <td>{{ e.duration_hrs if e.duration_hrs is not none else '—' }}</td>
             <td class="text-muted" style="font-size:.78rem;">{{ e.notes or '' }}</td>
@@ -185,6 +203,7 @@
                       data-id="{{ e.id }}"
                       data-type="{{ e.type }}"
                       data-day="{{ e.schedule_day_id }}"
+                      data-activity-id="{{ e.activity_id or '' }}"
                       data-time="{{ e.time or '' }}"
                       data-activity="{{ e.activity or '' }}"
                       data-count="{{ e.count if e.count is not none else '' }}"
@@ -212,15 +231,19 @@
 
     <!-- Add form (lives outside the table for HTML validity) -->
     <form method="POST" action="{{ url_for('oss.add_entry', show_id=show.id) }}"
-          class="mt-3 p-3" style="background:#fafafa;border-radius:6px;">
+          class="mt-3 p-3 oss-add-form" style="background:#fafafa;border-radius:6px;">
       <input type="hidden" name="type" value="{{ t }}">
       <div style="font-size:.78rem;font-weight:600;text-transform:uppercase;
                   letter-spacing:.04em;color:#666;margin-bottom:8px;">Add {{ m.label }} entry</div>
       <div class="row g-2">
-        <div class="col-md-3">
-          <select name="schedule_day_id" class="form-select form-select-sm" required
+        <div class="col-md-2">
+          <select name="schedule_day_id"
+                  id="add-day-{{ loop.index }}"
+                  data-activity-target="add-act-{{ loop.index }}"
+                  data-time-target="add-time-{{ loop.index }}"
+                  class="form-select form-select-sm oss-day-select" required
                   {% if not show.days %}disabled{% endif %}>
-            <option value="">— pick day —</option>
+            <option value="">— day —</option>
             {% for d in days %}
             <option value="{{ d.id }}">
               {{ d.date.strftime('%a %-m/%-d') }}{% if d.phase %} · {{ d.phase }}{% endif %}
@@ -228,11 +251,21 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-1">
-          <input type="time" name="time" class="form-control form-control-sm">
-        </div>
         <div class="col-md-3">
-          <input type="text" name="activity" placeholder="Activity"
+          <select name="activity_id"
+                  id="add-act-{{ loop.index }}"
+                  data-time-target="add-time-{{ loop.index }}"
+                  class="form-select form-select-sm oss-act-select">
+            <option value="">— link to activity (optional) —</option>
+          </select>
+        </div>
+        <div class="col-md-1">
+          <input type="time" name="time"
+                 id="add-time-{{ loop.index }}"
+                 class="form-control form-control-sm oss-time-input">
+        </div>
+        <div class="col-md-2">
+          <input type="text" name="activity" placeholder="Label"
                  class="form-control form-control-sm">
         </div>
         <div class="col-md-1">
@@ -243,7 +276,7 @@
           <input type="number" name="duration_hrs" min="0" step="0.25" placeholder="Hrs"
                  class="form-control form-control-sm">
         </div>
-        <div class="col-md-2">
+        <div class="col-md-1">
           <input type="text" name="notes" placeholder="Notes"
                  class="form-control form-control-sm">
         </div>
@@ -273,13 +306,29 @@
           <input type="hidden" name="type" id="edit-type">
           <div class="mb-2">
             <label class="form-label" style="font-size:.78rem;font-weight:600;">Schedule Day</label>
-            <select name="schedule_day_id" id="edit-day" class="form-select form-select-sm" required>
+            <select name="schedule_day_id" id="edit-day"
+                    data-activity-target="edit-act"
+                    data-time-target="edit-time"
+                    class="form-select form-select-sm oss-day-select" required>
               {% for d in days %}
               <option value="{{ d.id }}">
                 {{ d.date.strftime('%a %-m/%-d') }}{% if d.phase %} · {{ d.phase }}{% endif %}
               </option>
               {% endfor %}
             </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" style="font-size:.78rem;font-weight:600;">
+              Link to activity (optional)
+            </label>
+            <select name="activity_id" id="edit-act"
+                    data-time-target="edit-time"
+                    class="form-select form-select-sm oss-act-select">
+              <option value="">— none, use freeform time —</option>
+            </select>
+            <div style="font-size:.7rem;color:#888;margin-top:3px;">
+              If linked, the time below is ignored and follows the activity's time.
+            </div>
           </div>
           <div class="row g-2">
             <div class="col-4">
@@ -298,8 +347,9 @@
             </div>
           </div>
           <div class="mb-2 mt-2">
-            <label class="form-label" style="font-size:.78rem;font-weight:600;">Activity</label>
+            <label class="form-label" style="font-size:.78rem;font-weight:600;">Label</label>
             <input type="text" name="activity" id="edit-activity"
+                   placeholder="What this entry is (e.g. 'Crew lunch')"
                    class="form-control form-control-sm">
           </div>
           <div class="mb-2">
@@ -320,25 +370,97 @@
 
 {% block extra_js %}
 <script>
-  // Populate edit modal when an Edit button is clicked, and point the form at
-  // the right /edit URL using the entry id from the button's data-id.
+  // Activities grouped by day_id, used to populate the activity dropdowns.
+  const ACTIVITIES_BY_DAY = {{ activities_by_day | tojson }};
+
+  // Re-fill an activity <select> based on the currently chosen day, while
+  // trying to preserve the existing selection if it's still valid.
+  function refillActivityOptions(daySelect, actSelect) {
+    const dayId = daySelect.value;
+    const acts  = ACTIVITIES_BY_DAY[dayId] || [];
+    const prev  = actSelect.value;
+    let html = '<option value="">— link to activity (optional) —</option>';
+    for (const a of acts) {
+      html += `<option value="${a.id}">${escapeHtml(a.label)}</option>`;
+    }
+    actSelect.innerHTML = html;
+    // Restore selection if the activity is still on the (now possibly new) day
+    if (prev && acts.some(a => String(a.id) === String(prev))) {
+      actSelect.value = prev;
+    }
+  }
+
+  // Toggle the time <input> when an activity is linked: linked = read-only +
+  // shows the activity's time; unlinked = freeform editable input.
+  function syncTimeToActivity(actSelect, timeInput) {
+    if (!timeInput) return;
+    const dayId  = actSelect.closest('form, .modal-body')
+                            .querySelector('.oss-day-select').value;
+    const actId  = actSelect.value;
+    if (!actId) {
+      timeInput.readOnly = false;
+      timeInput.style.background = '';
+      return;
+    }
+    const acts = ACTIVITIES_BY_DAY[dayId] || [];
+    const act  = acts.find(a => String(a.id) === String(actId));
+    if (act && act.time) {
+      timeInput.value = act.time;
+    }
+    timeInput.readOnly = true;
+    timeInput.style.background = '#f1ecdb';
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[c]);
+  }
+
+  // Wire every (day, activity) pair on the page.
+  document.querySelectorAll('.oss-day-select').forEach(daySel => {
+    const actId   = daySel.dataset.activityTarget;
+    const timeId  = daySel.dataset.timeTarget;
+    if (!actId) return;
+    const actSel  = document.getElementById(actId);
+    const timeIn  = timeId ? document.getElementById(timeId) : null;
+    if (!actSel) return;
+    daySel.addEventListener('change', () => {
+      refillActivityOptions(daySel, actSel);
+      syncTimeToActivity(actSel, timeIn);
+    });
+    actSel.addEventListener('change', () => syncTimeToActivity(actSel, timeIn));
+    // Initial population on page load
+    refillActivityOptions(daySel, actSel);
+  });
+
+  // Edit modal: populate fields when an Edit button is clicked.
   (function () {
     const modal      = document.getElementById('editModal');
     const form       = document.getElementById('editForm');
-    // Build the edit URL using entry id 0 as a placeholder, then swap it in JS.
     const editUrlTpl = "{{ url_for('oss.edit_entry', show_id=show.id, entry_id=0) }}";
+    const daySel     = document.getElementById('edit-day');
+    const actSel     = document.getElementById('edit-act');
+    const timeIn     = document.getElementById('edit-time');
+
     modal.addEventListener('show.bs.modal', function (ev) {
       const btn = ev.relatedTarget;
       if (!btn) return;
       const id = btn.dataset.id;
       form.action = editUrlTpl.replace(/\/0\/edit$/, '/' + id + '/edit');
+
       document.getElementById('edit-type').value     = btn.dataset.type || '';
-      document.getElementById('edit-day').value      = btn.dataset.day || '';
-      document.getElementById('edit-time').value     = btn.dataset.time || '';
-      document.getElementById('edit-activity').value = btn.dataset.activity || '';
-      document.getElementById('edit-count').value    = btn.dataset.count || '';
-      document.getElementById('edit-hrs').value      = btn.dataset.hrs || '';
-      document.getElementById('edit-notes').value    = btn.dataset.notes || '';
+      daySel.value                                    = btn.dataset.day || '';
+      // Populate activities for the row's day, then preselect the linked one
+      refillActivityOptions(daySel, actSel);
+      actSel.value                                    = btn.dataset.activityId || '';
+      timeIn.value                                    = btn.dataset.time || '';
+      document.getElementById('edit-activity').value  = btn.dataset.activity || '';
+      document.getElementById('edit-count').value     = btn.dataset.count || '';
+      document.getElementById('edit-hrs').value       = btn.dataset.hrs || '';
+      document.getElementById('edit-notes').value     = btn.dataset.notes || '';
+      // Reflect linked/unlinked state on the time input
+      syncTimeToActivity(actSel, timeIn);
     });
   })();
 </script>

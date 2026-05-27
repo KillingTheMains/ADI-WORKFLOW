@@ -37,6 +37,8 @@ MIGRATIONS = [
     # 2026-05-27 — OSS feature
     ("sub_schedule_entries", "schedule_day_id", "INTEGER REFERENCES schedule_days(id)"),
     ("sub_schedule_entries", "count",            "INTEGER"),
+    # 2026-05-27 — OSS optional activity link
+    ("sub_schedule_entries", "activity_id",      "INTEGER REFERENCES schedule_activities(id)"),
 ]
 
 

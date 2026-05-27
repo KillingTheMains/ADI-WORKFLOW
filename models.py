@@ -437,16 +437,21 @@ class SubScheduleEntry(db.Model):
     id              = db.Column(db.Integer, primary_key=True)
     show_id         = db.Column(db.Integer, db.ForeignKey("shows.id"), nullable=False)
     schedule_day_id = db.Column(db.Integer, db.ForeignKey("schedule_days.id"), nullable=False)
+    # Optional link to a specific activity within the day. When set, this
+    # entry's effective_time pulls from the linked activity (so it follows
+    # any time changes there). When NULL, the entry uses its own `time`.
+    activity_id     = db.Column(db.Integer, db.ForeignKey("schedule_activities.id"), nullable=True)
     type            = db.Column(db.String(50), nullable=False)   # one of SUB_SCHEDULE_TYPES
-    time            = db.Column(db.String(20))                   # "HH:MM" 24hr
-    activity        = db.Column(db.String(500))
+    time            = db.Column(db.String(20))                   # "HH:MM" 24hr — used when activity_id is NULL
+    activity        = db.Column(db.String(500))                  # freeform label (e.g. "Crew lunch")
     duration_hrs    = db.Column(db.Float)
     count           = db.Column(db.Integer)                      # wristband qty, F&B headcount, COMS units, etc.
     notes           = db.Column(db.Text)
     sort_order      = db.Column(db.Integer, default=0)
 
-    show          = db.relationship("Show")
-    schedule_day  = db.relationship("ScheduleDay", back_populates="oss_entries")
+    show           = db.relationship("Show")
+    schedule_day   = db.relationship("ScheduleDay", back_populates="oss_entries")
+    linked_activity = db.relationship("ScheduleActivity")
 
     @property
     def date(self):
@@ -454,9 +459,25 @@ class SubScheduleEntry(db.Model):
         return self.schedule_day.date if self.schedule_day else None
 
     @property
+    def effective_time(self):
+        """
+        The time this entry actually happens at:
+          * If linked to an activity → the activity's time (auto-follows).
+          * Otherwise → the entry's own free-form `time`.
+        """
+        if self.linked_activity and self.linked_activity.time:
+            return self.linked_activity.time
+        return self.time
+
+    @property
+    def is_linked(self):
+        """True when this entry follows an activity's time."""
+        return self.activity_id is not None
+
+    @property
     def meta(self):
         """UI metadata (label, icon) for this entry's type."""
         return SUB_SCHEDULE_META.get(self.type, {"label": self.type, "icon": "•", "sort": 99})
 
     def __repr__(self):
-        return f"<SubSchedule {self.type} day={self.schedule_day_id} {self.time}>"
+        return f"<SubSchedule {self.type} day={self.schedule_day_id} act={self.activity_id} {self.time}>"

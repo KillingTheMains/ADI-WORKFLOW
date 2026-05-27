@@ -17,7 +17,7 @@ URL space (registered with url_prefix="/shows"):
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from extensions import db
 from models import (
-    Show, ScheduleDay, SubScheduleEntry,
+    Show, ScheduleDay, ScheduleActivity, SubScheduleEntry,
     SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META,
 )
 
@@ -39,18 +39,29 @@ def _tab_safe(tab_key):
 
 
 def _entries_by_type(show_id):
-    """Return {type: [entries]} grouped, each list sorted by day date then time."""
+    """
+    Return ({type: [entries]}, [entries_in_master_order]).
+    Sorted by day date, then effective_time (which respects linked activities),
+    then sort_order. The effective_time sort is done in Python because it's a
+    @property that can come from either entry.time or entry.linked_activity.time.
+    """
     entries = (
         SubScheduleEntry.query
         .filter_by(show_id=show_id)
         .join(ScheduleDay, SubScheduleEntry.schedule_day_id == ScheduleDay.id)
-        .order_by(ScheduleDay.date, SubScheduleEntry.time, SubScheduleEntry.sort_order)
         .all()
     )
+    # Python sort: empty/missing times sort last within their day.
+    def _sort_key(e):
+        date_key = e.schedule_day.date if e.schedule_day else None
+        t        = e.effective_time or "99:99"
+        return (date_key, t, e.sort_order or 0)
+    entries.sort(key=_sort_key)
+
     grouped = {t: [] for t in SUB_SCHEDULE_TYPES}
     for e in entries:
         grouped.setdefault(e.type, []).append(e)
-    return grouped, entries  # grouped for per-tab tables, flat list for master view
+    return grouped, entries
 
 
 # ── Main hub page ────────────────────────────────────────────────────────────
@@ -62,15 +73,31 @@ def oss_hub(show_id):
 
     grouped, all_entries = _entries_by_type(show_id)
 
+    # Map of day_id -> list of activity dicts, for the JS-driven activity
+    # dropdown in the templates. Built server-side so we don't need AJAX.
+    activities_by_day = {}
+    for d in show.days:
+        activities_by_day[d.id] = [
+            {
+                "id":          a.id,
+                "time":        a.time or "",
+                "description": a.description or "",
+                # The label shown in the dropdown
+                "label":       (f"{a.time}  ·  " if a.time else "") + (a.description or ""),
+            }
+            for a in d.activities
+        ]
+
     return render_template(
         "oss/index.html",
-        show          = show,
-        active_tab    = tab,
-        ordered_types = _ordered_types(),
-        meta          = SUB_SCHEDULE_META,
-        grouped       = grouped,
-        all_entries   = all_entries,
-        days          = show.days,                # for the schedule-day dropdown
+        show              = show,
+        active_tab        = tab,
+        ordered_types     = _ordered_types(),
+        meta              = SUB_SCHEDULE_META,
+        grouped           = grouped,
+        all_entries       = all_entries,
+        days              = show.days,
+        activities_by_day = activities_by_day,
     )
 
 
@@ -91,9 +118,24 @@ def _apply_form_to_entry(entry, form):
     if not day or day.show_id != entry.show_id:
         return False, "Selected day does not belong to this show."
 
+    # Optional activity link — must belong to the chosen day
+    activity_id = None
+    raw_act = (form.get("activity_id") or "").strip()
+    if raw_act:
+        try:
+            activity_id = int(raw_act)
+        except ValueError:
+            return False, "Invalid activity selection."
+        act = ScheduleActivity.query.get(activity_id)
+        if not act or act.day_id != schedule_day_id:
+            return False, "Selected activity does not belong to the chosen day."
+
     entry.type            = type_key
     entry.schedule_day_id = schedule_day_id
-    entry.time            = form.get("time", "").strip() or None
+    entry.activity_id     = activity_id
+    # When linked to an activity, clear the freeform time — single source
+    # of truth lives on the activity. When unlinked, use the form value.
+    entry.time            = None if activity_id else (form.get("time", "").strip() or None)
     entry.activity        = form.get("activity", "").strip() or None
     entry.notes           = form.get("notes", "").strip() or None
 
