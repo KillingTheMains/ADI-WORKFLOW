@@ -18,7 +18,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from extensions import db
 from models import (
     Show, ScheduleDay, ScheduleActivity, SubScheduleEntry,
-    SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META,
+    SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break,
 )
 
 oss_bp = Blueprint("oss", __name__)
@@ -101,6 +101,23 @@ def oss_hub(show_id):
             for a in d.activities
         ]
 
+    # Meal-break activities across the whole show that don't have an F&B
+    # linked. We surface the count as a badge on the F&B tab and a short
+    # list of missing items on the F&B tab body.
+    fb_linked_activity_ids = {
+        e.activity_id for e in all_entries if e.type == "F&B" and e.activity_id
+    }
+    missing_fb = []
+    for d in show.days:
+        for act in d.activities:
+            if is_meal_break(act) and act.id not in fb_linked_activity_ids:
+                missing_fb.append({
+                    "day":         d,
+                    "activity":    act,
+                    "day_url":     url_for("schedule.day_detail",
+                                           show_id=show.id, day_id=d.id),
+                })
+
     return render_template(
         "oss/index.html",
         show              = show,
@@ -111,6 +128,7 @@ def oss_hub(show_id):
         all_entries       = all_entries,
         days              = show.days,
         activities_by_day = activities_by_day,
+        missing_fb        = missing_fb,
     )
 
 

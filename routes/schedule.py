@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from extensions import db
 from models import Show, ScheduleDay, ScheduleActivity, CrewRow, Position, CrewMember, \
                    PHASES, CREW_TYPES, DayTemplate, PHASE_TYPES, ShowCrewAssignment, Company, \
-                   SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META
+                   SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break
 from datetime import date, timedelta
 import re, json
 
@@ -230,6 +230,18 @@ def day_detail(show_id, day_id):
         key=lambda t: SUB_SCHEDULE_META.get(t, {}).get("sort", 99),
     )
 
+    # Meal-break F&B warnings: set of activity IDs that look like meal breaks
+    # but have no linked F&B OSS entry. Templates can check `act.id in
+    # meal_breaks_missing_fb` to render the warning.
+    meal_breaks_missing_fb = set()
+    for act in day.activities:
+        if not is_meal_break(act):
+            continue
+        has_fb = any(e.activity_id == act.id and e.type == "F&B"
+                     for e in oss_for_day)
+        if not has_fb:
+            meal_breaks_missing_fb.add(act.id)
+
     return render_template("schedule/day.html", show=show, day=day,
                            positions=positions, crew_members=crew_members,
                            show_companies=show_companies,
@@ -238,7 +250,8 @@ def day_detail(show_id, day_id):
                            oss_by_activity=oss_by_activity,
                            oss_unlinked=oss_unlinked,
                            oss_types=ordered_oss_types,
-                           oss_meta=SUB_SCHEDULE_META)
+                           oss_meta=SUB_SCHEDULE_META,
+                           meal_breaks_missing_fb=meal_breaks_missing_fb)
 
 
 @schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/edit", methods=["POST"])
@@ -602,8 +615,24 @@ def edit_activity(show_id, day_id, act_id):
                    methods=["POST"])
 def delete_activity(show_id, day_id, act_id):
     act = ScheduleActivity.query.get_or_404(act_id)
+    # Unlink any OSS entries that pointed at this activity before deleting,
+    # so they survive as unlinked entries on the day rather than getting
+    # cascaded into oblivion or left with a dangling activity_id.
+    linked_oss = SubScheduleEntry.query.filter_by(activity_id=act_id).all()
+    unlinked_count = 0
+    for e in linked_oss:
+        # Preserve the entry's last known time so it still has chronology
+        # in the day editor after the activity goes away.
+        if not e.time and act.time:
+            e.time = act.time
+        e.activity_id = None
+        unlinked_count += 1
     db.session.delete(act)
     db.session.commit()
+    if unlinked_count:
+        flash(f"Activity deleted. {unlinked_count} OSS "
+              f"entr{'y' if unlinked_count == 1 else 'ies'} now show "
+              f"as unlinked operational items.", "info")
     return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
 
 

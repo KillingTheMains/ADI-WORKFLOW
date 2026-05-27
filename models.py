@@ -367,6 +367,23 @@ class DayTemplate(db.Model):
         return f"<DayTemplate {self.key}>"
 
 
+# ── Meal-break detection (used by the F&B unification UI) ────────────────────
+#
+# An activity is treated as a meal break if its description contains any of
+# these keywords. "Meal" catches things like "BOXED MEAL"; "Lunch", "Dinner",
+# "Breakfast" cover the obvious cases. We deliberately exclude bare "break"
+# because morning/afternoon coffee breaks aren't meals.
+MEAL_KEYWORDS = ("LUNCH", "DINNER", "BREAKFAST", "MEAL")
+
+
+def is_meal_break(activity):
+    """Return True if a ScheduleActivity looks like a meal break."""
+    if not activity or not activity.description:
+        return False
+    desc = activity.description.upper()
+    return any(kw in desc for kw in MEAL_KEYWORDS)
+
+
 # ── Sub-schedules / OSS (On-Site Schedule) ───────────────────────────────────
 #
 # Each row in sub_schedule_entries belongs to one show, attaches to one

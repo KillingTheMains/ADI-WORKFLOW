@@ -121,6 +121,16 @@
     {% if day.phase %}
     <div class="phase-pill">{{ day.phase }}</div>
     {% endif %}
+    {% if day.oss_entries %}
+    <a href="{{ url_for('oss.oss_hub', show_id=show.id) }}"
+       title="{{ day.oss_entries|length }} OSS items on this day"
+       style="display:inline-block;font-size:.7rem;font-weight:600;
+              padding:2px 8px;border-radius:10px;
+              background:rgba(201,168,76,.18);color:#C9A84C;
+              border:1px solid rgba(201,168,76,.45);text-decoration:none;">
+      🗺 {{ day.oss_entries|length }} OSS
+    </a>
+    {% endif %}
     <div class="ms-auto d-flex gap-2 align-items-center">
       {% set clone_label = day.date.strftime('%b %-d') %}
       <form method="POST"

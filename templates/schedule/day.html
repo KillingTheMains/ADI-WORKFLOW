@@ -414,7 +414,17 @@
           <span style="min-width:74px;font-weight:700;color:var(--adi-blue);font-size:.85rem;">
             {{ act.time or '—' }}
           </span>
-          <span style="font-weight:600;font-size:.9rem;flex:1;">{{ act.description }}</span>
+          <span style="font-weight:600;font-size:.9rem;flex:1;">
+            {{ act.description }}
+            {% if act.id in meal_breaks_missing_fb %}
+            <span title="This looks like a meal break but no F&B OSS entry is linked. Click + OSS below to add one."
+                  style="display:inline-block;font-size:.65rem;font-weight:600;
+                         padding:1px 6px;border-radius:8px;margin-left:6px;
+                         background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;">
+              ⚠ no F&B
+            </span>
+            {% endif %}
+          </span>
           {% if act.notes %}
           <span class="text-muted me-2" style="font-size:.75rem;">{{ act.notes }}</span>
           {% endif %}

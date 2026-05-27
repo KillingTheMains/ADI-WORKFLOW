@@ -8,6 +8,26 @@ to **Deployed** with the date.
 
 ## Pending Deploy
 
+### Meal-break F&B detection (Piece 2)
+- The app now recognizes activities containing LUNCH, DINNER, BREAKFAST,
+  or MEAL as meal breaks.
+- Schedule day editor: meal-break activities without a linked F&B entry
+  get a small ⚠ no F&B badge next to the activity name.
+- OSS hub F&B tab: the tab heading shows a ⚠ N badge counting missing
+  F&B across the whole show. The tab body shows a list of the specific
+  meal breaks that need attention, each linking to that day's editor.
+
+### Graceful activity deletion (Piece 3)
+- Deleting a schedule activity no longer leaves orphaned OSS entries.
+- Linked OSS entries get their activity_id set to NULL and inherit the
+  activity's last-known time, so they survive as unlinked operational
+  items on the day rather than disappearing.
+- A flash message tells you how many OSS entries got unlinked.
+
+### Cross-view awareness (Piece 4)
+- Schedule overview now shows a 🗺 N OSS badge on each day card that has
+  OSS entries, linking to the OSS hub.
+
 ### Schedule and OSS are now one unified day view (Piece 1 of unification)
 - Schedule day editor now shows OSS items inline:
   * Each activity card has an "OSS · linked to this activity" strip
