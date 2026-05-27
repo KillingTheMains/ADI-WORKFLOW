@@ -552,6 +552,45 @@ class SubScheduleEntry(db.Model):
 COM_PACK_TYPES  = ["Wired", "Wireless"]
 COM_PACK_BRANDS = ["Riedel", "ClearCom", "Telex", "HME", "Other"]
 
+# Typical number of channel keys per beltpack, by brand. Used for a SOFT
+# warning when the user assigns more channels than the brand's common
+# model supports. The hard cap (set in the route + UI) is 6 for all.
+#   Riedel Bolero: 6-key
+#   ClearCom HelixNet: 4-channel beltpack (Encore similar)
+#   Telex RTS BP-2002 / BP-4002: 2 or 4 channel
+#   HME DX series / production intercom: typically 2-4 channels
+COM_PACK_BRAND_LIMITS = {
+    "Riedel":   6,
+    "ClearCom": 4,
+    "Telex":    2,
+    "HME":      4,
+    "Other":    6,
+}
+
+# Hard cap applied to every beltpack regardless of brand.
+COM_PACK_HARD_CAP = 6
+
+# Number of radio channel slots every show gets. Two-way radios commonly
+# support 16 programmable channels.
+RADIO_CHANNEL_SLOTS = 16
+
+
+class RadioChannel(db.Model):
+    """A single radio channel slot for a show. Every show gets 16."""
+    __tablename__ = "radio_channels"
+    id      = db.Column(db.Integer, primary_key=True)
+    show_id = db.Column(db.Integer, db.ForeignKey("shows.id"), nullable=False)
+    slot    = db.Column(db.Integer, nullable=False)   # 1..RADIO_CHANNEL_SLOTS
+    name    = db.Column(db.String(50))
+
+    __table_args__ = (db.UniqueConstraint("show_id", "slot",
+                                          name="uq_radio_channel_slot"),)
+
+    show    = db.relationship("Show")
+
+    def __repr__(self):
+        return f"<RadioChannel show={self.show_id} slot={self.slot} '{self.name or ''}'>"
+
 
 class ShowCommChannel(db.Model):
     """A single COMS channel defined for a show (e.g. 'Main', 'LX', 'Cam')."""

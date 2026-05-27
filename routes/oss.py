@@ -21,6 +21,7 @@ from models import (
     SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break,
     ShowCommChannel, CrewCommAssignment, ShowCrewAssignment,
     CrewMember, COM_PACK_TYPES, COM_PACK_BRANDS,
+    RadioChannel, COM_PACK_BRAND_LIMITS, COM_PACK_HARD_CAP, RADIO_CHANNEL_SLOTS,
 )
 
 oss_bp = Blueprint("oss", __name__)
@@ -130,6 +131,7 @@ def oss_hub(show_id):
                         .filter_by(show_id=show_id)
                         .order_by(ShowCommChannel.sort_order, ShowCommChannel.id)
                         .all())
+    radio_channels   = _ensure_radio_channels(show_id)
     coms_assignments = _build_coms_assignments(show)
 
     # Summary counts for the COMS header
@@ -156,11 +158,33 @@ def oss_hub(show_id):
         missing_fb            = missing_fb,
         wristband_grand_total = wristband_grand_total,
         coms_channels         = coms_channels,
+        radio_channels        = radio_channels,
         coms_assignments      = coms_assignments,
         coms_summary          = coms_summary,
         com_pack_types        = COM_PACK_TYPES,
         com_pack_brands       = COM_PACK_BRANDS,
+        com_pack_brand_limits = COM_PACK_BRAND_LIMITS,
+        com_pack_hard_cap     = COM_PACK_HARD_CAP,
     )
+
+
+def _ensure_radio_channels(show_id):
+    """Return the show's 16 radio channels (creating them if missing)."""
+    existing = (RadioChannel.query
+                .filter_by(show_id=show_id)
+                .order_by(RadioChannel.slot)
+                .all())
+    have_slots = {c.slot for c in existing}
+    if len(have_slots) < RADIO_CHANNEL_SLOTS:
+        for slot in range(1, RADIO_CHANNEL_SLOTS + 1):
+            if slot not in have_slots:
+                db.session.add(RadioChannel(show_id=show_id, slot=slot))
+        db.session.commit()
+        existing = (RadioChannel.query
+                    .filter_by(show_id=show_id)
+                    .order_by(RadioChannel.slot)
+                    .all())
+    return existing
 
 
 def _build_coms_assignments(show):
@@ -409,9 +433,16 @@ def coms_save(show_id):
             a.pack_type        = pt if pt in COM_PACK_TYPES else None
             a.pack_brand       = pb if pb in COM_PACK_BRANDS else None
             a.pack_brand_other = po or None
-            # Multi-select channels — list of channel ids from <select multiple>
-            picked = request.form.getlist(f"channels_{aid}")
-            picked_ids = [int(p) for p in picked if p.isdigit()]
+            # The checkbox-grid UI submits an ordered CSV of channel ids in
+            # channels_ordered_<aid> (key 1 first, then key 2, ...). We cap
+            # at COM_PACK_HARD_CAP defensively in case JS is bypassed.
+            raw = (request.form.get(f"channels_ordered_{aid}") or "").strip()
+            picked_ids = []
+            for p in raw.split(","):
+                p = p.strip()
+                if p.isdigit() and int(p) not in picked_ids:
+                    picked_ids.append(int(p))
+            picked_ids = picked_ids[:COM_PACK_HARD_CAP]
             a.channel_id_list = picked_ids
         else:
             a.pack_type = None
@@ -421,4 +452,23 @@ def coms_save(show_id):
         a.notes = (request.form.get(f"notes_{aid}") or "").strip() or None
     db.session.commit()
     flash("COMS assignments saved.", "success")
+    return redirect(url_for("oss.oss_hub", show_id=show_id, tab="COMS"))
+
+
+
+# ── COMS tab — radio channel batch save ──────────────────────────────────────
+
+@oss_bp.route("/<int:show_id>/oss/coms/radio/save", methods=["POST"])
+def coms_radio_save(show_id):
+    """
+    Batch-save the names of the show's 16 radio channels. Form fields are
+    keyed by the channel slot:  radio_name_<slot>
+    """
+    show = Show.query.get_or_404(show_id)
+    channels = _ensure_radio_channels(show_id)   # also creates if missing
+    for ch in channels:
+        raw = (request.form.get(f"radio_name_{ch.slot}") or "").strip()
+        ch.name = raw[:50] if raw else None
+    db.session.commit()
+    flash("Radio channel names saved.", "success")
     return redirect(url_for("oss.oss_hub", show_id=show_id, tab="COMS"))

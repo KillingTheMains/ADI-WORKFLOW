@@ -22,6 +22,25 @@ to **Deployed** with the date.
 - Schema: schedule_days gets wristband_crew_override / wristband_extras /
   wristband_notes columns (auto-migration).
 
+### COMS tab — radios + beltpacks are now separate
+- The top of the COMS tab is a **split panel**:
+  * Left: **📻 Radio channels (1–16)** — every show gets 16 named slots,
+    auto-created on first view. Two-column grid for compact layout.
+    Batch save with one button.
+  * Right: **🎧 Beltpack channels** — the flexible per-show list
+    (Main, LX, Cam, etc.) lives in this column.
+- Crew gear assignment table now uses an **ordered checkbox grid** for
+  beltpack channel selection instead of a plain multi-select. Click order
+  IS the key order on the physical pack — first click = key 1, etc. Each
+  selected channel shows a gold position badge `[1] [2] [3]`.
+- **Hard cap of 6 channels per pack** (Riedel Bolero standard). Trying to
+  pick a 7th shows an alert and blocks the click. Server-side cap mirrors
+  the client cap defensively.
+- **Brand-aware soft warning:** a yellow note appears next to the counter
+  when you exceed the brand's typical channel count
+  (ClearCom 4, Telex 2, HME 4) but stay under the hard 6.
+- Schema: new `radio_channels` table (auto-created).
+
 ### COMS tab — rebuilt as a per-crew gear assignment table
 - No more "add entry" form. The COMS tab now manages two things:
   1. **Show channel list** — define the channels this show uses

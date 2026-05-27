@@ -1,61 +1,111 @@
-{# COMS tab — per-show channel list + per-crew gear assignments. #}
+{# COMS tab — split top (Radios | Beltpacks) + crew assignment table. #}
 
 <div class="oss-section-help">
-  🎧 <strong>COMS</strong> — radio and intercom gear assignments for crew
-  on this show. Define your channel list first, then check off who needs a
-  radio and/or comm pack, and assign each pack the channels they'll be
-  listening to.
+  🎧 <strong>COMS</strong> — radio and intercom gear for crew on this show.
+  Set up your channel maps at the top (16 radio channels + as many beltpack
+  channels as you need), then assign gear to each person below.
 </div>
 
-{# ── Channel manager (per-show channel list) ─────────────────────────────── #}
-<div class="card mb-3">
-  <div class="card-header d-flex align-items-center justify-content-between"
-       style="background:#F0EDE0;border-bottom:1px solid #E8DCA8;">
-    <span style="font-size:.82rem;font-weight:700;">
-      📡 Show channels
-      <span class="text-muted" style="font-weight:400;">({{ coms_channels|length }})</span>
-    </span>
-    <span class="text-muted" style="font-size:.72rem;">
-      e.g. Main · LX · A · V · Cam · FX · Rig · Stage
-    </span>
-  </div>
-  <div class="card-body p-3">
-    {% if coms_channels %}
-    <div class="d-flex flex-wrap gap-2 mb-2">
-      {% for ch in coms_channels %}
-      <div class="d-flex align-items-center gap-1 px-2 py-1"
-           style="background:#FFF8EC;border:1px solid #E8DCA8;border-radius:14px;
-                  font-size:.78rem;font-weight:600;">
-        <span>{{ ch.name }}</span>
-        <form method="POST"
-              action="{{ url_for('oss.coms_channel_delete', show_id=show.id, channel_id=ch.id) }}"
-              style="display:inline;"
-              onsubmit="return confirm('Remove channel {{ ch.name }}? It will be cleared from any crew assignments that reference it.');">
-          <button type="submit" class="btn btn-sm btn-link p-0 text-danger"
-                  style="font-size:.78rem;line-height:1;" title="Remove">✕</button>
+{# ────────────────────────────────────────────────────────────────────────── #}
+{#                     SPLIT: RADIO CHANNELS  ·  BELTPACK CHANNELS             #}
+{# ────────────────────────────────────────────────────────────────────────── #}
+<div class="row g-3 mb-3">
+
+  {# ── Radio channels (16 slots) ──────────────────────────────────────── #}
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center justify-content-between"
+           style="background:#1C2333;color:#C9A84C;">
+        <span style="font-size:.85rem;font-weight:700;">📻 Radio channels (1–16)</span>
+        <span class="text-muted" style="font-size:.7rem;color:rgba(255,255,255,.55)!important;">
+          Two-way radio channel scheme for this show
+        </span>
+      </div>
+      <div class="card-body p-3">
+        <form method="POST" action="{{ url_for('oss.coms_radio_save', show_id=show.id) }}">
+          <div class="row g-1">
+            {% for ch in radio_channels %}
+            <div class="col-md-6">
+              <div class="d-flex align-items-center gap-2">
+                <span style="display:inline-block;width:30px;text-align:right;
+                             font-family:monospace;font-weight:700;color:#888;
+                             font-size:.78rem;">
+                  {{ '%02d'|format(ch.slot) }}
+                </span>
+                <input type="text" name="radio_name_{{ ch.slot }}" maxlength="50"
+                       value="{{ ch.name or '' }}"
+                       placeholder="(unnamed)"
+                       class="form-control form-control-sm"
+                       style="font-size:.78rem;">
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="d-flex justify-content-end mt-2">
+            <button type="submit" class="btn btn-sm btn-adi" style="font-size:.78rem;">
+              💾 Save radio names
+            </button>
+          </div>
         </form>
       </div>
-      {% endfor %}
     </div>
-    {% else %}
-    <div class="text-muted mb-2" style="font-size:.82rem;font-style:italic;">
-      No channels yet. Add the channels this show uses below.
-    </div>
-    {% endif %}
-
-    <form method="POST" action="{{ url_for('oss.coms_channel_add', show_id=show.id) }}"
-          class="d-flex align-items-end gap-2">
-      <div class="flex-grow-1" style="max-width:250px;">
-        <input type="text" name="name" maxlength="50" required
-               placeholder="Channel name (e.g. 'Main', 'LX', 'Cam')"
-               class="form-control form-control-sm">
-      </div>
-      <button type="submit" class="btn btn-sm btn-adi" style="font-size:.78rem;">+ Add channel</button>
-    </form>
   </div>
+
+  {# ── Beltpack channels (flexible list) ──────────────────────────────── #}
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center justify-content-between"
+           style="background:#1C2333;color:#C9A84C;">
+        <span style="font-size:.85rem;font-weight:700;">🎧 Beltpack channels</span>
+        <span style="font-size:.7rem;color:rgba(255,255,255,.55);">
+          {{ coms_channels|length }} defined
+        </span>
+      </div>
+      <div class="card-body p-3">
+        {% if coms_channels %}
+        <div class="d-flex flex-wrap gap-1 mb-3">
+          {% for ch in coms_channels %}
+          <div class="d-flex align-items-center gap-1 px-2 py-1"
+               style="background:#FFF8EC;border:1px solid #E8DCA8;border-radius:14px;
+                      font-size:.78rem;font-weight:600;">
+            <span>{{ ch.name }}</span>
+            <form method="POST"
+                  action="{{ url_for('oss.coms_channel_delete', show_id=show.id, channel_id=ch.id) }}"
+                  style="display:inline;"
+                  onsubmit="return confirm('Remove channel {{ ch.name }}? It will be cleared from any crew assignments that reference it.');">
+              <button type="submit" class="btn btn-sm btn-link p-0 text-danger"
+                      style="font-size:.78rem;line-height:1;" title="Remove">✕</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-muted mb-3" style="font-size:.82rem;font-style:italic;">
+          No beltpack channels yet. Add the ones this show uses below.
+        </div>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('oss.coms_channel_add', show_id=show.id) }}"
+              class="d-flex align-items-center gap-2">
+          <input type="text" name="name" maxlength="50" required
+                 placeholder="Channel name (e.g. 'Main', 'LX', 'Cam')"
+                 class="form-control form-control-sm flex-grow-1"
+                 style="font-size:.82rem;">
+          <button type="submit" class="btn btn-sm btn-adi" style="font-size:.78rem;">
+            + Add
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
 </div>
 
-{# ── Summary header ──────────────────────────────────────────────────────── #}
+{# ────────────────────────────────────────────────────────────────────────── #}
+{#                          CREW ASSIGNMENT TABLE                              #}
+{# ────────────────────────────────────────────────────────────────────────── #}
+
+{# Summary header #}
 <div class="d-flex flex-wrap gap-2 mb-2" style="font-size:.78rem;">
   <span class="oss-pill" style="background:#1C2333;color:#C9A84C;">
     📻 {{ coms_summary.radios }} radio{{ '' if coms_summary.radios == 1 else 's' }}
@@ -73,7 +123,6 @@
   {% endif %}
 </div>
 
-{# ── Crew assignment table ──────────────────────────────────────────────── #}
 {% if not coms_assignments %}
 <div class="oss-empty">
   No crew assigned to this show yet. Add crew on the
@@ -92,8 +141,8 @@
         <th style="width:55px;text-align:center;">🎧</th>
         <th style="width:110px;">Wired/Wireless</th>
         <th style="width:130px;">Brand</th>
-        <th>Channels</th>
-        <th style="width:180px;">Notes</th>
+        <th>Beltpack channels (in key order)</th>
+        <th style="width:170px;">Notes</th>
       </tr>
     </thead>
     <tbody>
@@ -131,6 +180,7 @@
           <div class="d-flex gap-1">
             <select name="pack_brand_{{ a.id }}"
                     class="form-select form-select-sm coms-pack-field-{{ a.id }} coms-brand-{{ a.id }}"
+                    data-aid="{{ a.id }}"
                     {% if not a.headset %}disabled{% endif %}
                     style="font-size:.78rem;flex:1;">
               <option value="">—</option>
@@ -147,18 +197,48 @@
         </td>
         <td>
           {% if coms_channels %}
-          <select name="channels_{{ a.id }}" multiple size="3"
-                  class="form-select form-select-sm coms-pack-field-{{ a.id }}"
-                  {% if not a.headset %}disabled{% endif %}
-                  style="font-size:.76rem;min-height:54px;">
+          {# Ordered checkbox grid. The hidden channels_ordered_<aid> field is
+             the source of truth for the form post — JS updates it on change. #}
+          <input type="hidden" name="channels_ordered_{{ a.id }}"
+                 id="ordered-{{ a.id }}"
+                 value="{{ a.channel_ids or '' }}">
+          <div class="coms-channel-grid d-flex flex-wrap gap-1"
+               data-aid="{{ a.id }}"
+               data-hard-cap="{{ com_pack_hard_cap }}">
             {% set picked = a.channel_id_list %}
             {% for ch in coms_channels %}
-            <option value="{{ ch.id }}" {% if ch.id in picked %}selected{% endif %}>{{ ch.name }}</option>
+            {% set pos = (picked.index(ch.id) + 1) if ch.id in picked else None %}
+            <label class="d-inline-flex align-items-center gap-1 px-2 py-1 coms-ch-label"
+                   data-cid="{{ ch.id }}"
+                   style="background:{% if pos %}#FFF8EC{% else %}#f3f3f3{% endif %};
+                          border:1px solid {% if pos %}#E8DCA8{% else %}#ddd{% endif %};
+                          border-radius:12px;font-size:.74rem;cursor:pointer;
+                          user-select:none;">
+              <input type="checkbox" class="form-check-input coms-ch-cb"
+                     data-aid="{{ a.id }}" data-cid="{{ ch.id }}"
+                     {% if pos %}checked{% endif %}
+                     style="margin:0;transform:scale(.85);"
+                     {% if not a.headset %}disabled{% endif %}>
+              <span>{{ ch.name }}</span>
+              {% if pos %}
+              <span class="coms-ch-pos" data-aid="{{ a.id }}" data-cid="{{ ch.id }}"
+                    style="background:#C9A84C;color:#1C2333;font-weight:700;
+                           font-size:.65rem;padding:1px 5px;border-radius:8px;
+                           min-width:16px;text-align:center;">{{ pos }}</span>
+              {% else %}
+              <span class="coms-ch-pos" data-aid="{{ a.id }}" data-cid="{{ ch.id }}"
+                    style="display:none;background:#C9A84C;color:#1C2333;font-weight:700;
+                           font-size:.65rem;padding:1px 5px;border-radius:8px;
+                           min-width:16px;text-align:center;"></span>
+              {% endif %}
+            </label>
             {% endfor %}
-          </select>
+          </div>
+          <div class="coms-ch-counter mt-1" data-aid="{{ a.id }}"
+               style="font-size:.7rem;color:#888;"></div>
           {% else %}
           <span class="text-muted" style="font-size:.72rem;font-style:italic;">
-            Add channels above first
+            Add beltpack channels above first
           </span>
           {% endif %}
         </td>
@@ -175,38 +255,134 @@
 
   <div class="d-flex justify-content-between align-items-center mt-2">
     <div class="text-muted" style="font-size:.74rem;">
-      Hold <kbd>⌘</kbd>/<kbd>Ctrl</kbd> to multi-select channels.
-      Pack fields are only saved when 🎧 is checked.
+      Click channels in the order you want them on the pack
+      (key&nbsp;1, key&nbsp;2, …). Hard cap: {{ com_pack_hard_cap }} channels per pack.
     </div>
     <button type="submit" class="btn btn-sm btn-adi">💾 Save COMS</button>
   </div>
 </form>
 
 <script>
-  // Enable/disable pack fields based on the headset checkbox per row.
-  // Also show/hide the "Other brand" text input based on brand selection.
-  (function () {
-    document.querySelectorAll('.coms-headset-toggle').forEach(cb => {
-      cb.addEventListener('change', () => {
-        const aid = cb.dataset.aid;
-        document.querySelectorAll('.coms-pack-field-' + aid).forEach(f => {
-          f.disabled = !cb.checked;
-        });
-        if (!cb.checked) {
-          // Hide the "Other brand" textbox too
-          const other = document.querySelector('.coms-other-' + aid);
-          if (other) other.style.display = 'none';
+  // Brand → typical channel count (for soft warnings, not hard limits).
+  const BRAND_LIMITS = {{ com_pack_brand_limits | tojson }};
+  const HARD_CAP     = {{ com_pack_hard_cap }};
+
+  // Per-assignment current ordered channel id list, kept in sync with the
+  // hidden input. We re-render position badges + counter + warning on change.
+  function getOrdered(aid) {
+    const hidden = document.getElementById('ordered-' + aid);
+    if (!hidden || !hidden.value) return [];
+    return hidden.value.split(',').filter(s => s.trim()).map(s => parseInt(s, 10));
+  }
+  function setOrdered(aid, ids) {
+    const hidden = document.getElementById('ordered-' + aid);
+    if (hidden) hidden.value = ids.join(',');
+  }
+
+  function brandSoftCap(aid) {
+    const sel = document.querySelector('.coms-brand-' + aid);
+    if (!sel) return HARD_CAP;
+    return BRAND_LIMITS[sel.value] != null ? BRAND_LIMITS[sel.value] : HARD_CAP;
+  }
+
+  function renderRow(aid) {
+    const ids   = getOrdered(aid);
+    const grid  = document.querySelector(`.coms-channel-grid[data-aid="${aid}"]`);
+    const counter = document.querySelector(`.coms-ch-counter[data-aid="${aid}"]`);
+    if (!grid) return;
+    // Update each label's checkbox state + position badge + styling
+    grid.querySelectorAll('.coms-ch-label').forEach(lbl => {
+      const cid = parseInt(lbl.dataset.cid, 10);
+      const pos = ids.indexOf(cid);
+      const cb  = lbl.querySelector('.coms-ch-cb');
+      const bg  = lbl.querySelector('.coms-ch-pos');
+      if (pos >= 0) {
+        cb.checked = true;
+        lbl.style.background = '#FFF8EC';
+        lbl.style.borderColor = '#E8DCA8';
+        bg.style.display = '';
+        bg.textContent   = pos + 1;
+      } else {
+        cb.checked = false;
+        lbl.style.background = '#f3f3f3';
+        lbl.style.borderColor = '#ddd';
+        bg.style.display = 'none';
+        bg.textContent   = '';
+      }
+    });
+    // Counter + soft warning
+    const soft = brandSoftCap(aid);
+    let msg = `${ids.length} / ${HARD_CAP} channels assigned`;
+    let color = '#888';
+    if (ids.length > soft && ids.length <= HARD_CAP) {
+      msg += ` — soft limit for this brand is ${soft}`;
+      color = '#92400E';
+    } else if (ids.length === HARD_CAP) {
+      msg += ` — hard cap reached`;
+    }
+    if (counter) {
+      counter.textContent = msg;
+      counter.style.color = color;
+    }
+  }
+
+  // Wire checkbox click → toggle membership in the ordered list
+  document.querySelectorAll('.coms-ch-cb').forEach(cb => {
+    cb.addEventListener('change', function () {
+      const aid = parseInt(cb.dataset.aid, 10);
+      const cid = parseInt(cb.dataset.cid, 10);
+      let ids = getOrdered(aid);
+      if (cb.checked) {
+        if (ids.includes(cid)) return;
+        if (ids.length >= HARD_CAP) {
+          // Block — undo the check
+          cb.checked = false;
+          alert(`Beltpacks are capped at ${HARD_CAP} channels. Uncheck one first.`);
+          return;
         }
-      });
+        ids.push(cid);
+      } else {
+        ids = ids.filter(x => x !== cid);
+      }
+      setOrdered(aid, ids);
+      renderRow(aid);
     });
-    document.querySelectorAll('[class*="coms-brand-"]').forEach(sel => {
-      const aid = sel.className.match(/coms-brand-(\d+)/)[1];
-      const other = document.querySelector('.coms-other-' + aid);
-      sel.addEventListener('change', () => {
-        if (other) other.style.display = sel.value === 'Other' ? 'block' : 'none';
+  });
+
+  // When headset toggles, enable/disable everything for that row
+  document.querySelectorAll('.coms-headset-toggle').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const aid = cb.dataset.aid;
+      document.querySelectorAll('.coms-pack-field-' + aid).forEach(f => {
+        f.disabled = !cb.checked;
       });
+      document.querySelectorAll(`.coms-channel-grid[data-aid="${aid}"] .coms-ch-cb`)
+        .forEach(c => { c.disabled = !cb.checked; });
+      if (!cb.checked) {
+        const other = document.querySelector('.coms-other-' + aid);
+        if (other) other.style.display = 'none';
+      }
     });
-  })();
+  });
+
+  // Brand select: show/hide the "Other brand" textbox + re-render row to
+  // update soft-warning state
+  document.querySelectorAll('[class*="coms-brand-"]').forEach(sel => {
+    const m = sel.className.match(/coms-brand-(\d+)/);
+    if (!m) return;
+    const aid = m[1];
+    const other = document.querySelector('.coms-other-' + aid);
+    sel.addEventListener('change', () => {
+      if (other) other.style.display = sel.value === 'Other' ? 'block' : 'none';
+      renderRow(aid);
+    });
+  });
+
+  // Initial render of counters/badges for every row
+  document.querySelectorAll('[id^="ordered-"]').forEach(h => {
+    const aid = h.id.replace('ordered-', '');
+    renderRow(aid);
+  });
 </script>
 
 {% endif %}
