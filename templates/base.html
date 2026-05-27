@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}ADI Workflow{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
+<div id="sidebar">
+  <div class="sidebar-logo">
+    {% if logo_exists %}
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="ADI">
+    {% else %}
+      <div class="logo-text">ADI</div>
+      <div class="logo-sub">Workflow</div>
+    {% endif %}
+  </div>
+
+  <nav>
+    <div class="nav-section">Dashboard</div>
+    <a href="{{ url_for('main.dashboard') }}"
+       class="{% if request.endpoint == 'main.dashboard' %}active{% endif %}">
+      <span class="nav-icon">⬛</span> Home
+    </a>
+
+    <div class="nav-section">Shows</div>
+    <a href="{{ url_for('shows.index') }}"
+       class="{% if 'shows.' in (request.endpoint or '') and 'schedule' not in (request.endpoint or '') %}active{% endif %}">
+      <span class="nav-icon">🎬</span> All Shows
+    </a>
+    <a href="{{ url_for('shows.new') }}"
+       class="{% if request.endpoint == 'shows.new' %}active{% endif %}">
+      <span class="nav-icon">＋</span> New Show
+    </a>
+
+    <div class="nav-section">Databases</div>
+    <a href="{{ url_for('crew.index') }}"
+       class="{% if request.endpoint == 'crew.index' or request.endpoint == 'crew.add' or request.endpoint == 'crew.edit' %}active{% endif %}">
+      <span class="nav-icon">👥</span> Crew Roster
+    </a>
+
+    {# Show sub-items under Crew Roster #}
+    {% if all_shows %}
+    <div style="padding:0 0 4px 0;">
+      {% for s in all_shows %}
+      <a href="{{ url_for('show_crew.show_crew', show_id=s.id) }}"
+         style="padding:5px 20px 5px 38px;font-size:.78rem;color:rgba(255,255,255,.55);
+                display:flex;align-items:center;gap:8px;border-left:3px solid transparent;
+                transition:all .15s;text-decoration:none;"
+         class="sidebar-show-link {% if request.endpoint == 'show_crew.show_crew' and request.view_args and request.view_args.get('show_id') == s.id %}sidebar-show-active{% endif %}"
+         onmouseover="this.style.color='#fff';this.style.background='rgba(47,128,237,.1)'"
+         onmouseout="this.style.color='rgba(255,255,255,.55)';this.style.background=''">
+        <span style="width:4px;height:4px;border-radius:50%;background:currentColor;
+                     display:inline-block;flex-shrink:0;"></span>
+        <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;">
+          {{ s.name }}
+        </span>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <a href="{{ url_for('schedule.template_list') }}"
+       class="{% if request.endpoint and 'template' in request.endpoint %}active{% endif %}">
+      <span class="nav-icon">📋</span> Day Templates
+    </a>
+    <a href="#" class="disabled" style="opacity:0.4; cursor:not-allowed;">
+      <span class="nav-icon">🏢</span> Vendors
+    </a>
+    <a href="#" class="disabled" style="opacity:0.4; cursor:not-allowed;">
+      <span class="nav-icon">📦</span> Equipment
+    </a>
+
+    <div class="nav-section">Coming Soon</div>
+    <a href="#" class="disabled" style="opacity:0.4; cursor:not-allowed;">
+      <span class="nav-icon">📋</span> RFQ Builder
+    </a>
+    <a href="#" class="disabled" style="opacity:0.4; cursor:not-allowed;">
+      <span class="nav-icon">💰</span> Budget
+    </a>
+    <a href="#" class="disabled" style="opacity:0.4; cursor:not-allowed;">
+      <span class="nav-icon">🍽</span> F&amp;B
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    ADI Workflow v0.1.0<br>
+    Phase 1 — Scheduling
+  </div>
+</div>
+
+<!-- ── Main Content ──────────────────────────────────────────────────────── -->
+<div id="main-content">
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <div>
+      <nav aria-label="breadcrumb" class="breadcrumb mb-0">
+        {% block breadcrumb %}
+          <span>Home</span>
+        {% endblock %}
+      </nav>
+      <div class="page-title">{% block page_title %}ADI Workflow{% endblock %}</div>
+    </div>
+    <div class="d-flex gap-2">
+      {% block top_actions %}{% endblock %}
+    </div>
+  </div>
+
+  <!-- Flash messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="px-4 pt-3">
+        {% for cat, msg in messages %}
+          <div class="alert alert-{{ 'success' if cat == 'success' else 'danger' if cat == 'danger' else 'info' if cat == 'info' else 'warning' }} alert-dismissible fade show py-2 px-3" role="alert">
+            {{ msg }}
+            <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Page body -->
+  <div class="page-body">
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

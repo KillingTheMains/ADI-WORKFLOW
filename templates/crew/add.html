@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Add Crew — ADI Workflow{% endblock %}
+{% block page_title %}Add Crew Member{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> /
+  <a href="{{ url_for('crew.index') }}">Crew</a> / Add
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <form method="POST">
+      <div class="card mb-3">
+        <div class="card-header gold">Person Details</div>
+        <div class="card-body p-4">
+          <div class="row g-3">
+            <div class="col-md-5">
+              <label class="form-label">First Name <span class="text-danger">*</span></label>
+              <input type="text" name="first_name" class="form-control" required>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Last Name <span class="text-danger">*</span></label>
+              <input type="text" name="last_name" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Company</label>
+              <select name="company_id" class="form-select">
+                <option value="">— No company —</option>
+                {% for c in companies %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Primary Position</label>
+              <select name="position_id" class="form-select">
+                <option value="">— Select position —</option>
+                {% set dept = namespace(current='') %}
+                {% for p in positions %}
+                  {% if p.department != dept.current %}
+                    {% set dept.current = p.department %}
+                    <optgroup label="{{ p.department }}">
+                  {% endif %}
+                  <option value="{{ p.id }}">{{ p.title }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              <input type="email" name="email" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Phone</label>
+              <input type="tel" name="phone" class="form-control">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header">Rates</div>
+        <div class="card-body p-4">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Standard ($/hr)</label>
+              <input type="number" name="rate_standard" class="form-control"
+                     step="0.01" placeholder="0.00">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">OT (1.5x) ($/hr)</label>
+              <input type="number" name="rate_ot" class="form-control"
+                     step="0.01" placeholder="0.00">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">DT (2x) ($/hr)</label>
+              <input type="number" name="rate_dt" class="form-control"
+                     step="0.01" placeholder="0.00">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Meal Penalty</label>
+              <input type="number" name="meal_penalty" class="form-control"
+                     step="0.01" placeholder="0.00">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Per Diem ($/day)</label>
+              <input type="number" name="per_diem" class="form-control"
+                     step="0.01" placeholder="89.00">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header">Notes</div>
+        <div class="card-body p-4">
+          <textarea name="notes" class="form-control" rows="2"></textarea>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-adi">Add to Roster</button>
+        <a href="{{ url_for('crew.index') }}" class="btn btn-outline-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

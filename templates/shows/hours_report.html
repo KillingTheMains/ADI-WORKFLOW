@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+{% block title %}Hours Report — {{ show.name }}{% endblock %}
+{% block page_title %}Hours Report{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> /
+  <a href="{{ url_for('shows.detail', show_id=show.id) }}">{{ show.name }}</a> /
+  <a href="{{ url_for('show_crew.show_crew', show_id=show.id) }}">Crew</a> / Hours
+{% endblock %}
+
+{% block top_actions %}
+  <a href="{{ url_for('show_crew.contact_sheet', show_id=show.id) }}"
+     class="btn btn-sm btn-outline-secondary" target="_blank">📋 Contact Sheet</a>
+  <button class="btn btn-sm btn-dark" onclick="window.print()">🖨 Print</button>
+{% endblock %}
+
+{% block content %}
+<style>
+  /* ── Hours report table ── */
+  .hours-table { font-size: .78rem; }
+  .hours-table th {
+    background: var(--adi-dark); color: #fff;
+    font-size: .68rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .06em;
+    padding: 7px 8px; border: none;
+    white-space: nowrap;
+  }
+  .hours-table th.day-col {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    height: 64px; text-align: center;
+    padding: 6px 4px;
+  }
+  .hours-table td {
+    padding: 6px 8px; border-bottom: 1px solid var(--adi-border);
+    vertical-align: middle;
+  }
+  .hours-table td.day-cell {
+    text-align: center; color: var(--adi-blue); font-weight: 600;
+  }
+  .hours-table td.day-cell.zero { color: #ddd; font-weight: 400; }
+  .hours-table td.total-cell {
+    text-align: center; font-weight: 700; background: var(--adi-surface);
+  }
+  .hours-table tr:hover td { background: #FFFBF0; }
+  .company-divider td {
+    background: var(--adi-surface) !important;
+    font-size: .68rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .08em;
+    color: var(--adi-dark); padding: 5px 8px;
+    border-top: 2px solid var(--adi-border);
+  }
+  .total-row td {
+    background: var(--adi-dark) !important;
+    color: #fff !important; font-weight: 700;
+    font-size: .78rem;
+  }
+  .total-row td.day-cell { color: var(--adi-gold) !important; }
+
+  /* ── Phase pills in column headers ── */
+  .phase-dot {
+    display: inline-block; width: 6px; height: 6px;
+    border-radius: 50%; margin-right: 3px; vertical-align: middle;
+  }
+
+  /* ── Stat cards ── */
+  .stat-card {
+    background: var(--adi-surface); border: 1px solid var(--adi-border);
+    border-radius: 8px; padding: 14px 18px; text-align: center;
+  }
+  .stat-num { font-size: 1.6rem; font-weight: 700; color: var(--adi-dark); line-height: 1; }
+  .stat-label { font-size: .7rem; color: var(--adi-muted); text-transform: uppercase;
+                letter-spacing: .08em; margin-top: 4px; }
+
+  /* ── Print ── */
+  @media print {
+    .no-print { display: none !important; }
+    .hours-table { font-size: 8px; }
+    .hours-table th { font-size: 7px; }
+  }
+</style>
+
+{% set phase_colors = {
+  'Equipment Delivery': '#7C3AED',
+  'Load In': '#1D4ED8',
+  'Setup': '#0369A1',
+  'Tech Rehearsal': '#0F766E',
+  'Executive Rehearsal': '#15803D',
+  'Presenter Rehearsal': '#4D7C0F',
+  'Show Day': '#B45309',
+  'Strike': '#9F1239',
+  'Travel': '#6B7280',
+  'Dark': '#374151',
+} %}
+
+<!-- Show header -->
+<div class="card mb-4" style="background:var(--adi-dark);border-color:var(--adi-dark);">
+  <div class="card-body p-3">
+    <div class="row align-items-center">
+      <div class="col">
+        {% if show.code %}<div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;
+            text-transform:uppercase;color:var(--adi-gold);">{{ show.code }}</div>{% endif %}
+        <div style="font-size:1.05rem;font-weight:700;color:#fff;">{{ show.name }}</div>
+        <div style="font-size:.8rem;color:rgba(255,255,255,.5);">
+          Hours Report · {{ sorted_crew|length }} named crew · {{ show_days|length }} days
+        </div>
+      </div>
+      <div class="col-auto">
+        <div style="font-size:.75rem;color:rgba(255,255,255,.4);">
+          {{ show.date_range }}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Summary stats -->
+{% if sorted_crew %}
+{% set total_crew = sorted_crew|length %}
+{% set days_with_crew = namespace(n=0) %}
+{% for day in show_days %}{% if day_totals.get(day.id, 0) > 0 %}{% set days_with_crew.n = days_with_crew.n + 1 %}{% endif %}{% endfor %}
+
+<div class="row g-3 mb-4 no-print">
+  <div class="col">
+    <div class="stat-card">
+      <div class="stat-num">{{ "%.0f"|format(grand_total) }}</div>
+      <div class="stat-label">Total Man-Hours</div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="stat-card">
+      <div class="stat-num">{{ total_crew }}</div>
+      <div class="stat-label">Named Crew</div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="stat-card">
+      {% if total_crew > 0 %}
+      <div class="stat-num">{{ "%.1f"|format(grand_total / total_crew) }}</div>
+      {% else %}<div class="stat-num">—</div>{% endif %}
+      <div class="stat-label">Avg Hours/Person</div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="stat-card">
+      <div class="stat-num">{{ days_with_crew.n }}</div>
+      <div class="stat-label">Active Days</div>
+    </div>
+  </div>
+  {% if grand_total > 0 and total_crew > 0 %}
+  <div class="col">
+    <div class="stat-card">
+      <div class="stat-num">{{ "%.1f"|format(grand_total / days_with_crew.n) if days_with_crew.n > 0 else '—' }}</div>
+      <div class="stat-label">Avg Hours/Day</div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Hours table -->
+<div class="card" style="overflow-x:auto;">
+  <div class="card-body p-0">
+    <table class="table mb-0 hours-table" style="min-width:600px;">
+      <thead>
+        <tr>
+          <th style="width:160px;">Name</th>
+          <th style="width:110px;">Position</th>
+          <th style="width:90px;">Company</th>
+          <th style="width:80px;">Type</th>
+          {% for day in show_days %}
+          <th class="day-col" title="{{ day.date.strftime('%A, %B %-d') }}{% if day.phase %} — {{ day.phase }}{% endif %}">
+            <span>
+              {% if day.phase %}
+              <span class="phase-dot" style="background:{{ phase_colors.get(day.phase, '#94A3B8') }};"></span>
+              {% endif %}
+              {{ day.date.strftime('%-m/%-d') }}
+            </span>
+          </th>
+          {% endfor %}
+          <th style="width:70px;text-align:center;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set current_company = namespace(val='') %}
+        {% for entry in sorted_crew %}
+          {% if entry.company != current_company.val %}
+            {% set current_company.val = entry.company %}
+            <tr class="company-divider">
+              <td colspan="{{ 4 + show_days|length + 1 }}">
+                {{ entry.company or 'No Company' }}
+              </td>
+            </tr>
+          {% endif %}
+          <tr>
+            <td style="font-weight:600;">{{ entry.member.full_name }}</td>
+            <td style="color:var(--adi-blue);font-size:.72rem;">{{ entry.position or '—' }}</td>
+            <td style="color:var(--adi-muted);font-size:.72rem;">{{ entry.company or '—' }}</td>
+            <td style="font-size:.68rem;color:var(--adi-muted);">{{ entry.type or '—' }}</td>
+            {% for day in show_days %}
+            {% set hrs = entry.days.get(day.id, 0) %}
+            <td class="day-cell {% if hrs == 0 %}zero{% endif %}">
+              {% if hrs > 0 %}{{ "%.1f"|format(hrs) }}{% else %}·{% endif %}
+            </td>
+            {% endfor %}
+            <td class="total-cell">{{ "%.1f"|format(entry.total) }}</td>
+          </tr>
+        {% endfor %}
+
+        <!-- Day totals row -->
+        <tr class="total-row">
+          <td colspan="4" style="font-size:.72rem;">DAILY TOTALS</td>
+          {% for day in show_days %}
+          {% set dt = day_totals.get(day.id, 0) %}
+          <td class="day-cell">{% if dt > 0 %}{{ "%.1f"|format(dt) }}{% else %}·{% endif %}</td>
+          {% endfor %}
+          <td class="total-cell" style="color:var(--adi-gold) !important;">
+            {{ "%.1f"|format(grand_total) }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Phase breakdown -->
+{% set phase_hours = namespace(data={}) %}
+{% for entry in sorted_crew %}
+  {% for day in show_days %}
+    {% if day.phase and entry.days.get(day.id, 0) > 0 %}
+      {# Can't do dict assignment in Jinja easily, handle in summary below #}
+    {% endif %}
+  {% endfor %}
+{% endfor %}
+
+<!-- By-phase summary -->
+<div class="row g-3 mt-2">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header" style="font-size:.78rem;font-weight:700;">Hours by Phase</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0" style="font-size:.78rem;">
+          <thead>
+            <tr>
+              <th>Phase</th>
+              <th style="width:80px;">Days</th>
+              <th style="width:100px;">Man-Hours</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set phases_seen = namespace(data={}) %}
+            {% for day in show_days %}
+              {% set p = day.phase or 'Unphased' %}
+              {% set dt = day_totals.get(day.id, 0) %}
+              {# Track in tbd_data list approach — use loop to build summary #}
+            {% endfor %}
+            {# Build phase summary by iterating days #}
+            {% set phase_rows = [] %}
+            {% for day in show_days %}
+              {% set p = day.phase or 'Unphased' %}
+              {% set found = namespace(idx=-1) %}
+              {% for i in range(phase_rows|length) %}
+                {% if phase_rows[i][0] == p %}{% set found.idx = i %}{% endif %}
+              {% endfor %}
+              {% if found.idx == -1 %}
+                {% set _ = phase_rows.append([p, 1, day_totals.get(day.id, 0)]) %}
+              {% else %}
+                {# Jinja can't mutate lists easily — do accumulation pass below #}
+              {% endif %}
+            {% endfor %}
+            {# Simpler: just iterate phases uniquely #}
+            {% set seen_phases = [] %}
+            {% for day in show_days %}
+              {% if day.phase and day.phase not in seen_phases %}
+                {% set _ = seen_phases.append(day.phase) %}
+              {% endif %}
+            {% endfor %}
+            {% for phase in seen_phases %}
+              {% set ph_days = namespace(n=0) %}
+              {% set ph_hrs = namespace(h=0) %}
+              {% for day in show_days %}
+                {% if day.phase == phase %}
+                  {% set ph_days.n = ph_days.n + 1 %}
+                  {% set ph_hrs.h = ph_hrs.h + day_totals.get(day.id, 0) %}
+                {% endif %}
+              {% endfor %}
+              <tr>
+                <td>
+                  <span style="display:inline-block;width:8px;height:8px;border-radius:50%;
+                               background:{{ phase_colors.get(phase, '#94A3B8') }};
+                               margin-right:6px;vertical-align:middle;"></span>
+                  {{ phase }}
+                </td>
+                <td class="text-muted">{{ ph_days.n }}</td>
+                <td style="font-weight:600;">{{ "%.1f"|format(ph_hrs.h) }}</td>
+              </tr>
+            {% endfor %}
+            <tr style="border-top:2px solid var(--adi-border);">
+              <td style="font-weight:700;">TOTAL</td>
+              <td class="text-muted">{{ show_days|length }}</td>
+              <td style="font-weight:700;">{{ "%.1f"|format(grand_total) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top crew by hours -->
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header" style="font-size:.78rem;font-weight:700;">Top Crew by Hours</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0" style="font-size:.78rem;">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Position</th>
+              <th style="width:90px;">Total Hrs</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set top_crew = sorted_crew|sort(attribute='total', reverse=True) %}
+            {% for entry in top_crew[:10] %}
+            <tr>
+              <td style="font-weight:600;">{{ entry.member.full_name }}</td>
+              <td style="color:var(--adi-blue);font-size:.72rem;">{{ entry.position or '—' }}</td>
+              <td>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <div style="flex:1;background:#F1F5F9;border-radius:4px;height:6px;">
+                    {% if grand_total > 0 %}
+                    <div style="width:{{ (entry.total / grand_total * 100)|round(1) }}%;
+                                background:var(--adi-blue);height:6px;border-radius:4px;"></div>
+                    {% endif %}
+                  </div>
+                  <span style="font-weight:700;min-width:32px;text-align:right;">
+                    {{ "%.1f"|format(entry.total) }}
+                  </span>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TBD / unnamed rows -->
+{% if tbd_data %}
+<div class="card mt-3">
+  <div class="card-header" style="font-size:.78rem;font-weight:700;">
+    ⚠ Unnamed / TBD Crew Rows ({{ tbd_data|length }})
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0" style="font-size:.76rem;">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Position</th>
+          <th>Type</th>
+          <th>Day</th>
+          <th style="width:70px;">Hours</th>
+          <th>Activity</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in tbd_data %}
+        {% set day_obj = show_days|selectattr('id','eq',row.day_id)|first %}
+        <tr>
+          <td>{{ row.name }}</td>
+          <td class="text-muted">{{ row.position or '—' }}</td>
+          <td class="text-muted" style="font-size:.68rem;">{{ row.type }}</td>
+          <td>{{ day_obj.date.strftime('%a %-m/%-d') if day_obj else '—' }}</td>
+          <td style="font-weight:600;">{{ "%.1f"|format(row.hours) if row.hours else '—' }}</td>
+          <td class="text-muted">{{ row.activity|truncate(40) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty-state py-5">
+  <div class="empty-icon">⏱</div>
+  <div style="font-size:.95rem;font-weight:600;margin-bottom:8px;">No hours tracked yet</div>
+  <p class="text-muted" style="font-size:.83rem;max-width:380px;margin:0 auto 16px;">
+    Add crew rows with hours to activities on each day to populate this report.
+  </p>
+  <a href="{{ url_for('schedule.overview', show_id=show.id) }}" class="btn btn-sm btn-adi">
+    Open Schedule →
+  </a>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ show.name }} — ADI Workflow{% endblock %}
+{% block page_title %}Edit Show{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> /
+  <a href="{{ url_for('shows.detail', show_id=show.id) }}">{{ show.name }}</a> / Edit
+{% endblock %}
+
+{% block content %}
+<style>
+  .phase-row {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    transition: box-shadow .15s;
+  }
+  .phase-row:hover { box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+  .phase-row .drag-handle {
+    cursor: grab; color: #adb5bd; font-size: 1.1rem;
+    padding: 0 4px; user-select: none;
+  }
+  .phase-row .drag-handle:active { cursor: grabbing; }
+  .phase-row.dragging { opacity: .5; box-shadow: 0 4px 12px rgba(0,0,0,.2); }
+  .phase-row.drag-over { border-color: var(--adi-gold); background: #fffbf0; }
+</style>
+
+<div class="row justify-content-center">
+  <div class="col-lg-9">
+    <form method="POST" id="show-form">
+
+      <!-- ── Show Details ──────────────────────────────────────────────── -->
+      <div class="card mb-3">
+        <div class="card-header gold">Show Details</div>
+        <div class="card-body p-4">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Show Code</label>
+              <input type="text" name="code" class="form-control text-uppercase"
+                     value="{{ show.code or '' }}" maxlength="20">
+            </div>
+            <div class="col-md-9">
+              <label class="form-label">Show Name <span class="text-danger">*</span></label>
+              <input type="text" name="name" class="form-control" required value="{{ show.name }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Room / Hall</label>
+              <input type="text" name="room_name" class="form-control" value="{{ show.room_name or '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Status</label>
+              <select name="status" class="form-select">
+                {% for s in statuses %}
+                <option value="{{ s }}" {% if s == show.status %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Production Phases ─────────────────────────────────────────── -->
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>Production Phases</span>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="add-prep-btn">+ Prep Range</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="add-custom-btn">+ Custom Range</button>
+          </div>
+        </div>
+        <div class="card-body p-3">
+
+          <!-- Column headers -->
+          <div class="row g-2 mb-1 px-1" style="font-size:.72rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:.06em;">
+            <div class="col-auto" style="width:28px;"></div>
+            <div class="col-md-3">Phase Name</div>
+            <div class="col-md-2">Type</div>
+            <div class="col">Start Date</div>
+            <div class="col">End Date</div>
+            <div class="col-auto" style="width:36px;"></div>
+          </div>
+
+          <div id="phases-container">
+            {% if show.phases %}
+              {% for phase in show.phases %}
+              <div class="phase-row" data-start="{{ phase.start_date.isoformat() if phase.start_date else '' }}">
+                <div class="row g-2 align-items-center">
+                  <div class="col-auto" style="width:28px;">
+                    <span class="drag-handle" title="Drag to reorder">⠿</span>
+                  </div>
+                  <div class="col-md-3">
+                    <input type="text" name="phase_name[]" class="form-control form-control-sm phase-name"
+                           value="{{ phase.name }}" placeholder="Phase name" required>
+                  </div>
+                  <div class="col-md-2">
+                    <select name="phase_type[]" class="form-select form-select-sm phase-type">
+                      {% for t in phase_types %}
+                      <option value="{{ t }}" {% if t == phase.phase_type %}selected{% endif %}>{{ t }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col">
+                    <input type="date" name="phase_start[]" class="form-control form-control-sm phase-start"
+                           value="{{ phase.start_date.isoformat() if phase.start_date else '' }}">
+                  </div>
+                  <div class="col">
+                    <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end"
+                           value="{{ phase.end_date.isoformat() if phase.end_date else '' }}">
+                  </div>
+                  <div class="col-auto" style="width:36px;">
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">✕</button>
+                  </div>
+                  <input type="hidden" name="phase_notes[]" value="{{ phase.notes or '' }}">
+                </div>
+              </div>
+              {% endfor %}
+            {% else %}
+              <!-- Default rows when no phases saved yet -->
+              {% for default in [('Load In','Load In'),('Show','Show'),('Strike','Strike')] %}
+              <div class="phase-row" data-start="">
+                <div class="row g-2 align-items-center">
+                  <div class="col-auto" style="width:28px;">
+                    <span class="drag-handle" title="Drag to reorder">⠿</span>
+                  </div>
+                  <div class="col-md-3">
+                    <input type="text" name="phase_name[]" class="form-control form-control-sm phase-name"
+                           value="{{ default[0] }}" placeholder="Phase name" required>
+                  </div>
+                  <div class="col-md-2">
+                    <select name="phase_type[]" class="form-select form-select-sm phase-type">
+                      {% for t in phase_types %}
+                      <option value="{{ t }}" {% if t == default[1] %}selected{% endif %}>{{ t }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col">
+                    <input type="date" name="phase_start[]" class="form-control form-control-sm phase-start">
+                  </div>
+                  <div class="col">
+                    <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end">
+                  </div>
+                  <div class="col-auto" style="width:36px;">
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">✕</button>
+                  </div>
+                  <input type="hidden" name="phase_notes[]" value="">
+                </div>
+              </div>
+              {% endfor %}
+            {% endif %}
+          </div>
+
+          <p class="text-muted mb-0 mt-2" style="font-size:.78rem;">
+            💡 Rows auto-sort by start date. Drag ⠿ to reorder manually.
+          </p>
+        </div>
+      </div>
+
+      <!-- ── Client & Venue ────────────────────────────────────────────── -->
+      <div class="card mb-3">
+        <div class="card-header">Client &amp; Venue</div>
+        <div class="card-body p-4">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Client</label>
+              <select name="client_id" class="form-select">
+                <option value="">— No client —</option>
+                {% for c in clients %}
+                <option value="{{ c.id }}" {% if show.client_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Venue</label>
+              <select name="venue_id" class="form-select">
+                <option value="">— No venue —</option>
+                {% for v in venues %}
+                <option value="{{ v.id }}" {% if show.venue_id == v.id %}selected{% endif %}>{{ v.name }} — {{ v.city }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Notes ─────────────────────────────────────────────────────── -->
+      <div class="card mb-4">
+        <div class="card-header">Notes</div>
+        <div class="card-body p-4">
+          <textarea name="notes" class="form-control" rows="3">{{ show.notes or '' }}</textarea>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-adi">Save Changes</button>
+        <a href="{{ url_for('shows.detail', show_id=show.id) }}" class="btn btn-outline-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Phase Row Template (hidden, used by JS) ───────────────────────────── -->
+<template id="phase-row-tpl">
+  <div class="phase-row" data-start="">
+    <div class="row g-2 align-items-center">
+      <div class="col-auto" style="width:28px;">
+        <span class="drag-handle" title="Drag to reorder">⠿</span>
+      </div>
+      <div class="col-md-3">
+        <input type="text" name="phase_name[]" class="form-control form-control-sm phase-name" placeholder="Phase name">
+      </div>
+      <div class="col-md-2">
+        <select name="phase_type[]" class="form-select form-select-sm phase-type">
+          <option value="Prep">Prep</option>
+          <option value="Load In">Load In</option>
+          <option value="Show">Show</option>
+          <option value="Strike">Strike</option>
+          <option value="Custom">Custom</option>
+        </select>
+      </div>
+      <div class="col">
+        <input type="date" name="phase_start[]" class="form-control form-control-sm phase-start">
+      </div>
+      <div class="col">
+        <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end">
+      </div>
+      <div class="col-auto" style="width:36px;">
+        <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">✕</button>
+      </div>
+      <input type="hidden" name="phase_notes[]" value="">
+    </div>
+  </div>
+</template>
+
+<script>
+const PHASE_COLORS = {
+  'Prep':    '#7C3AED', 'Load In': '#1D4ED8',
+  'Show':    '#B45309', 'Strike':  '#9F1239', 'Custom': '#0F766E',
+};
+
+function applyTypeColor(row) {
+  const sel = row.querySelector('.phase-type');
+  if (!sel) return;
+  sel.style.borderLeft = `4px solid ${PHASE_COLORS[sel.value] || '#6c757d'}`;
+  sel.style.paddingLeft = '8px';
+}
+
+function updateEndDateMins() {
+  document.querySelectorAll('#phases-container .phase-row').forEach(row => {
+    const s = row.querySelector('.phase-start');
+    const e = row.querySelector('.phase-end');
+    if (!s || !e) return;
+    if (s.value) {
+      e.min = s.value;
+      if (e.value && e.value < s.value) e.value = s.value;
+    }
+    row.dataset.start = s.value;
+  });
+}
+
+function sortPhaseRows() {
+  const c = document.getElementById('phases-container');
+  Array.from(c.querySelectorAll('.phase-row'))
+    .sort((a, b) => (a.querySelector('.phase-start')?.value || '9999')
+                    .localeCompare(b.querySelector('.phase-start')?.value || '9999'))
+    .forEach(r => c.appendChild(r));
+  updateEndDateMins();
+}
+
+function bindRowEvents(row) {
+  row.querySelector('.remove-phase')?.addEventListener('click', () => {
+    if (document.querySelectorAll('#phases-container .phase-row').length <= 1) {
+      alert('At least one phase is required.'); return;
+    }
+    row.remove(); updateEndDateMins();
+  });
+  row.querySelector('.phase-type')?.addEventListener('change', () => applyTypeColor(row));
+  row.querySelector('.phase-start')?.addEventListener('change', () => { updateEndDateMins(); sortPhaseRows(); });
+
+  const handle = row.querySelector('.drag-handle');
+  if (handle) {
+    handle.addEventListener('mousedown', () => row.draggable = true);
+    handle.addEventListener('mouseup',   () => row.draggable = false);
+  }
+  row.addEventListener('dragstart', e => { e.dataTransfer.effectAllowed = 'move'; row.classList.add('dragging'); window._dragRow = row; });
+  row.addEventListener('dragend',   () => { row.classList.remove('dragging'); row.draggable = false; document.querySelectorAll('.phase-row').forEach(r => r.classList.remove('drag-over')); window._dragRow = null; });
+  row.addEventListener('dragover',  e => { e.preventDefault(); if (window._dragRow && window._dragRow !== row) row.classList.add('drag-over'); });
+  row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+  row.addEventListener('drop', e => {
+    e.preventDefault(); row.classList.remove('drag-over');
+    const d = window._dragRow;
+    if (d && d !== row) {
+      const c = document.getElementById('phases-container');
+      const rows = [...c.querySelectorAll('.phase-row')];
+      c.insertBefore(d, rows.indexOf(d) < rows.indexOf(row) ? row.nextSibling : row);
+    }
+    updateEndDateMins();
+  });
+}
+
+function addPhaseRow(type, name) {
+  const clone = document.getElementById('phase-row-tpl').content.cloneNode(true);
+  const row = clone.querySelector('.phase-row');
+  row.querySelector('.phase-type').value = type;
+  if (name) row.querySelector('.phase-name').value = name;
+  applyTypeColor(row);
+  bindRowEvents(row);
+  document.getElementById('phases-container').appendChild(row);
+  row.querySelector('.phase-name')?.focus();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('#phases-container .phase-row').forEach(row => { applyTypeColor(row); bindRowEvents(row); });
+  updateEndDateMins();
+  document.getElementById('add-prep-btn').addEventListener('click',   () => addPhaseRow('Prep',   'Prep'));
+  document.getElementById('add-custom-btn').addEventListener('click', () => addPhaseRow('Custom', ''));
+});
+</script>
+{% endblock %}

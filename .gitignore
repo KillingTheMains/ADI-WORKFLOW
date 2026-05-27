@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Database (local only — PythonAnywhere has its own)
+*.db
+*.sqlite
+*.sqlite3
+instance/
+
+# Environment / secrets
+.env
+*.env
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Logs
+*.log
+
+# launchd plist (Mac-specific)
+com.adi.workflow.plist
+install-service.sh
+uninstall-service.sh
+run.sh
+HOW_TO_RUN.md

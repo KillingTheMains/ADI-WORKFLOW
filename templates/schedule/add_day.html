@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Add Day — {{ show.name }}{% endblock %}
+{% block page_title %}Add Schedule Day{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> /
+  <a href="{{ url_for('shows.detail', show_id=show.id) }}">{{ show.name }}</a> /
+  <a href="{{ url_for('schedule.overview', show_id=show.id) }}">Schedule</a> / Add Day
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <form method="POST">
+      <div class="card mb-3">
+        <div class="card-header gold">Day Details</div>
+        <div class="card-body p-4">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Date <span class="text-danger">*</span></label>
+              <input type="date" name="date" class="form-control" required
+                     value="{{ suggested_date.isoformat() if suggested_date else '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Phase</label>
+              <select name="phase" class="form-select">
+                <option value="">— Select Phase —</option>
+                {% for p in phases %}
+                <option value="{{ p }}">{{ p }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Day Label</label>
+              <input type="text" name="label" class="form-control"
+                     placeholder="e.g. Load In Day 1 / Show Day / Strike">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Call Time</label>
+              <input type="text" name="call_time" class="form-control"
+                     placeholder="e.g. 6:00 AM">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Wrap Time</label>
+              <input type="text" name="wrap_time" class="form-control"
+                     placeholder="e.g. 10:00 PM">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Milestones</label>
+              <textarea name="milestones" class="form-control" rows="3"
+                        placeholder="One milestone per line — e.g.&#10;Rigging complete&#10;LED wall up and cabled&#10;Audio system check"></textarea>
+              <div class="form-text">One item per line — these appear at the bottom of the day in the OSS</div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Notes</label>
+              <textarea name="notes" class="form-control" rows="2"
+                        placeholder="Internal notes for this day..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-adi">Add Day →</button>
+        <a href="{{ url_for('schedule.overview', show_id=show.id) }}"
+           class="btn btn-outline-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

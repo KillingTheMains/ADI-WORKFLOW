@@ -1,0 +1,419 @@
+from extensions import db
+from datetime import datetime
+import json
+
+
+# ── Lookup / reference tables ────────────────────────────────────────────────
+
+class Client(db.Model):
+    __tablename__ = "clients"
+    id          = db.Column(db.Integer, primary_key=True)
+    name        = db.Column(db.String(200), nullable=False)
+    contact     = db.Column(db.String(200))
+    email       = db.Column(db.String(200))
+    phone       = db.Column(db.String(50))
+    address     = db.Column(db.Text)
+    notes       = db.Column(db.Text)
+    shows       = db.relationship("Show", back_populates="client", lazy="dynamic")
+
+    def __repr__(self):
+        return f"<Client {self.name}>"
+
+
+class Venue(db.Model):
+    __tablename__ = "venues"
+    id            = db.Column(db.Integer, primary_key=True)
+    name          = db.Column(db.String(200), nullable=False)
+    city          = db.Column(db.String(100))
+    state         = db.Column(db.String(50))
+    country       = db.Column(db.String(100), default="USA")
+    address       = db.Column(db.Text)
+    dock_count    = db.Column(db.Integer)
+    union_local   = db.Column(db.String(100))
+    wifi_ssid     = db.Column(db.String(200))
+    wifi_password = db.Column(db.String(200))
+    notes         = db.Column(db.Text)
+    shows         = db.relationship("Show", back_populates="venue", lazy="dynamic")
+
+    def __repr__(self):
+        return f"<Venue {self.name}, {self.city}>"
+
+
+class Company(db.Model):
+    """Production companies, vendors, union locals, etc."""
+    __tablename__ = "companies"
+    id           = db.Column(db.Integer, primary_key=True)
+    name         = db.Column(db.String(200), nullable=False)
+    code         = db.Column(db.String(20))        # e.g. "BAV", "CT", "VRA"
+    type         = db.Column(db.String(50))        # production / vendor / union / venue
+    contact_name = db.Column(db.String(200))
+    email        = db.Column(db.String(200))
+    phone        = db.Column(db.String(50))
+    address      = db.Column(db.Text)
+    notes        = db.Column(db.Text)
+    crew         = db.relationship("CrewMember", back_populates="company", lazy="dynamic")
+
+    def __repr__(self):
+        return f"<Company {self.name}>"
+
+
+class Position(db.Model):
+    """Master list of crew positions / labor categories."""
+    __tablename__ = "positions"
+    id             = db.Column(db.Integer, primary_key=True)
+    title          = db.Column(db.String(100), nullable=False)   # e.g. "A1", "LED Head"
+    department     = db.Column(db.String(50))    # Audio / Video / Lighting / LED / Rigging / Scenic / Power / General
+    type           = db.Column(db.String(30))    # lead / head / hand / utility / specialty
+    union_eligible = db.Column(db.Boolean, default=False)
+    rate_low       = db.Column(db.Float)
+    rate_high      = db.Column(db.Float)
+    notes          = db.Column(db.Text)
+
+    def __repr__(self):
+        return f"<Position {self.title}>"
+
+
+class CrewMember(db.Model):
+    """Global roster of people (named crew)."""
+    __tablename__ = "crew_members"
+    id             = db.Column(db.Integer, primary_key=True)
+    first_name     = db.Column(db.String(100), nullable=False)
+    last_name      = db.Column(db.String(100), nullable=False)
+    company_id     = db.Column(db.Integer, db.ForeignKey("companies.id"))
+    position_id    = db.Column(db.Integer, db.ForeignKey("positions.id"))
+    email          = db.Column(db.String(200))
+    phone          = db.Column(db.String(50))
+    rate_standard  = db.Column(db.Float)
+    rate_ot        = db.Column(db.Float)
+    rate_dt        = db.Column(db.Float)
+    meal_penalty   = db.Column(db.Float)
+    per_diem       = db.Column(db.Float)
+    active         = db.Column(db.Boolean, default=True)
+    notes          = db.Column(db.Text)
+    company        = db.relationship("Company", back_populates="crew")
+    position       = db.relationship("Position")
+
+    @property
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}"
+
+    def __repr__(self):
+        return f"<CrewMember {self.full_name}>"
+
+
+# ── Show ─────────────────────────────────────────────────────────────────────
+
+SHOW_STATUS = ["Planning", "Active", "Closed", "Cancelled"]
+
+class Show(db.Model):
+    __tablename__ = "shows"
+    id            = db.Column(db.Integer, primary_key=True)
+    code          = db.Column(db.String(50))          # e.g. "GHC26"
+    name          = db.Column(db.String(200), nullable=False)
+    client_id     = db.Column(db.Integer, db.ForeignKey("clients.id"))
+    venue_id      = db.Column(db.Integer, db.ForeignKey("venues.id"))
+    room_name     = db.Column(db.String(200))
+    load_in_date  = db.Column(db.Date)
+    show_start    = db.Column(db.Date)
+    show_end      = db.Column(db.Date)
+    strike_date   = db.Column(db.Date)
+    version       = db.Column(db.Integer, default=1)
+    status        = db.Column(db.String(30), default="Planning")
+    notes         = db.Column(db.Text)
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at    = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    client        = db.relationship("Client", back_populates="shows")
+    venue         = db.relationship("Venue", back_populates="shows")
+    days          = db.relationship("ScheduleDay", back_populates="show",
+                                    order_by="ScheduleDay.date", cascade="all, delete-orphan")
+    phases        = db.relationship("ProductionPhase", back_populates="show",
+                                    order_by="ProductionPhase.start_date",
+                                    cascade="all, delete-orphan")
+    crew_assignments = db.relationship("ShowCrewAssignment", back_populates="show",
+                                       cascade="all, delete-orphan")
+
+    @property
+    def version_label(self):
+        return f"Version {self.version}"
+
+    @property
+    def date_range(self):
+        """Derives from phases if available, otherwise falls back to raw date columns."""
+        if self.phases:
+            dates = [p.start_date for p in self.phases if p.start_date] + \
+                    [p.end_date   for p in self.phases if p.end_date]
+            if dates:
+                return f"{min(dates).strftime('%b %-d')} – {max(dates).strftime('%b %-d, %Y')}"
+        if self.load_in_date and self.strike_date:
+            return f"{self.load_in_date.strftime('%b %-d')} – {self.strike_date.strftime('%b %-d, %Y')}"
+        return "Dates TBD"
+
+    def _phase_date(self, phase_type, attr):
+        """Helper to pull a date from a specific phase type."""
+        for p in (self.phases or []):
+            if p.phase_type == phase_type and getattr(p, attr):
+                return getattr(p, attr)
+        return None
+
+    def __repr__(self):
+        return f"<Show {self.name}>"
+
+
+# ── Schedule ─────────────────────────────────────────────────────────────────
+
+PHASES = [
+    "Equipment Delivery",
+    "Load In",
+    "Setup",
+    "Tech Rehearsal",
+    "Executive Rehearsal",
+    "Presenter Rehearsal",
+    "Show Day",
+    "Strike",
+    "Travel",
+    "Dark",
+]
+
+
+class ScheduleDay(db.Model):
+    __tablename__ = "schedule_days"
+    id          = db.Column(db.Integer, primary_key=True)
+    show_id     = db.Column(db.Integer, db.ForeignKey("shows.id"), nullable=False)
+    date        = db.Column(db.Date, nullable=False)
+    label       = db.Column(db.String(200))         # e.g. "Load In Day 1"
+    call_time   = db.Column(db.String(20))           # e.g. "6:00 AM"
+    wrap_time   = db.Column(db.String(20))           # e.g. "10:00 PM"
+    phase       = db.Column(db.String(50))
+    milestones  = db.Column(db.Text)                 # newline-separated milestone notes
+    notes       = db.Column(db.Text)
+
+    # Travel day fields — only used when phase == "Travel"
+    travel_flight_number   = db.Column(db.String(20))
+    travel_airline         = db.Column(db.String(100))
+    travel_depart_airport  = db.Column(db.String(10))   # IATA code, e.g. "DFW"
+    travel_arrive_airport  = db.Column(db.String(10))
+    travel_depart_time     = db.Column(db.String(20))
+    travel_arrive_time     = db.Column(db.String(20))
+    travel_hotel_name      = db.Column(db.String(200))
+    travel_hotel_confirm   = db.Column(db.String(100))
+
+    show        = db.relationship("Show", back_populates="days")
+    activities  = db.relationship("ScheduleActivity", back_populates="day",
+                                  order_by="ScheduleActivity.sort_order",
+                                  cascade="all, delete-orphan")
+
+    @property
+    def day_header(self):
+        if self.date:
+            return self.date.strftime("%A, %B %-d, %Y")
+        return "Date TBD"
+
+    @property
+    def time_window(self):
+        if self.call_time and self.wrap_time:
+            return f"{self.call_time} – {self.wrap_time}"
+        return ""
+
+    @property
+    def milestone_list(self):
+        if self.milestones:
+            return [m.strip() for m in self.milestones.splitlines() if m.strip()]
+        return []
+
+    def __repr__(self):
+        return f"<ScheduleDay {self.date}>"
+
+
+class ScheduleActivity(db.Model):
+    """A time-stamped block within a day (e.g. '8:00 AM — LOAD IN / SETUP RIGGING')."""
+    __tablename__ = "schedule_activities"
+    id          = db.Column(db.Integer, primary_key=True)
+    day_id      = db.Column(db.Integer, db.ForeignKey("schedule_days.id"), nullable=False)
+    time        = db.Column(db.String(20))           # e.g. "8:00 AM"
+    description = db.Column(db.String(500), nullable=False)
+    notes       = db.Column(db.Text)
+    sort_order  = db.Column(db.Integer, default=0)
+
+    day         = db.relationship("ScheduleDay", back_populates="activities")
+    crew_rows   = db.relationship("CrewRow", back_populates="activity",
+                                  order_by="CrewRow.sort_order",
+                                  cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Activity {self.time} {self.description[:40]}>"
+
+
+CREW_TYPES = ["Lead Crew", "Local Crew", "Vendor Crew", "Union Crew"]
+
+
+class CrewRow(db.Model):
+    """
+    A single crew line inside an activity block.
+    e.g.  Qty=1  Hrs=11  Position='A1'  Name='Ollie M.'  Type='Lead Crew'
+    Can also represent a section header (group_header=True) like 'LEAD CREW'.
+    """
+    __tablename__ = "crew_rows"
+    id              = db.Column(db.Integer, primary_key=True)
+    activity_id     = db.Column(db.Integer, db.ForeignKey("schedule_activities.id"), nullable=False)
+    sort_order      = db.Column(db.Integer, default=0)
+
+    # If True this row is a section header label, not a crew line
+    is_group_header = db.Column(db.Boolean, default=False)
+    group_label     = db.Column(db.String(100))      # e.g. "LEAD CREW"
+
+    # Crew line fields
+    qty             = db.Column(db.Integer, default=1)
+    hours           = db.Column(db.Float)
+    position        = db.Column(db.String(100))      # free-text or from Position table
+    position_id     = db.Column(db.Integer, db.ForeignKey("positions.id"), nullable=True)
+    crew_member_id  = db.Column(db.Integer, db.ForeignKey("crew_members.id"), nullable=True)
+    name_override   = db.Column(db.String(200))      # if not linked to crew_member
+    crew_type       = db.Column(db.String(50), default="Lead Crew")
+    notes           = db.Column(db.Text)
+
+    activity        = db.relationship("ScheduleActivity", back_populates="crew_rows")
+    crew_member     = db.relationship("CrewMember")
+    position_ref    = db.relationship("Position")
+
+    @property
+    def display_name(self):
+        if self.crew_member:
+            return self.crew_member.full_name
+        return self.name_override or "TBD"
+
+    def __repr__(self):
+        return f"<CrewRow {self.qty}x {self.position}>"
+
+
+# ── Production Phases (date ranges per show) ─────────────────────────────────
+
+PHASE_TYPES = ["Prep", "Load In", "Show", "Strike", "Custom"]
+
+PHASE_COLORS = {
+    "Prep":    "#7C3AED",
+    "Load In": "#1D4ED8",
+    "Show":    "#B45309",
+    "Strike":  "#9F1239",
+    "Custom":  "#0F766E",
+}
+
+
+class ProductionPhase(db.Model):
+    """A named date range within a show (Prep, Load In, Show, Strike, Custom)."""
+    __tablename__ = "production_phases"
+    id         = db.Column(db.Integer, primary_key=True)
+    show_id    = db.Column(db.Integer, db.ForeignKey("shows.id"), nullable=False)
+    name       = db.Column(db.String(200), nullable=False)   # e.g. "Lighting Prep"
+    phase_type = db.Column(db.String(50), default="Custom")  # Prep/Load In/Show/Strike/Custom
+    start_date = db.Column(db.Date)
+    end_date   = db.Column(db.Date)
+    notes      = db.Column(db.Text)
+
+    show = db.relationship("Show", back_populates="phases")
+
+    @property
+    def color(self):
+        return PHASE_COLORS.get(self.phase_type, "#0F766E")
+
+    @property
+    def date_range_display(self):
+        if self.start_date and self.end_date:
+            if self.start_date == self.end_date:
+                return self.start_date.strftime("%b %-d, %Y")
+            return f"{self.start_date.strftime('%b %-d')} – {self.end_date.strftime('%b %-d, %Y')}"
+        if self.start_date:
+            return self.start_date.strftime("%b %-d, %Y")
+        return "Dates TBD"
+
+    def __repr__(self):
+        return f"<ProductionPhase {self.name}>"
+
+
+# ── Day Templates ────────────────────────────────────────────────────────────
+
+class DayTemplate(db.Model):
+    """
+    Reusable activity skeletons applied to schedule days.
+    phase_hint links this template to a production phase type for auto-generate.
+    activities_json: JSON list of [time, description] pairs.
+    """
+    __tablename__ = "day_templates"
+    id              = db.Column(db.Integer, primary_key=True)
+    key             = db.Column(db.String(50), unique=True, nullable=False)
+    label           = db.Column(db.String(100), nullable=False)
+    phase_hint      = db.Column(db.String(50))   # "Prep"|"Load In"|"Show"|"Strike"|"Custom"|None
+    activities_json = db.Column(db.Text, default="[]")
+    sort_order      = db.Column(db.Integer, default=0)
+
+    @property
+    def activities(self):
+        try:
+            return json.loads(self.activities_json or "[]")
+        except Exception:
+            return []
+
+    @activities.setter
+    def activities(self, val):
+        self.activities_json = json.dumps(val)
+
+    def to_dict(self):
+        return {"label": self.label, "activities": self.activities}
+
+    def __repr__(self):
+        return f"<DayTemplate {self.key}>"
+
+
+# ── Sub-schedules (Dock, Hazer, HVAC, Security, Doors, House LX) ─────────────
+
+SUB_SCHEDULE_TYPES = [
+    "Dock",
+    "Hazer",
+    "HVAC",
+    "Security",
+    "Doors",
+    "House LX",
+    "Wristbands",
+    "Cleaning",
+]
+
+
+class ShowCrewAssignment(db.Model):
+    """
+    Links a crew member to a specific show.
+    Only assigned crew appear in the day-editor dropdown for that show.
+    """
+    __tablename__ = "show_crew_assignments"
+    id             = db.Column(db.Integer, primary_key=True)
+    show_id        = db.Column(db.Integer, db.ForeignKey("shows.id"), nullable=False)
+    crew_member_id = db.Column(db.Integer, db.ForeignKey("crew_members.id"), nullable=False)
+    role_override  = db.Column(db.String(100))  # optional show-specific role note
+    created_at     = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("show_id", "crew_member_id",
+                                          name="uq_show_crew"),)
+
+    show        = db.relationship("Show", back_populates="crew_assignments")
+    crew_member = db.relationship("CrewMember")
+
+    def __repr__(self):
+        return f"<ShowCrewAssignment show={self.show_id} crew={self.crew_member_id}>"
+
+
+class SubScheduleEntry(db.Model):
+    """Generic row for any of the sub-schedule types."""
+    __tablename__ = "sub_schedule_entries"
+    id           = db.Column(db.Integer, primary_key=True)
+    show_id      = db.Column(db.Integer, db.ForeignKey("shows.id"), nullable=False)
+    type         = db.Column(db.String(50), nullable=False)   # Dock / Hazer / HVAC / etc.
+    date         = db.Column(db.Date)
+    time         = db.Column(db.String(20))
+    activity     = db.Column(db.String(500))
+    duration_hrs = db.Column(db.Float)
+    notes        = db.Column(db.Text)
+    sort_order   = db.Column(db.Integer, default=0)
+
+    show         = db.relationship("Show")
+
+    def __repr__(self):
+        return f"<SubSchedule {self.type} {self.date} {self.time}>"

@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block title %}Day Templates — ADI Workflow{% endblock %}
+{% block page_title %}Day Templates{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> / Day Templates
+{% endblock %}
+{% block top_actions %}
+  <a href="{{ url_for('schedule.template_new') }}" class="btn btn-sm btn-adi">+ New Template</a>
+{% endblock %}
+
+{% block content %}
+<style>
+  .activity-row-tpl { display:flex; gap:8px; align-items:center; margin-bottom:6px;
+                      border-radius:6px; transition:background .1s; }
+  .activity-row-tpl input { font-size:.82rem; }
+  .act-time-col { width:110px; flex-shrink:0; }
+  .remove-act-btn { background:none; border:none; color:#adb5bd; cursor:pointer;
+                    font-size:1rem; padding:0 4px; line-height:1; flex-shrink:0; }
+  .remove-act-btn:hover { color:#dc3545; }
+  .drag-handle { cursor:grab; color:#adb5bd; font-size:1rem; padding:0 2px;
+                 user-select:none; flex-shrink:0; }
+  .drag-handle:active { cursor:grabbing; }
+  .activity-row-tpl.dragging { opacity:.4; }
+  .activity-row-tpl.drag-over { background:#FFF8EC; outline:2px dashed var(--adi-gold);
+                                 outline-offset:1px; }
+  .template-card { border:1px solid var(--adi-border); border-radius:8px;
+                   margin-bottom:10px; overflow:hidden; }
+  .template-card-header {
+    background:var(--adi-surface); padding:10px 16px;
+    display:flex; align-items:center; gap:12px;
+  }
+  .tpl-label { font-weight:700; font-size:.9rem; flex:1; }
+  .tpl-phase-badge {
+    font-size:.68rem; padding:2px 8px; border-radius:10px;
+    background:rgba(201,168,76,.15); color:var(--adi-gold);
+    border:1px solid rgba(201,168,76,.3);
+  }
+  .tpl-acts { padding:10px 16px; font-size:.82rem; }
+  .tpl-acts .act-line { display:flex; gap:10px; padding:2px 0; }
+  .tpl-acts .act-line .t { min-width:80px; font-weight:600; color:var(--adi-gold); }
+  .split-layout { display:grid; grid-template-columns:1fr 1.4fr; gap:24px; align-items:start; }
+  @media(max-width:860px){ .split-layout { grid-template-columns:1fr; } }
+</style>
+
+<div class="split-layout">
+
+  <!-- ── Left: Template list ────────────────────────────────────────────── -->
+  <div>
+    <h6 class="text-muted mb-3" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;">
+      All Templates ({{ templates|length }})
+    </h6>
+
+    {% for tpl in templates %}
+    <div class="template-card {% if editing and editing.id == tpl.id %}border-warning{% endif %}">
+      <div class="template-card-header">
+        <span class="tpl-label">{{ tpl.label }}</span>
+        {% if tpl.phase_hint %}
+        <span class="tpl-phase-badge">{{ tpl.phase_hint }}</span>
+        {% endif %}
+        <a href="{{ url_for('schedule.template_edit', tpl_id=tpl.id) }}"
+           class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;padding:2px 10px;">
+          Edit
+        </a>
+        <form method="POST" action="{{ url_for('schedule.template_delete', tpl_id=tpl.id) }}"
+              style="display:inline;"
+              onsubmit="return confirm('Delete template \'{{ tpl.label }}\'? This won\'t affect existing schedule days.');">
+          <button type="submit" class="btn btn-sm btn-outline-danger"
+                  style="font-size:.72rem;padding:2px 8px;">✕</button>
+        </form>
+      </div>
+      {% if tpl.activities %}
+      <div class="tpl-acts">
+        {% for time, desc in tpl.activities %}
+        <div class="act-line">
+          <span class="t">{{ time or '—' }}</span>
+          <span>{{ desc }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div style="padding:8px 16px;font-size:.8rem;color:var(--adi-muted);">No activities yet.</div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="empty-state py-4">
+      <div class="empty-icon">📋</div>
+      <div style="font-size:.9rem;font-weight:600;margin-bottom:6px;">No templates yet</div>
+      <p class="text-muted" style="font-size:.82rem;">Create your first template to get started.</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- ── Right: Edit / Create form ─────────────────────────────────────── -->
+  <div>
+    {% if editing %}
+    {% set form_action = url_for('schedule.template_edit', tpl_id=editing.id) %}
+    {% set form_title  = 'Edit Template' %}
+    {% set btn_label   = 'Save Changes' %}
+    {% elif creating %}
+    {% set form_action = url_for('schedule.template_new') %}
+    {% set form_title  = 'New Template' %}
+    {% set btn_label   = 'Create Template' %}
+    {% else %}
+    {# No form active — show a prompt #}
+    <div class="card p-4 text-center" style="color:var(--adi-muted);">
+      <div style="font-size:1.5rem;margin-bottom:8px;">📋</div>
+      <div style="font-size:.85rem;">Select a template to edit,<br>or create a new one.</div>
+    </div>
+    {% endif %}
+
+    {% if editing or creating %}
+    <div class="card">
+      <div class="card-header gold">{{ form_title }}</div>
+      <div class="card-body p-4">
+        <form method="POST" action="{{ form_action }}" id="tpl-form">
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-7">
+              <label class="form-label">Template Name <span class="text-danger">*</span></label>
+              <input type="text" name="label" class="form-control"
+                     value="{{ editing.label if editing else '' }}"
+                     placeholder="e.g. Load In Day" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Sort Order</label>
+              <input type="number" name="sort_order" class="form-control"
+                     value="{{ editing.sort_order if editing else 99 }}" min="1">
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label">
+              Auto-assign to Phase
+              <span class="text-muted" style="font-size:.75rem;font-weight:400;">
+                (used by Auto-Generate Days)
+              </span>
+            </label>
+            <select name="phase_hint" class="form-select">
+              <option value="">— Not auto-assigned —</option>
+              {% for pt in phase_types %}
+              <option value="{{ pt }}"
+                {% if editing and editing.phase_hint == pt %}selected{% endif %}>
+                {{ pt }}
+              </option>
+              {% endfor %}
+            </select>
+            <div class="form-text">
+              When generating days, this template will be applied to all days in the selected phase.
+            </div>
+          </div>
+
+          <!-- Activity rows -->
+          <div class="mb-2 d-flex justify-content-between align-items-center">
+            <label class="form-label mb-0">
+              Activities
+              <span class="text-muted" style="font-size:.75rem;font-weight:400;">(in order)</span>
+            </label>
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+                    style="font-size:.72rem;" onclick="addActivityRow()">
+              + Add Row
+            </button>
+          </div>
+
+          <div style="font-size:.7rem;font-weight:600;text-transform:uppercase;
+                      letter-spacing:.06em;color:#6c757d;display:flex;gap:8px;margin-bottom:4px;">
+            <span style="width:16px;"></span>
+            <span style="width:110px;">Time</span>
+            <span>Description</span>
+          </div>
+
+          <div id="activity-rows">
+            {% if editing and editing.activities %}
+              {% for time, desc in editing.activities %}
+              <div class="activity-row-tpl">
+                <span class="drag-handle" title="Drag to reorder">⠿</span>
+                <input type="text" name="activity_time[]" class="form-control form-control-sm act-time-col"
+                       value="{{ time }}" placeholder="8:00 AM">
+                <input type="text" name="activity_desc[]" class="form-control form-control-sm"
+                       value="{{ desc }}" placeholder="Description" required>
+                <button type="button" class="remove-act-btn" onclick="removeRow(this)"
+                        title="Remove">✕</button>
+              </div>
+              {% endfor %}
+            {% else %}
+              <!-- Two blank starter rows for new templates -->
+              <div class="activity-row-tpl">
+                <span class="drag-handle" title="Drag to reorder">⠿</span>
+                <input type="text" name="activity_time[]" class="form-control form-control-sm act-time-col"
+                       placeholder="7:00 AM">
+                <input type="text" name="activity_desc[]" class="form-control form-control-sm"
+                       placeholder="CREW START">
+                <button type="button" class="remove-act-btn" onclick="removeRow(this)">✕</button>
+              </div>
+              <div class="activity-row-tpl">
+                <span class="drag-handle" title="Drag to reorder">⠿</span>
+                <input type="text" name="activity_time[]" class="form-control form-control-sm act-time-col"
+                       placeholder="7:00 PM">
+                <input type="text" name="activity_desc[]" class="form-control form-control-sm"
+                       placeholder="EOD WRAP">
+                <button type="button" class="remove-act-btn" onclick="removeRow(this)">✕</button>
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-adi">{{ btn_label }}</button>
+            <a href="{{ url_for('schedule.template_list') }}"
+               class="btn btn-outline-secondary">Cancel</a>
+          </div>
+
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</div><!-- /split-layout -->
+
+<script>
+// ── Drag-to-reorder ───────────────────────────────────────────────────────────
+let _dragRow = null;
+
+function bindDragEvents(row) {
+  const handle = row.querySelector('.drag-handle');
+  if (!handle) return;
+
+  handle.addEventListener('mousedown', () => row.draggable = true);
+  handle.addEventListener('mouseup',   () => row.draggable = false);
+
+  row.addEventListener('dragstart', e => {
+    _dragRow = row;
+    row.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  row.addEventListener('dragend', () => {
+    row.classList.remove('dragging');
+    row.draggable = false;
+    document.querySelectorAll('.activity-row-tpl').forEach(r => r.classList.remove('drag-over'));
+    _dragRow = null;
+  });
+  row.addEventListener('dragover', e => {
+    e.preventDefault();
+    if (_dragRow && _dragRow !== row) row.classList.add('drag-over');
+  });
+  row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+  row.addEventListener('drop', e => {
+    e.preventDefault();
+    row.classList.remove('drag-over');
+    if (!_dragRow || _dragRow === row) return;
+    const container = document.getElementById('activity-rows');
+    const rows = [...container.querySelectorAll('.activity-row-tpl')];
+    const fromIdx = rows.indexOf(_dragRow);
+    const toIdx   = rows.indexOf(row);
+    container.insertBefore(_dragRow, fromIdx < toIdx ? row.nextSibling : row);
+  });
+}
+
+// ── Add / remove rows ─────────────────────────────────────────────────────────
+function addActivityRow() {
+  const container = document.getElementById('activity-rows');
+  const row = document.createElement('div');
+  row.className = 'activity-row-tpl';
+  row.innerHTML = `
+    <span class="drag-handle" title="Drag to reorder">⠿</span>
+    <input type="text" name="activity_time[]"
+           class="form-control form-control-sm act-time-col" placeholder="8:00 AM">
+    <input type="text" name="activity_desc[]"
+           class="form-control form-control-sm" placeholder="Description">
+    <button type="button" class="remove-act-btn" onclick="removeRow(this)" title="Remove">✕</button>
+  `;
+  container.appendChild(row);
+  bindDragEvents(row);
+  row.querySelectorAll('input')[0].focus();
+}
+
+function removeRow(btn) {
+  const rows = document.querySelectorAll('#activity-rows .activity-row-tpl');
+  if (rows.length <= 1) { alert('At least one activity row is required.'); return; }
+  btn.closest('.activity-row-tpl').remove();
+}
+
+// Bind drag events to rows that exist on page load
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('#activity-rows .activity-row-tpl').forEach(bindDragEvents);
+});
+</script>
+{% endblock %}

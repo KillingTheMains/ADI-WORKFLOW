@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Call Sheet — {{ day.date.strftime('%b %-d, %Y') }} — {{ show.name }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --navy:   #071B34;
+      --blue:   #2F80ED;
+      --blue-lt:#6BA5F5;
+      --surface:#F0F4F8;
+      --border: #DDE3ED;
+      --muted:  #64748B;
+      --text:   #1E1E1E;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', Arial, sans-serif;
+      font-size: 11pt;
+      color: var(--text);
+      background: #fff;
+      padding: 0;
+    }
+
+    /* ── Screen wrapper ── */
+    .screen-wrapper {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px 24px 48px;
+    }
+
+    /* ── No-print toolbar ── */
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0 20px;
+      gap: 12px;
+    }
+    .toolbar .back-link {
+      font-size: .83rem;
+      color: var(--blue);
+      text-decoration: none;
+    }
+    .toolbar .back-link:hover { text-decoration: underline; }
+    .btn-print {
+      background: var(--navy);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 20px;
+      font-size: .85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-print:hover { background: #0D2549; }
+
+    /* ── Call Sheet document ── */
+    .call-sheet {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    /* Header band */
+    .cs-header {
+      background: var(--navy);
+      color: #fff;
+      padding: 18px 24px 14px;
+    }
+    .cs-show-code {
+      font-size: .65rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--blue-lt);
+      margin-bottom: 2px;
+    }
+    .cs-show-name {
+      font-size: 1.25rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .cs-venue {
+      font-size: .8rem;
+      color: rgba(255,255,255,.6);
+      margin-top: 2px;
+    }
+
+    /* Day info strip */
+    .cs-day-strip {
+      background: #0D2549;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0;
+      border-top: 1px solid rgba(255,255,255,.08);
+    }
+    .cs-day-cell {
+      padding: 10px 20px;
+      border-right: 1px solid rgba(255,255,255,.08);
+    }
+    .cs-day-cell:last-child { border-right: none; }
+    .cs-day-label {
+      font-size: .62rem;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: rgba(255,255,255,.4);
+      margin-bottom: 2px;
+    }
+    .cs-day-value {
+      font-size: .88rem;
+      font-weight: 600;
+      color: #fff;
+    }
+    .cs-day-value.blue { color: var(--blue-lt); }
+
+    /* Conflict warning */
+    .conflict-banner {
+      background: #FEF3C7;
+      border-bottom: 1px solid #F59E0B;
+      padding: 8px 20px;
+      font-size: .8rem;
+      font-weight: 600;
+      color: #92400E;
+    }
+
+    /* Section header (department) */
+    .cs-dept-header {
+      background: var(--surface);
+      padding: 6px 20px;
+      font-size: .68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Crew table */
+    table.cs-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .82rem;
+    }
+    table.cs-table thead tr {
+      background: #F8FAFC;
+      border-bottom: 2px solid var(--border);
+    }
+    table.cs-table th {
+      padding: 7px 12px;
+      text-align: left;
+      font-size: .68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    table.cs-table td {
+      padding: 7px 12px;
+      border-bottom: 1px solid #F1F5F9;
+      vertical-align: middle;
+    }
+    table.cs-table tr:last-child td { border-bottom: none; }
+    table.cs-table tr.conflict-row td {
+      background: #FFFBEB;
+    }
+    table.cs-table tr.conflict-row td:first-child {
+      border-left: 3px solid #F59E0B;
+    }
+
+    .name-cell { font-weight: 600; color: var(--text); }
+    .time-cell { font-weight: 700; color: var(--blue); white-space: nowrap; }
+    .conflict-badge {
+      display: inline-block;
+      background: #FEF3C7;
+      color: #92400E;
+      font-size: .62rem;
+      font-weight: 700;
+      border-radius: 4px;
+      padding: 1px 5px;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+
+    /* Footer */
+    .cs-footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: .75rem;
+      color: var(--muted);
+    }
+
+    /* Travel info card */
+    .travel-card {
+      margin: 0;
+      border-top: 1px solid var(--border);
+      padding: 16px 20px;
+      background: #F0F9FF;
+    }
+    .travel-card-title {
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--blue);
+      margin-bottom: 10px;
+    }
+    .travel-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 8px 16px;
+    }
+    .travel-item label {
+      font-size: .65rem;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 1px;
+    }
+    .travel-item span {
+      font-weight: 600;
+      font-size: .83rem;
+      color: var(--text);
+    }
+
+    /* View toggle tabs */
+    .view-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .view-tab {
+      padding: 8px 16px;
+      font-size: .78rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--muted);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+    .view-tab.active {
+      color: var(--blue);
+      border-bottom-color: var(--blue);
+    }
+    .view-section { display: none; }
+    .view-section.active { display: block; }
+
+    /* ── Print styles ── */
+    @media print {
+      .toolbar, .view-tabs { display: none !important; }
+      .screen-wrapper { padding: 0; max-width: 100%; }
+      .call-sheet { border: none; border-radius: 0; }
+      body { font-size: 9pt; }
+      .cs-show-name { font-size: 14pt; }
+      .view-section { display: block !important; }
+      .cs-footer { position: fixed; bottom: 0; left: 0; right: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="screen-wrapper">
+
+  <!-- Toolbar (hidden on print) -->
+  <div class="toolbar no-print">
+    <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=day.id) }}"
+       class="back-link">← Back to Day Editor</a>
+    <div class="d-flex gap-2" style="display:flex;gap:8px;">
+      <a href="{{ url_for('schedule.overview', show_id=show.id) }}"
+         style="font-size:.83rem;color:var(--muted);text-decoration:none;
+                padding:8px 14px;border:1px solid var(--border);border-radius:6px;">
+        📅 Schedule
+      </a>
+      <button class="btn-print" onclick="window.print()">🖨 Print / Save PDF</button>
+    </div>
+  </div>
+
+  <div class="call-sheet">
+
+    <!-- Show + day header -->
+    <div class="cs-header">
+      <div class="cs-show-code">{{ show.code or 'SHOW' }} · DAILY CALL SHEET</div>
+      <div class="cs-show-name">{{ show.name }}</div>
+      {% if show.venue %}
+      <div class="cs-venue">{{ show.venue.name }}{% if show.venue.city %}, {{ show.venue.city }}{% endif %}{% if show.venue.state %}, {{ show.venue.state }}{% endif %}</div>
+      {% endif %}
+    </div>
+
+    <!-- Day info strip -->
+    <div class="cs-day-strip">
+      <div class="cs-day-cell">
+        <div class="cs-day-label">Date</div>
+        <div class="cs-day-value">{{ day.date.strftime('%A, %B %-d, %Y') }}</div>
+      </div>
+      {% if day.label %}
+      <div class="cs-day-cell">
+        <div class="cs-day-label">Day Label</div>
+        <div class="cs-day-value">{{ day.label }}</div>
+      </div>
+      {% endif %}
+      {% if day.phase %}
+      <div class="cs-day-cell">
+        <div class="cs-day-label">Phase</div>
+        <div class="cs-day-value blue">{{ day.phase }}</div>
+      </div>
+      {% endif %}
+      {% if day.call_time %}
+      <div class="cs-day-cell">
+        <div class="cs-day-label">Crew Call</div>
+        <div class="cs-day-value blue">{{ day.call_time }}</div>
+      </div>
+      {% endif %}
+      {% if day.wrap_time %}
+      <div class="cs-day-cell">
+        <div class="cs-day-label">Wrap</div>
+        <div class="cs-day-value">{{ day.wrap_time }}</div>
+      </div>
+      {% endif %}
+      <div class="cs-day-cell">
+        <div class="cs-day-label">Total Crew</div>
+        <div class="cs-day-value">{{ total_crew }} people</div>
+      </div>
+    </div>
+
+    {% if conflicts %}
+    <div class="conflict-banner">
+      ⚠ Double-booking detected — highlighted rows below contain crew members appearing on multiple activities.
+    </div>
+    {% endif %}
+
+    <!-- Travel info (if travel day) -->
+    {% if day.phase == 'Travel' and (day.travel_flight_number or day.travel_airline or day.travel_hotel_name) %}
+    <div class="travel-card">
+      <div class="travel-card-title">✈ Travel Details</div>
+      <div class="travel-grid">
+        {% if day.travel_airline %}
+        <div class="travel-item"><label>Airline</label><span>{{ day.travel_airline }}</span></div>
+        {% endif %}
+        {% if day.travel_flight_number %}
+        <div class="travel-item"><label>Flight</label><span>{{ day.travel_flight_number }}</span></div>
+        {% endif %}
+        {% if day.travel_depart_airport %}
+        <div class="travel-item"><label>Departs</label><span>{{ day.travel_depart_airport }}{% if day.travel_depart_time %} at {{ day.travel_depart_time }}{% endif %}</span></div>
+        {% endif %}
+        {% if day.travel_arrive_airport %}
+        <div class="travel-item"><label>Arrives</label><span>{{ day.travel_arrive_airport }}{% if day.travel_arrive_time %} at {{ day.travel_arrive_time }}{% endif %}</span></div>
+        {% endif %}
+        {% if day.travel_hotel_name %}
+        <div class="travel-item"><label>Hotel</label><span>{{ day.travel_hotel_name }}</span></div>
+        {% endif %}
+        {% if day.travel_hotel_confirm %}
+        <div class="travel-item"><label>Confirmation</label><span>{{ day.travel_hotel_confirm }}</span></div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- View toggle tabs -->
+    <div class="view-tabs no-print" style="padding:0 20px;background:#fff;">
+      <button class="view-tab active" onclick="switchView('by-call', this)">By Call Time</button>
+      <button class="view-tab" onclick="switchView('by-dept', this)">By Department</button>
+    </div>
+
+    <!-- ── By Call Time view ── -->
+    <div class="view-section active" id="view-by-call">
+      {% if crew_lines %}
+      <table class="cs-table">
+        <thead>
+          <tr>
+            <th style="width:80px;">Call</th>
+            <th>Name</th>
+            <th style="width:160px;">Position</th>
+            <th style="width:180px;">Activity</th>
+            <th style="width:40px;text-align:center;">Qty</th>
+            <th style="width:50px;text-align:center;">Hrs</th>
+            <th style="width:100px;">Type</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for line in crew_lines %}
+          <tr {% if line.conflict %}class="conflict-row"{% endif %}>
+            <td class="time-cell">{{ line.act_time or '—' }}</td>
+            <td class="name-cell">
+              {{ line.name }}
+              {% if line.conflict %}<span class="conflict-badge">⚠ DBL</span>{% endif %}
+            </td>
+            <td>{{ line.position or '—' }}</td>
+            <td style="font-size:.78rem;color:var(--muted);">{{ line.act_desc[:45] }}</td>
+            <td style="text-align:center;">{{ line.qty }}</td>
+            <td style="text-align:center;">{{ '%.1f'|format(line.hours) if line.hours else '—' }}</td>
+            <td style="font-size:.78rem;">{{ line.crew_type }}</td>
+            <td style="font-size:.78rem;color:var(--muted);">{{ line.notes }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="padding:32px 20px;text-align:center;color:var(--muted);font-size:.85rem;">
+        No crew assigned to this day yet.
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ── By Department view ── -->
+    <div class="view-section" id="view-by-dept">
+      {% for dept, lines in by_dept.items() %}
+      <div class="cs-dept-header">{{ dept }}</div>
+      <table class="cs-table">
+        <thead>
+          <tr>
+            <th style="width:80px;">Call</th>
+            <th>Name</th>
+            <th style="width:160px;">Position</th>
+            <th style="width:180px;">Activity</th>
+            <th style="width:40px;text-align:center;">Qty</th>
+            <th style="width:50px;text-align:center;">Hrs</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for line in lines %}
+          <tr {% if line.conflict %}class="conflict-row"{% endif %}>
+            <td class="time-cell">{{ line.act_time or '—' }}</td>
+            <td class="name-cell">
+              {{ line.name }}
+              {% if line.conflict %}<span class="conflict-badge">⚠ DBL</span>{% endif %}
+            </td>
+            <td>{{ line.position or '—' }}</td>
+            <td style="font-size:.78rem;color:var(--muted);">{{ line.act_desc[:45] }}</td>
+            <td style="text-align:center;">{{ line.qty }}</td>
+            <td style="text-align:center;">{{ '%.1f'|format(line.hours) if line.hours else '—' }}</td>
+            <td style="font-size:.78rem;color:var(--muted);">{{ line.notes }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endfor %}
+    </div>
+
+    <!-- Footer -->
+    <div class="cs-footer">
+      <span>{{ show.code or show.name }} · {{ day.date.strftime('%B %-d, %Y') }}</span>
+      <span>{{ show.version_label }} · Generated {{ now.strftime('%b %-d, %Y') }}</span>
+    </div>
+
+  </div><!-- /.call-sheet -->
+</div><!-- /.screen-wrapper -->
+
+<script>
+function switchView(id, btn) {
+  document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+
+</body>
+</html>

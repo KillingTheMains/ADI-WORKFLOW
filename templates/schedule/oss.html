@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ show.name }} — OSS {{ show.version_label }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #000; }
+
+    .no-print { background: #1C2333; color: #fff; padding: 10px 20px;
+                display: flex; gap: 12px; align-items: center; }
+    .no-print a { color: #C9A84C; font-size: .85rem; }
+    .no-print button { background: #C9A84C; color: #1C2333; border: none;
+                       padding: 6px 18px; border-radius: 4px; font-weight: 700;
+                       cursor: pointer; }
+
+    .oss-page {
+      width: 8.5in;
+      min-height: 11in;
+      padding: 0.55in 0.65in 0.75in;
+      margin: 16px auto;
+      background: #fff;
+      border: 1px solid #ddd;
+      position: relative;
+    }
+
+    /* Repeating page header */
+    .page-header {
+      border-bottom: 1.5pt solid #000;
+      padding-bottom: 5pt;
+      margin-bottom: 10pt;
+    }
+    .page-header .event-name { font-size: 11pt; font-weight: bold; }
+    .page-header .sub-line   { font-size: 8pt; color: #444; margin-top: 1pt; }
+
+    /* Cover page */
+    .cover-event   { font-size: 16pt; font-weight: bold; margin-bottom: 4pt; }
+    .cover-venue   { font-size: 11pt; font-weight: bold; color: #333; }
+    .cover-dates   { font-size: 10pt; color: #555; margin-bottom: 16pt; }
+    .cover-version { font-size: 9pt; color: #777; margin-bottom: 20pt; }
+
+    /* Overview table */
+    .overview-table { width: 100%; border-collapse: collapse; margin-bottom: 20pt; }
+    .overview-table th {
+      background: #1C2333; color: #fff; padding: 5pt 8pt;
+      font-size: 8pt; text-align: left; text-transform: uppercase; letter-spacing: .05em;
+    }
+    .overview-table td { padding: 4pt 8pt; font-size: 8.5pt; border-bottom: .5pt solid #ddd; }
+    .overview-table tr:nth-child(even) td { background: #F8F8F8; }
+
+    /* Day header */
+    .day-header {
+      background: #1C2333; color: #fff;
+      padding: 5pt 8pt;
+      margin-bottom: 8pt;
+    }
+    .day-header .dh-date  { font-size: 10pt; font-weight: bold; }
+    .day-header .dh-window{ font-size: 8pt; color: #C9A84C; margin-top: 1pt; }
+    .day-header .dh-phase { font-size: 7.5pt; color: rgba(255,255,255,.6); }
+
+    /* Activity block */
+    .activity-block { margin-bottom: 10pt; padding-left: 10pt;
+                      border-left: 2pt solid #C9A84C; }
+    .activity-time  { font-size: 8pt; font-weight: bold; color: #C9A84C;
+                      text-transform: uppercase; letter-spacing: .04em; }
+    .activity-desc  { font-size: 9.5pt; font-weight: bold; margin: 1pt 0 4pt; }
+    .activity-notes { font-size: 8pt; color: #555; font-style: italic; margin-bottom: 4pt; }
+
+    /* Crew table */
+    .crew-tbl { width: 100%; border-collapse: collapse; margin-top: 3pt; }
+    .crew-tbl th {
+      background: #F0F0F0; font-size: 7.5pt; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .04em;
+      padding: 3pt 6pt; text-align: left; border-bottom: .5pt solid #ccc;
+    }
+    .crew-tbl td { padding: 2.5pt 6pt; font-size: 8.5pt; border-bottom: .3pt solid #eee; }
+    .crew-tbl .group-hdr td {
+      background: #E8E8E8; font-weight: 700; font-size: 7.5pt;
+      text-transform: uppercase; letter-spacing: .06em; padding: 3pt 6pt;
+    }
+
+    /* Milestones */
+    .milestones { margin-top: 10pt; border-top: .5pt dashed #ccc; padding-top: 6pt; }
+    .milestones .ml-title { font-size: 7.5pt; font-weight: 700; text-transform: uppercase;
+                            letter-spacing: .06em; color: #777; margin-bottom: 3pt; }
+    .milestones ul { padding-left: 14pt; margin: 0; }
+    .milestones ul li { font-size: 8pt; margin-bottom: 2pt; }
+
+    /* Page footer */
+    .page-footer {
+      position: absolute; bottom: 0.35in; left: 0.65in; right: 0.65in;
+      border-top: .5pt solid #ccc; padding-top: 3pt;
+      font-size: 7pt; color: #999; display: flex; justify-content: space-between;
+    }
+
+    .continued { text-align: right; font-size: 7.5pt; font-style: italic;
+                 color: #777; margin-top: 8pt; }
+
+    @media print {
+      .no-print { display: none !important; }
+      .oss-page { border: none; margin: 0; page-break-after: always; }
+      body { background: #fff; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Print controls (hidden on print) -->
+<div class="no-print">
+  <span style="font-weight:700;">OSS Preview — {{ show.name }}</span>
+  <button onclick="window.print()">🖨 Print / Save PDF</button>
+  <a href="{{ url_for('schedule.overview', show_id=show.id) }}">← Back to Schedule</a>
+</div>
+
+{% set filename = (show.code or 'ADI') ~ '_' ~ show.name|replace(' ','_') ~ '_OSS_v' ~ show.version %}
+{% set today_str = now.strftime('%m/%d/%y') if now else '' %}
+
+<!-- ═══ COVER PAGE ═══ -->
+<div class="oss-page">
+  <div style="margin-bottom:24pt;">
+    <div class="cover-event">{{ show.name }}</div>
+    {% if show.venue %}
+    <div class="cover-venue">{{ show.venue.name }}</div>
+    <div class="cover-venue" style="font-weight:normal;">
+      {{ show.venue.city }}{% if show.venue.state %}, {{ show.venue.state }}{% endif %}
+    </div>
+    {% endif %}
+    {% if show.room_name %}
+    <div class="cover-dates">{{ show.room_name }}</div>
+    {% endif %}
+    <div class="cover-dates">{{ show.date_range }}</div>
+    <div class="cover-version">{{ show.version_label }}</div>
+  </div>
+
+  <!-- Daily overview table -->
+  {% if show.days %}
+  <table class="overview-table">
+    <thead>
+      <tr>
+        <th style="width:80pt;">Day</th>
+        <th style="width:80pt;">Date</th>
+        <th>Activity</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for day in show.days %}
+      <tr>
+        <td>{{ day.date.strftime('%A') }}</td>
+        <td>{{ day.date.strftime('%B %-d, %Y') }}</td>
+        <td>
+          {{ day.label or day.phase or '' }}
+          {% if day.time_window %} ({{ day.time_window }}){% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if show.venue and (show.venue.wifi_ssid or show.venue.wifi_password) %}
+  <div style="margin-top:16pt;font-size:8.5pt;">
+    <strong>Production WiFi:</strong> {{ show.venue.wifi_ssid }}
+    {% if show.venue.wifi_password %} / <strong>Pass:</strong> {{ show.venue.wifi_password }}{% endif %}
+  </div>
+  {% endif %}
+
+  <div class="page-footer">
+    <span>{{ filename }}.xlsx</span>
+    <span>Page 1 of {{ show.days|length + 1 }}</span>
+    <span>Printed {{ today_str }}</span>
+  </div>
+</div>
+
+<!-- ═══ DAILY PAGES ═══ -->
+{% for day in show.days %}
+<div class="oss-page">
+
+  <div class="page-header">
+    <div class="event-name">{{ show.name }}</div>
+    <div class="sub-line">{{ show.version_label }} · {{ show.updated_at.strftime('%m/%d/%y') if show.updated_at else '' }}</div>
+  </div>
+
+  <div class="day-header">
+    <div class="dh-date">{{ day.day_header }}</div>
+    {% if day.time_window %}
+    <div class="dh-window">{{ day.time_window }}</div>
+    {% endif %}
+    {% if day.phase %}
+    <div class="dh-phase">{{ day.phase }}{% if day.label %} · {{ day.label }}{% endif %}</div>
+    {% endif %}
+  </div>
+
+  {% if day.activities %}
+    {% for act in day.activities %}
+    <div class="activity-block">
+      <div class="activity-time">{{ act.time or '' }}</div>
+      <div class="activity-desc">{{ act.description }}</div>
+      {% if act.notes %}
+      <div class="activity-notes">{{ act.notes }}</div>
+      {% endif %}
+
+      {% if act.crew_rows %}
+      <table class="crew-tbl">
+        <thead>
+          <tr>
+            <th style="width:30pt;">Qty</th>
+            <th style="width:35pt;">Hrs</th>
+            <th style="width:140pt;">Position</th>
+            <th>Name</th>
+            <th style="width:70pt;">Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in act.crew_rows %}
+          {% if row.is_group_header %}
+          <tr class="group-hdr"><td colspan="5">{{ row.group_label }}</td></tr>
+          {% else %}
+          <tr>
+            <td>{{ row.qty }}</td>
+            <td>{{ row.hours if row.hours else '—' }}</td>
+            <td>{{ row.position or '—' }}</td>
+            <td>{{ row.display_name }}</td>
+            <td>{{ row.notes or '' }}</td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </div>
+    {% endfor %}
+  {% else %}
+  <div style="font-size:8.5pt;color:#999;font-style:italic;padding-left:10pt;">
+    No activities scheduled for this day.
+  </div>
+  {% endif %}
+
+  {% if day.milestone_list %}
+  <div class="milestones">
+    <div class="ml-title">Milestones — End of Day</div>
+    <ul>
+      {% for m in day.milestone_list %}
+      <li>{{ m }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <div class="page-footer">
+    <span>{{ filename }}.xlsx</span>
+    <span>Page {{ loop.index + 1 }} of {{ show.days|length + 1 }}</span>
+    <span>Printed {{ today_str }}</span>
+  </div>
+</div>
+{% endfor %}
+
+</body>
+</html>

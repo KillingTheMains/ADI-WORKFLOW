@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}{{ show.name }} — ADI Workflow{% endblock %}
+{% block page_title %}{{ show.name }}{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> /
+  <a href="{{ url_for('shows.index') }}">Shows</a> / {{ show.code or show.name }}
+{% endblock %}
+
+{% block top_actions %}
+  <a href="{{ url_for('schedule.overview', show_id=show.id) }}" class="btn btn-sm btn-adi">
+    📅 Schedule
+  </a>
+  <a href="{{ url_for('show_crew.show_crew', show_id=show.id) }}" class="btn btn-sm btn-outline-secondary">
+    👥 Crew
+  </a>
+  <a href="{{ url_for('show_crew.hours_report', show_id=show.id) }}" class="btn btn-sm btn-outline-secondary">
+    ⏱ Hours
+  </a>
+  <a href="{{ url_for('show_crew.contact_sheet', show_id=show.id) }}" class="btn btn-sm btn-outline-secondary" target="_blank">
+    📋 Contacts
+  </a>
+  <a href="{{ url_for('shows.edit', show_id=show.id) }}" class="btn btn-sm btn-dark">
+    Edit Show
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+
+  <!-- Show info card -->
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header gold">Show Info</div>
+      <div class="card-body p-3">
+        <table style="width:100%;font-size:.85rem;">
+          <tr>
+            <td class="text-muted pe-3" style="width:90px;padding:5px 0;">Code</td>
+            <td style="padding:5px 0;font-weight:600;">{{ show.code or '—' }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted pe-3" style="padding:5px 0;">Status</td>
+            <td style="padding:5px 0;">
+              <span class="status-badge status-{{ show.status }}">{{ show.status }}</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="text-muted pe-3" style="padding:5px 0;">Version</td>
+            <td style="padding:5px 0;">{{ show.version_label }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted pe-3" style="padding:5px 0;">Client</td>
+            <td style="padding:5px 0;">{{ show.client.name if show.client else '—' }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted pe-3" style="padding:5px 0;">Venue</td>
+            <td style="padding:5px 0;">
+              {% if show.venue %}{{ show.venue.name }}<br>
+              <span class="text-muted" style="font-size:.78rem;">{{ show.venue.city }}, {{ show.venue.state }}</span>
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td class="text-muted pe-3" style="padding:5px 0;">Room</td>
+            <td style="padding:5px 0;">{{ show.room_name or '—' }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted pe-3" style="padding:5px 0;">Load In</td>
+            <td style="padding:5px 0;">{{ show.load_in_date.strftime('%a, %b %-d, %Y') if show.load_in_date else '—' }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted pe-3" style="padding:5px 0;">Show</td>
+            <td style="padding:5px 0;">
+              {% if show.show_start %}
+                {{ show.show_start.strftime('%b %-d') }}
+                {% if show.show_end and show.show_end != show.show_start %}
+                  – {{ show.show_end.strftime('%b %-d, %Y') }}
+                {% else %}
+                  , {{ show.show_start.strftime('%Y') }}
+                {% endif %}
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td class="text-muted pe-3" style="padding:5px 0;">Strike</td>
+            <td style="padding:5px 0;">{{ show.strike_date.strftime('%a, %b %-d, %Y') if show.strike_date else '—' }}</td>
+          </tr>
+        </table>
+        {% if show.notes %}
+        <div class="divider"></div>
+        <div class="text-muted" style="font-size:.8rem;">{{ show.notes }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Danger zone -->
+    <div class="card mt-3 border-danger">
+      <div class="card-body p-3">
+        <div style="font-size:.8rem;font-weight:600;color:#DC2626;margin-bottom:8px;">Danger Zone</div>
+        <form method="POST" action="{{ url_for('shows.delete', show_id=show.id) }}"
+              onsubmit="return confirm('Delete {{ show.name }}? This cannot be undone.');">
+          <button type="submit" class="btn btn-sm btn-outline-danger w-100">
+            Delete Show
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Schedule summary -->
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span>Schedule Overview</span>
+        <a href="{{ url_for('schedule.overview', show_id=show.id) }}"
+           class="btn btn-sm btn-adi">Open Schedule Builder →</a>
+      </div>
+      <div class="card-body p-3">
+        {% if show.days %}
+          <table class="table table-sm" style="font-size:.82rem;">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Label</th>
+                <th>Phase</th>
+                <th>Call / Wrap</th>
+                <th>Activities</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for day in show.days %}
+              <tr>
+                <td>
+                  <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=day.id) }}"
+                     style="font-weight:600;">
+                    {{ day.date.strftime('%a %-m/%-d') }}
+                  </a>
+                </td>
+                <td>{{ day.label or '—' }}</td>
+                <td>
+                  {% if day.phase %}
+                  <span class="phase-pill" style="font-size:.68rem;">{{ day.phase }}</span>
+                  {% else %}—{% endif %}
+                </td>
+                <td class="text-muted">{{ day.time_window or '—' }}</td>
+                <td>{{ day.activities|length }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty-state py-4">
+            <div class="empty-icon">📅</div>
+            <div style="font-size:.9rem;font-weight:600;margin-bottom:6px;">No schedule days yet</div>
+            <p class="text-muted" style="font-size:.82rem;">
+              Open the Schedule Builder to add days and activities.
+            </p>
+            <a href="{{ url_for('schedule.overview', show_id=show.id) }}"
+               class="btn btn-sm btn-adi mt-1">Open Schedule Builder</a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Quick links -->
+    <div class="row g-2 mt-1">
+      {% set modules = [
+        ('📋', 'RFQ Builder', '#', True),
+        ('💰', 'Budget', '#', True),
+        ('🍽', 'F&B Schedule', '#', True),
+        ('🎤', 'Rehearsal Schedule', '#', True),
+        ('🚚', 'Dock Schedule', '#', True),
+        ('👥', 'COMMS', '#', True),
+      ] %}
+      {% for icon, label, href, disabled in modules %}
+      <div class="col-md-4">
+        <div class="card p-3 text-center {% if disabled %}opacity-50{% endif %}"
+             style="font-size:.8rem;">
+          <div style="font-size:1.3rem;">{{ icon }}</div>
+          <div style="font-weight:600;margin-top:4px;">{{ label }}</div>
+          {% if disabled %}
+          <div class="text-muted" style="font-size:.7rem;">Coming soon</div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

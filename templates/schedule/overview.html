@@ -1,0 +1,474 @@
+{% extends "base.html" %}
+{% block title %}Schedule — {{ show.name }}{% endblock %}
+{% block page_title %}Schedule Builder{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> /
+  <a href="{{ url_for('shows.detail', show_id=show.id) }}">{{ show.name }}</a> / Schedule
+{% endblock %}
+
+{% block top_actions %}
+  {% if show.load_in_date and show.strike_date %}
+  <form method="POST" action="{{ url_for('schedule.generate_days', show_id=show.id) }}"
+        style="display:inline;" id="gen-days-form">
+    <div class="d-inline-flex align-items-center gap-2">
+      <div class="form-check form-check-inline mb-0" style="font-size:.78rem;">
+        <input class="form-check-input" type="checkbox" name="with_templates" value="1"
+               id="with-templates-chk">
+        <label class="form-check-label text-muted" for="with-templates-chk"
+               style="cursor:pointer;" title="Seed each day with standard activities based on its phase">
+          with templates
+        </label>
+      </div>
+      <button type="submit" class="btn btn-sm btn-outline-secondary"
+              onclick="return confirm('Auto-generate all days between Load-In and Strike?');">
+        ⚡ Auto-Generate Days
+      </button>
+    </div>
+  </form>
+  {% endif %}
+  <a href="{{ url_for('schedule.add_day', show_id=show.id) }}" class="btn btn-sm btn-adi">
+    + Add Day
+  </a>
+  {% if show.days %}
+  <a href="{{ url_for('schedule.oss_view', show_id=show.id) }}" class="btn btn-sm btn-dark"
+     target="_blank">
+    🖨 OSS Preview
+  </a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+<!-- Show header summary -->
+<div class="card mb-4" style="background:var(--adi-dark);border-color:var(--adi-dark);">
+  <div class="card-body p-3">
+    <div class="row align-items-center">
+      <div class="col">
+        <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+                    color:var(--adi-gold);">{{ show.code or 'SHOW' }}</div>
+        <div style="font-size:1.1rem;font-weight:700;color:#fff;">{{ show.name }}</div>
+        <div style="font-size:.8rem;color:rgba(255,255,255,.6);">
+          {% if show.venue %}{{ show.venue.name }}, {{ show.venue.city }}{% endif %}
+          {% if show.date_range %} · {{ show.date_range }}{% endif %}
+        </div>
+      </div>
+      <div class="col-auto text-end">
+        <div style="font-size:.75rem;color:var(--adi-gold);">{{ show.version_label }}</div>
+        <div style="font-size:.75rem;color:rgba(255,255,255,.4);">
+          {{ show.days|length }} day{{ 's' if show.days|length != 1 }}
+          {% set act_count = namespace(n=0) %}{% for d in show.days %}{% set act_count.n = act_count.n + d.activities|length %}{% endfor %}· {{ act_count.n }} activities
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if show.days %}
+
+<!-- View toggle -->
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div class="btn-group btn-group-sm" role="group">
+    <button type="button" class="btn btn-adi" id="view-list-btn"
+            onclick="setView('list')">☰ List</button>
+    <button type="button" class="btn btn-outline-secondary" id="view-timeline-btn"
+            onclick="setView('timeline')">📅 Timeline</button>
+  </div>
+</div>
+
+<!-- Phase legend -->
+<div class="d-flex gap-2 flex-wrap mb-3">
+  {% set phase_colors = {
+    'Equipment Delivery': '#7C3AED',
+    'Load In': '#1D4ED8',
+    'Setup': '#0369A1',
+    'Tech Rehearsal': '#0F766E',
+    'Executive Rehearsal': '#15803D',
+    'Presenter Rehearsal': '#4D7C0F',
+    'Show Day': '#B45309',
+    'Strike': '#9F1239',
+    'Travel': '#6B7280',
+    'Dark': '#374151',
+  } %}
+  {% for phase, color in phase_colors.items() %}
+  <span style="font-size:.68rem;background:{{ color }}20;color:{{ color }};
+               border:1px solid {{ color }}40;border-radius:10px;padding:2px 8px;">
+    {{ phase }}
+  </span>
+  {% endfor %}
+</div>
+
+<!-- Day list -->
+{% for day in show.days %}
+<div class="day-card">
+  <div class="day-header-bar">
+    <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=day.id) }}"
+       style="text-decoration:none;">
+      <div class="day-date" style="color:#fff;">
+        {{ day.date.strftime('%A, %B %-d, %Y') }}
+      </div>
+      {% if day.label %}
+      <div style="font-size:.78rem;color:rgba(255,255,255,.6);margin-top:1px;">
+        {{ day.label }}
+      </div>
+      {% endif %}
+    </a>
+    {% if day.time_window %}
+    <div class="day-time">{{ day.time_window }}</div>
+    {% endif %}
+    {% if day.phase %}
+    <div class="phase-pill">{{ day.phase }}</div>
+    {% endif %}
+    <div class="ms-auto d-flex gap-2 align-items-center">
+      {% set clone_label = day.date.strftime('%b %-d') %}
+      <form method="POST"
+            action="{{ url_for('schedule.clone_day', show_id=show.id, day_id=day.id) }}"
+            style="display:inline;"
+            onsubmit="return confirm('Clone {{ clone_label }} to the next day?');">
+        <button type="submit" class="btn btn-sm"
+                style="font-size:.72rem;background:rgba(255,255,255,.07);
+                       color:rgba(255,255,255,.65);border:none;"
+                title="Clone this day">
+          ⧉ Clone
+        </button>
+      </form>
+      <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=day.id) }}"
+         class="btn btn-sm" style="font-size:.72rem;background:rgba(255,255,255,.1);
+                                   color:#fff;border:none;">
+        Edit →
+      </a>
+    </div>
+  </div>
+
+  {% if day.activities %}
+  <div class="p-3">
+    {% for act in day.activities[:4] %}
+    <div class="d-flex gap-2 align-items-baseline mb-1" style="font-size:.82rem;">
+      <span style="min-width:70px;font-weight:600;color:var(--adi-gold);">
+        {{ act.time or '—' }}
+      </span>
+      <span>{{ act.description }}</span>
+      {% if act.crew_rows %}
+      <span class="text-muted" style="font-size:.72rem;margin-left:auto;">
+        {{ act.crew_rows|length }} crew
+      </span>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% if day.activities|length > 4 %}
+    <div class="text-muted" style="font-size:.75rem;margin-top:4px;">
+      + {{ day.activities|length - 4 }} more activities…
+    </div>
+    {% endif %}
+    {% if day.milestone_list %}
+    <div class="mt-2 pt-2" style="border-top:1px dashed var(--adi-border);">
+      <span style="font-size:.7rem;font-weight:600;text-transform:uppercase;
+                   letter-spacing:.06em;color:var(--adi-muted);">Milestones</span>
+      {% for m in day.milestone_list %}
+      <div style="font-size:.78rem;color:var(--adi-muted);margin-top:2px;">• {{ m }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <div style="padding:10px 16px;font-size:.8rem;color:var(--adi-muted);">
+    No activities yet —
+    <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=day.id) }}">
+      add some
+    </a>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+
+<!-- ══ TIMELINE VIEW ════════════════════════════════════════════════════════ -->
+<div id="timeline-view" style="display:none;">
+  {% set phase_colors = {
+    'Equipment Delivery': '#7C3AED',
+    'Load In': '#1D4ED8',
+    'Setup': '#0369A1',
+    'Tech Rehearsal': '#0F766E',
+    'Executive Rehearsal': '#15803D',
+    'Presenter Rehearsal': '#4D7C0F',
+    'Show Day': '#B45309',
+    'Strike': '#9F1239',
+    'Travel': '#6B7280',
+    'Dark': '#374151',
+  } %}
+
+  <div class="card" style="overflow-x:auto;">
+    <div class="card-body p-3" style="min-width:700px;">
+
+      <!-- Time axis: 6 AM – midnight -->
+      {% set hours = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23] %}
+      {% set total_hours = 18 %}
+
+      <div style="display:grid;grid-template-columns:110px 1fr;gap:0;">
+
+        <!-- Header row -->
+        <div style="padding:0 0 4px;font-size:.65rem;font-weight:700;color:var(--adi-muted);
+                    text-transform:uppercase;letter-spacing:.06em;">Day</div>
+        <div style="position:relative;height:22px;margin-bottom:6px;border-bottom:2px solid var(--adi-border);">
+          {% for h in hours %}
+          <div style="position:absolute;left:{{ ((h-6)/total_hours*100)|round(2) }}%;
+                      transform:translateX(-50%);font-size:.6rem;color:var(--adi-muted);top:0;">
+            {{ h if h <= 12 else h - 12 }}{{ 'am' if h < 12 else 'pm' }}
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- One row per day -->
+        {% for day in show.days %}
+        {% set phase_color = phase_colors.get(day.phase, '#94A3B8') %}
+
+        <!-- Label cell -->
+        <div style="padding:3px 8px 3px 0;font-size:.72rem;line-height:1.2;
+                    border-bottom:1px solid var(--adi-border);
+                    display:flex;flex-direction:column;justify-content:center;">
+          <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=day.id) }}"
+             style="font-weight:700;color:var(--adi-dark);text-decoration:none;font-size:.72rem;">
+            {{ day.date.strftime('%a %-m/%-d') }}
+          </a>
+          {% if day.label %}
+          <span style="color:var(--adi-muted);font-size:.62rem;white-space:nowrap;
+                       overflow:hidden;text-overflow:ellipsis;max-width:105px;">
+            {{ day.label }}
+          </span>
+          {% endif %}
+        </div>
+
+        <!-- Bar cell -->
+        <div style="position:relative;height:34px;border-bottom:1px solid var(--adi-border);
+                    background:#F9FAFB;display:flex;align-items:center;"
+             class="tl-row">
+
+          {# Phase backdrop bar — full row width colored faintly #}
+          <div style="position:absolute;inset:4px 0;border-radius:3px;
+                      background:{{ phase_color }}18;"></div>
+
+          {# Hour grid lines #}
+          {% for h in hours %}
+          {% if not loop.first %}
+          <div style="position:absolute;left:{{ ((h-6)/total_hours*100)|round(2) }}%;
+                      top:0;bottom:0;width:1px;background:var(--adi-border);"></div>
+          {% endif %}
+          {% endfor %}
+
+          {# Call/Wrap bar — if both times are set #}
+          {% if day.call_time and day.wrap_time %}
+            {# Parse call time roughly: assumes format like "7:00 AM" #}
+            {# Use data attributes; JS will position precisely #}
+            <div class="tl-bar"
+                 data-call="{{ day.call_time }}"
+                 data-wrap="{{ day.wrap_time }}"
+                 style="position:absolute;top:6px;bottom:6px;border-radius:4px;
+                        background:{{ phase_color }};opacity:0.85;
+                        display:flex;align-items:center;overflow:hidden;">
+              <span style="font-size:.6rem;color:#fff;white-space:nowrap;
+                           padding:0 6px;overflow:hidden;text-overflow:ellipsis;">
+                {{ day.call_time }} – {{ day.wrap_time }}
+                {% if day.phase %} · {{ day.phase }}{% endif %}
+              </span>
+            </div>
+          {% else %}
+            {# No times — show phase label centered #}
+            <div style="position:absolute;inset:6px 0;border-radius:4px;
+                        background:{{ phase_color }}40;
+                        display:flex;align-items:center;padding:0 8px;">
+              <span style="font-size:.62rem;color:{{ phase_color }};font-weight:600;">
+                {{ day.phase or 'No phase' }}
+              </span>
+            </div>
+          {% endif %}
+
+          {# Activity markers — dots for key moments #}
+          {% for act in day.activities %}
+          {% if act.time %}
+          <div class="tl-marker"
+               data-time="{{ act.time }}"
+               data-label="{{ act.description|truncate(40,true,'…') }}"
+               style="position:absolute;width:6px;height:6px;border-radius:50%;
+                      top:50%;transform:translate(-50%,-50%);
+                      background:#fff;border:1.5px solid {{ phase_color }};
+                      cursor:pointer;z-index:2;">
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+
+        {% endfor %}
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Crew summary table -->
+  <div class="card mt-3">
+    <div class="card-header" style="font-size:.78rem;font-weight:700;">
+      👥 Crew Summary by Day
+    </div>
+    <div class="card-body p-0">
+      <table class="table table-sm mb-0" style="font-size:.78rem;">
+        <thead>
+          <tr>
+            <th style="width:120px;">Date</th>
+            <th>Phase</th>
+            <th>Call / Wrap</th>
+            <th class="text-center" style="width:80px;">Activities</th>
+            <th class="text-center" style="width:80px;">Crew Slots</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for day in show.days %}
+          {% set crew_total = namespace(n=0) %}
+          {% for act in day.activities %}{% for row in act.crew_rows %}{% if not row.is_group_header %}{% set crew_total.n = crew_total.n + (row.qty or 1) %}{% endif %}{% endfor %}{% endfor %}
+          <tr>
+            <td>
+              <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=day.id) }}"
+                 style="font-weight:600;text-decoration:none;">
+                {{ day.date.strftime('%a, %b %-d') }}
+              </a>
+            </td>
+            <td>
+              {% if day.phase %}
+              <span class="phase-pill" style="font-size:.65rem;">{{ day.phase }}</span>
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td class="text-muted">{{ day.time_window or '—' }}</td>
+            <td class="text-center">{{ day.activities|length }}</td>
+            <td class="text-center">
+              {% if crew_total.n > 0 %}
+              <strong>{{ crew_total.n }}</strong>
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">📅</div>
+  <div style="font-size:1rem;font-weight:600;margin-bottom:8px;">No days in this schedule yet</div>
+  <p class="text-muted" style="font-size:.85rem;max-width:400px;margin:0 auto 16px;">
+    {% if show.load_in_date and show.strike_date %}
+    Use <strong>Auto-Generate Days</strong> to create a skeleton for every date from
+    {{ show.load_in_date.strftime('%b %-d') }} to {{ show.strike_date.strftime('%b %-d') }},
+    or add days one at a time.
+    {% else %}
+    Set Load-In and Strike dates on the show to use Auto-Generate, or add days manually.
+    {% endif %}
+  </p>
+  <div class="d-flex gap-2 justify-content-center">
+    {% if show.load_in_date and show.strike_date %}
+    <form method="POST" action="{{ url_for('schedule.generate_days', show_id=show.id) }}">
+      <div class="mb-2">
+        <div class="form-check d-inline-flex align-items-center gap-2" style="font-size:.82rem;">
+          <input class="form-check-input" type="checkbox" name="with_templates" value="1"
+                 id="with-templates-empty-chk" checked>
+          <label class="form-check-label text-muted" for="with-templates-empty-chk">
+            Seed days with phase templates (Crew Start, Lunch, EOD, etc.)
+          </label>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-adi">⚡ Auto-Generate Days</button>
+    </form>
+    {% endif %}
+    <a href="{{ url_for('schedule.add_day', show_id=show.id) }}" class="btn btn-dark">
+      + Add Day Manually
+    </a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Timeline view switch ──────────────────────────────────────────────────────
+function setView(v) {
+  const listEl     = document.getElementById('list-view');
+  const timelineEl = document.getElementById('timeline-view');
+  const listBtn    = document.getElementById('view-list-btn');
+  const tlBtn      = document.getElementById('view-timeline-btn');
+
+  if (v === 'list') {
+    if (listEl)     listEl.style.display     = '';
+    if (timelineEl) timelineEl.style.display = 'none';
+    listBtn?.classList.add('btn-adi');
+    listBtn?.classList.remove('btn-outline-secondary');
+    tlBtn?.classList.remove('btn-adi');
+    tlBtn?.classList.add('btn-outline-secondary');
+  } else {
+    if (listEl)     listEl.style.display     = 'none';
+    if (timelineEl) timelineEl.style.display = '';
+    tlBtn?.classList.add('btn-adi');
+    tlBtn?.classList.remove('btn-outline-secondary');
+    listBtn?.classList.remove('btn-adi');
+    listBtn?.classList.add('btn-outline-secondary');
+    positionTimelineBars();
+  }
+}
+
+// ── Position timeline bars using call/wrap times ──────────────────────────────
+const TL_START = 6 * 60;  // 6:00 AM in minutes
+const TL_SPAN  = 18 * 60; // 18 hours (6 AM – midnight)
+
+function parseTimeMins(s) {
+  if (!s) return null;
+  const t = s.trim();
+  // Primary: 24hr HH:MM
+  const m24 = t.match(/^(\d{1,2}):(\d{2})$/);
+  if (m24) {
+    const h = parseInt(m24[1]), mn = parseInt(m24[2]);
+    if (h >= 0 && h <= 23 && mn >= 0 && mn <= 59) return h * 60 + mn;
+  }
+  // Legacy 12hr
+  const m12 = t.toUpperCase().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/);
+  if (m12) {
+    let h = parseInt(m12[1]), mn = parseInt(m12[2]);
+    if (m12[3] === 'PM' && h !== 12) h += 12;
+    if (m12[3] === 'AM' && h === 12) h = 0;
+    return h * 60 + mn;
+  }
+  return null;
+}
+
+function pct(mins) {
+  const clamped = Math.min(Math.max(mins, TL_START), TL_START + TL_SPAN);
+  return ((clamped - TL_START) / TL_SPAN * 100).toFixed(2);
+}
+
+function positionTimelineBars() {
+  document.querySelectorAll('.tl-bar').forEach(el => {
+    const callM = parseTimeMins(el.dataset.call);
+    const wrapM = parseTimeMins(el.dataset.wrap);
+    if (callM === null || wrapM === null) return;
+    const left  = parseFloat(pct(callM));
+    const right = parseFloat(pct(wrapM));
+    const width = Math.max(right - left, 1);
+    el.style.left  = left + '%';
+    el.style.width = width + '%';
+  });
+
+  document.querySelectorAll('.tl-marker').forEach(el => {
+    const m = parseTimeMins(el.dataset.time);
+    if (m === null) return;
+    el.style.left = pct(m) + '%';
+    el.title = el.dataset.label + '  ' + el.dataset.time;
+  });
+}
+
+// ── Wrap day cards in #list-view div on load ──────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const dayCards = document.querySelectorAll('.day-card');
+  if (dayCards.length) {
+    const wrapper = document.createElement('div');
+    wrapper.id = 'list-view';
+    dayCards[0].parentNode.insertBefore(wrapper, dayCards[0]);
+    dayCards.forEach(c => wrapper.appendChild(c));
+  }
+});
+</script>
+{% endblock %}

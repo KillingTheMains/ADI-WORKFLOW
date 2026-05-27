@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — ADI Workflow{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block breadcrumb %}Home{% endblock %}
+
+{% block top_actions %}
+  <a href="{{ url_for('shows.new') }}" class="btn btn-sm btn-adi">+ New Show</a>
+{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card p-3 text-center">
+      <div style="font-size:1.8rem;font-weight:700;color:var(--adi-gold)">{{ shows|length }}</div>
+      <div class="text-muted" style="font-size:0.8rem">Total Shows</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card p-3 text-center">
+      <div style="font-size:1.8rem;font-weight:700;color:#16A34A">
+        {{ shows|selectattr('status','equalto','Active')|list|length }}
+      </div>
+      <div class="text-muted" style="font-size:0.8rem">Active Shows</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card p-3 text-center">
+      <div style="font-size:1.8rem;font-weight:700;color:#1D4ED8">
+        {{ shows|selectattr('status','equalto','Planning')|list|length }}
+      </div>
+      <div class="text-muted" style="font-size:0.8rem">In Planning</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card p-3 text-center">
+      <div style="font-size:1.8rem;font-weight:700;color:var(--adi-dark)">
+        {% set total_days = namespace(n=0) %}{% for s in shows %}{% set total_days.n = total_days.n + s.days|list|length %}{% endfor %}{{ total_days.n }}
+      </div>
+      <div class="text-muted" style="font-size:0.8rem">Schedule Days</div>
+    </div>
+  </div>
+</div>
+
+<h6 class="text-muted mb-3" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.08em">
+  All Shows
+</h6>
+
+{% if shows %}
+  <div class="row g-3">
+    {% for show in shows %}
+    <div class="col-md-4 col-lg-3">
+      <a href="{{ url_for('shows.detail', show_id=show.id) }}" style="text-decoration:none;">
+        <div class="show-card">
+          <div class="show-card-header">
+            <div class="show-code">{{ show.code or '—' }}</div>
+            <div class="show-name">{{ show.name }}</div>
+          </div>
+          <div class="show-card-body">
+            <div class="show-meta">
+              <strong>Client:</strong> {{ show.client.name if show.client else '—' }}
+            </div>
+            <div class="show-meta">
+              <strong>Venue:</strong>
+              {% if show.venue %}{{ show.venue.name }}, {{ show.venue.city }}
+              {% else %}TBD{% endif %}
+            </div>
+            <div class="show-meta">
+              <strong>Dates:</strong> {{ show.date_range }}
+            </div>
+            <div class="mt-2 d-flex align-items-center justify-content-between">
+              <span class="status-badge status-{{ show.status }}">{{ show.status }}</span>
+              <span class="text-muted" style="font-size:0.75rem">
+                {{ show.days|length }} day{{ 's' if show.days|length != 1 }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty-state">
+    <div class="empty-icon">🎬</div>
+    <div style="font-size:1rem;font-weight:600;margin-bottom:8px;">No shows yet</div>
+    <p class="text-muted" style="font-size:0.875rem;">
+      Create your first show to get started.
+    </p>
+    <a href="{{ url_for('shows.new') }}" class="btn btn-adi mt-2">+ New Show</a>
+  </div>
+{% endif %}
+{% endblock %}

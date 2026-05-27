@@ -1,0 +1,1539 @@
+{% extends "base.html" %}
+{% block title %}{{ day.day_header }} — {{ show.name }}{% endblock %}
+{% block page_title %}{{ day.day_header }}{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> /
+  <a href="{{ url_for('shows.detail', show_id=show.id) }}">{{ show.name }}</a> /
+  <a href="{{ url_for('schedule.overview', show_id=show.id) }}">Schedule</a> /
+  {{ day.date.strftime('%b %-d') }}
+{% endblock %}
+
+{% block top_actions %}
+  {% set idx = show.days|map(attribute='id')|list %}
+  {% set pos = idx.index(day.id) if day.id in idx else -1 %}
+  {% if pos > 0 %}
+  <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=idx[pos-1]) }}"
+     class="btn btn-sm btn-outline-secondary">← Prev</a>
+  {% endif %}
+  {% if pos >= 0 and pos < idx|length - 1 %}
+  <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=idx[pos+1]) }}"
+     class="btn btn-sm btn-outline-secondary">Next →</a>
+  {% endif %}
+  <a href="{{ url_for('schedule.oss_view', show_id=show.id) }}"
+     class="btn btn-sm btn-dark" target="_blank">🖨 OSS</a>
+  <a href="{{ url_for('schedule.call_sheet', show_id=show.id, day_id=day.id) }}"
+     class="btn btn-sm btn-outline-secondary" target="_blank">📄 Call Sheet</a>
+{% endblock %}
+
+{% block content %}
+<style>
+  /* ── Activity library autocomplete dropdown ── */
+  .activity-suggestions {
+    position: absolute; z-index: 1000; background: #fff;
+    border: 1px solid #dee2e6; border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.12); max-height: 220px;
+    overflow-y: auto; width: 100%; display: none;
+  }
+  .activity-suggestions .suggestion-item {
+    padding: 6px 12px; cursor: pointer; font-size: .82rem;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .activity-suggestions .suggestion-item:hover,
+  .activity-suggestions .suggestion-item.active {
+    background: #FFF8EC; color: var(--adi-gold);
+  }
+  .activity-suggestions .suggestion-group {
+    padding: 4px 10px 2px; font-size: .68rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .06em; color: #adb5bd;
+    background: #f8f9fa;
+  }
+  /* ── Quick-add button pills ── */
+  .quick-add-btn {
+    font-size: .72rem; padding: 3px 10px; border-radius: 20px;
+    border: 1px solid #dee2e6; background: #f8f9fa; cursor: pointer;
+    white-space: nowrap; transition: all .1s;
+  }
+  .quick-add-btn:hover { background: var(--adi-gold); border-color: var(--adi-gold); color: #fff; }
+  /* ── Activity action buttons ── */
+  .act-action-btn {
+    font-size: .72rem; padding: 0 6px; color: #6c757d;
+    border: none; background: none; cursor: pointer; white-space: nowrap;
+  }
+  .act-action-btn:hover { color: var(--adi-gold); }
+  .act-action-btn.danger:hover { color: #dc3545; }
+  /* ── Time calculator display ── */
+  .time-calc-hint {
+    font-size: .72rem; color: var(--adi-gold); font-weight: 600;
+    margin-top: 3px; min-height: 1em;
+  }
+  /* ── Tool card ── */
+  .tools-card .tool-btn {
+    width: 100%; text-align: left; font-size: .78rem; padding: 6px 10px;
+    margin-bottom: 4px; border-radius: 6px;
+  }
+  /* ── Hours-on-clock badge ── */
+  .hours-badge {
+    font-size: .72rem; color: rgba(255,255,255,.5); margin-top: 2px;
+  }
+  .hours-badge.warn { color: #FBBF24; }
+  .hours-badge.ot   { color: #F87171; }
+  /* ── Activity drag-to-reorder ── */
+  .act-drag-handle {
+    cursor: grab; color: #adb5bd; font-size: 1rem; padding: 0 8px 0 0;
+    user-select: none; flex-shrink: 0; line-height: 1;
+  }
+  .act-drag-handle:active { cursor: grabbing; }
+  .act-card.dragging { opacity: .35; }
+  .act-card.drag-over { outline: 2px dashed var(--adi-blue); outline-offset: -2px; background: #EFF6FF; }
+  /* ── Call sheet ── */
+  .call-sheet-row-enter { animation: fadeSlide .2s ease; }
+  @keyframes fadeSlide { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
+</style>
+
+<div class="row g-3">
+
+  <!-- ══ LEFT SIDEBAR ══════════════════════════════════════════════════════ -->
+  <div class="col-md-3">
+
+    <!-- Day Settings -->
+    <div class="card mb-3">
+      <div class="card-header gold">Day Settings</div>
+      <div class="card-body p-3">
+        <form method="POST" action="{{ url_for('schedule.edit_day', show_id=show.id, day_id=day.id) }}">
+          <div class="mb-2">
+            <label class="form-label">Date</label>
+            <input type="date" name="date" class="form-control form-control-sm"
+                   value="{{ day.date.isoformat() }}" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Phase</label>
+            <select name="phase" class="form-select form-select-sm">
+              <option value="">— Phase —</option>
+              {% for p in phases %}
+              <option value="{{ p }}" {% if p == day.phase %}selected{% endif %}>{{ p }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Label</label>
+            <input type="text" name="label" class="form-control form-control-sm"
+                   value="{{ day.label or '' }}" placeholder="e.g. Load In Day 1">
+          </div>
+          <div class="row g-1 mb-2">
+            <div class="col-6">
+              <label class="form-label">Call</label>
+              <input type="time" name="call_time" id="call_time_input"
+                     class="form-control form-control-sm"
+                     value="{{ day.call_time or '' }}">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Wrap</label>
+              <input type="time" name="wrap_time" id="wrap_time_input"
+                     class="form-control form-control-sm"
+                     value="{{ day.wrap_time or '' }}">
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Milestones</label>
+            <textarea name="milestones" class="form-control form-control-sm" rows="3"
+                      placeholder="One per line…">{{ day.milestones or '' }}</textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Notes</label>
+            <textarea name="notes" class="form-control form-control-sm" rows="2">{{ day.notes or '' }}</textarea>
+          </div>
+          <button type="submit" class="btn btn-sm btn-adi w-100">Save Day</button>
+        </form>
+
+        <!-- ── Break Schedule Builder ───────────────────────────────── -->
+        <div style="border-top:1px solid var(--adi-border);margin:14px 0 12px;"></div>
+        <div class="mb-2" style="font-size:.75rem;font-weight:700;text-transform:uppercase;
+             letter-spacing:.06em;color:var(--adi-dark);">☕ Break Schedule</div>
+
+        <form method="POST"
+              action="{{ url_for('schedule.build_day_schedule', show_id=show.id, day_id=day.id) }}"
+              id="break-sched-form">
+          <!-- Hidden mirrors of call/wrap — synced by JS -->
+          <input type="hidden" name="call_time" id="bs-call" value="{{ day.call_time or '' }}">
+          <input type="hidden" name="wrap_time" id="bs-wrap" value="{{ day.wrap_time or '' }}">
+
+          <div class="mb-2">
+            <label class="form-label">Lunch Duration</label>
+            <div class="d-flex gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="lunch_minutes"
+                       value="30" id="lunch-30" checked onchange="onLunchChange(this.value)">
+                <label class="form-check-label" for="lunch-30"
+                       style="font-size:.8rem;">30 min</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="lunch_minutes"
+                       value="60" id="lunch-60" onchange="onLunchChange(this.value)">
+                <label class="form-check-label" for="lunch-60"
+                       style="font-size:.8rem;">60 min</label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live break preview -->
+          <div id="break-preview"
+               style="background:var(--adi-surface);border:1px solid var(--adi-border);
+                      border-radius:6px;padding:8px 10px;margin-bottom:10px;
+                      font-size:.78rem;line-height:2;color:var(--adi-muted);">
+            Enter call &amp; wrap times above to preview.
+          </div>
+
+          <div class="form-check mb-2" style="font-size:.75rem;">
+            <input class="form-check-input" type="checkbox" name="replace" value="1"
+                   id="break-replace" checked>
+            <label class="form-check-label" for="break-replace">
+              Replace existing breaks &amp; Crew Start
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn-sm btn-adi w-100">
+            ⚡ Build Day Schedule
+          </button>
+        </form>
+
+      </div>
+    </div>
+
+    <!-- Travel Info (shown when phase = Travel) -->
+    <div class="card mb-3" id="travel-card"
+         style="{{ '' if day.phase == 'Travel' else 'display:none;' }}">
+      <div class="card-header" style="background:#6B728020;border-bottom:1px solid #6B728040;">
+        <span style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">
+          ✈️ Travel Info
+        </span>
+      </div>
+      <div class="card-body p-3">
+        <form method="POST" action="{{ url_for('schedule.edit_day', show_id=show.id, day_id=day.id) }}">
+          <!-- Pass through non-travel fields as hidden inputs so they don't reset -->
+          <input type="hidden" name="date" value="{{ day.date.isoformat() }}">
+          <input type="hidden" name="phase" value="{{ day.phase or '' }}">
+          <input type="hidden" name="label" value="{{ day.label or '' }}">
+          <input type="hidden" name="call_time" value="{{ day.call_time or '' }}">
+          <input type="hidden" name="wrap_time" value="{{ day.wrap_time or '' }}">
+          <input type="hidden" name="milestones" value="{{ day.milestones or '' }}">
+          <input type="hidden" name="notes" value="{{ day.notes or '' }}">
+
+          <div class="row g-1 mb-2">
+            <div class="col-5">
+              <label class="form-label" style="font-size:.72rem;">Flight #</label>
+              <input type="text" name="travel_flight_number" class="form-control form-control-sm"
+                     value="{{ day.travel_flight_number or '' }}" placeholder="UA 123">
+            </div>
+            <div class="col-7">
+              <label class="form-label" style="font-size:.72rem;">Airline</label>
+              <input type="text" name="travel_airline" class="form-control form-control-sm"
+                     value="{{ day.travel_airline or '' }}" placeholder="United Airlines">
+            </div>
+          </div>
+          <div class="row g-1 mb-2">
+            <div class="col-6">
+              <label class="form-label" style="font-size:.72rem;">Depart Airport</label>
+              <input type="text" name="travel_depart_airport" class="form-control form-control-sm"
+                     value="{{ day.travel_depart_airport or '' }}" placeholder="LAX"
+                     maxlength="6" style="text-transform:uppercase;">
+            </div>
+            <div class="col-6">
+              <label class="form-label" style="font-size:.72rem;">Arrive Airport</label>
+              <input type="text" name="travel_arrive_airport" class="form-control form-control-sm"
+                     value="{{ day.travel_arrive_airport or '' }}" placeholder="ORD"
+                     maxlength="6" style="text-transform:uppercase;">
+            </div>
+          </div>
+          <div class="row g-1 mb-2">
+            <div class="col-6">
+              <label class="form-label" style="font-size:.72rem;">Depart Time</label>
+              <input type="time" name="travel_depart_time" class="form-control form-control-sm"
+                     value="{{ day.travel_depart_time or '' }}">
+            </div>
+            <div class="col-6">
+              <label class="form-label" style="font-size:.72rem;">Arrive Time</label>
+              <input type="time" name="travel_arrive_time" class="form-control form-control-sm"
+                     value="{{ day.travel_arrive_time or '' }}">
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" style="font-size:.72rem;">Hotel</label>
+            <input type="text" name="travel_hotel_name" class="form-control form-control-sm"
+                   value="{{ day.travel_hotel_name or '' }}" placeholder="Marriott Marquis">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" style="font-size:.72rem;">Confirmation #</label>
+            <input type="text" name="travel_hotel_confirm" class="form-control form-control-sm"
+                   value="{{ day.travel_hotel_confirm or '' }}" placeholder="CONF-XXXXXX">
+          </div>
+          <button type="submit" class="btn btn-sm btn-adi w-100">Save Travel Info</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Tools -->
+    <div class="card mb-3 tools-card">
+      <div class="card-header" style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">
+        ⚡ Quick Tools
+      </div>
+      <div class="card-body p-3">
+
+        <!-- Apply Template -->
+        <form method="POST" action="{{ url_for('schedule.apply_template', show_id=show.id, day_id=day.id) }}" class="mb-3">
+          <label class="form-label">Apply Template</label>
+          <select name="template" class="form-select form-select-sm mb-1">
+            {% for key, tpl in day_templates.items() %}
+            <option value="{{ key }}">{{ tpl.label }}</option>
+            {% endfor %}
+          </select>
+          <div class="form-check form-switch mb-1" style="font-size:.75rem;">
+            <input class="form-check-input" type="checkbox" name="replace" value="1" id="tpl-replace">
+            <label class="form-check-label" for="tpl-replace">Replace existing activities</label>
+          </div>
+          <button type="submit" class="btn btn-sm btn-outline-secondary tool-btn">
+            📋 Apply Template
+          </button>
+        </form>
+
+        <!-- Smart Breaks -->
+        <form method="POST" action="{{ url_for('schedule.smart_breaks', show_id=show.id, day_id=day.id) }}" class="mb-2">
+          <button type="submit" class="btn btn-sm btn-outline-secondary tool-btn"
+                  {% if not day.call_time %}title="Set a call time first" style="opacity:.5"{% endif %}>
+            ☕ Smart Breaks
+          </button>
+        </form>
+
+        <!-- Bulk Shift -->
+        <button type="button" class="btn btn-sm btn-outline-secondary tool-btn mb-2"
+                data-bs-toggle="modal" data-bs-target="#bulkShiftModal">
+          ⏱ Bulk Time Shift
+        </button>
+
+        <!-- Clone Day -->
+        <form method="POST" action="{{ url_for('schedule.clone_day', show_id=show.id, day_id=day.id) }}"
+              onsubmit="return confirm('Clone this day and all its activities to the next calendar day?');">
+          <button type="submit" class="btn btn-sm btn-outline-secondary tool-btn">
+            📄 Clone Day
+          </button>
+        </form>
+
+        <div style="border-top:1px solid var(--adi-border);margin:10px 0;"></div>
+        <form method="POST" action="{{ url_for('schedule.delete_day', show_id=show.id, day_id=day.id) }}"
+              onsubmit="return confirm('Delete this entire day and all its activities?');">
+          <button type="submit" class="btn btn-sm btn-outline-danger tool-btn">🗑 Delete Day</button>
+        </form>
+      </div>
+    </div>
+
+  </div><!-- /col-md-3 -->
+
+  <!-- ══ RIGHT: ACTIVITIES ═════════════════════════════════════════════════ -->
+  <div class="col-md-9">
+
+    <!-- Day header bar -->
+    <div class="card mb-3" style="background:var(--adi-dark);border-color:var(--adi-dark);">
+      <div class="card-body p-3">
+        <div style="font-size:1rem;font-weight:700;color:#fff;">{{ day.day_header }}</div>
+        <div class="d-flex gap-3 align-items-center flex-wrap">
+          {% if day.time_window %}
+          <div style="font-size:.8rem;color:var(--adi-gold);">{{ day.time_window }}</div>
+          {% endif %}
+          {% if day.phase %}
+          <div style="font-size:.78rem;color:rgba(255,255,255,.5);">{{ day.phase }}</div>
+          {% endif %}
+          <div id="hours-on-clock" class="hours-badge ms-auto"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Add Activity Form ──────────────────────────────────────────── -->
+    <div class="card mb-3">
+      <div class="card-header">+ Add Activity</div>
+      <div class="card-body p-3">
+
+        <!-- Quick-add preset pills -->
+        <div class="d-flex gap-1 flex-wrap mb-2" id="quick-add-pills">
+          <span class="quick-add-btn" data-time="" data-desc="CREW START">Crew Start</span>
+          <span class="quick-add-btn" data-time="" data-desc="LUNCH BREAK — 30 min">Lunch Break</span>
+          <span class="quick-add-btn" data-time="" data-desc="AFTERNOON BREAK — 15 min">PM Break</span>
+          <span class="quick-add-btn" data-time="" data-desc="DOORS OPEN">Doors Open</span>
+          <span class="quick-add-btn" data-time="" data-desc="GENERAL SESSION BEGINS">General Session</span>
+          <span class="quick-add-btn" data-time="" data-desc="TECH REHEARSAL BEGINS">Tech Rehearsal</span>
+          <span class="quick-add-btn" data-time="" data-desc="PRESENTER REHEARSAL">Presenter Rehearsal</span>
+          <span class="quick-add-btn" data-time="" data-desc="SOUND CHECK">Sound Check</span>
+          <span class="quick-add-btn" data-time="" data-desc="EOD WRAP">EOD Wrap</span>
+        </div>
+
+        <form method="POST"
+              action="{{ url_for('schedule.add_activity', show_id=show.id, day_id=day.id) }}">
+          <div class="row g-2 align-items-start">
+            <div class="col-md-2">
+              <label class="form-label" style="font-size:.75rem;">Time</label>
+              <input type="time" name="time" id="new-act-time"
+                     class="form-control form-control-sm">
+              <div class="time-calc-hint" id="time-calc-hint"></div>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label" style="font-size:.75rem;">Duration (hrs)</label>
+              <input type="number" id="new-act-duration" class="form-control form-control-sm"
+                     step="0.25" min="0" placeholder="optional">
+            </div>
+            <div class="col-md-5" style="position:relative;">
+              <label class="form-label" style="font-size:.75rem;">Description</label>
+              <input type="text" name="description" id="new-act-desc"
+                     class="form-control form-control-sm"
+                     placeholder="e.g. LOAD IN / SETUP RIGGING" required
+                     autocomplete="off">
+              <div class="activity-suggestions" id="act-suggestions"></div>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label" style="font-size:.75rem;">Notes</label>
+              <input type="text" name="notes" class="form-control form-control-sm" placeholder="Optional">
+            </div>
+            <div class="col-md-1 pt-1">
+              <label class="form-label" style="font-size:.75rem;">&nbsp;</label>
+              <button type="submit" class="btn btn-sm btn-adi w-100">Add</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── Activities List ───────────────────────────────────────────── -->
+    {% if day.activities %}
+    {% for act in day.activities %}
+    <div class="card mb-2 act-card" id="act-{{ act.id }}" data-act-id="{{ act.id }}" data-act-time="{{ act.time or '' }}">
+      <div class="card-body p-0">
+
+        <!-- Activity header -->
+        <div class="d-flex align-items-center px-3 py-2"
+             style="border-bottom:1px solid var(--adi-border);background:#FAFAFA;">
+          <span class="act-drag-handle" title="Drag to reorder">⠿</span>
+          <span style="min-width:74px;font-weight:700;color:var(--adi-blue);font-size:.85rem;">
+            {{ act.time or '—' }}
+          </span>
+          <span style="font-weight:600;font-size:.9rem;flex:1;">{{ act.description }}</span>
+          {% if act.notes %}
+          <span class="text-muted me-2" style="font-size:.75rem;">{{ act.notes }}</span>
+          {% endif %}
+
+          <!-- Action buttons -->
+          <div class="d-flex align-items-center gap-1 ms-2">
+            <button class="act-action-btn"
+                    data-bs-toggle="collapse" data-bs-target="#edit-act-{{ act.id }}"
+                    title="Edit">✏️</button>
+            <button class="act-action-btn"
+                    onclick="openCopyModal({{ act.id }}, {{ act.description|tojson }})"
+                    title="Copy to other days">📋</button>
+            {% if day.phase %}
+            <form method="POST"
+                  action="{{ url_for('schedule.stamp_activity_to_phase', show_id=show.id, day_id=day.id, act_id=act.id) }}"
+                  style="display:inline;"
+                  onsubmit="return confirm('Stamp to all {{ day.phase }} days?');">
+              <button type="submit" class="act-action-btn"
+                      title="Stamp to all {{ day.phase }} days">⚡</button>
+            </form>
+            {% endif %}
+            <form method="POST"
+                  action="{{ url_for('schedule.delete_activity', show_id=show.id, day_id=day.id, act_id=act.id) }}"
+                  style="display:inline;"
+                  onsubmit="return confirm('Delete this activity?');">
+              <button type="submit" class="act-action-btn danger" title="Delete">✕</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Edit activity (collapse) -->
+        <div class="collapse px-3 py-2" id="edit-act-{{ act.id }}"
+             style="background:#FFF8EC;border-bottom:1px solid var(--adi-border);">
+          <form method="POST"
+                action="{{ url_for('schedule.edit_activity', show_id=show.id, day_id=day.id, act_id=act.id) }}">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-2">
+                <label class="form-label" style="font-size:.75rem;">Time</label>
+                <input type="time" name="time" class="form-control form-control-sm"
+                       value="{{ act.time or '' }}">
+              </div>
+              <div class="col-md-7">
+                <label class="form-label" style="font-size:.75rem;">Description</label>
+                <input type="text" name="description" class="form-control form-control-sm"
+                       value="{{ act.description }}" required>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label" style="font-size:.75rem;">Notes</label>
+                <input type="text" name="notes" class="form-control form-control-sm"
+                       value="{{ act.notes or '' }}">
+              </div>
+              <div class="col-md-1">
+                <button type="submit" class="btn btn-sm btn-adi w-100">Save</button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <!-- Crew rows -->
+        {% if act.crew_rows %}
+        <div class="px-3 py-2">
+          <table class="crew-table">
+            <thead>
+              <tr>
+                <th style="width:40px;">Qty</th>
+                <th style="width:50px;">Hrs</th>
+                <th>Position</th>
+                <th>Name</th>
+                <th style="width:100px;">Type</th>
+                <th style="width:30px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in act.crew_rows %}
+              {% if row.is_group_header %}
+              <tr class="group-header"><td colspan="6">{{ row.group_label }}</td></tr>
+              {% else %}
+              <tr>
+                <td>{{ row.qty }}</td>
+                <td>{{ row.hours if row.hours else '—' }}</td>
+                <td>{{ row.position or '—' }}</td>
+                <td>{{ row.display_name }}</td>
+                <td class="text-muted" style="font-size:.72rem;">{{ row.crew_type }}</td>
+                <td>
+                  <form method="POST"
+                        action="{{ url_for('schedule.delete_crew_row', show_id=show.id, day_id=day.id, row_id=row.id) }}"
+                        style="display:inline;">
+                    <button type="submit" class="btn btn-sm btn-link text-danger p-0"
+                            style="font-size:.7rem;">✕</button>
+                  </form>
+                </td>
+              </tr>
+              {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+
+        <!-- Add crew row -->
+        <div class="px-3 pb-3 pt-1">
+          <div class="d-flex align-items-center gap-3 flex-wrap mb-1">
+            <button class="btn btn-sm btn-link p-0 text-muted" style="font-size:.78rem;"
+                    data-bs-toggle="collapse" data-bs-target="#add-crew-{{ act.id }}">
+              + Add crew row
+            </button>
+            {% if show_companies %}
+            <div class="d-flex align-items-center gap-1 flex-wrap">
+              <span style="font-size:.72rem;color:var(--adi-muted);">Add all:</span>
+              {% for co in show_companies %}
+              <button type="button"
+                      class="btn btn-sm"
+                      style="font-size:.68rem;padding:2px 8px;background:var(--adi-blue-dim);
+                             color:var(--adi-blue);border:1px solid rgba(47,128,237,.25);
+                             border-radius:12px;"
+                      onclick="openShiftModal({{ act.id }}, {{ co.id }}, '{{ co.name|e }}', '{{ act.description|e }}')"
+                      title="Add all {{ co.name }} crew — set shift times">
+                {{ co.name }}
+              </button>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+          <div class="collapse mt-2" id="add-crew-{{ act.id }}">
+            <form method="POST"
+                  action="{{ url_for('schedule.add_crew_row', show_id=show.id, day_id=day.id, act_id=act.id) }}">
+              <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" name="is_group_header"
+                       value="1" id="hdr-{{ act.id }}"
+                       onchange="toggleCrewForm(this, {{ act.id }})">
+                <label class="form-check-label" for="hdr-{{ act.id }}"
+                       style="font-size:.78rem;">Section header (e.g. LEAD CREW)</label>
+              </div>
+              <div id="header-form-{{ act.id }}" style="display:none;">
+                <div class="row g-2 align-items-end">
+                  <div class="col-md-5">
+                    <input type="text" name="group_label" class="form-control form-control-sm"
+                           placeholder="e.g. LEAD CREW">
+                  </div>
+                  <div class="col-auto">
+                    <button type="submit" class="btn btn-sm btn-adi">Add Header</button>
+                  </div>
+                </div>
+              </div>
+              <div id="crew-form-{{ act.id }}">
+                <div class="row g-2 align-items-end">
+                  <div class="col-md-1">
+                    <label style="font-size:.72rem;" class="form-label">Qty</label>
+                    <input type="number" name="qty" class="form-control form-control-sm" value="1" min="1">
+                  </div>
+                  <div class="col-md-2">
+                    <label style="font-size:.72rem;" class="form-label">Hrs / End Time</label>
+                    <input type="number" name="hours" id="hrs-input-{{ act.id }}"
+                           class="form-control form-control-sm" step="0.5" placeholder="hrs"
+                           oninput="onHrsInput('{{ act.id }}')">
+                    <input type="time" id="end-input-{{ act.id }}"
+                           class="form-control form-control-sm mt-1"
+                           oninput="onEndInput('{{ act.id }}')" title="Shift end time">
+                    <div id="shift-hint-{{ act.id }}"
+                         style="font-size:.65rem;color:var(--adi-gold);min-height:1em;margin-top:2px;"></div>
+                  </div>
+                  <div class="col-md-3">
+                    <label style="font-size:.72rem;" class="form-label">Position</label>
+                    <input type="text" name="position" id="pos-input-{{ act.id }}"
+                           class="form-control form-control-sm"
+                           placeholder="e.g. A1" list="pos-list-{{ act.id }}">
+                    <datalist id="pos-list-{{ act.id }}">
+                      {% for p in positions %}<option value="{{ p.title }}">{% endfor %}
+                    </datalist>
+                  </div>
+                  <div class="col-md-3">
+                    <label style="font-size:.72rem;" class="form-label">Name / Roster</label>
+                    <select name="crew_member_id" id="crew-sel-{{ act.id }}"
+                            class="form-select form-select-sm"
+                            onchange="onCrewSelect(this, '{{ act.id }}')">
+                      <option value="">— TBD / Local —</option>
+                      {% set dg = namespace(dept='') %}
+                      {% for cm in crew_members %}
+                        {% if cm.position and cm.position.department != dg.dept %}
+                          {% if dg.dept %}</optgroup>{% endif %}
+                          <optgroup label="{{ cm.position.department }}">
+                          {% set dg.dept = cm.position.department %}
+                        {% endif %}
+                        <option value="{{ cm.id }}"
+                                data-position="{{ cm.position.title if cm.position else '' }}">
+                          {{ cm.full_name }}{% if cm.position %} — {{ cm.position.title }}{% endif %}
+                        </option>
+                      {% endfor %}
+                      {% if dg.dept %}</optgroup>{% endif %}
+                    </select>
+                    <input type="text" name="name_override" id="tbd-name-{{ act.id }}"
+                           class="form-control form-control-sm mt-1"
+                           placeholder="Name (if TBD/Local)">
+                  </div>
+                  <div class="col-md-2">
+                    <label style="font-size:.72rem;" class="form-label">Type</label>
+                    <select name="crew_type" class="form-select form-select-sm">
+                      {% for ct in crew_types %}<option>{{ ct }}</option>{% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-md-1">
+                    <label style="font-size:.72rem;" class="form-label">Notes</label>
+                    <input type="text" name="notes" class="form-control form-control-sm">
+                  </div>
+                  <div class="col-auto">
+                    <button type="submit" class="btn btn-sm btn-adi">Add</button>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    {% endfor %}
+
+    {% else %}
+    <div class="empty-state py-4">
+      <div class="empty-icon">⏰</div>
+      <div style="font-size:.9rem;font-weight:600;margin-bottom:6px;">No activities yet</div>
+      <p class="text-muted" style="font-size:.82rem;">
+        Use the form above, click a quick-add pill, or apply a template from the sidebar.
+      </p>
+    </div>
+    {% endif %}
+
+    <!-- ── Day Call Sheet ─────────────────────────────────────────────── -->
+    {% set has_crew = namespace(val=false) %}
+    {% for act in day.activities %}
+      {% for row in act.crew_rows %}{% if not row.is_group_header %}{% set has_crew.val = true %}{% endif %}{% endfor %}
+    {% endfor %}
+    {% if has_crew.val %}
+    <div class="card mt-3" id="call-sheet-card">
+      <div class="card-header d-flex align-items-center justify-content-between"
+           style="font-size:.82rem;font-weight:700;">
+        <span>👥 Day Call Sheet</span>
+        <div class="d-flex gap-2 align-items-center">
+          <span class="text-muted" style="font-size:.72rem;font-weight:400;" id="crew-count-label">
+            {% set crew_count = namespace(n=0) %}
+            {% for act in day.activities %}{% for row in act.crew_rows %}{% if not row.is_group_header %}{% set crew_count.n = crew_count.n + (row.qty or 1) %}{% endif %}{% endfor %}{% endfor %}
+            {{ crew_count.n }} people called
+          </span>
+          <button type="button" class="btn btn-sm btn-outline-secondary"
+                  style="font-size:.7rem;padding:2px 8px;" id="cs-group-btn"
+                  onclick="toggleCallSheetGrouping()">Group by Dept</button>
+        </div>
+      </div>
+      <div class="p-0" style="overflow-x:auto;">
+        <table class="crew-table" id="call-sheet-table">
+          <thead>
+            <tr>
+              <th style="width:72px;">Call</th>
+              <th>Name</th>
+              <th style="width:160px;">Position</th>
+              <th style="width:40px;">Qty</th>
+              <th style="width:40px;">Hrs</th>
+              <th style="width:100px;">Type</th>
+              <th style="width:160px;color:#adb5bd;">Activity</th>
+            </tr>
+          </thead>
+          <tbody id="call-sheet-body">
+            {% for act in day.activities %}
+              {% for row in act.crew_rows %}
+                {% if not row.is_group_header %}
+                <tr class="call-sheet-row"
+                    data-dept="{{ row.position_ref.department if row.position_ref else row.crew_type or 'General' }}"
+                    data-time-mins="0"
+                    data-call="{{ act.time or '' }}">
+                  <td style="font-weight:700;color:var(--adi-blue);">{{ act.time or '—' }}</td>
+                  <td style="font-weight:600;">{{ row.display_name }}</td>
+                  <td>{{ row.position or '—' }}</td>
+                  <td class="text-center">{{ row.qty or 1 }}</td>
+                  <td class="text-center">{{ row.hours if row.hours else '—' }}</td>
+                  <td class="text-muted" style="font-size:.72rem;">{{ row.crew_type }}</td>
+                  <td class="text-muted" style="font-size:.72rem;">{{ act.description|truncate(28, true, '…') }}</td>
+                </tr>
+                {% endif %}
+              {% endfor %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ── Day Hours Summary ────────────────────────────────────────────── -->
+    {% set person_hours = namespace(rows=[]) %}
+    {% for act in day.activities %}
+      {% for row in act.crew_rows %}
+        {% if not row.is_group_header and row.hours %}
+          {% set hrs = row.hours * (row.qty or 1) %}
+          {% set name = row.crew_member.full_name if row.crew_member else (row.name_override or 'TBD') %}
+          {% set pos  = row.position or '' %}
+          {% set dept = (row.crew_member.position.department if row.crew_member and row.crew_member.position else '') or '' %}
+          {% set found = namespace(idx=-1) %}
+          {% for i in range(person_hours.rows|length) %}
+            {% if person_hours.rows[i][0] == name %}{% set found.idx = i %}{% endif %}
+          {% endfor %}
+          {% if found.idx == -1 %}
+            {% set _ = person_hours.rows.append([name, pos, dept, hrs]) %}
+          {% else %}
+            {# Can't mutate list in Jinja — duplicate rows OK for now, we sum in display #}
+            {% set _ = person_hours.rows.append([name, pos, dept, hrs]) %}
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+    {% endfor %}
+
+    {% if person_hours.rows %}
+    {% set total_mh = namespace(n=0) %}
+    {% for r in person_hours.rows %}{% set total_mh.n = total_mh.n + r[3] %}{% endfor %}
+
+    <div class="card mt-2" id="hours-summary-card">
+      <div class="card-header d-flex align-items-center justify-content-between"
+           style="font-size:.82rem;font-weight:700;">
+        <span>⏱ Day Hours Summary</span>
+        <span class="text-muted" style="font-size:.72rem;font-weight:400;">
+          {{ "%.1f"|format(total_mh.n) }} total man-hours
+        </span>
+      </div>
+      <div class="p-0" style="overflow-x:auto;">
+        <table class="crew-table" id="hours-summary-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th style="width:140px;">Position</th>
+              <th style="width:90px;">Department</th>
+              <th style="width:70px;text-align:right;">Hours</th>
+              <th style="width:120px;">Bar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {# Merge duplicate names by summing hours #}
+            {% set seen = namespace(names={}) %}
+            {% set merged = namespace(rows=[]) %}
+            {% for r in person_hours.rows %}
+              {% set found = namespace(idx=-1) %}
+              {% for i in range(merged.rows|length) %}
+                {% if merged.rows[i][0] == r[0] %}{% set found.idx = i %}{% endif %}
+              {% endfor %}
+              {% if found.idx == -1 %}
+                {% set _ = merged.rows.append([r[0], r[1], r[2], r[3]]) %}
+              {% else %}
+                {# Jinja can't mutate — append a sentinel to aggregate below #}
+                {% set _ = merged.rows.append(['__add__' ~ r[0], r[1], r[2], r[3]]) %}
+              {% endif %}
+            {% endfor %}
+
+            {# Build a clean aggregated list using a simple Jinja approach #}
+            {% set agg = namespace(data={}) %}
+            {% for r in person_hours.rows %}
+              {# Use the name as key, accumulate hours #}
+            {% endfor %}
+
+            {# Simplest working approach: dedupe by rendering with a seen dict #}
+            {% set out = namespace(names=[], totals=[]) %}
+            {% for r in person_hours.rows %}
+              {% if r[0] not in out.names %}
+                {% set _ = out.names.append(r[0]) %}
+                {# Sum all hours for this name #}
+                {% set sum_h = namespace(v=0) %}
+                {% for rr in person_hours.rows %}
+                  {% if rr[0] == r[0] %}{% set sum_h.v = sum_h.v + rr[3] %}{% endif %}
+                {% endfor %}
+                {% set _ = out.totals.append([r[0], r[1], r[2], sum_h.v]) %}
+              {% endif %}
+            {% endfor %}
+
+            {% set sorted_out = out.totals|sort(attribute='3', reverse=True) %}
+            {% for row in sorted_out %}
+            <tr>
+              <td style="font-weight:600;">{{ row[0] }}</td>
+              <td style="color:var(--adi-blue);font-size:.72rem;">{{ row[1] or '—' }}</td>
+              <td class="text-muted" style="font-size:.72rem;">{{ row[2] or '—' }}</td>
+              <td style="text-align:right;font-weight:700;">{{ "%.1f"|format(row[3]) }}</td>
+              <td>
+                {% if total_mh.n > 0 %}
+                <div style="background:#F1F5F9;border-radius:4px;height:7px;width:100%;">
+                  <div style="width:{{ [(row[3] / total_mh.n * 100), 100]|min|round(1) }}%;
+                              background:var(--adi-blue);height:7px;border-radius:4px;"></div>
+                </div>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+
+            <!-- Total row -->
+            <tr style="border-top:2px solid var(--adi-border);">
+              <td colspan="3" style="font-weight:700;font-size:.75rem;
+                                     text-transform:uppercase;letter-spacing:.05em;">
+                Total Man-Hours
+              </td>
+              <td style="text-align:right;font-weight:700;color:var(--adi-gold);">
+                {{ "%.1f"|format(total_mh.n) }}
+              </td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Milestones -->
+    {% if day.milestone_list %}
+    <div class="card mt-2">
+      <div class="card-header">
+        <span style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;">
+          Milestones — End of Day
+        </span>
+      </div>
+      <div class="card-body p-3">
+        {% for m in day.milestone_list %}
+        <div style="font-size:.85rem;padding:3px 0;">• {{ m }}</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div><!-- /col-md-9 -->
+</div>
+
+<!-- ══ MODALS ════════════════════════════════════════════════════════════════ -->
+
+<!-- ── Shift Time Modal (company bulk-add) ──────────────────────────────────── -->
+<div class="modal fade" id="shiftTimeModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header" style="padding:12px 16px;">
+        <div>
+          <h6 class="modal-title mb-0" id="shift-modal-title">Add Crew</h6>
+          <div id="shift-modal-subtitle"
+               style="font-size:.72rem;color:var(--adi-muted);margin-top:2px;"></div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="padding:14px 16px;">
+
+        <div class="mb-3">
+          <label class="form-label" style="font-size:.75rem;">Activity Start Time</label>
+          <input type="time" id="shift-modal-start" class="form-control form-control-sm"
+                 readonly style="background:#F8F9FA;color:var(--adi-muted);">
+          <div class="form-text" style="font-size:.68rem;">
+            Pulled from the activity — edit on the activity card if needed.
+          </div>
+        </div>
+
+        <div class="row g-2 mb-1">
+          <div class="col-6">
+            <label class="form-label" style="font-size:.75rem;">Hours on Shift</label>
+            <input type="number" id="shift-modal-hrs" class="form-control form-control-sm"
+                   step="0.5" min="0" placeholder="e.g. 10"
+                   oninput="shiftModalHrsChanged()">
+          </div>
+          <div class="col-6">
+            <label class="form-label" style="font-size:.75rem;">End Time</label>
+            <input type="time" id="shift-modal-end" class="form-control form-control-sm"
+                   oninput="shiftModalEndChanged()">
+          </div>
+        </div>
+        <div id="shift-modal-hint"
+             style="font-size:.72rem;color:var(--adi-gold);font-weight:600;min-height:1.2em;
+                    margin-bottom:4px;"></div>
+
+        <div class="form-text" style="font-size:.68rem;">
+          Leave blank to add crew without hours — you can fill in hours on each row later.
+        </div>
+      </div>
+      <div class="modal-footer" style="padding:10px 16px;">
+        <button type="button" class="btn btn-sm btn-outline-secondary"
+                data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-sm btn-adi" id="shift-modal-confirm"
+                onclick="confirmShiftModal()">Add Crew →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Shift Modal -->
+<div class="modal fade" id="bulkShiftModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title">⏱ Bulk Time Shift</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('schedule.bulk_shift', show_id=show.id, day_id=day.id) }}">
+        <div class="modal-body">
+          <p class="text-muted" style="font-size:.8rem;">
+            Shift all activities on this day forward or backward. Use negative numbers to shift earlier.
+          </p>
+          <div class="mb-3">
+            <label class="form-label">Minutes to shift</label>
+            <input type="number" name="shift_minutes" class="form-control"
+                   placeholder="e.g. 30 or -15" required>
+            <div class="form-text">+30 = 30 min later · -30 = 30 min earlier</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-adi">Shift All</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Copy to Days Modal -->
+<div class="modal fade" id="copyToDaysModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title">📋 Copy Activity to Other Days</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" id="copy-to-days-form">
+        <div class="modal-body">
+          <div class="mb-2">
+            <strong id="copy-modal-desc" style="font-size:.85rem;"></strong>
+          </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="copy_crew" value="1" id="copy-crew-check">
+            <label class="form-check-label" for="copy-crew-check" style="font-size:.82rem;">
+              Also copy crew rows
+            </label>
+          </div>
+          <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6c757d;margin-bottom:8px;">
+            Select Days
+          </div>
+          <div class="mb-2">
+            <button type="button" class="btn btn-xs btn-outline-secondary"
+                    style="font-size:.72rem;padding:2px 8px;" onclick="selectAllDays(true)">Select All</button>
+            <button type="button" class="btn btn-xs btn-outline-secondary ms-1"
+                    style="font-size:.72px;padding:2px 8px;" onclick="selectAllDays(false)">Deselect All</button>
+          </div>
+          <div id="copy-days-list" style="max-height:280px;overflow-y:auto;">
+            {% set current_phase = namespace(val='') %}
+            {% for d in show.days %}
+              {% if d.id != day.id %}
+                {% if d.phase and d.phase != current_phase.val %}
+                  {% set current_phase.val = d.phase %}
+                  <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;
+                              letter-spacing:.06em;color:#adb5bd;padding:6px 0 2px;
+                              border-top:1px dashed #dee2e6;margin-top:4px;">
+                    {{ d.phase }}
+                  </div>
+                {% endif %}
+                <div class="form-check">
+                  <input class="form-check-input copy-day-check" type="checkbox"
+                         name="target_day_ids[]" value="{{ d.id }}"
+                         id="copy-day-{{ d.id }}"
+                         data-phase="{{ d.phase or '' }}">
+                  <label class="form-check-label" for="copy-day-{{ d.id }}"
+                         style="font-size:.82rem;">
+                    {{ d.date.strftime('%a %b %-d') }}
+                    {% if d.label %}<span class="text-muted"> — {{ d.label }}</span>{% endif %}
+                    <span class="text-muted" style="font-size:.72rem;">
+                      ({{ d.activities|length }} activities)
+                    </span>
+                  </label>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-adi">Copy →</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Travel card show/hide on phase change ─────────────────────────────────────
+(function () {
+  const phaseSelect = document.querySelector('select[name="phase"]');
+  const travelCard  = document.getElementById('travel-card');
+  if (!phaseSelect || !travelCard) return;
+  phaseSelect.addEventListener('change', () => {
+    travelCard.style.display = phaseSelect.value === 'Travel' ? '' : 'none';
+  });
+})();
+
+// ── Activity library ─────────────────────────────────────────────────────────
+const ACTIVITY_LIBRARY = {
+  "Crew & Breaks": [
+    "CREW START", "LUNCH BREAK — 30 min", "LUNCH BREAK — 60 min",
+    "AFTERNOON BREAK — 15 min", "DINNER BREAK — 30 min", "EOD WRAP",
+    "MEAL PENALTY WARNING", "OVERTIME BEGINS",
+  ],
+  "Load In / Setup": [
+    "LOAD IN BEGINS", "EQUIPMENT DELIVERY", "SETUP RIGGING", "SETUP AUDIO",
+    "SETUP VIDEO", "SETUP LIGHTING", "SETUP LED WALL", "SETUP SCENIC",
+    "AV SYSTEM CHECK", "WIRELESS CHECK", "CAMERA REHEARSAL", "PLAYBACK CHECK",
+    "INTERNET / NETWORK CHECK", "POWER CHECK",
+  ],
+  "Show": [
+    "DOORS OPEN", "HOUSE OPEN", "GENERAL SESSION BEGINS", "KEYNOTE ADDRESS",
+    "PANEL DISCUSSION", "PRESENTER REHEARSAL", "EXECUTIVE REHEARSAL",
+    "TECH REHEARSAL BEGINS", "SOUND CHECK", "CAMERA BLOCKING",
+    "Q&A SESSION", "AWARDS CEREMONY", "VIP RECEPTION", "NETWORKING EVENT",
+    "BREAKOUT SESSIONS", "GENERAL SESSION ENDS", "END OF SHOW",
+  ],
+  "Strike / Travel": [
+    "STRIKE BEGINS", "LOAD OUT BEGINS", "EQUIPMENT PICKUP",
+    "VENDOR DEPARTURE", "STRIKE COMPLETE", "TRAVEL DAY",
+  ],
+  "Venue / Logistics": [
+    "VENUE ACCESS BEGINS", "DOCK OPENS", "SECURITY BRIEFING",
+    "CATERING SETUP", "CATERING TEARDOWN", "HOUSE LIGHTS UP",
+    "HOUSE LIGHTS DOWN", "HVAC ADJUSTMENT",
+  ],
+};
+
+// ── Autocomplete ─────────────────────────────────────────────────────────────
+const descInput = document.getElementById('new-act-desc');
+const suggestBox = document.getElementById('act-suggestions');
+let activeSuggIdx = -1;
+let suggestItems = [];
+
+function buildSuggestions(query) {
+  query = query.toUpperCase().trim();
+  suggestBox.innerHTML = '';
+  suggestItems = [];
+  if (!query) { suggestBox.style.display = 'none'; return; }
+
+  let hasAny = false;
+  Object.entries(ACTIVITY_LIBRARY).forEach(([group, items]) => {
+    const matches = items.filter(s => s.includes(query));
+    if (!matches.length) return;
+    hasAny = true;
+    const grpEl = document.createElement('div');
+    grpEl.className = 'suggestion-group';
+    grpEl.textContent = group;
+    suggestBox.appendChild(grpEl);
+    matches.forEach(s => {
+      const el = document.createElement('div');
+      el.className = 'suggestion-item';
+      el.textContent = s;
+      el.addEventListener('mousedown', () => {
+        descInput.value = s;
+        suggestBox.style.display = 'none';
+      });
+      suggestBox.appendChild(el);
+      suggestItems.push(el);
+    });
+  });
+
+  suggestBox.style.display = hasAny ? 'block' : 'none';
+  activeSuggIdx = -1;
+}
+
+descInput?.addEventListener('input', e => buildSuggestions(e.target.value));
+descInput?.addEventListener('keydown', e => {
+  if (suggestBox.style.display === 'none') return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    activeSuggIdx = Math.min(activeSuggIdx + 1, suggestItems.length - 1);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    activeSuggIdx = Math.max(activeSuggIdx - 1, 0);
+  } else if (e.key === 'Enter' && activeSuggIdx >= 0) {
+    e.preventDefault();
+    descInput.value = suggestItems[activeSuggIdx].textContent;
+    suggestBox.style.display = 'none';
+    return;
+  } else if (e.key === 'Escape') {
+    suggestBox.style.display = 'none'; return;
+  }
+  suggestItems.forEach((el, i) => el.classList.toggle('active', i === activeSuggIdx));
+  if (activeSuggIdx >= 0) suggestItems[activeSuggIdx].scrollIntoView({ block: 'nearest' });
+});
+document.addEventListener('click', e => {
+  if (!suggestBox.contains(e.target) && e.target !== descInput) {
+    suggestBox.style.display = 'none';
+  }
+});
+
+// ── Quick-add pills ───────────────────────────────────────────────────────────
+document.querySelectorAll('.quick-add-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const timeEl = document.getElementById('new-act-time');
+    const descEl = document.getElementById('new-act-desc');
+    if (btn.dataset.time) timeEl.value = btn.dataset.time;
+    descEl.value = btn.dataset.desc;
+    descEl.focus();
+    suggestBox.style.display = 'none';
+  });
+});
+
+// ── Time calculator ───────────────────────────────────────────────────────────
+const timeInput    = document.getElementById('new-act-time');
+const durationInput= document.getElementById('new-act-duration');
+const hintEl       = document.getElementById('time-calc-hint');
+
+function parseTimeToMins(s) {
+  if (!s) return null;
+  const t = s.trim();
+  // Primary: 24hr HH:MM (what type="time" inputs submit)
+  const m24 = t.match(/^(\d{1,2}):(\d{2})$/);
+  if (m24) {
+    const h = parseInt(m24[1]), mn = parseInt(m24[2]);
+    if (h >= 0 && h <= 23 && mn >= 0 && mn <= 59) return h * 60 + mn;
+  }
+  // Legacy: 12hr with AM/PM (for any old stored data that slipped through)
+  const m12 = t.toUpperCase().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/);
+  if (m12) {
+    let h = parseInt(m12[1]), mn = parseInt(m12[2]);
+    if (m12[3] === 'PM' && h !== 12) h += 12;
+    if (m12[3] === 'AM' && h === 12) h = 0;
+    return h * 60 + mn;
+  }
+  return null;
+}
+function minsToStr(mins) {
+  mins = ((mins % 1440) + 1440) % 1440;
+  const h = Math.floor(mins / 60), mn = mins % 60;
+  return `${String(h).padStart(2,'0')}:${String(mn).padStart(2,'0')}`;
+}
+function updateTimeCalc() {
+  const start = parseTimeToMins(timeInput?.value);
+  const dur   = parseFloat(durationInput?.value);
+  if (start !== null && !isNaN(dur) && dur > 0) {
+    hintEl.textContent = `ends ~${minsToStr(start + Math.round(dur * 60))}`;
+  } else {
+    hintEl.textContent = '';
+  }
+}
+timeInput?.addEventListener('input', updateTimeCalc);
+durationInput?.addEventListener('input', updateTimeCalc);
+
+// ── Hours on clock ────────────────────────────────────────────────────────────
+(function computeHours() {
+  const call = '{{ day.call_time or "" }}';
+  const wrap = '{{ day.wrap_time or "" }}';
+  const badge = document.getElementById('hours-on-clock');
+  if (!badge || !call || !wrap) return;
+  const cs = parseTimeToMins(call), ws = parseTimeToMins(wrap);
+  if (cs === null || ws === null) return;
+  const hrs = ((ws - cs + 1440) % 1440) / 60;
+  badge.textContent = `${hrs.toFixed(1)} hrs on clock`;
+  if (hrs > 12) badge.classList.add('ot');
+  else if (hrs >= 10) badge.classList.add('warn');
+})();
+
+// ── Copy to Days modal ────────────────────────────────────────────────────────
+function openCopyModal(actId, desc) {
+  document.getElementById('copy-modal-desc').textContent = desc;
+  const base = '{{ url_for("schedule.copy_activity_to_days", show_id=show.id, day_id=day.id, act_id=0) }}';
+  document.getElementById('copy-to-days-form').action = base.replace('/0/', `/${actId}/`);
+  const modal = new bootstrap.Modal(document.getElementById('copyToDaysModal'));
+  modal.show();
+}
+function selectAllDays(checked) {
+  document.querySelectorAll('.copy-day-check').forEach(cb => cb.checked = checked);
+}
+
+// ── Crew form toggle ──────────────────────────────────────────────────────────
+function toggleCrewForm(cb, actId) {
+  document.getElementById('header-form-' + actId).style.display = cb.checked ? 'block' : 'none';
+  document.getElementById('crew-form-'   + actId).style.display = cb.checked ? 'none'  : 'block';
+}
+
+// ── Break schedule calculator ────────────────────────────────────────────────
+// 30-min lunch = ON THE CLOCK (paid) — does not extend the day
+// 60-min lunch = WALK AWAY (unpaid) — adds a full hour of working time
+let _lunchIsWalkAway = false;  // tracks current state; default is 30-min (on clock)
+
+function onLunchChange(newValStr) {
+  const newIsWalkAway = parseInt(newValStr) === 60;
+
+  if (newIsWalkAway !== _lunchIsWalkAway) {
+    const wrapInput = document.getElementById('wrap_time_input');
+    if (wrapInput && wrapInput.value.trim()) {
+      const wrapM = parseTimeToMins(wrapInput.value.trim());
+      if (wrapM !== null) {
+        // Walk away → add 60 min; back to on-clock → subtract 60 min
+        wrapInput.value = minsToStr(wrapM + (newIsWalkAway ? 60 : -60));
+      }
+    }
+  }
+
+  _lunchIsWalkAway = newIsWalkAway;
+  calcBreaks();
+}
+
+function calcBreaks() {
+  const callStr = (document.getElementById('call_time_input')?.value || '').trim();
+  const wrapStr = (document.getElementById('wrap_time_input')?.value || '').trim();
+  const preview = document.getElementById('break-preview');
+
+  // Keep hidden fields in sync so the form POST has the right values
+  const bsCall = document.getElementById('bs-call');
+  const bsWrap = document.getElementById('bs-wrap');
+  if (bsCall) bsCall.value = callStr;
+  if (bsWrap) bsWrap.value = wrapStr;
+
+  if (!preview) return;
+
+  const callM = parseTimeToMins(callStr);
+  if (callM === null) {
+    preview.innerHTML = '<span style="color:#adb5bd;">Enter call &amp; wrap times above to preview.</span>';
+    return;
+  }
+
+  const lunchMins = parseInt(
+    document.querySelector('input[name="lunch_minutes"]:checked')?.value || 30
+  );
+
+  const coffee1   = callM + 150;              // call + 2:30
+  const lunch     = callM + 300;              // call + 5:00
+  const lunchEnd  = lunch + lunchMins;
+  const coffee2   = lunchEnd + 150;           // lunch end + 2:30
+  const wrapM     = parseTimeToMins(wrapStr);
+  const elapsed   = wrapM !== null ? ((wrapM - callM + 1440) % 1440) : null;
+  const needsDinner = elapsed !== null && elapsed > 600; // > 10 hours
+
+  const rows = [
+    { t: callM,   icon: '🟢', label: 'CREW START' },
+    { t: coffee1, icon: '☕', label: 'MORNING BREAK — 15 min' },
+    { t: lunch,   icon: '🍽', label: `LUNCH BREAK — ${lunchMins} min` },
+    { t: coffee2, icon: '☕', label: 'AFTERNOON BREAK — 15 min' },
+  ];
+
+  if (needsDinner) {
+    const dinnerStart = lunchEnd + 300;       // 5 hours of work after lunch ends
+    // Only add dinner if it falls before the wrap time
+    if (wrapM === null || dinnerStart < wrapM) {
+      rows.push({ t: dinnerStart, icon: '🍽', label: `DINNER BREAK — ${lunchMins} min` });
+    }
+  }
+
+  if (wrapM !== null) rows.push({ t: wrapM, icon: '🏁', label: 'EOD WRAP' });
+
+  rows.sort((a, b) => a.t - b.t);
+
+  preview.innerHTML = rows.map(r =>
+    `<div>
+       <strong style="color:var(--adi-blue);display:inline-block;min-width:64px;">
+         ${minsToStr(r.t)}
+       </strong> ${r.icon} ${r.label}
+     </div>`
+  ).join('');
+}
+
+// Wire break calculator to call/wrap inputs
+document.getElementById('call_time_input')?.addEventListener('input', calcBreaks);
+document.getElementById('wrap_time_input')?.addEventListener('input', calcBreaks);
+document.addEventListener('DOMContentLoaded', calcBreaks);
+
+// ── Crew select from roster ───────────────────────────────────────────────────
+function onCrewSelect(sel, actId) {
+  const opt  = sel.options[sel.selectedIndex];
+  const pos  = opt.dataset.position || '';
+  // Auto-fill position field if a roster member is chosen and position is blank
+  const posInput = document.getElementById('pos-input-' + actId);
+  if (posInput && pos && !posInput.value) posInput.value = pos;
+  // Toggle TBD name field visibility
+  const tbdInput = document.getElementById('tbd-name-' + actId);
+  if (tbdInput) {
+    tbdInput.style.display = sel.value ? 'none' : '';
+    if (sel.value) tbdInput.value = '';  // clear when roster member selected
+  }
+}
+
+// ── Activity drag-to-reorder ──────────────────────────────────────────────────
+let _dragCard = null;
+
+function bindActivityDrag(card) {
+  const handle = card.querySelector('.act-drag-handle');
+  if (!handle) return;
+
+  handle.addEventListener('mousedown', () => { card.draggable = true; });
+  handle.addEventListener('mouseup',   () => { card.draggable = false; });
+
+  card.addEventListener('dragstart', e => {
+    _dragCard = card;
+    card.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  card.addEventListener('dragend', () => {
+    card.classList.remove('dragging');
+    card.draggable = false;
+    document.querySelectorAll('.act-card').forEach(c => c.classList.remove('drag-over'));
+    _dragCard = null;
+    saveActivityOrder();
+  });
+  card.addEventListener('dragover', e => {
+    e.preventDefault();
+    if (_dragCard && _dragCard !== card) card.classList.add('drag-over');
+  });
+  card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+  card.addEventListener('drop', e => {
+    e.preventDefault();
+    card.classList.remove('drag-over');
+    if (!_dragCard || _dragCard === card) return;
+    const container = card.parentElement;
+    const cards     = [...container.querySelectorAll('.act-card')];
+    const fromIdx   = cards.indexOf(_dragCard);
+    const toIdx     = cards.indexOf(card);
+    container.insertBefore(_dragCard, fromIdx < toIdx ? card.nextSibling : card);
+  });
+}
+
+function saveActivityOrder() {
+  const ids = [...document.querySelectorAll('.act-card')].map(c => parseInt(c.dataset.actId));
+  fetch('{{ url_for("schedule.reorder_activities", show_id=show.id, day_id=day.id) }}', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ order: ids }),
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.act-card').forEach(bindActivityDrag);
+});
+
+// ── Call sheet grouping toggle ────────────────────────────────────────────────
+let _callSheetGrouped = false;
+
+function toggleCallSheetGrouping() {
+  _callSheetGrouped = !_callSheetGrouped;
+  const btn  = document.getElementById('cs-group-btn');
+  const tbody = document.getElementById('call-sheet-body');
+  if (!tbody) return;
+
+  if (_callSheetGrouped) {
+    btn.classList.replace('btn-outline-secondary', 'btn-primary');
+    btn.textContent = 'By Call Time';
+    // Group rows by department
+    const rows = [...tbody.querySelectorAll('tr.call-sheet-row')];
+    const groups = {};
+    rows.forEach(r => {
+      const dept = r.dataset.dept || 'Other';
+      if (!groups[dept]) groups[dept] = [];
+      groups[dept].push(r);
+    });
+    tbody.innerHTML = '';
+    Object.keys(groups).sort().forEach(dept => {
+      const hdr = document.createElement('tr');
+      hdr.innerHTML = `<td colspan="7" style="background:#F8F9FA;font-weight:700;font-size:.72rem;
+        text-transform:uppercase;letter-spacing:.08em;color:var(--adi-dark);padding:6px 8px 4px;">
+        ${dept}
+      </td>`;
+      tbody.appendChild(hdr);
+      groups[dept].forEach(r => { r.classList.add('call-sheet-row-enter'); tbody.appendChild(r); });
+    });
+  } else {
+    btn.classList.replace('btn-primary', 'btn-outline-secondary');
+    btn.textContent = 'Group by Dept';
+    // Restore chronological order (by call time text — rows are already in activity order)
+    const rows = [...tbody.querySelectorAll('tr.call-sheet-row')];
+    tbody.innerHTML = '';
+    rows.forEach(r => tbody.appendChild(r));
+  }
+}
+
+// ── Individual crew form: Hrs ↔ End Time calculator ──────────────────────────
+function _getActTime(actId) {
+  const card = document.getElementById('act-' + actId);
+  return card ? (card.dataset.actTime || '') : '';
+}
+
+function onHrsInput(actId) {
+  const hrsEl  = document.getElementById('hrs-input-' + actId);
+  const endEl  = document.getElementById('end-input-' + actId);
+  const hint   = document.getElementById('shift-hint-' + actId);
+  const hrs    = parseFloat(hrsEl?.value);
+  const startM = parseTimeToMins(_getActTime(actId));
+
+  if (!isNaN(hrs) && hrs > 0 && startM !== null) {
+    const endM = startM + Math.round(hrs * 60);
+    endEl.value = minsToStr(endM);
+    hint.textContent = `ends ${minsToStr(endM)}`;
+  } else if (!isNaN(hrs) && hrs > 0) {
+    hint.textContent = `${hrs}h (set activity time to calculate end)`;
+  } else {
+    endEl.value = '';
+    hint.textContent = '';
+  }
+}
+
+function onEndInput(actId) {
+  const hrsEl  = document.getElementById('hrs-input-' + actId);
+  const endEl  = document.getElementById('end-input-' + actId);
+  const hint   = document.getElementById('shift-hint-' + actId);
+  const startM = parseTimeToMins(_getActTime(actId));
+  const endM   = parseTimeToMins(endEl.value);
+
+  if (startM !== null && endM !== null) {
+    const hrs = ((endM - startM + 1440) % 1440) / 60;
+    hrsEl.value = hrs.toFixed(1);
+    hint.textContent = `${hrs.toFixed(1)} hrs`;
+  } else if (endM !== null) {
+    hint.textContent = `set activity time to calculate hours`;
+  } else {
+    hrsEl.value = '';
+    hint.textContent = '';
+  }
+}
+
+// ── Company bulk-add: shift time modal ───────────────────────────────────────
+let _shiftModalActId    = null;
+let _shiftModalCoId     = null;
+let _shiftModalCoName   = null;
+let _shiftModalActDesc  = null;
+let _shiftModalBtn      = null;
+
+function openShiftModal(actId, coId, coName, actDesc) {
+  _shiftModalActId   = actId;
+  _shiftModalCoId    = coId;
+  _shiftModalCoName  = coName;
+  _shiftModalActDesc = actDesc;
+  _shiftModalBtn     = event.currentTarget;
+
+  // Pre-fill start time from activity card
+  const actTime = _getActTime(actId);
+
+  document.getElementById('shift-modal-title').textContent    = `Add ${coName} Crew`;
+  document.getElementById('shift-modal-subtitle').textContent = actDesc || '';
+  document.getElementById('shift-modal-start').value          = actTime || '';
+  document.getElementById('shift-modal-hrs').value            = '';
+  document.getElementById('shift-modal-end').value            = '';
+  document.getElementById('shift-modal-hint').textContent     = '';
+
+  // Pre-fill day wrap time as a suggested end default
+  const wrapTime = '{{ day.wrap_time or "" }}';
+  if (wrapTime) {
+    document.getElementById('shift-modal-end').value = wrapTime;
+    shiftModalEndChanged();  // recalculate hours from the pre-filled end time
+  }
+
+  new bootstrap.Modal(document.getElementById('shiftTimeModal')).show();
+}
+
+function shiftModalHrsChanged() {
+  const hrsEl  = document.getElementById('shift-modal-hrs');
+  const endEl  = document.getElementById('shift-modal-end');
+  const hint   = document.getElementById('shift-modal-hint');
+  const startM = parseTimeToMins(document.getElementById('shift-modal-start').value);
+  const hrs    = parseFloat(hrsEl.value);
+
+  if (!isNaN(hrs) && hrs > 0 && startM !== null) {
+    endEl.value = minsToStr(startM + Math.round(hrs * 60));
+    hint.textContent = `shift ends ${endEl.value}`;
+  } else if (!isNaN(hrs) && hrs > 0) {
+    hint.textContent = `${hrs}h shift`;
+    endEl.value = '';
+  } else {
+    hint.textContent = '';
+    endEl.value = '';
+  }
+}
+
+function shiftModalEndChanged() {
+  const hrsEl  = document.getElementById('shift-modal-hrs');
+  const endEl  = document.getElementById('shift-modal-end');
+  const hint   = document.getElementById('shift-modal-hint');
+  const startM = parseTimeToMins(document.getElementById('shift-modal-start').value);
+  const endM   = parseTimeToMins(endEl.value);
+
+  if (startM !== null && endM !== null) {
+    const hrs = ((endM - startM + 1440) % 1440) / 60;
+    hrsEl.value = hrs.toFixed(1);
+    hint.textContent = `${hrs.toFixed(1)} hrs on shift`;
+  } else if (endM !== null) {
+    hint.textContent = 'enter start time to calculate hours';
+  } else {
+    hrsEl.value = '';
+    hint.textContent = '';
+  }
+}
+
+async function confirmShiftModal() {
+  const actId     = _shiftModalActId;
+  const companyId = _shiftModalCoId;
+  const hrs       = parseFloat(document.getElementById('shift-modal-hrs').value) || null;
+
+  // Close modal
+  bootstrap.Modal.getInstance(document.getElementById('shiftTimeModal'))?.hide();
+
+  const btn = _shiftModalBtn;
+  const origText = btn?.textContent || '';
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+  try {
+    const url = `{{ url_for('show_crew.add_company_crew_to_activity',
+                              show_id=show.id, day_id=day.id, act_id=0) }}`
+                  .replace('/0/', `/${actId}/`);
+    const body = { company_id: companyId };
+    if (hrs !== null && hrs > 0) body.hours = hrs;
+
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    if (data.added === 0) {
+      if (btn) { btn.textContent = '✓ All added'; setTimeout(() => { btn.disabled = false; btn.textContent = origText; }, 1800); }
+    } else {
+      if (btn) {
+        btn.textContent = `✓ Added ${data.added}`;
+        btn.style.background = 'rgba(21,128,61,.15)';
+        btn.style.color = '#15803D';
+        btn.style.borderColor = 'rgba(21,128,61,.3)';
+      }
+      setTimeout(() => location.reload(), 800);
+    }
+  } catch (err) {
+    console.error('addCompanyCrew error', err);
+    if (btn) { btn.textContent = '⚠ Error'; btn.disabled = false; setTimeout(() => { btn.textContent = origText; }, 2000); }
+  }
+}
+</script>
+{% endblock %}

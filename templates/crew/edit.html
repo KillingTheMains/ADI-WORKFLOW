@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ member.full_name }} — ADI Workflow{% endblock %}
+{% block page_title %}Edit Crew Member{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> /
+  <a href="{{ url_for('crew.index') }}">Crew</a> / Edit
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <form method="POST">
+
+      <div class="card mb-3">
+        <div class="card-header gold">Person Details</div>
+        <div class="card-body p-4">
+          <div class="row g-3">
+            <div class="col-md-5">
+              <label class="form-label">First Name <span class="text-danger">*</span></label>
+              <input type="text" name="first_name" class="form-control" required
+                     value="{{ member.first_name }}">
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Last Name <span class="text-danger">*</span></label>
+              <input type="text" name="last_name" class="form-control" required
+                     value="{{ member.last_name }}">
+            </div>
+            <div class="col-md-2 d-flex align-items-end pb-1">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="active" value="1"
+                       id="activeCheck" {% if member.active %}checked{% endif %}>
+                <label class="form-check-label" for="activeCheck">Active</label>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Company</label>
+              <select name="company_id" class="form-select">
+                <option value="">— No company —</option>
+                {% for c in companies %}
+                <option value="{{ c.id }}" {% if member.company_id == c.id %}selected{% endif %}>
+                  {{ c.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Primary Position</label>
+              <select name="position_id" class="form-select">
+                <option value="">— Select position —</option>
+                {% set dept = namespace(current='') %}
+                {% for p in positions %}
+                  {% if p.department != dept.current %}
+                    {% if dept.current %}</optgroup>{% endif %}
+                    {% set dept.current = p.department %}
+                    <optgroup label="{{ p.department }}">
+                  {% endif %}
+                  <option value="{{ p.id }}" {% if member.position_id == p.id %}selected{% endif %}>
+                    {{ p.title }}
+                  </option>
+                {% endfor %}
+                {% if dept.current %}</optgroup>{% endif %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              <input type="email" name="email" class="form-control"
+                     value="{{ member.email or '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Phone</label>
+              <input type="tel" name="phone" class="form-control"
+                     value="{{ member.phone or '' }}">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header">Rates</div>
+        <div class="card-body p-4">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Standard ($/hr)</label>
+              <input type="number" name="rate_standard" class="form-control"
+                     step="0.01" placeholder="0.00"
+                     value="{{ '%.2f'|format(member.rate_standard) if member.rate_standard else '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">OT (1.5x) ($/hr)</label>
+              <input type="number" name="rate_ot" class="form-control"
+                     step="0.01" placeholder="0.00"
+                     value="{{ '%.2f'|format(member.rate_ot) if member.rate_ot else '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">DT (2x) ($/hr)</label>
+              <input type="number" name="rate_dt" class="form-control"
+                     step="0.01" placeholder="0.00"
+                     value="{{ '%.2f'|format(member.rate_dt) if member.rate_dt else '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Meal Penalty</label>
+              <input type="number" name="meal_penalty" class="form-control"
+                     step="0.01" placeholder="0.00"
+                     value="{{ '%.2f'|format(member.meal_penalty) if member.meal_penalty else '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Per Diem ($/day)</label>
+              <input type="number" name="per_diem" class="form-control"
+                     step="0.01" placeholder="89.00"
+                     value="{{ '%.2f'|format(member.per_diem) if member.per_diem else '' }}">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header">Notes</div>
+        <div class="card-body p-4">
+          <textarea name="notes" class="form-control" rows="2">{{ member.notes or '' }}</textarea>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2 justify-content-between">
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-adi">Save Changes</button>
+          <a href="{{ url_for('crew.index') }}" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+        <form method="POST" action="{{ url_for('crew.delete', member_id=member.id) }}"
+              onsubmit="return confirm('Remove {{ member.full_name }} from the roster?')">
+          <button type="submit" class="btn btn-outline-danger btn-sm">Remove from Roster</button>
+        </form>
+      </div>
+
+    </form>
+  </div>
+</div>
+{% endblock %}

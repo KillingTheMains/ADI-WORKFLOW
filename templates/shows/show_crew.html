@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Show Crew — {{ show.name }}{% endblock %}
+{% block page_title %}Show Crew Roster{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> /
+  <a href="{{ url_for('shows.detail', show_id=show.id) }}">{{ show.name }}</a> / Crew
+{% endblock %}
+
+{% block top_actions %}
+  <a href="{{ url_for('show_crew.contact_sheet', show_id=show.id) }}"
+     class="btn btn-sm btn-outline-secondary" target="_blank">📋 Contact Sheet</a>
+  <a href="{{ url_for('show_crew.hours_report', show_id=show.id) }}"
+     class="btn btn-sm btn-outline-secondary">⏱ Hours Report</a>
+{% endblock %}
+
+{% block content %}
+
+<!-- Show header -->
+<div class="card mb-4" style="background:var(--adi-dark);border-color:var(--adi-dark);">
+  <div class="card-body p-3">
+    <div class="row align-items-center">
+      <div class="col">
+        <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--adi-gold);">
+          {{ show.code or 'SHOW' }}
+        </div>
+        <div style="font-size:1.1rem;font-weight:700;color:#fff;">{{ show.name }}</div>
+        <div style="font-size:.8rem;color:rgba(255,255,255,.6);">
+          {% if show.venue %}{{ show.venue.name }}, {{ show.venue.city }}{% endif %}
+          {% if show.date_range %} · {{ show.date_range }}{% endif %}
+        </div>
+      </div>
+      <div class="col-auto text-end">
+        <div style="font-size:.8rem;color:rgba(255,255,255,.5);">
+          {{ assigned_ids|length }} crew assigned
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Info blurb -->
+<p class="text-muted" style="font-size:.85rem;margin-bottom:20px;">
+  Assign crew members to this show. Only assigned crew will appear in the day schedule
+  dropdowns when building out activities. Use the <strong>Add All</strong> button to
+  assign an entire company in one click.
+</p>
+
+<!-- Company sections -->
+{% for co in sorted_companies %}
+{% set co_crew = co.crew %}
+{% set assigned_count = co_crew | selectattr('id', 'in', assigned_ids) | list | length %}
+
+<div class="card mb-3">
+  <div class="card-header d-flex align-items-center justify-content-between"
+       style="background:var(--adi-dark-2);color:#fff;padding:10px 16px;">
+    <div>
+      <span style="font-weight:700;font-size:.9rem;">{{ co.name }}</span>
+      <span style="font-size:.75rem;color:rgba(255,255,255,.5);margin-left:8px;">
+        {{ assigned_count }} / {{ co_crew|length }} assigned
+      </span>
+    </div>
+    <div class="d-flex gap-2">
+      {% if co_crew %}
+      {% set co_id = co_crew[0].company_id or 0 %}
+      {% if assigned_count < co_crew|length %}
+      <form method="POST" action="{{ url_for('show_crew.assign_company', show_id=show.id) }}"
+            style="display:inline;">
+        <input type="hidden" name="company_id" value="{{ co_id }}">
+        <input type="hidden" name="action" value="assign">
+        <button type="submit" class="btn btn-sm btn-adi"
+                style="font-size:.72rem;padding:3px 10px;">
+          ＋ Add All
+        </button>
+      </form>
+      {% endif %}
+      {% if assigned_count > 0 %}
+      <form method="POST" action="{{ url_for('show_crew.assign_company', show_id=show.id) }}"
+            style="display:inline;"
+            onsubmit="return confirm('Remove all {{ co.name }} crew from this show?');">
+        <input type="hidden" name="company_id" value="{{ co_id }}">
+        <input type="hidden" name="action" value="unassign">
+        <button type="submit" class="btn btn-sm"
+                style="font-size:.72rem;padding:3px 10px;background:rgba(255,255,255,.1);
+                       color:rgba(255,255,255,.7);border:none;">
+          Remove All
+        </button>
+      </form>
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card-body p-0">
+    <table style="width:100%;border-collapse:collapse;font-size:.83rem;">
+      <thead>
+        <tr style="background:var(--adi-surface);">
+          <th style="padding:6px 16px;font-size:.7rem;font-weight:600;text-transform:uppercase;
+                     letter-spacing:.05em;color:var(--adi-muted);border-bottom:1px solid var(--adi-border);">
+            Name
+          </th>
+          <th style="padding:6px 16px;font-size:.7rem;font-weight:600;text-transform:uppercase;
+                     letter-spacing:.05em;color:var(--adi-muted);border-bottom:1px solid var(--adi-border);">
+            Position / Dept
+          </th>
+          <th style="padding:6px 16px;font-size:.7rem;font-weight:600;text-transform:uppercase;
+                     letter-spacing:.05em;color:var(--adi-muted);border-bottom:1px solid var(--adi-border);
+                     text-align:center;">
+            Assigned
+          </th>
+          <th style="padding:6px 16px;border-bottom:1px solid var(--adi-border);"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cm in co_crew %}
+        {% set is_assigned = cm.id in assigned_ids %}
+        <tr style="border-bottom:1px solid #F3F4F6;
+                   {% if is_assigned %}background:#F0F9FF;{% endif %}">
+          <td style="padding:8px 16px;font-weight:600;color:var(--adi-dark);">
+            {{ cm.full_name }}
+          </td>
+          <td style="padding:8px 16px;color:var(--adi-muted);">
+            {% if cm.position %}
+              <span>{{ cm.position.title }}</span>
+              <span style="font-size:.72rem;margin-left:4px;
+                           background:var(--adi-blue-dim);color:var(--adi-blue);
+                           border-radius:8px;padding:1px 7px;">
+                {{ cm.position.department }}
+              </span>
+            {% else %}
+              <span style="color:#ccc;">—</span>
+            {% endif %}
+          </td>
+          <td style="padding:8px 16px;text-align:center;">
+            {% if is_assigned %}
+            <span style="color:#15803D;font-size:1rem;">✓</span>
+            {% else %}
+            <span style="color:#ccc;font-size:.75rem;">—</span>
+            {% endif %}
+          </td>
+          <td style="padding:8px 16px;text-align:right;">
+            <form method="POST" action="{{ url_for('show_crew.assign_crew', show_id=show.id) }}"
+                  style="display:inline;">
+              <input type="hidden" name="crew_member_id" value="{{ cm.id }}">
+              {% if is_assigned %}
+              <input type="hidden" name="action" value="unassign">
+              <button type="submit" class="btn btn-sm"
+                      style="font-size:.72rem;background:#FEF2F2;color:#DC2626;
+                             border:1px solid #FCA5A5;border-radius:4px;padding:2px 10px;">
+                Remove
+              </button>
+              {% else %}
+              <input type="hidden" name="action" value="assign">
+              <button type="submit" class="btn btn-sm btn-adi"
+                      style="font-size:.72rem;padding:2px 10px;">
+                Add
+              </button>
+              {% endif %}
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endfor %}
+
+{% if not sorted_companies %}
+<div class="empty-state">
+  <div class="empty-icon">👥</div>
+  <div style="font-size:1rem;font-weight:600;margin-bottom:8px;">No crew in the roster yet</div>
+  <p class="text-muted" style="font-size:.85rem;max-width:400px;margin:0 auto 16px;">
+    Add crew members to the global roster first, then assign them to shows.
+  </p>
+  <a href="{{ url_for('crew.add') }}" class="btn btn-adi">+ Add Crew Member</a>
+</div>
+{% endif %}
+
+{% endblock %}

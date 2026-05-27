@@ -1,0 +1,437 @@
+/* ── ADI Workflow — Custom Styles ─────────────────────────────────────────── */
+
+/* ADI Brand Colors
+   Navy         : #071B34  (primary dark — sidebar, headers)
+   Electric Blue: #2F80ED  (accent — replaces placeholder gold)
+   Blue Light   : #6BA5F5  (hover / highlight)
+   Charcoal     : #1E1E1E  (body text)
+   Surface      : #F0F4F8  (page background)
+   Border       : #DDE3ED
+   Muted        : #64748B
+*/
+
+:root {
+  --adi-dark:     #071B34;
+  --adi-dark-2:   #0D2549;
+  --adi-blue:     #2F80ED;
+  --adi-blue-lt:  #6BA5F5;
+  --adi-blue-dim: rgba(47,128,237,0.12);
+  --adi-surface:  #F0F4F8;
+  --adi-border:   #DDE3ED;
+  --adi-text:     #1E1E1E;
+  --adi-muted:    #64748B;
+
+  /* Legacy aliases — keeps templates working without mass-renaming */
+  --adi-gold:     #2F80ED;
+  --adi-gold-lt:  #6BA5F5;
+}
+
+/* ── Base ────────────────────────────────────────────────────────────────── */
+body {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  background-color: var(--adi-surface);
+  color: var(--adi-text);
+  min-height: 100vh;
+}
+
+a { color: var(--adi-blue); text-decoration: none; }
+a:hover { color: var(--adi-blue-lt); text-decoration: underline; }
+
+h1, h2, h3, h4, h5, h6,
+.card-header.gold,
+.sidebar-logo .logo-text {
+  font-family: 'Playfair Display', 'Georgia', serif;
+}
+
+/* ── Sidebar nav ─────────────────────────────────────────────────────────── */
+#sidebar {
+  width: 240px;
+  min-height: 100vh;
+  background: var(--adi-dark);
+  position: fixed;
+  top: 0; left: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+}
+
+#sidebar .sidebar-logo {
+  padding: 24px 20px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+#sidebar .sidebar-logo img {
+  height: 44px;
+  width: auto;
+}
+
+#sidebar .sidebar-logo .logo-text {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.04em;
+}
+
+#sidebar .sidebar-logo .logo-sub {
+  font-size: 0.7rem;
+  color: var(--adi-blue-lt);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+#sidebar nav {
+  padding: 16px 0;
+  flex: 1;
+}
+
+#sidebar nav .nav-section {
+  padding: 6px 20px 2px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  margin-top: 8px;
+}
+
+#sidebar nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 20px;
+  font-size: 0.875rem;
+  color: rgba(255,255,255,0.72);
+  border-left: 3px solid transparent;
+  transition: all 0.15s;
+}
+
+#sidebar nav a:hover,
+#sidebar nav a.active {
+  color: #fff;
+  background: rgba(47,128,237,0.14);
+  border-left-color: var(--adi-blue);
+  text-decoration: none;
+}
+
+#sidebar nav a .nav-icon {
+  width: 18px;
+  text-align: center;
+  font-size: 1rem;
+  opacity: 0.8;
+}
+
+#sidebar .sidebar-footer {
+  padding: 14px 20px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.3);
+}
+
+/* Show sub-links in sidebar */
+.sidebar-show-active {
+  color: #fff !important;
+  background: rgba(47,128,237,0.14) !important;
+  border-left-color: var(--adi-blue) !important;
+}
+
+/* ── Main content ────────────────────────────────────────────────────────── */
+#main-content {
+  margin-left: 240px;
+  min-height: 100vh;
+}
+
+.top-bar {
+  background: #fff;
+  border-bottom: 1px solid var(--adi-border);
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.top-bar .page-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--adi-dark);
+}
+
+.top-bar .breadcrumb {
+  font-size: 0.8rem;
+  color: var(--adi-muted);
+  margin: 0;
+}
+
+.page-body {
+  padding: 28px;
+}
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+.card {
+  border: 1px solid var(--adi-border);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.card-header {
+  background: #fff;
+  border-bottom: 1px solid var(--adi-border);
+  padding: 14px 20px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-radius: 8px 8px 0 0 !important;
+}
+
+.card-header.gold {
+  background: var(--adi-dark);
+  color: #fff;
+  border-color: var(--adi-dark);
+  letter-spacing: 0.02em;
+}
+
+/* ── Show cards on dashboard ─────────────────────────────────────────────── */
+.show-card {
+  border: 1px solid var(--adi-border);
+  border-radius: 8px;
+  background: #fff;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  overflow: hidden;
+}
+
+.show-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  border-color: var(--adi-blue);
+}
+
+.show-card .show-card-header {
+  background: var(--adi-dark);
+  padding: 12px 16px;
+}
+
+.show-card .show-code {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--adi-blue-lt);
+}
+
+.show-card .show-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  margin: 2px 0 0;
+}
+
+.show-card .show-card-body {
+  padding: 14px 16px;
+}
+
+.show-card .show-meta {
+  font-size: 0.8rem;
+  color: var(--adi-muted);
+  margin-bottom: 4px;
+}
+
+.show-card .show-meta strong {
+  color: var(--adi-text);
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.status-Planning  { background: #EFF6FF; color: #1D4ED8; }
+.status-Active    { background: #F0FDF4; color: #15803D; }
+.status-Closed    { background: #F3F4F6; color: #6B7280; }
+.status-Cancelled { background: #FEF2F2; color: #DC2626; }
+
+/* ── Schedule timeline ───────────────────────────────────────────────────── */
+.day-card {
+  border: 1px solid var(--adi-border);
+  border-radius: 8px;
+  background: #fff;
+  margin-bottom: 8px;
+  overflow: hidden;
+  transition: box-shadow 0.15s;
+}
+
+.day-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+
+.day-card .day-header-bar {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  gap: 12px;
+  background: var(--adi-dark-2);
+  color: #fff;
+}
+
+.day-card .day-date {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.day-card .day-time {
+  font-size: 0.75rem;
+  color: var(--adi-blue-lt);
+}
+
+.phase-pill {
+  margin-left: auto;
+  background: rgba(47,128,237,0.18);
+  color: var(--adi-blue-lt);
+  border-radius: 10px;
+  padding: 2px 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Activity blocks ─────────────────────────────────────────────────────── */
+.activity-block {
+  border-left: 3px solid var(--adi-blue);
+  margin: 12px 16px;
+  padding-left: 12px;
+}
+
+.activity-time {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--adi-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.activity-desc {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--adi-dark);
+  margin: 2px 0 6px;
+}
+
+/* ── Crew table ──────────────────────────────────────────────────────────── */
+.crew-table {
+  width: 100%;
+  font-size: 0.8rem;
+  border-collapse: collapse;
+}
+
+.crew-table thead tr {
+  background: var(--adi-surface);
+}
+
+.crew-table th {
+  padding: 5px 8px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--adi-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--adi-border);
+}
+
+.crew-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid #F3F4F6;
+  color: var(--adi-text);
+}
+
+.crew-table .group-header td {
+  background: #F8F9FA;
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--adi-dark);
+  padding: 6px 8px 4px;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.btn-adi {
+  background: var(--adi-blue);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 8px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-adi:hover {
+  background: var(--adi-dark-2);
+  color: #fff;
+}
+
+.btn-dark {
+  background: var(--adi-dark);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 8px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-dark:hover { background: var(--adi-dark-2); color: #fff; }
+
+/* ── Forms ───────────────────────────────────────────────────────────────── */
+.form-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--adi-text);
+  margin-bottom: 4px;
+}
+
+.form-control, .form-select {
+  border: 1px solid var(--adi-border);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  padding: 7px 12px;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: var(--adi-blue);
+  box-shadow: 0 0 0 3px var(--adi-blue-dim);
+  outline: none;
+}
+
+/* ── OSS Print Styles ────────────────────────────────────────────────────── */
+@media print {
+  #sidebar, .top-bar, .no-print { display: none !important; }
+  #main-content { margin-left: 0; }
+  .page-body { padding: 0; }
+
+  .oss-page {
+    page-break-after: always;
+    font-family: Arial, sans-serif;
+    font-size: 9pt;
+    padding: 12mm 14mm;
+  }
+
+  .oss-header { margin-bottom: 8pt; border-bottom: 1pt solid #000; padding-bottom: 4pt; }
+  .oss-footer { position: fixed; bottom: 8mm; left: 14mm; right: 14mm;
+                font-size: 7pt; border-top: 0.5pt solid #ccc; padding-top: 3pt; }
+}
+
+/* ── Utilities ───────────────────────────────────────────────────────────── */
+.text-gold    { color: var(--adi-blue); }
+.text-muted   { color: var(--adi-muted) !important; }
+.bg-dark-adi  { background: var(--adi-dark); }
+.divider      { border-top: 1px solid var(--adi-border); margin: 16px 0; }
+.empty-state  { text-align: center; padding: 48px 20px; color: var(--adi-muted); }
+.empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.4; }

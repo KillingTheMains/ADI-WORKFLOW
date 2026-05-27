@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}All Shows — ADI Workflow{% endblock %}
+{% block page_title %}All Shows{% endblock %}
+{% block breadcrumb %}<a href="{{ url_for('main.dashboard') }}">Home</a> / Shows{% endblock %}
+{% block top_actions %}
+  <a href="{{ url_for('shows.new') }}" class="btn btn-sm btn-adi">+ New Show</a>
+{% endblock %}
+
+{% block content %}
+{% if shows %}
+<div class="row g-3">
+  {% for show in shows %}
+  <div class="col-md-4 col-lg-3">
+    <a href="{{ url_for('shows.detail', show_id=show.id) }}" style="text-decoration:none;">
+      <div class="show-card">
+        <div class="show-card-header">
+          <div class="show-code">{{ show.code or '—' }}</div>
+          <div class="show-name">{{ show.name }}</div>
+        </div>
+        <div class="show-card-body">
+          <div class="show-meta"><strong>Client:</strong> {{ show.client.name if show.client else '—' }}</div>
+          <div class="show-meta"><strong>Venue:</strong>
+            {% if show.venue %}{{ show.venue.name }}, {{ show.venue.city }}{% else %}TBD{% endif %}
+          </div>
+          <div class="show-meta"><strong>Dates:</strong> {{ show.date_range }}</div>
+          <div class="mt-2 d-flex align-items-center justify-content-between">
+            <span class="status-badge status-{{ show.status }}">{{ show.status }}</span>
+            <span class="text-muted" style="font-size:.75rem;">{{ show.days|length }} days</span>
+          </div>
+        </div>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">🎬</div>
+  <div style="font-size:1rem;font-weight:600;margin-bottom:8px;">No shows yet</div>
+  <a href="{{ url_for('shows.new') }}" class="btn btn-adi mt-2">+ New Show</a>
+</div>
+{% endif %}
+{% endblock %}

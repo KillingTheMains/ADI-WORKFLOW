@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+{% block title %}Crew Roster — ADI Workflow{% endblock %}
+{% block page_title %}Crew Roster{% endblock %}
+{% block breadcrumb %}<a href="{{ url_for('main.dashboard') }}">Home</a> / Crew{% endblock %}
+{% block top_actions %}
+  <a href="{{ url_for('crew.add') }}" class="btn btn-sm btn-adi">+ Add Person</a>
+{% endblock %}
+
+{% block content %}
+{% if members %}
+
+<!-- ── Toolbar ──────────────────────────────────────────────────────────── -->
+<div class="card mb-3 p-3">
+  <div class="row g-2 align-items-center">
+
+    <!-- Search -->
+    <div class="col-md-4">
+      <div class="input-group input-group-sm">
+        <span class="input-group-text" style="background:var(--adi-surface);border-color:#dee2e6;">
+          🔍
+        </span>
+        <input type="text" id="crew-search" class="form-control form-control-sm"
+               placeholder="Search name, position, company…">
+        <button class="btn btn-sm btn-outline-secondary" id="clear-search" title="Clear">✕</button>
+      </div>
+    </div>
+
+    <!-- Department filter -->
+    <div class="col-md-2">
+      <select id="filter-dept" class="form-select form-select-sm">
+        <option value="">All Departments</option>
+        {% set depts = members | map(attribute='position') | select | map(attribute='department') | select | unique | sort %}
+        {% for d in depts %}
+        <option value="{{ d }}">{{ d }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Company filter -->
+    <div class="col-md-2">
+      <select id="filter-company" class="form-select form-select-sm">
+        <option value="">All Companies</option>
+        {% set companies_used = members | map(attribute='company') | select | unique | sort(attribute='name') %}
+        {% for c in companies_used %}
+        <option value="{{ c.name }}">{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Status filter -->
+    <div class="col-md-2">
+      <select id="filter-status" class="form-select form-select-sm">
+        <option value="">Active &amp; Inactive</option>
+        <option value="active">Active only</option>
+        <option value="inactive">Inactive only</option>
+      </select>
+    </div>
+
+    <!-- Sort -->
+    <div class="col-md-2">
+      <select id="sort-by" class="form-select form-select-sm">
+        <option value="name-asc">Sort: Name A→Z</option>
+        <option value="name-desc">Sort: Name Z→A</option>
+        <option value="dept-asc">Sort: Department</option>
+        <option value="company-asc">Sort: Company</option>
+        <option value="rate-desc">Sort: Rate ↓</option>
+        <option value="rate-asc">Sort: Rate ↑</option>
+      </select>
+    </div>
+
+  </div>
+
+  <!-- Active filter summary -->
+  <div class="mt-2" id="filter-summary" style="font-size:.75rem;color:#6c757d;display:none;">
+    Showing <strong id="visible-count">0</strong> of {{ members|length }} crew members
+    <button class="btn btn-link btn-sm p-0 ms-2" id="reset-filters" style="font-size:.75rem;">
+      Clear all filters
+    </button>
+  </div>
+</div>
+
+<!-- ── Table ────────────────────────────────────────────────────────────── -->
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-sm table-hover mb-0" id="crew-table" style="font-size:.82rem;">
+      <thead style="background:var(--adi-surface);">
+        <tr>
+          <th class="px-3 py-2 sortable" data-col="name" style="cursor:pointer;">
+            Name <span class="sort-indicator">↕</span>
+          </th>
+          <th class="sortable" data-col="dept" style="cursor:pointer;">
+            Dept <span class="sort-indicator"></span>
+          </th>
+          <th class="sortable" data-col="position" style="cursor:pointer;">
+            Position <span class="sort-indicator"></span>
+          </th>
+          <th class="sortable" data-col="company" style="cursor:pointer;">
+            Company <span class="sort-indicator"></span>
+          </th>
+          <th>Email</th>
+          <th class="sortable" data-col="rate" style="cursor:pointer;">
+            ST Rate <span class="sort-indicator"></span>
+          </th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="crew-tbody">
+        {% for m in members %}
+        <tr class="crew-row"
+            data-name="{{ m.full_name | lower }}"
+            data-dept="{{ (m.position.department if m.position else '') | lower }}"
+            data-position="{{ (m.position.title if m.position else '') | lower }}"
+            data-company="{{ (m.company.name if m.company else '') | lower }}"
+            data-status="{{ 'active' if m.active else 'inactive' }}"
+            data-rate="{{ m.rate_standard or 0 }}"
+            data-sort-name="{{ m.last_name | lower }},{{ m.first_name | lower }}"
+            data-sort-dept="{{ (m.position.department if m.position else 'zzz') | lower }}"
+            data-sort-company="{{ (m.company.name if m.company else 'zzz') | lower }}">
+          <td class="px-3" style="font-weight:600;">{{ m.full_name }}</td>
+          <td class="text-muted" style="font-size:.78rem;">
+            {{ m.position.department if m.position else '—' }}
+          </td>
+          <td>{{ m.position.title if m.position else '—' }}</td>
+          <td>{{ m.company.name if m.company else '—' }}</td>
+          <td class="text-muted">{{ m.email or '—' }}</td>
+          <td>{{ '$%.0f/hr' % m.rate_standard if m.rate_standard else '—' }}</td>
+          <td>
+            {% if m.active %}
+            <span class="status-badge status-Active">Active</span>
+            {% else %}
+            <span class="status-badge status-Closed">Inactive</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('crew.edit', member_id=m.id) }}"
+               class="btn btn-sm btn-link p-0">edit</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <!-- Empty state when filters return nothing -->
+    <div id="no-results" class="text-center py-5" style="display:none;">
+      <div style="font-size:1.5rem;">🔍</div>
+      <div class="text-muted mt-2" style="font-size:.875rem;">No crew members match your filters.</div>
+      <button class="btn btn-sm btn-outline-secondary mt-2" id="reset-filters-2">Clear filters</button>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">👥</div>
+  <div style="font-size:1rem;font-weight:600;margin-bottom:8px;">No crew members yet</div>
+  <p class="text-muted" style="font-size:.875rem;">
+    Add your core team so they can be assigned to shows and schedules.
+  </p>
+  <a href="{{ url_for('crew.add') }}" class="btn btn-adi mt-2">+ Add Person</a>
+</div>
+{% endif %}
+
+<script>
+(function () {
+  const rows       = Array.from(document.querySelectorAll('.crew-row'));
+  const tbody      = document.getElementById('crew-tbody');
+  const searchInput= document.getElementById('crew-search');
+  const clearBtn   = document.getElementById('clear-search');
+  const filterDept = document.getElementById('filter-dept');
+  const filterComp = document.getElementById('filter-company');
+  const filterStat = document.getElementById('filter-status');
+  const sortSelect = document.getElementById('sort-by');
+  const summary    = document.getElementById('filter-summary');
+  const visCount   = document.getElementById('visible-count');
+  const noResults  = document.getElementById('no-results');
+  const table      = document.getElementById('crew-table');
+
+  let currentSort = { col: 'name', dir: 'asc' };
+
+  // ── Column header click sort ──────────────────────────────────────────
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.col;
+      if (currentSort.col === col) {
+        currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        currentSort.col = col;
+        currentSort.dir = 'asc';
+      }
+      // Sync the dropdown
+      const mapToOption = { name: 'name', dept: 'dept', company: 'company', rate: 'rate' };
+      const key = mapToOption[col];
+      if (key) {
+        const opt = `${key}-${currentSort.dir}`;
+        if ([...sortSelect.options].some(o => o.value === opt)) {
+          sortSelect.value = opt;
+        }
+      }
+      updateHeaderIndicators();
+      applyAll();
+    });
+  });
+
+  function updateHeaderIndicators() {
+    document.querySelectorAll('th.sortable').forEach(th => {
+      const ind = th.querySelector('.sort-indicator');
+      if (!ind) return;
+      if (th.dataset.col === currentSort.col) {
+        ind.textContent = currentSort.dir === 'asc' ? '↑' : '↓';
+        th.style.color = 'var(--adi-gold)';
+      } else {
+        ind.textContent = '↕';
+        th.style.color = '';
+      }
+    });
+  }
+
+  // ── Sort dropdown ─────────────────────────────────────────────────────
+  sortSelect.addEventListener('change', () => {
+    const [col, dir] = sortSelect.value.split('-');
+    currentSort = { col, dir };
+    updateHeaderIndicators();
+    applyAll();
+  });
+
+  // ── Filter controls ───────────────────────────────────────────────────
+  searchInput.addEventListener('input', applyAll);
+  clearBtn.addEventListener('click', () => { searchInput.value = ''; applyAll(); });
+  filterDept.addEventListener('change', applyAll);
+  filterComp.addEventListener('change', applyAll);
+  filterStat.addEventListener('change', applyAll);
+
+  document.getElementById('reset-filters').addEventListener('click', resetAll);
+  document.getElementById('reset-filters-2').addEventListener('click', resetAll);
+
+  function resetAll() {
+    searchInput.value = '';
+    filterDept.value  = '';
+    filterComp.value  = '';
+    filterStat.value  = '';
+    sortSelect.value  = 'name-asc';
+    currentSort = { col: 'name', dir: 'asc' };
+    updateHeaderIndicators();
+    applyAll();
+  }
+
+  // ── Core: filter + sort + render ─────────────────────────────────────
+  function applyAll() {
+    const q     = searchInput.value.toLowerCase().trim();
+    const dept  = filterDept.value.toLowerCase();
+    const comp  = filterComp.value.toLowerCase();
+    const stat  = filterStat.value;
+
+    // 1. Filter
+    let visible = rows.filter(r => {
+      if (q && !r.dataset.name.includes(q) &&
+               !r.dataset.position.includes(q) &&
+               !r.dataset.company.includes(q) &&
+               !r.dataset.dept.includes(q)) return false;
+      if (dept && r.dataset.dept !== dept) return false;
+      if (comp && r.dataset.company !== comp) return false;
+      if (stat && r.dataset.status !== stat) return false;
+      return true;
+    });
+
+    // 2. Sort
+    visible.sort((a, b) => {
+      let av, bv;
+      switch (currentSort.col) {
+        case 'name':    av = a.dataset.sortName;    bv = b.dataset.sortName;    break;
+        case 'dept':    av = a.dataset.sortDept;    bv = b.dataset.sortDept;    break;
+        case 'company': av = a.dataset.sortCompany; bv = b.dataset.sortCompany; break;
+        case 'position':av = a.dataset.position;    bv = b.dataset.position;    break;
+        case 'rate':
+          av = parseFloat(a.dataset.rate); bv = parseFloat(b.dataset.rate);
+          return currentSort.dir === 'asc' ? av - bv : bv - av;
+        default:        av = a.dataset.sortName;    bv = b.dataset.sortName;
+      }
+      const cmp = av.localeCompare(bv);
+      return currentSort.dir === 'asc' ? cmp : -cmp;
+    });
+
+    // 3. Hide all, then re-append visible in sorted order
+    rows.forEach(r => r.style.display = 'none');
+    visible.forEach(r => {
+      r.style.display = '';
+      tbody.appendChild(r);  // re-order in DOM
+    });
+
+    // 4. Summary bar
+    const isFiltered = q || dept || comp || stat || sortSelect.value !== 'name-asc';
+    summary.style.display = isFiltered ? '' : 'none';
+    visCount.textContent = visible.length;
+    noResults.style.display = visible.length === 0 ? '' : 'none';
+    table.style.display    = visible.length === 0 ? 'none' : '';
+  }
+
+  // Initial sort
+  applyAll();
+})();
+</script>
+{% endblock %}
