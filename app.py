@@ -47,9 +47,16 @@ def create_app():
             "all_shows": all_shows,
         }
 
-    # ── Create tables ─────────────────────────────────────────────────────────
+    # ── Create tables + apply pending migrations + seed data ────────────────
     with app.app_context():
         db.create_all()
+        # Apply any pending column-adds or data migrations defined in
+        # migrations.py. Safe to run every startup — idempotent.
+        try:
+            from migrations import run_migrations
+            run_migrations()
+        except Exception as e:
+            app.logger.error(f"Migration failure on startup: {e}")
         _seed_positions()
         _seed_day_templates()
 
