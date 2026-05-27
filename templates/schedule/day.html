@@ -514,6 +514,97 @@
         </div>
         {% endif %}
 
+        <!-- ── OSS items linked to this activity ───────────────────────── -->
+        {% set linked_oss = oss_by_activity.get(act.id, []) %}
+        <div class="px-3 pb-2 pt-1" style="border-top:1px dashed #e9e0c0;">
+          <div class="d-flex align-items-center justify-content-between mb-1">
+            <span style="font-size:.7rem;font-weight:700;text-transform:uppercase;
+                         letter-spacing:.06em;color:var(--adi-muted);">
+              OSS · linked to this activity
+              {% if linked_oss %}<span class="text-muted" style="font-weight:400;">({{ linked_oss|length }})</span>{% endif %}
+            </span>
+            <button class="btn btn-sm btn-link p-0 text-muted" style="font-size:.74rem;"
+                    type="button"
+                    data-bs-toggle="collapse" data-bs-target="#add-oss-{{ act.id }}">
+              + OSS
+            </button>
+          </div>
+
+          {% if linked_oss %}
+          <div class="d-flex flex-wrap gap-1 mb-1">
+            {% for e in linked_oss %}
+            <div class="d-flex align-items-center gap-1 px-2 py-1"
+                 style="background:#FFF8EC;border:1px solid #E8DCA8;border-radius:14px;
+                        font-size:.74rem;">
+              <span title="{{ e.meta.label }}">{{ e.meta.icon }}</span>
+              <span style="font-weight:600;">{{ e.meta.label }}</span>
+              {% if e.activity %}<span class="text-muted">· {{ e.activity }}</span>{% endif %}
+              {% if e.count is not none %}
+              <span style="color:var(--adi-blue);font-weight:600;">· {{ e.count }}</span>
+              {% endif %}
+              {% if e.notes %}
+              <span class="text-muted" title="{{ e.notes }}" style="font-style:italic;">· {{ e.notes|truncate(28) }}</span>
+              {% endif %}
+              <form method="POST" style="display:inline;margin-left:4px;"
+                    action="{{ url_for('oss.delete_entry', show_id=show.id, entry_id=e.id) }}"
+                    onsubmit="return confirm('Delete this OSS entry?');">
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <button type="submit" class="btn btn-sm btn-link p-0 text-danger"
+                        style="font-size:.7rem;line-height:1;" title="Delete">✕</button>
+              </form>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          <!-- Inline "+ OSS for this activity" form (collapsible) -->
+          <div class="collapse mt-1" id="add-oss-{{ act.id }}">
+            <form method="POST" action="{{ url_for('oss.add_entry', show_id=show.id) }}"
+                  class="p-2" style="background:#FFF8EC;border:1px solid #E8DCA8;border-radius:6px;">
+              <input type="hidden" name="schedule_day_id" value="{{ day.id }}">
+              <input type="hidden" name="activity_id"     value="{{ act.id }}">
+              <input type="hidden" name="next"            value="{{ request.path }}">
+              <div class="row g-1 align-items-end">
+                <div class="col-md-2">
+                  <label class="form-label" style="font-size:.7rem;margin-bottom:1px;">Dept</label>
+                  <select name="type" class="form-select form-select-sm" required style="font-size:.78rem;">
+                    {% for t in oss_types %}
+                    <option value="{{ t }}">{{ oss_meta[t].icon }} {{ oss_meta[t].label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" style="font-size:.7rem;margin-bottom:1px;">Label</label>
+                  <input type="text" name="activity" placeholder="e.g. 'Crew lunch'"
+                         class="form-control form-control-sm" style="font-size:.78rem;">
+                </div>
+                <div class="col-md-1">
+                  <label class="form-label" style="font-size:.7rem;margin-bottom:1px;">Count</label>
+                  <input type="number" name="count" min="0" step="1"
+                         class="form-control form-control-sm" style="font-size:.78rem;">
+                </div>
+                <div class="col-md-1">
+                  <label class="form-label" style="font-size:.7rem;margin-bottom:1px;">Hrs</label>
+                  <input type="number" name="duration_hrs" min="0" step="0.25"
+                         class="form-control form-control-sm" style="font-size:.78rem;">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label" style="font-size:.7rem;margin-bottom:1px;">Notes</label>
+                  <input type="text" name="notes"
+                         class="form-control form-control-sm" style="font-size:.78rem;">
+                </div>
+                <div class="col-md-1">
+                  <button type="submit" class="btn btn-sm btn-adi w-100" style="font-size:.74rem;">+ Add</button>
+                </div>
+              </div>
+              <div class="text-muted mt-1" style="font-size:.66rem;">
+                Time auto-pulls from this activity ({{ act.time or '—' }}). Linked OSS items
+                follow if you change the activity's time later.
+              </div>
+            </form>
+          </div>
+        </div>
+
         <!-- Add crew row -->
         <div class="px-3 pb-3 pt-1">
           <div class="d-flex align-items-center gap-3 flex-wrap mb-1">
@@ -640,6 +731,138 @@
         Use the form above, click a quick-add pill, or apply a template from the sidebar.
       </p>
     </div>
+    {% endif %}
+
+    <!-- ── Unlinked OSS items (not tied to any activity) ──────────────── -->
+    {% if oss_unlinked %}
+    <div class="card mt-3">
+      <div class="card-header d-flex align-items-center justify-content-between"
+           style="background:#F0EDE0;border-bottom:1px solid #E8DCA8;">
+        <span style="font-size:.82rem;font-weight:700;">
+          📌 Operational items (not linked to an activity)
+          <span class="text-muted" style="font-weight:400;">({{ oss_unlinked|length }})</span>
+        </span>
+        <a href="{{ url_for('oss.oss_hub', show_id=show.id) }}"
+           class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;">
+          Open OSS Hub →
+        </a>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0" style="font-size:.82rem;">
+          <thead style="background:#FAFAFA;">
+            <tr>
+              <th style="width:70px;">Time</th>
+              <th style="width:130px;">Department</th>
+              <th>Activity / Label</th>
+              <th style="width:70px;">Count</th>
+              <th style="width:70px;">Hrs</th>
+              <th>Notes</th>
+              <th style="width:40px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for e in oss_unlinked %}
+            <tr>
+              <td>{{ e.effective_time or '—' }}</td>
+              <td>
+                <span style="display:inline-block;font-size:.7rem;font-weight:600;
+                             padding:1px 8px;border-radius:10px;background:#eee;">
+                  {{ e.meta.icon }} {{ e.meta.label }}
+                </span>
+              </td>
+              <td>{{ e.activity or '—' }}</td>
+              <td>{{ e.count if e.count is not none else '—' }}</td>
+              <td>{{ e.duration_hrs if e.duration_hrs is not none else '—' }}</td>
+              <td class="text-muted" style="font-size:.74rem;">{{ e.notes or '' }}</td>
+              <td>
+                <form method="POST"
+                      action="{{ url_for('oss.delete_entry', show_id=show.id, entry_id=e.id) }}"
+                      style="display:inline;"
+                      onsubmit="return confirm('Delete this OSS entry?');">
+                  <input type="hidden" name="next" value="{{ request.path }}">
+                  <button type="submit" class="btn btn-sm btn-link text-danger p-0"
+                          style="font-size:.74rem;">✕</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card-body p-2" style="background:#FAFAFA;border-top:1px solid var(--adi-border);">
+        <form method="POST" action="{{ url_for('oss.add_entry', show_id=show.id) }}"
+              class="row g-1 align-items-end">
+          <input type="hidden" name="schedule_day_id" value="{{ day.id }}">
+          <input type="hidden" name="next" value="{{ request.path }}">
+          <div class="col-md-1">
+            <input type="time" name="time" class="form-control form-control-sm"
+                   placeholder="HH:MM" style="font-size:.78rem;">
+          </div>
+          <div class="col-md-2">
+            <select name="type" class="form-select form-select-sm" required style="font-size:.78rem;">
+              <option value="">— dept —</option>
+              {% for t in oss_types %}
+              <option value="{{ t }}">{{ oss_meta[t].icon }} {{ oss_meta[t].label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <input type="text" name="activity" placeholder="Label (e.g. 'Truck arrival')"
+                   class="form-control form-control-sm" style="font-size:.78rem;">
+          </div>
+          <div class="col-md-1">
+            <input type="number" name="count" min="0" step="1" placeholder="Count"
+                   class="form-control form-control-sm" style="font-size:.78rem;">
+          </div>
+          <div class="col-md-3">
+            <input type="text" name="notes" placeholder="Notes"
+                   class="form-control form-control-sm" style="font-size:.78rem;">
+          </div>
+          <div class="col-md-1">
+            <button type="submit" class="btn btn-sm btn-adi w-100" style="font-size:.74rem;">+ Add</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% else %}
+    <!-- Empty-state add form so the user can drop in an unlinked OSS item -->
+    <details class="mt-3">
+      <summary style="font-size:.78rem;color:var(--adi-muted);cursor:pointer;">
+        + Add an operational item that isn't tied to an activity (truck arrival, door unlock, etc.)
+      </summary>
+      <form method="POST" action="{{ url_for('oss.add_entry', show_id=show.id) }}"
+            class="row g-1 align-items-end mt-2 p-2"
+            style="background:#FAFAFA;border:1px solid var(--adi-border);border-radius:6px;">
+        <input type="hidden" name="schedule_day_id" value="{{ day.id }}">
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <div class="col-md-1">
+          <input type="time" name="time" class="form-control form-control-sm" style="font-size:.78rem;">
+        </div>
+        <div class="col-md-2">
+          <select name="type" class="form-select form-select-sm" required style="font-size:.78rem;">
+            <option value="">— dept —</option>
+            {% for t in oss_types %}
+            <option value="{{ t }}">{{ oss_meta[t].icon }} {{ oss_meta[t].label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <input type="text" name="activity" placeholder="Label"
+                 class="form-control form-control-sm" style="font-size:.78rem;">
+        </div>
+        <div class="col-md-1">
+          <input type="number" name="count" min="0" step="1" placeholder="Count"
+                 class="form-control form-control-sm" style="font-size:.78rem;">
+        </div>
+        <div class="col-md-3">
+          <input type="text" name="notes" placeholder="Notes"
+                 class="form-control form-control-sm" style="font-size:.78rem;">
+        </div>
+        <div class="col-md-1">
+          <button type="submit" class="btn btn-sm btn-adi w-100" style="font-size:.74rem;">+ Add</button>
+        </div>
+      </form>
+    </details>
     {% endif %}
 
     <!-- ── Day Call Sheet ─────────────────────────────────────────────── -->

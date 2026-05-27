@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from extensions import db
 from models import Show, ScheduleDay, ScheduleActivity, CrewRow, Position, CrewMember, \
-                   PHASES, CREW_TYPES, DayTemplate, PHASE_TYPES, ShowCrewAssignment, Company
+                   PHASES, CREW_TYPES, DayTemplate, PHASE_TYPES, ShowCrewAssignment, Company, \
+                   SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META
 from datetime import date, timedelta
 import re, json
 
@@ -204,11 +205,40 @@ def day_detail(show_id, day_id):
     else:
         show_companies = Company.query.order_by(Company.name).all()
 
+    # OSS items that fall on this day, grouped by linked activity.
+    # Linked entries hang under their activity card; unlinked ones become
+    # their own row in the timeline.
+    oss_for_day = (
+        SubScheduleEntry.query
+        .filter_by(show_id=show_id, schedule_day_id=day_id)
+        .order_by(SubScheduleEntry.sort_order)
+        .all()
+    )
+    oss_by_activity = {}     # activity_id -> [entries]
+    oss_unlinked    = []     # entries with no activity_id
+    for e in oss_for_day:
+        if e.activity_id:
+            oss_by_activity.setdefault(e.activity_id, []).append(e)
+        else:
+            oss_unlinked.append(e)
+    # Sort unlinked by effective_time (string compare on HH:MM works fine)
+    oss_unlinked.sort(key=lambda e: (e.effective_time or "99:99", e.sort_order or 0))
+
+    # Ordered tab keys for the per-activity "+ OSS" department picker
+    ordered_oss_types = sorted(
+        SUB_SCHEDULE_TYPES,
+        key=lambda t: SUB_SCHEDULE_META.get(t, {}).get("sort", 99),
+    )
+
     return render_template("schedule/day.html", show=show, day=day,
                            positions=positions, crew_members=crew_members,
                            show_companies=show_companies,
                            phases=PHASES, crew_types=CREW_TYPES,
-                           day_templates=_get_templates_dict())
+                           day_templates=_get_templates_dict(),
+                           oss_by_activity=oss_by_activity,
+                           oss_unlinked=oss_unlinked,
+                           oss_types=ordered_oss_types,
+                           oss_meta=SUB_SCHEDULE_META)
 
 
 @schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/edit", methods=["POST"])

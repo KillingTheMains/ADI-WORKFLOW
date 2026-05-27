@@ -26,6 +26,19 @@ oss_bp = Blueprint("oss", __name__)
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+def _redirect_after_change(show_id, entry_type=None, prefer_next=True):
+    """
+    Return a redirect target. If the form (or query) supplied a ?next=, use
+    that — this lets the day editor send users back to where they were.
+    Otherwise fall back to the OSS hub on the right tab.
+    """
+    if prefer_next:
+        nxt = request.form.get("next") or request.args.get("next")
+        if nxt and nxt.startswith("/"):  # cheap open-redirect guard
+            return redirect(nxt)
+    return redirect(url_for("oss.oss_hub", show_id=show_id,
+                            tab=_tab_safe(entry_type)))
+
 def _ordered_types():
     """SUB_SCHEDULE_TYPES sorted by the `sort` field in SUB_SCHEDULE_META."""
     return sorted(SUB_SCHEDULE_TYPES, key=lambda t: SUB_SCHEDULE_META.get(t, {}).get("sort", 99))
@@ -166,8 +179,7 @@ def add_entry(show_id):
     ok, err = _apply_form_to_entry(entry, request.form)
     if not ok:
         flash(err, "danger")
-        return redirect(url_for("oss.oss_hub", show_id=show_id,
-                                tab=_tab_safe(request.form.get("type"))))
+        return _redirect_after_change(show_id, entry_type=request.form.get("type"))
 
     # default sort_order = current count for that type
     entry.sort_order = SubScheduleEntry.query.filter_by(
@@ -176,7 +188,7 @@ def add_entry(show_id):
     db.session.add(entry)
     db.session.commit()
     flash(f"Added {entry.type} entry.", "success")
-    return redirect(url_for("oss.oss_hub", show_id=show_id, tab=entry.type))
+    return _redirect_after_change(show_id, entry_type=entry.type)
 
 
 @oss_bp.route("/<int:show_id>/oss/<int:entry_id>/edit", methods=["POST"])
@@ -189,11 +201,11 @@ def edit_entry(show_id, entry_id):
     ok, err = _apply_form_to_entry(entry, request.form)
     if not ok:
         flash(err, "danger")
-        return redirect(url_for("oss.oss_hub", show_id=show_id, tab=entry.type))
+        return _redirect_after_change(show_id, entry_type=entry.type)
 
     db.session.commit()
     flash("Entry updated.", "success")
-    return redirect(url_for("oss.oss_hub", show_id=show_id, tab=entry.type))
+    return _redirect_after_change(show_id, entry_type=entry.type)
 
 
 @oss_bp.route("/<int:show_id>/oss/<int:entry_id>/delete", methods=["POST"])
@@ -207,7 +219,7 @@ def delete_entry(show_id, entry_id):
     db.session.delete(entry)
     db.session.commit()
     flash("Entry deleted.", "success")
-    return redirect(url_for("oss.oss_hub", show_id=show_id, tab=tab))
+    return _redirect_after_change(show_id, entry_type=tab)
 
 
 # ── Show Book (printable) ────────────────────────────────────────────────────

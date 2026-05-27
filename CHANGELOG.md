@@ -8,6 +8,22 @@ to **Deployed** with the date.
 
 ## Pending Deploy
 
+### Schedule and OSS are now one unified day view (Piece 1 of unification)
+- Schedule day editor now shows OSS items inline:
+  * Each activity card has an "OSS · linked to this activity" strip
+    underneath the crew table. Linked items show as compact pills with
+    their department icon, label, count, and a delete button.
+  * Per-activity **+ OSS** button reveals a collapsible inline form
+    that creates an OSS entry pre-linked to that activity. Time
+    auto-pulls from the activity.
+  * A new card at the bottom of the day, **📌 Operational items**, lists
+    OSS entries that aren't tied to an activity (dock arrivals, etc.)
+    with a sortable table and an inline add row.
+  * When a day has no unlinked OSS yet, a small expandable form appears
+    so you can drop one in without leaving the day editor.
+- OSS CRUD routes now respect a `next=` field so add/edit/delete from
+  the day editor stays on the day editor.
+
 ### OSS entries can link to schedule activities
 - Each OSS entry now optionally links to a specific activity on the day
   it belongs to (e.g. an F&B "Crew lunch" entry can link to the
