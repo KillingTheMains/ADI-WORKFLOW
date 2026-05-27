@@ -19,8 +19,10 @@
   <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=idx[pos+1]) }}"
      class="btn btn-sm btn-outline-secondary">Next →</a>
   {% endif %}
-  <a href="{{ url_for('schedule.oss_view', show_id=show.id) }}"
-     class="btn btn-sm btn-dark" target="_blank">🖨 OSS</a>
+  <a href="{{ url_for('oss.oss_hub', show_id=show.id) }}"
+     class="btn btn-sm btn-outline-dark">🗺 OSS</a>
+  <a href="{{ url_for('oss.show_book', show_id=show.id) }}"
+     class="btn btn-sm btn-dark" target="_blank">🖨 Show Book</a>
   <a href="{{ url_for('schedule.call_sheet', show_id=show.id, day_id=day.id) }}"
      class="btn btn-sm btn-outline-secondary" target="_blank">📄 Call Sheet</a>
 {% endblock %}

@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+{% block title %}{{ show.name }} — OSS{% endblock %}
+{% block page_title %}On-Site Schedule — {{ show.name }}{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> /
+  <a href="{{ url_for('shows.index') }}">Shows</a> /
+  <a href="{{ url_for('shows.detail', show_id=show.id) }}">{{ show.code or show.name }}</a> /
+  OSS
+{% endblock %}
+
+{% block top_actions %}
+  <a href="{{ url_for('schedule.overview', show_id=show.id) }}" class="btn btn-sm btn-outline-secondary">📅 Schedule</a>
+  <a href="{{ url_for('oss.show_book', show_id=show.id) }}" target="_blank" class="btn btn-sm btn-adi">📖 Show Book</a>
+  <a href="{{ url_for('shows.detail', show_id=show.id) }}" class="btn btn-sm btn-dark">← Show</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .oss-tabs .nav-link {
+    color: #444;
+    font-size: .82rem;
+    padding: .45rem .9rem;
+    border-radius: 6px 6px 0 0;
+    border: 1px solid transparent;
+  }
+  .oss-tabs .nav-link.active {
+    background: #1C2333;
+    color: #C9A84C;
+    border-color: #1C2333;
+    font-weight: 600;
+  }
+  .oss-tabs .nav-link:hover:not(.active) { background: #f3f3f3; }
+  .oss-tabs .nav-link .icon { margin-right: 4px; }
+  .oss-tab-pane { background: #fff; border: 1px solid #ddd; border-top: none;
+                  padding: 16px; border-radius: 0 0 6px 6px; }
+  .oss-table th { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em;
+                  color: #666; font-weight: 600; background: #fafafa; }
+  .oss-table td { font-size: .85rem; vertical-align: middle; }
+  .oss-empty { color: #888; font-size: .85rem; font-style: italic; padding: 24px 8px; text-align: center; }
+  .oss-form-row td { padding: 6px 8px; }
+  .oss-form-row input, .oss-form-row select, .oss-form-row textarea {
+    font-size: .82rem; padding: 3px 6px;
+  }
+  .oss-section-help { color: #777; font-size: .78rem; margin-bottom: 10px; }
+  .oss-master-day-header td { background: #1C2333; color: #C9A84C;
+    font-weight: 700; font-size: .78rem; text-transform: uppercase; letter-spacing: .04em;
+    padding: 6px 10px; }
+  .oss-pill { display: inline-block; font-size: .68rem; font-weight: 600;
+              padding: 2px 8px; border-radius: 10px; background: #eee; color: #333; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if not show.days %}
+<div class="alert alert-warning">
+  <strong>No schedule days yet.</strong>
+  OSS entries attach to scheduled days, so
+  <a href="{{ url_for('schedule.overview', show_id=show.id) }}">open the Schedule Builder</a>
+  and add at least one day before creating entries here.
+</div>
+{% endif %}
+
+<!-- ── Tab nav ────────────────────────────────────────────────────────── -->
+<ul class="nav nav-tabs oss-tabs" role="tablist">
+  <li class="nav-item">
+    <button class="nav-link {% if active_tab == 'master' %}active{% endif %}"
+            data-bs-toggle="tab" data-bs-target="#tab-master" type="button">
+      <span class="icon">📋</span>Master Schedule
+      {% if all_entries %}<span class="oss-pill ms-1">{{ all_entries|length }}</span>{% endif %}
+    </button>
+  </li>
+  {% for t in ordered_types %}
+  {% set m = meta[t] %}
+  <li class="nav-item">
+    <button class="nav-link {% if active_tab == t %}active{% endif %}"
+            data-bs-toggle="tab" data-bs-target="#tab-{{ loop.index }}" type="button"
+            data-tab-key="{{ t }}">
+      <span class="icon">{{ m.icon }}</span>{{ m.label }}
+      {% if grouped[t] %}<span class="oss-pill ms-1">{{ grouped[t]|length }}</span>{% endif %}
+    </button>
+  </li>
+  {% endfor %}
+</ul>
+
+<div class="tab-content">
+
+  <!-- ── Master Schedule (read-only merged view) ─────────────────────── -->
+  <div class="tab-pane oss-tab-pane {% if active_tab == 'master' %}show active{% endif %}"
+       id="tab-master" role="tabpanel">
+    <div class="oss-section-help">
+      All OSS entries across every department, grouped by show day and sorted by time.
+    </div>
+    {% if all_entries %}
+    <table class="table table-sm oss-table">
+      <thead>
+        <tr>
+          <th style="width:60px;">Time</th>
+          <th style="width:120px;">Department</th>
+          <th>Activity</th>
+          <th style="width:70px;">Count</th>
+          <th style="width:70px;">Hrs</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set ns = namespace(prev_day=None) %}
+        {% for e in all_entries %}
+          {% if e.schedule_day_id != ns.prev_day %}
+          <tr class="oss-master-day-header">
+            <td colspan="6">
+              {{ e.schedule_day.date.strftime('%A, %B %-d, %Y') }}
+              {% if e.schedule_day.label %} · {{ e.schedule_day.label }}{% endif %}
+              {% if e.schedule_day.phase %} · {{ e.schedule_day.phase }}{% endif %}
+            </td>
+          </tr>
+          {% set ns.prev_day = e.schedule_day_id %}
+          {% endif %}
+          <tr>
+            <td>{{ e.time or '—' }}</td>
+            <td><span class="oss-pill">{{ e.meta.icon }} {{ e.meta.label }}</span></td>
+            <td>{{ e.activity or '—' }}</td>
+            <td>{{ e.count if e.count is not none else '—' }}</td>
+            <td>{{ e.duration_hrs if e.duration_hrs is not none else '—' }}</td>
+            <td class="text-muted" style="font-size:.78rem;">{{ e.notes or '' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="oss-empty">No OSS entries yet. Pick a department tab to add the first one.</div>
+    {% endif %}
+  </div>
+
+
+  <!-- ── Department tabs ─────────────────────────────────────────────── -->
+  {% for t in ordered_types %}
+  {% set m = meta[t] %}
+  {% set entries = grouped[t] %}
+  <div class="tab-pane oss-tab-pane {% if active_tab == t %}show active{% endif %}"
+       id="tab-{{ loop.index }}" role="tabpanel">
+    <div class="oss-section-help">
+      {{ m.icon }} <strong>{{ m.label }}</strong> entries for this show.
+      {% if t == 'Wristbands' %}Use <em>Count</em> for total wristbands needed (techs + local labor).{% endif %}
+      {% if t == 'F&B' %}Use <em>Count</em> for meal headcount. Use <em>Notes</em> for dietary or special instructions.{% endif %}
+      {% if t == 'COMS' %}Use <em>Count</em> for total intercom packs needed.{% endif %}
+      {% if t == 'Dock' %}Log truck arrivals, departures, and dock assignments.{% endif %}
+      {% if t == 'Hazer' %}Schedule haze on/off cues and fire-watch coverage.{% endif %}
+      {% if t == 'Doors' %}Door lock/unlock times and who has keys.{% endif %}
+      {% if t == 'Security' %}Security coverage windows and contacts.{% endif %}
+      {% if t == 'House LX' %}Venue house light cues.{% endif %}
+      {% if t == 'HVAC' %}AC / heat schedule provided by venue.{% endif %}
+      {% if t == 'Cleaning' %}Cleaning crew schedule and turnaround times.{% endif %}
+    </div>
+
+    <table class="table table-sm oss-table">
+      <thead>
+        <tr>
+          <th style="width:170px;">Day</th>
+          <th style="width:80px;">Time</th>
+          <th>Activity</th>
+          <th style="width:70px;">Count</th>
+          <th style="width:70px;">Hrs</th>
+          <th>Notes</th>
+          <th style="width:90px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if entries %}
+          {% for e in entries %}
+          <tr>
+            <td>
+              {{ e.schedule_day.date.strftime('%a %-m/%-d') }}
+              {% if e.schedule_day.phase %}
+                <div style="font-size:.7rem;color:#888;">{{ e.schedule_day.phase }}</div>
+              {% endif %}
+            </td>
+            <td>{{ e.time or '—' }}</td>
+            <td>{{ e.activity or '—' }}</td>
+            <td>{{ e.count if e.count is not none else '—' }}</td>
+            <td>{{ e.duration_hrs if e.duration_hrs is not none else '—' }}</td>
+            <td class="text-muted" style="font-size:.78rem;">{{ e.notes or '' }}</td>
+            <td>
+              <button class="btn btn-sm btn-outline-secondary py-0 px-2"
+                      data-bs-toggle="modal" data-bs-target="#editModal"
+                      data-id="{{ e.id }}"
+                      data-type="{{ e.type }}"
+                      data-day="{{ e.schedule_day_id }}"
+                      data-time="{{ e.time or '' }}"
+                      data-activity="{{ e.activity or '' }}"
+                      data-count="{{ e.count if e.count is not none else '' }}"
+                      data-hrs="{{ e.duration_hrs if e.duration_hrs is not none else '' }}"
+                      data-notes="{{ e.notes or '' }}"
+                      style="font-size:.72rem;">Edit</button>
+              <form method="POST"
+                    action="{{ url_for('oss.delete_entry', show_id=show.id, entry_id=e.id) }}"
+                    style="display:inline;"
+                    onsubmit="return confirm('Delete this entry?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2"
+                        style="font-size:.72rem;">Del</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        {% endif %}
+
+      </tbody>
+    </table>
+
+    {% if not entries %}
+    <div class="oss-empty">No {{ m.label }} entries yet — use the form below to add one.</div>
+    {% endif %}
+
+    <!-- Add form (lives outside the table for HTML validity) -->
+    <form method="POST" action="{{ url_for('oss.add_entry', show_id=show.id) }}"
+          class="mt-3 p-3" style="background:#fafafa;border-radius:6px;">
+      <input type="hidden" name="type" value="{{ t }}">
+      <div style="font-size:.78rem;font-weight:600;text-transform:uppercase;
+                  letter-spacing:.04em;color:#666;margin-bottom:8px;">Add {{ m.label }} entry</div>
+      <div class="row g-2">
+        <div class="col-md-3">
+          <select name="schedule_day_id" class="form-select form-select-sm" required
+                  {% if not show.days %}disabled{% endif %}>
+            <option value="">— pick day —</option>
+            {% for d in days %}
+            <option value="{{ d.id }}">
+              {{ d.date.strftime('%a %-m/%-d') }}{% if d.phase %} · {{ d.phase }}{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-1">
+          <input type="time" name="time" class="form-control form-control-sm">
+        </div>
+        <div class="col-md-3">
+          <input type="text" name="activity" placeholder="Activity"
+                 class="form-control form-control-sm">
+        </div>
+        <div class="col-md-1">
+          <input type="number" name="count" min="0" step="1" placeholder="Count"
+                 class="form-control form-control-sm">
+        </div>
+        <div class="col-md-1">
+          <input type="number" name="duration_hrs" min="0" step="0.25" placeholder="Hrs"
+                 class="form-control form-control-sm">
+        </div>
+        <div class="col-md-2">
+          <input type="text" name="notes" placeholder="Notes"
+                 class="form-control form-control-sm">
+        </div>
+        <div class="col-md-1">
+          <button type="submit" class="btn btn-sm btn-adi w-100"
+                  style="font-size:.78rem;"
+                  {% if not show.days %}disabled{% endif %}>+ Add</button>
+        </div>
+      </div>
+    </form>
+  </div>
+  {% endfor %}
+
+</div>
+
+
+<!-- ── Edit modal (shared across all rows) ──────────────────────────────── -->
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="POST" id="editForm">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit OSS entry</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="type" id="edit-type">
+          <div class="mb-2">
+            <label class="form-label" style="font-size:.78rem;font-weight:600;">Schedule Day</label>
+            <select name="schedule_day_id" id="edit-day" class="form-select form-select-sm" required>
+              {% for d in days %}
+              <option value="{{ d.id }}">
+                {{ d.date.strftime('%a %-m/%-d') }}{% if d.phase %} · {{ d.phase }}{% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="row g-2">
+            <div class="col-4">
+              <label class="form-label" style="font-size:.78rem;font-weight:600;">Time</label>
+              <input type="time" name="time" id="edit-time" class="form-control form-control-sm">
+            </div>
+            <div class="col-4">
+              <label class="form-label" style="font-size:.78rem;font-weight:600;">Count</label>
+              <input type="number" name="count" id="edit-count" min="0" step="1"
+                     class="form-control form-control-sm">
+            </div>
+            <div class="col-4">
+              <label class="form-label" style="font-size:.78rem;font-weight:600;">Duration (hrs)</label>
+              <input type="number" name="duration_hrs" id="edit-hrs" min="0" step="0.25"
+                     class="form-control form-control-sm">
+            </div>
+          </div>
+          <div class="mb-2 mt-2">
+            <label class="form-label" style="font-size:.78rem;font-weight:600;">Activity</label>
+            <input type="text" name="activity" id="edit-activity"
+                   class="form-control form-control-sm">
+          </div>
+          <div class="mb-2">
+            <label class="form-label" style="font-size:.78rem;font-weight:600;">Notes</label>
+            <textarea name="notes" id="edit-notes" rows="2"
+                      class="form-control form-control-sm"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-adi">Save</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Populate edit modal when an Edit button is clicked, and point the form at
+  // the right /edit URL using the entry id from the button's data-id.
+  (function () {
+    const modal      = document.getElementById('editModal');
+    const form       = document.getElementById('editForm');
+    // Build the edit URL using entry id 0 as a placeholder, then swap it in JS.
+    const editUrlTpl = "{{ url_for('oss.edit_entry', show_id=show.id, entry_id=0) }}";
+    modal.addEventListener('show.bs.modal', function (ev) {
+      const btn = ev.relatedTarget;
+      if (!btn) return;
+      const id = btn.dataset.id;
+      form.action = editUrlTpl.replace(/\/0\/edit$/, '/' + id + '/edit');
+      document.getElementById('edit-type').value     = btn.dataset.type || '';
+      document.getElementById('edit-day').value      = btn.dataset.day || '';
+      document.getElementById('edit-time').value     = btn.dataset.time || '';
+      document.getElementById('edit-activity').value = btn.dataset.activity || '';
+      document.getElementById('edit-count').value    = btn.dataset.count || '';
+      document.getElementById('edit-hrs').value      = btn.dataset.hrs || '';
+      document.getElementById('edit-notes').value    = btn.dataset.notes || '';
+    });
+  })();
+</script>
+{% endblock %}

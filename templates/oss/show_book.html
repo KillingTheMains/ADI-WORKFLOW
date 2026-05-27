@@ -107,9 +107,9 @@
 
 <!-- Print controls (hidden on print) -->
 <div class="no-print">
-  <span style="font-weight:700;">OSS Preview — {{ show.name }}</span>
+  <span style="font-weight:700;">Show Book — {{ show.name }}</span>
   <button onclick="window.print()">🖨 Print / Save PDF</button>
-  <a href="{{ url_for('schedule.overview', show_id=show.id) }}">← Back to Schedule</a>
+  <a href="{{ url_for('oss.oss_hub', show_id=show.id) }}">← Back to OSS</a>
 </div>
 
 {% set filename = (show.code or 'ADI') ~ '_' ~ show.name|replace(' ','_') ~ '_OSS_v' ~ show.version %}

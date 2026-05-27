@@ -202,6 +202,9 @@ class ScheduleDay(db.Model):
     activities  = db.relationship("ScheduleActivity", back_populates="day",
                                   order_by="ScheduleActivity.sort_order",
                                   cascade="all, delete-orphan")
+    oss_entries = db.relationship("SubScheduleEntry", back_populates="schedule_day",
+                                  order_by="SubScheduleEntry.sort_order",
+                                  cascade="all, delete-orphan")
 
     @property
     def day_header(self):
@@ -364,18 +367,40 @@ class DayTemplate(db.Model):
         return f"<DayTemplate {self.key}>"
 
 
-# ── Sub-schedules (Dock, Hazer, HVAC, Security, Doors, House LX) ─────────────
+# ── Sub-schedules / OSS (On-Site Schedule) ───────────────────────────────────
+#
+# Each row in sub_schedule_entries belongs to one show, attaches to one
+# ScheduleDay, and is tagged with a department type from SUB_SCHEDULE_TYPES.
+# The OSS page in the UI uses one tab per type plus a Master Schedule tab
+# that merges entries across types chronologically.
 
 SUB_SCHEDULE_TYPES = [
     "Dock",
     "Hazer",
-    "HVAC",
-    "Security",
     "Doors",
+    "Security",
+    "F&B",
     "House LX",
+    "HVAC",
     "Wristbands",
+    "COMS",
     "Cleaning",
 ]
+
+# UI metadata for OSS tabs. `label` is what the user sees, `icon` decorates
+# the tab, `sort` controls tab order. The model stores the raw `type` key.
+SUB_SCHEDULE_META = {
+    "Dock":       {"label": "Dock",         "icon": "🚚", "sort": 1},
+    "Hazer":      {"label": "Haze",         "icon": "💨", "sort": 2},
+    "Doors":      {"label": "Doors",        "icon": "🔒", "sort": 3},
+    "Security":   {"label": "Security",     "icon": "🛡",  "sort": 4},
+    "F&B":        {"label": "F&B",          "icon": "🍽", "sort": 5},
+    "House LX":   {"label": "House Lights", "icon": "💡", "sort": 6},
+    "HVAC":       {"label": "HVAC / AC",    "icon": "❄",  "sort": 7},
+    "Wristbands": {"label": "Wristbands",   "icon": "🎫", "sort": 8},
+    "COMS":       {"label": "COMS",         "icon": "🎧", "sort": 9},
+    "Cleaning":   {"label": "Cleaning",     "icon": "🧹", "sort": 10},
+}
 
 
 class ShowCrewAssignment(db.Model):
@@ -401,19 +426,37 @@ class ShowCrewAssignment(db.Model):
 
 
 class SubScheduleEntry(db.Model):
-    """Generic row for any of the sub-schedule types."""
-    __tablename__ = "sub_schedule_entries"
-    id           = db.Column(db.Integer, primary_key=True)
-    show_id      = db.Column(db.Integer, db.ForeignKey("shows.id"), nullable=False)
-    type         = db.Column(db.String(50), nullable=False)   # Dock / Hazer / HVAC / etc.
-    date         = db.Column(db.Date)
-    time         = db.Column(db.String(20))
-    activity     = db.Column(db.String(500))
-    duration_hrs = db.Column(db.Float)
-    notes        = db.Column(db.Text)
-    sort_order   = db.Column(db.Integer, default=0)
+    """
+    Generic row for any OSS sub-schedule type (Dock, F&B, Wristbands, etc.).
 
-    show         = db.relationship("Show")
+    Each entry is anchored to one ScheduleDay so it always falls on a day
+    that exists in the show's production schedule. The `date` property is
+    derived from the linked ScheduleDay.
+    """
+    __tablename__ = "sub_schedule_entries"
+    id              = db.Column(db.Integer, primary_key=True)
+    show_id         = db.Column(db.Integer, db.ForeignKey("shows.id"), nullable=False)
+    schedule_day_id = db.Column(db.Integer, db.ForeignKey("schedule_days.id"), nullable=False)
+    type            = db.Column(db.String(50), nullable=False)   # one of SUB_SCHEDULE_TYPES
+    time            = db.Column(db.String(20))                   # "HH:MM" 24hr
+    activity        = db.Column(db.String(500))
+    duration_hrs    = db.Column(db.Float)
+    count           = db.Column(db.Integer)                      # wristband qty, F&B headcount, COMS units, etc.
+    notes           = db.Column(db.Text)
+    sort_order      = db.Column(db.Integer, default=0)
+
+    show          = db.relationship("Show")
+    schedule_day  = db.relationship("ScheduleDay", back_populates="oss_entries")
+
+    @property
+    def date(self):
+        """Convenience accessor — actual date lives on the linked ScheduleDay."""
+        return self.schedule_day.date if self.schedule_day else None
+
+    @property
+    def meta(self):
+        """UI metadata (label, icon) for this entry's type."""
+        return SUB_SCHEDULE_META.get(self.type, {"label": self.type, "icon": "•", "sort": 99})
 
     def __repr__(self):
-        return f"<SubSchedule {self.type} {self.date} {self.time}>"
+        return f"<SubSchedule {self.type} day={self.schedule_day_id} {self.time}>"

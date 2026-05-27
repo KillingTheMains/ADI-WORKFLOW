@@ -29,10 +29,13 @@
   <a href="{{ url_for('schedule.add_day', show_id=show.id) }}" class="btn btn-sm btn-adi">
     + Add Day
   </a>
+  <a href="{{ url_for('oss.oss_hub', show_id=show.id) }}" class="btn btn-sm btn-outline-dark">
+    🗺 OSS
+  </a>
   {% if show.days %}
-  <a href="{{ url_for('schedule.oss_view', show_id=show.id) }}" class="btn btn-sm btn-dark"
+  <a href="{{ url_for('oss.show_book', show_id=show.id) }}" class="btn btn-sm btn-dark"
      target="_blank">
-    🖨 OSS Preview
+    🖨 Show Book
   </a>
   {% endif %}
 {% endblock %}

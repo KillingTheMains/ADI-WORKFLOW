@@ -163,24 +163,33 @@
 
     <!-- Quick links -->
     <div class="row g-2 mt-1">
+      {% set oss_url = url_for('oss.oss_hub', show_id=show.id) %}
       {% set modules = [
-        ('📋', 'RFQ Builder', '#', True),
-        ('💰', 'Budget', '#', True),
-        ('🍽', 'F&B Schedule', '#', True),
+        ('🗺',  'OSS Hub',            oss_url,                False),
+        ('🚚', 'Dock Schedule',      oss_url ~ '?tab=Dock',  False),
+        ('🍽', 'F&B Schedule',       oss_url ~ '?tab=F%26B', False),
+        ('🎧', 'COMMS',              oss_url ~ '?tab=COMS',  False),
+        ('🎫', 'Wristbands',         oss_url ~ '?tab=Wristbands', False),
+        ('📖', 'Show Book (Print)',  url_for('oss.show_book', show_id=show.id), False),
+        ('📋', 'RFQ Builder',        '#', True),
+        ('💰', 'Budget',             '#', True),
         ('🎤', 'Rehearsal Schedule', '#', True),
-        ('🚚', 'Dock Schedule', '#', True),
-        ('👥', 'COMMS', '#', True),
       ] %}
       {% for icon, label, href, disabled in modules %}
       <div class="col-md-4">
-        <div class="card p-3 text-center {% if disabled %}opacity-50{% endif %}"
-             style="font-size:.8rem;">
+        {% if disabled %}
+        <div class="card p-3 text-center opacity-50" style="font-size:.8rem;">
           <div style="font-size:1.3rem;">{{ icon }}</div>
           <div style="font-weight:600;margin-top:4px;">{{ label }}</div>
-          {% if disabled %}
           <div class="text-muted" style="font-size:.7rem;">Coming soon</div>
-          {% endif %}
         </div>
+        {% else %}
+        <a href="{{ href }}" class="card p-3 text-center text-decoration-none text-dark"
+           style="font-size:.8rem;">
+          <div style="font-size:1.3rem;">{{ icon }}</div>
+          <div style="font-weight:600;margin-top:4px;">{{ label }}</div>
+        </a>
+        {% endif %}
       </div>
       {% endfor %}
     </div>

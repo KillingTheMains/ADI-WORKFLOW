@@ -649,14 +649,6 @@ def reorder_activities(show_id, day_id):
     return jsonify({"status": "ok"})
 
 
-# ── OSS Print view ────────────────────────────────────────────────────────────
-
-@schedule_bp.route("/<int:show_id>/schedule/oss")
-def oss_view(show_id):
-    show = Show.query.get_or_404(show_id)
-    return render_template("schedule/oss.html", show=show)
-
-
 # ── Daily Call Sheet ──────────────────────────────────────────────────────────
 
 @schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/call-sheet")

@@ -7,6 +7,7 @@ from routes.shows      import shows_bp
 from routes.schedule   import schedule_bp
 from routes.crew       import crew_bp
 from routes.show_crew  import show_crew_bp
+from routes.oss        import oss_bp
 
 
 def create_app():
@@ -29,6 +30,7 @@ def create_app():
     app.register_blueprint(schedule_bp,   url_prefix="/shows")
     app.register_blueprint(crew_bp,       url_prefix="/crew")
     app.register_blueprint(show_crew_bp,  url_prefix="/shows")
+    app.register_blueprint(oss_bp,        url_prefix="/shows")
 
     # ── Context processors ────────────────────────────────────────────────────
     @app.context_processor
