@@ -22,6 +22,13 @@ to **Deployed** with the date.
 - Schema: schedule_days gets wristband_crew_override / wristband_extras /
   wristband_notes columns (auto-migration).
 
+### Fix: COMS pack fields no longer locked behind the 🎧 checkbox
+- Wired/Wireless, Brand, and channel checkboxes were starting `disabled`
+  until the headset checkbox was ticked, which made them feel broken.
+- Now they're always interactive. Touching any of them auto-ticks 🎧
+  for you so the pack assignment commits on save.
+- Help text under the table updated to reflect this.
+
 ### COMS tab — radios + beltpacks are now separate
 - The top of the COMS tab is a **split panel**:
   * Left: **📻 Radio channels (1–16)** — every show gets 16 named slots,

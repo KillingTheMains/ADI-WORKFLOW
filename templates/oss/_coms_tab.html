@@ -167,8 +167,8 @@
         </td>
         <td>
           <select name="pack_type_{{ a.id }}"
-                  class="form-select form-select-sm coms-pack-field-{{ a.id }}"
-                  {% if not a.headset %}disabled{% endif %}
+                  class="form-select form-select-sm coms-pack-field-{{ a.id }} coms-autocheck"
+                  data-aid="{{ a.id }}"
                   style="font-size:.78rem;">
             <option value="">—</option>
             {% for t in com_pack_types %}
@@ -179,9 +179,8 @@
         <td>
           <div class="d-flex gap-1">
             <select name="pack_brand_{{ a.id }}"
-                    class="form-select form-select-sm coms-pack-field-{{ a.id }} coms-brand-{{ a.id }}"
+                    class="form-select form-select-sm coms-pack-field-{{ a.id }} coms-brand-{{ a.id }} coms-autocheck"
                     data-aid="{{ a.id }}"
-                    {% if not a.headset %}disabled{% endif %}
                     style="font-size:.78rem;flex:1;">
               <option value="">—</option>
               {% for b in com_pack_brands %}
@@ -217,8 +216,7 @@
               <input type="checkbox" class="form-check-input coms-ch-cb"
                      data-aid="{{ a.id }}" data-cid="{{ ch.id }}"
                      {% if pos %}checked{% endif %}
-                     style="margin:0;transform:scale(.85);"
-                     {% if not a.headset %}disabled{% endif %}>
+                     style="margin:0;transform:scale(.85);">
               <span>{{ ch.name }}</span>
               {% if pos %}
               <span class="coms-ch-pos" data-aid="{{ a.id }}" data-cid="{{ ch.id }}"
@@ -257,6 +255,7 @@
     <div class="text-muted" style="font-size:.74rem;">
       Click channels in the order you want them on the pack
       (key&nbsp;1, key&nbsp;2, …). Hard cap: {{ com_pack_hard_cap }} channels per pack.
+      Touching a brand/type/channel auto-ticks 🎧 for you.
     </div>
     <button type="submit" class="btn btn-sm btn-adi">💾 Save COMS</button>
   </div>
@@ -326,7 +325,16 @@
     }
   }
 
-  // Wire checkbox click → toggle membership in the ordered list
+  // Helper: make sure the row's headset checkbox is ticked whenever the
+  // user interacts with any pack field. Otherwise the route's save logic
+  // would clear out everything they just entered.
+  function autoCheckHeadset(aid) {
+    document.querySelectorAll('.coms-headset-toggle').forEach(cb => {
+      if (cb.dataset.aid == aid && !cb.checked) cb.checked = true;
+    });
+  }
+
+  // Wire channel checkbox click → toggle membership in the ordered list
   document.querySelectorAll('.coms-ch-cb').forEach(cb => {
     cb.addEventListener('change', function () {
       const aid = parseInt(cb.dataset.aid, 10);
@@ -335,12 +343,12 @@
       if (cb.checked) {
         if (ids.includes(cid)) return;
         if (ids.length >= HARD_CAP) {
-          // Block — undo the check
           cb.checked = false;
           alert(`Beltpacks are capped at ${HARD_CAP} channels. Uncheck one first.`);
           return;
         }
         ids.push(cid);
+        autoCheckHeadset(aid);
       } else {
         ids = ids.filter(x => x !== cid);
       }
@@ -349,24 +357,14 @@
     });
   });
 
-  // When headset toggles, enable/disable everything for that row
-  document.querySelectorAll('.coms-headset-toggle').forEach(cb => {
-    cb.addEventListener('change', () => {
-      const aid = cb.dataset.aid;
-      document.querySelectorAll('.coms-pack-field-' + aid).forEach(f => {
-        f.disabled = !cb.checked;
-      });
-      document.querySelectorAll(`.coms-channel-grid[data-aid="${aid}"] .coms-ch-cb`)
-        .forEach(c => { c.disabled = !cb.checked; });
-      if (!cb.checked) {
-        const other = document.querySelector('.coms-other-' + aid);
-        if (other) other.style.display = 'none';
-      }
+  // Pack-type / brand selects: also auto-check headset when changed
+  document.querySelectorAll('.coms-autocheck').forEach(sel => {
+    sel.addEventListener('change', () => {
+      if (sel.value) autoCheckHeadset(sel.dataset.aid);
     });
   });
 
-  // Brand select: show/hide the "Other brand" textbox + re-render row to
-  // update soft-warning state
+  // Brand select also drives the "Other brand" textbox + soft-warning render
   document.querySelectorAll('[class*="coms-brand-"]').forEach(sel => {
     const m = sel.className.match(/coms-brand-(\d+)/);
     if (!m) return;
@@ -375,6 +373,16 @@
     sel.addEventListener('change', () => {
       if (other) other.style.display = sel.value === 'Other' ? 'block' : 'none';
       renderRow(aid);
+    });
+  });
+
+  // Headset toggle no longer disables fields, but unchecking it gives a
+  // visual hint that the pack details will be wiped on next save.
+  document.querySelectorAll('.coms-headset-toggle').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const aid = cb.dataset.aid;
+      // No-op visual treatment — fields remain interactive. Save endpoint
+      // is the source of truth: it clears pack data when headset is false.
     });
   });
 
