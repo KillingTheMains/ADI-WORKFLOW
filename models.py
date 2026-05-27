@@ -632,7 +632,13 @@ class CrewCommAssignment(db.Model):
 
     @property
     def channel_id_list(self):
-        """Parsed list of int channel ids."""
+        """
+        List of channel ids in slot order. Position N (0-indexed) in the
+        list is what's assigned to key N+1 on the physical beltpack.
+        `None` entries represent intentionally empty slots
+        (e.g. K1=Main, K2=None, K3=LX is a real production layout).
+        Trailing empty slots are trimmed.
+        """
         if not self.channel_ids:
             return []
         out = []
@@ -640,11 +646,25 @@ class CrewCommAssignment(db.Model):
             piece = piece.strip()
             if piece.isdigit():
                 out.append(int(piece))
+            else:
+                out.append(None)
+        while out and out[-1] is None:
+            out.pop()
         return out
 
     @channel_id_list.setter
     def channel_id_list(self, ids):
-        self.channel_ids = ",".join(str(i) for i in ids) if ids else None
+        parts = []
+        for i in ids:
+            parts.append(str(i) if i else "")
+        while parts and not parts[-1]:
+            parts.pop()
+        self.channel_ids = ",".join(parts) if parts else None
+
+    @property
+    def filled_channel_count(self):
+        """Number of slots that actually have a channel assigned (skips gaps)."""
+        return sum(1 for i in self.channel_id_list if i)
 
     def __repr__(self):
         return f"<CrewCommAssignment show={self.show_id} crew={self.crew_member_id}>"

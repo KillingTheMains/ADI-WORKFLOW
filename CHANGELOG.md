@@ -22,6 +22,21 @@ to **Deployed** with the date.
 - Schema: schedule_days gets wristband_crew_override / wristband_extras /
   wristband_notes columns (auto-migration).
 
+### COMS beltpack channels are now fixed K1–K6 slot dropdowns
+- Replaced the click-order checkbox grid with N labeled slot dropdowns
+  (K1, K2, K3…) per crew member.
+- Each slot is an independent dropdown of the show's beltpack channels.
+- **Slot count is brand-aware**: Riedel = 6, ClearCom = 4, Telex = 2,
+  HME = 4, Other / unset = 6. Switching brand hides slots that don't
+  exist on that pack and clears their stored value.
+- **Gaps are preserved**: assigning K1=Main, K2=(blank), K3=LX is a
+  real production pattern and now stores and reloads correctly.
+  Storage uses an ordered CSV with empty entries for gaps (`5,,7`).
+  Trailing empties are auto-trimmed on save.
+- Hard 6-channel cap stays as the server-side safety net.
+- Model: CrewCommAssignment.channel_id_list getter/setter handle
+  None entries for gaps; new filled_channel_count helper.
+
 ### Fix: COMS pack fields no longer locked behind the 🎧 checkbox
 - Wired/Wireless, Brand, and channel checkboxes were starting `disabled`
   until the headset checkbox was ticked, which made them feel broken.

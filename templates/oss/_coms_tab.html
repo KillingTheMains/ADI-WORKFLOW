@@ -141,7 +141,7 @@
         <th style="width:55px;text-align:center;">🎧</th>
         <th style="width:110px;">Wired/Wireless</th>
         <th style="width:130px;">Brand</th>
-        <th>Beltpack channels (in key order)</th>
+        <th>Beltpack channels (K1–K{{ com_pack_hard_cap }})</th>
         <th style="width:170px;">Notes</th>
       </tr>
     </thead>
@@ -196,40 +196,32 @@
         </td>
         <td>
           {% if coms_channels %}
-          {# Ordered checkbox grid. The hidden channels_ordered_<aid> field is
-             the source of truth for the form post — JS updates it on change. #}
+          {# Slot dropdowns. The hidden channels_ordered_<aid> field is
+             the source of truth on POST — JS rebuilds it from slot
+             selects on change. Empty slot = "" in the CSV (gap). #}
           <input type="hidden" name="channels_ordered_{{ a.id }}"
                  id="ordered-{{ a.id }}"
                  value="{{ a.channel_ids or '' }}">
-          <div class="coms-channel-grid d-flex flex-wrap gap-1"
+          {% set picked = a.channel_id_list %}
+          <div class="coms-slots d-flex flex-wrap gap-1"
                data-aid="{{ a.id }}"
                data-hard-cap="{{ com_pack_hard_cap }}">
-            {% set picked = a.channel_id_list %}
-            {% for ch in coms_channels %}
-            {% set pos = (picked.index(ch.id) + 1) if ch.id in picked else None %}
-            <label class="d-inline-flex align-items-center gap-1 px-2 py-1 coms-ch-label"
-                   data-cid="{{ ch.id }}"
-                   style="background:{% if pos %}#FFF8EC{% else %}#f3f3f3{% endif %};
-                          border:1px solid {% if pos %}#E8DCA8{% else %}#ddd{% endif %};
-                          border-radius:12px;font-size:.74rem;cursor:pointer;
-                          user-select:none;">
-              <input type="checkbox" class="form-check-input coms-ch-cb"
-                     data-aid="{{ a.id }}" data-cid="{{ ch.id }}"
-                     {% if pos %}checked{% endif %}
-                     style="margin:0;transform:scale(.85);">
-              <span>{{ ch.name }}</span>
-              {% if pos %}
-              <span class="coms-ch-pos" data-aid="{{ a.id }}" data-cid="{{ ch.id }}"
-                    style="background:#C9A84C;color:#1C2333;font-weight:700;
-                           font-size:.65rem;padding:1px 5px;border-radius:8px;
-                           min-width:16px;text-align:center;">{{ pos }}</span>
-              {% else %}
-              <span class="coms-ch-pos" data-aid="{{ a.id }}" data-cid="{{ ch.id }}"
-                    style="display:none;background:#C9A84C;color:#1C2333;font-weight:700;
-                           font-size:.65rem;padding:1px 5px;border-radius:8px;
-                           min-width:16px;text-align:center;"></span>
-              {% endif %}
-            </label>
+            {% for slot_num in range(1, com_pack_hard_cap + 1) %}
+            {% set chid = picked[slot_num - 1] if (slot_num - 1) < picked|length else None %}
+            <div class="coms-slot" data-aid="{{ a.id }}" data-slot="{{ slot_num }}"
+                 style="display:flex;flex-direction:column;align-items:flex-start;">
+              <label style="font-size:.62rem;font-weight:700;color:#888;
+                            text-transform:uppercase;letter-spacing:.04em;
+                            margin-bottom:1px;">K{{ slot_num }}</label>
+              <select class="form-select form-select-sm coms-slot-select"
+                      data-aid="{{ a.id }}"
+                      style="font-size:.74rem;min-width:88px;max-width:120px;">
+                <option value="">—</option>
+                {% for ch in coms_channels %}
+                <option value="{{ ch.id }}" {% if chid == ch.id %}selected{% endif %}>{{ ch.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
             {% endfor %}
           </div>
           <div class="coms-ch-counter mt-1" data-aid="{{ a.id }}"
@@ -253,29 +245,22 @@
 
   <div class="d-flex justify-content-between align-items-center mt-2">
     <div class="text-muted" style="font-size:.74rem;">
-      Click channels in the order you want them on the pack
-      (key&nbsp;1, key&nbsp;2, …). Hard cap: {{ com_pack_hard_cap }} channels per pack.
-      Touching a brand/type/channel auto-ticks 🎧 for you.
+      Each slot (K1–K{{ com_pack_hard_cap }}) is a separate key on the physical pack.
+      Empty slots are fine. Slot count narrows to the brand's typical pack
+      size when you pick a brand. Touching any field auto-ticks 🎧.
     </div>
     <button type="submit" class="btn btn-sm btn-adi">💾 Save COMS</button>
   </div>
 </form>
 
 <script>
-  // Brand → typical channel count (for soft warnings, not hard limits).
+  // Brand → typical pack channel count. Drives how many K-slots are shown.
   const BRAND_LIMITS = {{ com_pack_brand_limits | tojson }};
   const HARD_CAP     = {{ com_pack_hard_cap }};
 
-  // Per-assignment current ordered channel id list, kept in sync with the
-  // hidden input. We re-render position badges + counter + warning on change.
-  function getOrdered(aid) {
+  function setOrdered(aid, parts) {
     const hidden = document.getElementById('ordered-' + aid);
-    if (!hidden || !hidden.value) return [];
-    return hidden.value.split(',').filter(s => s.trim()).map(s => parseInt(s, 10));
-  }
-  function setOrdered(aid, ids) {
-    const hidden = document.getElementById('ordered-' + aid);
-    if (hidden) hidden.value = ids.join(',');
+    if (hidden) hidden.value = parts.join(',');
   }
 
   function brandSoftCap(aid) {
@@ -284,87 +269,91 @@
     return BRAND_LIMITS[sel.value] != null ? BRAND_LIMITS[sel.value] : HARD_CAP;
   }
 
-  function renderRow(aid) {
-    const ids   = getOrdered(aid);
-    const grid  = document.querySelector(`.coms-channel-grid[data-aid="${aid}"]`);
-    const counter = document.querySelector(`.coms-ch-counter[data-aid="${aid}"]`);
-    if (!grid) return;
-    // Update each label's checkbox state + position badge + styling
-    grid.querySelectorAll('.coms-ch-label').forEach(lbl => {
-      const cid = parseInt(lbl.dataset.cid, 10);
-      const pos = ids.indexOf(cid);
-      const cb  = lbl.querySelector('.coms-ch-cb');
-      const bg  = lbl.querySelector('.coms-ch-pos');
-      if (pos >= 0) {
-        cb.checked = true;
-        lbl.style.background = '#FFF8EC';
-        lbl.style.borderColor = '#E8DCA8';
-        bg.style.display = '';
-        bg.textContent   = pos + 1;
-      } else {
-        cb.checked = false;
-        lbl.style.background = '#f3f3f3';
-        lbl.style.borderColor = '#ddd';
-        bg.style.display = 'none';
-        bg.textContent   = '';
-      }
+  // Walk each row's slot dropdowns, in slot order, and rebuild the hidden
+  // CSV that the form actually POSTs. Empty slot → "" (gap preserved).
+  // Hidden slots (beyond the brand's typical) contribute "" too.
+  function buildOrderedFromSlots(aid) {
+    const slots = document.querySelectorAll(`.coms-slots[data-aid="${aid}"] .coms-slot`);
+    const parts = [];
+    let lastFilled = -1;
+    slots.forEach((slot, idx) => {
+      const sel = slot.querySelector('.coms-slot-select');
+      const hidden = slot.style.display === 'none';
+      const val = (sel && !hidden) ? (sel.value || '') : '';
+      parts.push(val);
+      if (val) lastFilled = idx;
     });
-    // Counter + soft warning
-    const soft = brandSoftCap(aid);
-    let msg = `${ids.length} / ${HARD_CAP} channels assigned`;
-    let color = '#888';
-    if (ids.length > soft && ids.length <= HARD_CAP) {
-      msg += ` — soft limit for this brand is ${soft}`;
-      color = '#92400E';
-    } else if (ids.length === HARD_CAP) {
-      msg += ` — hard cap reached`;
-    }
-    if (counter) {
-      counter.textContent = msg;
-      counter.style.color = color;
-    }
+    // Trim trailing empties (gaps in the middle are preserved)
+    while (parts.length > lastFilled + 1) parts.pop();
+    setOrdered(aid, parts);
+    renderRow(aid);
   }
 
-  // Helper: make sure the row's headset checkbox is ticked whenever the
-  // user interacts with any pack field. Otherwise the route's save logic
-  // would clear out everything they just entered.
+  // Show/hide slots based on the row's current pack brand. Hidden slots get
+  // their value cleared so they don't leak into the saved data.
+  function applySlotLimit(aid) {
+    const limit = brandSoftCap(aid);
+    document.querySelectorAll(`.coms-slots[data-aid="${aid}"] .coms-slot`)
+      .forEach((slot, idx) => {
+        const slotNum = idx + 1;
+        if (slotNum > limit) {
+          slot.style.display = 'none';
+          const sel = slot.querySelector('.coms-slot-select');
+          if (sel) sel.value = '';
+        } else {
+          slot.style.display = '';
+        }
+      });
+    buildOrderedFromSlots(aid);
+  }
+
+  function filledCount(aid) {
+    const slots = document.querySelectorAll(`.coms-slots[data-aid="${aid}"] .coms-slot`);
+    let n = 0;
+    slots.forEach(slot => {
+      if (slot.style.display === 'none') return;
+      const sel = slot.querySelector('.coms-slot-select');
+      if (sel && sel.value) n += 1;
+    });
+    return n;
+  }
+
+  function renderRow(aid) {
+    const counter = document.querySelector(`.coms-ch-counter[data-aid="${aid}"]`);
+    if (!counter) return;
+    const filled = filledCount(aid);
+    const soft   = brandSoftCap(aid);
+    const visibleSlots = document.querySelectorAll(
+      `.coms-slots[data-aid="${aid}"] .coms-slot:not([style*="display: none"])`).length;
+    counter.textContent =
+      `${filled} channel${filled === 1 ? '' : 's'} assigned across ${visibleSlots} slot${visibleSlots === 1 ? '' : 's'}`;
+    counter.style.color = '#888';
+  }
+
+  // Auto-tick 🎧 when the user touches any pack-related field, so the row
+  // actually commits its pack data on save.
   function autoCheckHeadset(aid) {
     document.querySelectorAll('.coms-headset-toggle').forEach(cb => {
       if (cb.dataset.aid == aid && !cb.checked) cb.checked = true;
     });
   }
 
-  // Wire channel checkbox click → toggle membership in the ordered list
-  document.querySelectorAll('.coms-ch-cb').forEach(cb => {
-    cb.addEventListener('change', function () {
-      const aid = parseInt(cb.dataset.aid, 10);
-      const cid = parseInt(cb.dataset.cid, 10);
-      let ids = getOrdered(aid);
-      if (cb.checked) {
-        if (ids.includes(cid)) return;
-        if (ids.length >= HARD_CAP) {
-          cb.checked = false;
-          alert(`Beltpacks are capped at ${HARD_CAP} channels. Uncheck one first.`);
-          return;
-        }
-        ids.push(cid);
-        autoCheckHeadset(aid);
-      } else {
-        ids = ids.filter(x => x !== cid);
-      }
-      setOrdered(aid, ids);
-      renderRow(aid);
+  // Wire each slot select
+  document.querySelectorAll('.coms-slot-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      buildOrderedFromSlots(sel.dataset.aid);
+      if (sel.value) autoCheckHeadset(sel.dataset.aid);
     });
   });
 
-  // Pack-type / brand selects: also auto-check headset when changed
+  // Pack-type select: auto-check headset on change
   document.querySelectorAll('.coms-autocheck').forEach(sel => {
     sel.addEventListener('change', () => {
       if (sel.value) autoCheckHeadset(sel.dataset.aid);
     });
   });
 
-  // Brand select also drives the "Other brand" textbox + soft-warning render
+  // Brand select: updates slot visibility + the "Other brand" text input
   document.querySelectorAll('[class*="coms-brand-"]').forEach(sel => {
     const m = sel.className.match(/coms-brand-(\d+)/);
     if (!m) return;
@@ -372,24 +361,21 @@
     const other = document.querySelector('.coms-other-' + aid);
     sel.addEventListener('change', () => {
       if (other) other.style.display = sel.value === 'Other' ? 'block' : 'none';
-      renderRow(aid);
+      if (sel.value) autoCheckHeadset(aid);
+      applySlotLimit(aid);
     });
   });
 
-  // Headset toggle no longer disables fields, but unchecking it gives a
-  // visual hint that the pack details will be wiped on next save.
+  // Headset toggle: no-op visually (fields stay interactive); the save
+  // endpoint clears pack details when headset is unchecked.
   document.querySelectorAll('.coms-headset-toggle').forEach(cb => {
-    cb.addEventListener('change', () => {
-      const aid = cb.dataset.aid;
-      // No-op visual treatment — fields remain interactive. Save endpoint
-      // is the source of truth: it clears pack data when headset is false.
-    });
+    cb.addEventListener('change', () => { /* intentionally empty */ });
   });
 
-  // Initial render of counters/badges for every row
+  // Initial pass: apply the brand-driven slot limit + render counters
   document.querySelectorAll('[id^="ordered-"]').forEach(h => {
     const aid = h.id.replace('ordered-', '');
-    renderRow(aid);
+    applySlotLimit(aid);
   });
 </script>
 

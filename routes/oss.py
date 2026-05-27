@@ -433,17 +433,20 @@ def coms_save(show_id):
             a.pack_type        = pt if pt in COM_PACK_TYPES else None
             a.pack_brand       = pb if pb in COM_PACK_BRANDS else None
             a.pack_brand_other = po or None
-            # The checkbox-grid UI submits an ordered CSV of channel ids in
-            # channels_ordered_<aid> (key 1 first, then key 2, ...). We cap
-            # at COM_PACK_HARD_CAP defensively in case JS is bypassed.
-            raw = (request.form.get(f"channels_ordered_{aid}") or "").strip()
-            picked_ids = []
+            # Slot dropdowns submit an ordered CSV of channel ids in
+            # channels_ordered_<aid> — one entry per slot (K1..K6), with
+            # empty strings representing intentionally-blank slots. We
+            # cap at COM_PACK_HARD_CAP defensively in case JS is bypassed.
+            raw = (request.form.get(f"channels_ordered_{aid}") or "")
+            slots = []
             for p in raw.split(","):
                 p = p.strip()
-                if p.isdigit() and int(p) not in picked_ids:
-                    picked_ids.append(int(p))
-            picked_ids = picked_ids[:COM_PACK_HARD_CAP]
-            a.channel_id_list = picked_ids
+                if p.isdigit():
+                    slots.append(int(p))
+                else:
+                    slots.append(None)
+            slots = slots[:COM_PACK_HARD_CAP]
+            a.channel_id_list = slots
         else:
             a.pack_type = None
             a.pack_brand = None
