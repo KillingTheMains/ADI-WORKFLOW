@@ -8,6 +8,24 @@ to **Deployed** with the date.
 
 ## Pending Deploy
 
+### Bulk crew import from XLSX
+- New 📥 Import Crew button at the top of the Crew Roster page.
+- Upload an .xlsx with crew info → preview page → review per-row → apply.
+- Smart matching: by email first, falls back to first+last+company.
+- "Fill blanks only" by default — never overwrites existing values
+  unless you tick the per-field overwrite checkbox in the preview's
+  Conflict box.
+- Per-row decision dropdown: Add new / Update (fill blanks) / Skip.
+- Unknown Position or Company? Preview shows a per-row picker:
+  Create new / Map to existing / Leave blank. Nothing is created until
+  you click Apply — cancelling leaves master lists untouched.
+- New `crew_import_sessions` table (auto-created) holds the parsed
+  rows + per-row decisions between upload and commit.
+- Requires `openpyxl==3.1.5` — added to requirements.txt. **PA deploy
+  needs `pip install openpyxl==3.1.5 --user` in the PA Bash console
+  once before the reload.**
+- PDF support deferred to v2 once we see the actual PDF format.
+
 ### Wristbands tab — rebuilt as a derived day-by-day count
 - No more "add entry" form. The Wristbands tab is now a single editable
   table with one row per scheduled day.

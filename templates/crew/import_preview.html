@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Crew Import Preview — ADI Workflow{% endblock %}
+{% block page_title %}Crew Import — Review &amp; Apply{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> /
+  <a href="{{ url_for('crew.index') }}">Crew</a> / Import preview
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .imp-summary { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+  .imp-pill {
+    background:#1C2333; color:#C9A84C; font-size:.78rem; font-weight:600;
+    padding:4px 10px; border-radius:12px;
+  }
+  .imp-pill.add      { background:#16A34A; color:#fff; }
+  .imp-pill.update   { background:#2563EB; color:#fff; }
+  .imp-pill.skip     { background:#9CA3AF; color:#fff; }
+  .imp-pill.conflict { background:#F59E0B; color:#1C2333; }
+  .imp-pill.warn     { background:#FEF3C7; color:#92400E; border:1px solid #FCD34D; }
+
+  table.imp-table { font-size:.82rem; }
+  table.imp-table th {
+    background:#fafafa; font-size:.7rem; text-transform:uppercase;
+    letter-spacing:.05em; color:#555; font-weight:600;
+  }
+  table.imp-table td { vertical-align:top; padding:6px 8px; }
+  .conflict-row { background:#FFF8EC; }
+  .conflict-bx {
+    font-size:.7rem; color:#92400E; background:#FEF3C7;
+    border:1px solid #FCD34D; border-radius:6px; padding:4px 6px;
+    margin-top:3px;
+  }
+  .file-val   { color:#1f2937; font-weight:600; }
+  .exist-val  { color:#6b7280; text-decoration:line-through; }
+  .field-hint { font-size:.68rem; color:#888; }
+  .row-sub    { font-size:.68rem; color:#888; }
+</style>
+{% endblock %}
+
+{% block content %}
+<form method="POST" action="{{ url_for('crew_import.commit', sid=session.id) }}">
+
+<div class="card mb-3 p-3">
+  <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+    <div>
+      <div style="font-size:.78rem; color:#666;">Source file</div>
+      <div style="font-weight:600;">{{ session.filename }}</div>
+    </div>
+    <div class="imp-summary">
+      <span class="imp-pill">Total {{ summary.total }}</span>
+      <span class="imp-pill add">Add {{ summary.add }}</span>
+      <span class="imp-pill update">Update {{ summary['update'] }}</span>
+      <span class="imp-pill conflict">Conflicts {{ summary.conflict }}</span>
+      <span class="imp-pill skip">Duplicates {{ summary.skip }}</span>
+      {% if summary.new_pos %}
+      <span class="imp-pill warn">⚠ {{ summary.new_pos }} new positions</span>
+      {% endif %}
+      {% if summary.new_co %}
+      <span class="imp-pill warn">⚠ {{ summary.new_co }} new companies</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table imp-table mb-0">
+      <thead>
+        <tr>
+          <th style="width:50px;">Row</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Phone</th>
+          <th>Position</th>
+          <th>Company</th>
+          <th style="width:160px;">Decision</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr class="{% if r.suggested == 'conflict' %}conflict-row{% endif %}">
+          <td>
+            <strong>{{ r.n }}</strong>
+            {% if r.matched_id %}
+            <div class="row-sub">→ existing #{{ r.matched_id }} ({{ r.match_reason }})</div>
+            {% endif %}
+          </td>
+
+          <td>
+            <div class="file-val">
+              {{ r.first_name or '—' }} {{ r.last_name or '' }}
+            </div>
+          </td>
+
+          <td>
+            <div class="file-val">{{ r.email or '—' }}</div>
+            {% if 'email' in r.conflicts %}
+            <div class="conflict-bx">
+              <div>existing: <span class="exist-val">{{ r.conflicts.email[0] }}</span></div>
+              <label style="font-size:.7rem;">
+                <input type="checkbox" name="overwrite_{{ r.n }}_email" value="1">
+                overwrite with file value
+              </label>
+            </div>
+            {% elif 'email' in r.fillable_fields %}
+            <div class="field-hint">↑ fills blank existing</div>
+            {% endif %}
+          </td>
+
+          <td>
+            <div class="file-val">{{ r.phone or '—' }}</div>
+            {% if 'phone' in r.conflicts %}
+            <div class="conflict-bx">
+              <div>existing: <span class="exist-val">{{ r.conflicts.phone[0] }}</span></div>
+              <label style="font-size:.7rem;">
+                <input type="checkbox" name="overwrite_{{ r.n }}_phone" value="1">
+                overwrite
+              </label>
+            </div>
+            {% elif 'phone' in r.fillable_fields %}
+            <div class="field-hint">↑ fills blank existing</div>
+            {% endif %}
+          </td>
+
+          {# Position cell #}
+          <td>
+            <div class="file-val">{{ r.position or '—' }}</div>
+            {% if r.position %}
+              {% if r.position_action == 'new' %}
+                <select name="pos_choice_{{ r.n }}" class="form-select form-select-sm mt-1"
+                        style="font-size:.74rem;">
+                  <option value="create">Create new "{{ r.position }}"</option>
+                  <option value="map">Map to existing…</option>
+                  <option value="skip">Leave blank</option>
+                </select>
+                <select name="pos_map_{{ r.n }}" class="form-select form-select-sm mt-1"
+                        style="font-size:.72rem;">
+                  <option value="">— pick to map —</option>
+                  {% for p in all_positions %}
+                  <option value="{{ p.id }}">{{ p.title }}{% if p.department %} ({{ p.department }}){% endif %}</option>
+                  {% endfor %}
+                </select>
+              {% else %}
+                <input type="hidden" name="pos_choice_{{ r.n }}" value="use">
+                <div class="field-hint">✓ exact match in master list</div>
+              {% endif %}
+              {% if 'position' in r.conflicts %}
+              <div class="conflict-bx">
+                <div>existing: <span class="exist-val">{{ r.conflicts.position[0] }}</span></div>
+                <label style="font-size:.7rem;">
+                  <input type="checkbox" name="overwrite_{{ r.n }}_position" value="1">
+                  overwrite
+                </label>
+              </div>
+              {% endif %}
+            {% endif %}
+          </td>
+
+          {# Company cell #}
+          <td>
+            <div class="file-val">{{ r.company or '—' }}</div>
+            {% if r.company %}
+              {% if r.company_action == 'new' %}
+                <select name="co_choice_{{ r.n }}" class="form-select form-select-sm mt-1"
+                        style="font-size:.74rem;">
+                  <option value="create">Create new "{{ r.company }}"</option>
+                  <option value="map">Map to existing…</option>
+                  <option value="skip">Leave blank</option>
+                </select>
+                <select name="co_map_{{ r.n }}" class="form-select form-select-sm mt-1"
+                        style="font-size:.72rem;">
+                  <option value="">— pick to map —</option>
+                  {% for c in all_companies %}
+                  <option value="{{ c.id }}">{{ c.name }}</option>
+                  {% endfor %}
+                </select>
+              {% else %}
+                <input type="hidden" name="co_choice_{{ r.n }}" value="use">
+                <div class="field-hint">✓ exact match in master list</div>
+              {% endif %}
+              {% if 'company' in r.conflicts %}
+              <div class="conflict-bx">
+                <div>existing: <span class="exist-val">{{ r.conflicts.company[0] }}</span></div>
+                <label style="font-size:.7rem;">
+                  <input type="checkbox" name="overwrite_{{ r.n }}_company" value="1">
+                  overwrite
+                </label>
+              </div>
+              {% endif %}
+            {% endif %}
+          </td>
+
+          {# Decision cell #}
+          <td>
+            <select name="decision_{{ r.n }}" class="form-select form-select-sm"
+                    style="font-size:.78rem;">
+              {% if not r.matched_id %}
+              <option value="add" {% if r.suggested == 'add' %}selected{% endif %}>➕ Add new</option>
+              <option value="skip" {% if r.suggested == 'skip' %}selected{% endif %}>Skip this row</option>
+              {% else %}
+              <option value="update" {% if r.suggested == 'update' %}selected{% endif %}>✎ Update existing (fill blanks)</option>
+              <option value="skip" {% if r.suggested == 'skip' %}selected{% endif %}>Skip (duplicate)</option>
+              <option value="add">Add as new anyway</option>
+              {% endif %}
+            </select>
+            {% if r.suggested == 'conflict' %}
+            <div class="field-hint" style="color:#92400E;margin-top:3px;">
+              ⚠ Has conflicts — review fields above
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mt-3 mb-4">
+  <button type="button" class="btn btn-sm btn-outline-secondary"
+          onclick="document.getElementById('cancel-form').submit();">
+    Cancel
+  </button>
+  <button type="submit" class="btn btn-adi">
+    ✓ Apply import ({{ summary.add + summary['update'] }} change{{ '' if (summary.add + summary['update']) == 1 else 's' }})
+  </button>
+</div>
+</form>
+
+<form id="cancel-form" method="POST"
+      action="{{ url_for('crew_import.cancel', sid=session.id) }}" style="display:none;"></form>
+{% endblock %}

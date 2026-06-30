@@ -2,12 +2,13 @@ import os
 from datetime import datetime
 from flask import Flask
 from extensions import db
-from routes.main       import main_bp
-from routes.shows      import shows_bp
-from routes.schedule   import schedule_bp
-from routes.crew       import crew_bp
-from routes.show_crew  import show_crew_bp
-from routes.oss        import oss_bp
+from routes.main         import main_bp
+from routes.shows        import shows_bp
+from routes.schedule     import schedule_bp
+from routes.crew         import crew_bp
+from routes.show_crew    import show_crew_bp
+from routes.oss          import oss_bp
+from routes.crew_import  import crew_import_bp
 
 
 def create_app():
@@ -26,11 +27,12 @@ def create_app():
 
     # ── Blueprints ────────────────────────────────────────────────────────────
     app.register_blueprint(main_bp)
-    app.register_blueprint(shows_bp,      url_prefix="/shows")
-    app.register_blueprint(schedule_bp,   url_prefix="/shows")
-    app.register_blueprint(crew_bp,       url_prefix="/crew")
-    app.register_blueprint(show_crew_bp,  url_prefix="/shows")
-    app.register_blueprint(oss_bp,        url_prefix="/shows")
+    app.register_blueprint(shows_bp,        url_prefix="/shows")
+    app.register_blueprint(schedule_bp,     url_prefix="/shows")
+    app.register_blueprint(crew_bp,         url_prefix="/crew")
+    app.register_blueprint(show_crew_bp,    url_prefix="/shows")
+    app.register_blueprint(oss_bp,          url_prefix="/shows")
+    app.register_blueprint(crew_import_bp,  url_prefix="/crew")
 
     # ── Context processors ────────────────────────────────────────────────────
     @app.context_processor

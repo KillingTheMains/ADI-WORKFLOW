@@ -668,3 +668,50 @@ class CrewCommAssignment(db.Model):
 
     def __repr__(self):
         return f"<CrewCommAssignment show={self.show_id} crew={self.crew_member_id}>"
+
+
+
+# ── Crew bulk import (upload → preview → commit) ─────────────────────────────
+#
+# Holds a parsed XLSX upload between the upload and commit steps. Each session
+# stores the rows the parser found PLUS the match decisions the user makes in
+# the preview UI (add / update / skip + which existing crew to merge into +
+# whether to create new positions / companies). Cleaned up on commit/cancel.
+
+IMPORT_STATUS = ["pending", "applied", "cancelled"]
+
+
+class CrewImportSession(db.Model):
+    __tablename__ = "crew_import_sessions"
+    id          = db.Column(db.Integer, primary_key=True)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    filename    = db.Column(db.String(255))
+    # rows_json: JSON list of dicts, each row from the parser plus a
+    # "decision" key the preview UI writes into on commit. Shape:
+    #   {
+    #     "n": 1,                              # 1-based row number for display
+    #     "first_name": "...", "last_name": "...",
+    #     "email": "...", "phone": "...",
+    #     "position": "raw string from file", "company": "raw string from file",
+    #     "matched_id": <crew_member.id or None>,
+    #     "match_reason": "email" | "name+company" | None,
+    #     "fillable_fields": ["email", "phone", ...],   # blanks we'd fill
+    #     "conflicts": {"email": ("existing", "from file"), ...},
+    #     "position_action": "exact" | "new" | "missing",  # decided per row
+    #     "company_action":  "exact" | "new" | "missing",
+    #     "decision": "add" | "update" | "skip"          # set on commit
+    #   }
+    rows_json   = db.Column(db.Text)
+    status      = db.Column(db.String(20), default="pending")
+    summary     = db.Column(db.Text)   # short JSON status set after commit
+
+    @property
+    def rows(self):
+        return json.loads(self.rows_json or "[]")
+
+    @rows.setter
+    def rows(self, value):
+        self.rows_json = json.dumps(value)
+
+    def __repr__(self):
+        return f"<CrewImportSession {self.id} {self.filename} {self.status}>"
