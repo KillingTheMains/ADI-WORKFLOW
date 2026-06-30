@@ -7,6 +7,15 @@
 {% endblock %}
 
 {% block top_actions %}
+  <form method="POST" action="{{ url_for('crew_import.upload') }}"
+        enctype="multipart/form-data" style="display:inline-block;margin-right:6px;">
+    <input type="hidden" name="target_show_id" value="{{ show.id }}">
+    <label class="btn btn-sm btn-outline-secondary" style="margin:0;cursor:pointer;">
+      📥 Import Crew to this Show
+      <input type="file" name="file" accept=".xlsx,.xlsm"
+             onchange="this.form.submit()" style="display:none;">
+    </label>
+  </form>
   <a href="{{ url_for('show_crew.contact_sheet', show_id=show.id) }}"
      class="btn btn-sm btn-outline-secondary" target="_blank">📋 Contact Sheet</a>
   <a href="{{ url_for('show_crew.hours_report', show_id=show.id) }}"
@@ -38,11 +47,268 @@
   </div>
 </div>
 
+<!-- ── Booking Sheet (Phase A) ────────────────────────────────────────────── -->
+<style>
+  .booking-task-card { margin-bottom: 14px; }
+  .booking-task-card .task-header {
+    background:#1C2333; color:#C9A84C;
+    padding: 6px 14px; font-size:.78rem; font-weight:700;
+    text-transform:uppercase; letter-spacing:.06em;
+    display:flex; align-items:center; justify-content:space-between;
+    border-radius: 6px 6px 0 0;
+  }
+  .booking-table { font-size:.8rem; margin: 0; }
+  .booking-table th {
+    background:#fafafa; font-size:.66rem; text-transform:uppercase;
+    letter-spacing:.05em; color:#666; font-weight:600;
+    padding:5px 8px;
+  }
+  .booking-table td { padding:5px 8px; vertical-align:middle; }
+  .booking-table input[type="date"],
+  .booking-table input[type="text"],
+  .booking-table select { font-size:.76rem; padding:2px 6px; }
+  .tbd-row { background:#FFF8EC; }
+  .tbd-badge {
+    display:inline-block; background:#F59E0B; color:#1C2333;
+    font-size:.62rem; font-weight:700; padding:1px 6px;
+    border-radius:8px; text-transform:uppercase; letter-spacing:.04em;
+    margin-left:6px;
+  }
+  .save-btn-inline {
+    font-size:.7rem; padding:2px 8px;
+    background:#16A34A; color:#fff; border:none; border-radius:4px;
+  }
+  .save-btn-inline:hover { background:#15803D; }
+  .del-btn-inline {
+    font-size:.7rem; padding:1px 6px;
+    background:none; color:#DC2626; border:1px solid #DC2626;
+    border-radius:4px;
+  }
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-2">
+  <h5 style="margin:0;font-weight:600;">📋 Booking Sheet</h5>
+  <button type="button" class="btn btn-sm btn-adi"
+          data-bs-toggle="collapse" data-bs-target="#add-slot-form">
+    + Add TBD slot
+  </button>
+</div>
+
+<!-- Inline form to add a new TBD slot -->
+<form method="POST" action="{{ url_for('show_crew.add_slot', show_id=show.id) }}"
+      class="collapse mb-3" id="add-slot-form">
+  <div class="card p-2" style="background:#FFF8EC;border:1px solid #E8DCA8;">
+    <div class="row g-1 align-items-end" style="font-size:.78rem;">
+      <div class="col-md-2">
+        <label style="font-size:.7rem;">Position</label>
+        <select name="position_id" class="form-select form-select-sm" style="font-size:.76rem;">
+          <option value="">— pick —</option>
+          {% for p in all_positions %}
+          <option value="{{ p.id }}">{{ p.title }}{% if p.department %} ({{ p.department }}){% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label style="font-size:.7rem;">or Label</label>
+        <input type="text" name="placeholder_label" placeholder="e.g. LED Lead — Set Up"
+               class="form-control form-control-sm" style="font-size:.76rem;">
+      </div>
+      <div class="col-md-1">
+        <label style="font-size:.7rem;">Task</label>
+        <input type="text" name="booking_task" list="task-options"
+               placeholder="PREP / 3 Show / Strike"
+               class="form-control form-control-sm" style="font-size:.76rem;">
+      </div>
+      <div class="col-md-1">
+        <label style="font-size:.7rem;">Travel In</label>
+        <input type="date" name="travel_in_date" class="form-control form-control-sm">
+      </div>
+      <div class="col-md-1">
+        <label style="font-size:.7rem;">Start</label>
+        <input type="date" name="start_date" class="form-control form-control-sm">
+      </div>
+      <div class="col-md-1">
+        <label style="font-size:.7rem;">End</label>
+        <input type="date" name="end_date" class="form-control form-control-sm">
+      </div>
+      <div class="col-md-1">
+        <label style="font-size:.7rem;">Travel Out</label>
+        <input type="date" name="travel_out_date" class="form-control form-control-sm">
+      </div>
+      <div class="col-md-2">
+        <label style="font-size:.7rem;">Notes</label>
+        <input type="text" name="notes" class="form-control form-control-sm" style="font-size:.76rem;">
+      </div>
+      <div class="col-md-1">
+        <button type="submit" class="btn btn-sm btn-adi w-100" style="font-size:.74rem;">+ Add</button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<datalist id="task-options">
+  <option value="PREP">
+  <option value="Set Up">
+  <option value="3 Show">
+  <option value="Show">
+  <option value="Strike">
+  <option value="Travel">
+  <option value="Tech">
+  <option value="Rehearsal">
+</datalist>
+
+{% if ordered_task_keys %}
+  {% for task_key in ordered_task_keys %}
+  {% set group = task_groups[task_key] %}
+  <div class="card booking-task-card">
+    <div class="task-header">
+      <span>{{ task_key }}</span>
+      <span style="font-weight:400;color:rgba(255,255,255,.55);">
+        {{ group.assignments|length }} crew{% if group.slots %} · {{ group.slots|length }} TBD{% endif %}
+      </span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm booking-table">
+        <thead>
+          <tr>
+            <th>Name / Role</th>
+            <th>Position</th>
+            <th style="width:120px;">Task</th>
+            <th style="width:130px;">Travel In</th>
+            <th style="width:130px;">Start</th>
+            <th style="width:130px;">End</th>
+            <th style="width:130px;">Travel Out</th>
+            <th style="width:90px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+
+          {# Real crew assignments #}
+          {% for a in group.assignments %}
+          <tr>
+            <form method="POST"
+                  action="{{ url_for('show_crew.edit_assignment', show_id=show.id, aid=a.id) }}">
+              <td>
+                <div style="font-weight:600;">{{ a.crew_member.full_name }}</div>
+                <input type="text" name="role_override" value="{{ a.role_override or '' }}"
+                       placeholder="role on this show (optional)"
+                       class="form-control form-control-sm mt-1">
+              </td>
+              <td class="text-muted" style="font-size:.74rem;">
+                {{ a.crew_member.position.title if a.crew_member.position else '—' }}
+              </td>
+              <td>
+                <input type="text" name="booking_task" value="{{ a.booking_task or '' }}"
+                       list="task-options" class="form-control form-control-sm">
+              </td>
+              <td><input type="date" name="travel_in_date"
+                         value="{{ a.travel_in_date.isoformat() if a.travel_in_date else '' }}"
+                         class="form-control form-control-sm"></td>
+              <td><input type="date" name="start_date"
+                         value="{{ a.start_date.isoformat() if a.start_date else '' }}"
+                         class="form-control form-control-sm"></td>
+              <td><input type="date" name="end_date"
+                         value="{{ a.end_date.isoformat() if a.end_date else '' }}"
+                         class="form-control form-control-sm"></td>
+              <td><input type="date" name="travel_out_date"
+                         value="{{ a.travel_out_date.isoformat() if a.travel_out_date else '' }}"
+                         class="form-control form-control-sm"></td>
+              <td>
+                <button type="submit" class="save-btn-inline">💾 Save</button>
+              </td>
+            </form>
+          </tr>
+          {% endfor %}
+
+          {# TBD slots — each row is its own form #}
+          {% for slot in group.slots %}
+          <tr class="tbd-row">
+            <form method="POST"
+                  action="{{ url_for('show_crew.edit_slot', show_id=show.id, sid=slot.id) }}">
+              <td>
+                <div style="font-weight:600;">
+                  {{ slot.display_title }}<span class="tbd-badge">TBD</span>
+                </div>
+                <input type="text" name="placeholder_label"
+                       value="{{ slot.placeholder_label or '' }}"
+                       placeholder="custom label (optional)"
+                       class="form-control form-control-sm mt-1">
+              </td>
+              <td>
+                <select name="position_id" class="form-select form-select-sm">
+                  <option value="">— none —</option>
+                  {% for p in all_positions %}
+                  <option value="{{ p.id }}" {% if slot.position_id == p.id %}selected{% endif %}>
+                    {{ p.title }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>
+                <input type="text" name="booking_task" value="{{ slot.booking_task or '' }}"
+                       list="task-options" class="form-control form-control-sm">
+              </td>
+              <td><input type="date" name="travel_in_date"
+                         value="{{ slot.travel_in_date.isoformat() if slot.travel_in_date else '' }}"
+                         class="form-control form-control-sm"></td>
+              <td><input type="date" name="start_date"
+                         value="{{ slot.start_date.isoformat() if slot.start_date else '' }}"
+                         class="form-control form-control-sm"></td>
+              <td><input type="date" name="end_date"
+                         value="{{ slot.end_date.isoformat() if slot.end_date else '' }}"
+                         class="form-control form-control-sm"></td>
+              <td><input type="date" name="travel_out_date"
+                         value="{{ slot.travel_out_date.isoformat() if slot.travel_out_date else '' }}"
+                         class="form-control form-control-sm"></td>
+              <td style="white-space:nowrap;">
+                <button type="submit" class="save-btn-inline" title="Save changes">💾</button>
+            </form>
+                <form method="POST" style="display:inline;"
+                      action="{{ url_for('show_crew.delete_slot', show_id=show.id, sid=slot.id) }}"
+                      onsubmit="return confirm('Delete this TBD slot?');">
+                  <button type="submit" class="del-btn-inline" title="Delete slot">✕</button>
+                </form>
+              </td>
+            </tr>
+            {# Fill-slot row (collapsible) — a second tr per slot #}
+            <tr class="tbd-row" style="border-top:0;">
+              <td colspan="8" style="padding-top:0;">
+                <form method="POST"
+                      action="{{ url_for('show_crew.fill_slot', show_id=show.id, sid=slot.id) }}"
+                      class="d-flex align-items-center gap-1">
+                  <span style="font-size:.7rem;color:#92400E;">Fill this slot →</span>
+                  <select name="crew_member_id" class="form-select form-select-sm"
+                          style="font-size:.74rem;max-width:280px;">
+                    <option value="">— pick a crew member —</option>
+                    {% for co in sorted_companies %}
+                    <optgroup label="{{ co.name }}">
+                      {% for cm in co.crew %}
+                      <option value="{{ cm.id }}">{{ cm.full_name }}{% if cm.position %} · {{ cm.position.title }}{% endif %}</option>
+                      {% endfor %}
+                    </optgroup>
+                    {% endfor %}
+                  </select>
+                  <button type="submit" class="btn btn-sm btn-adi" style="font-size:.7rem;padding:2px 10px;">Fill</button>
+                </form>
+              </td>
+          {% endfor %}
+
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="card p-3 mb-3 text-muted" style="font-size:.85rem;">
+  No crew booked yet. Use the panels below to assign people, or click <strong>+ Add TBD slot</strong>
+  above to start sketching out unfilled positions.
+</div>
+{% endif %}
+
 <!-- Info blurb -->
 <p class="text-muted" style="font-size:.85rem;margin-bottom:20px;">
-  Assign crew members to this show. Only assigned crew will appear in the day schedule
-  dropdowns when building out activities. Use the <strong>Add All</strong> button to
-  assign an entire company in one click.
+  Below: pick which crew members are on this show. Once added, set their booking details
+  in the Booking Sheet above. Use <strong>Add All</strong> to assign an entire company.
 </p>
 
 <!-- Company sections -->

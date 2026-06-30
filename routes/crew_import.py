@@ -22,7 +22,9 @@ import json
 from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, abort)
 from extensions import db
-from models import (CrewMember, Position, Company, CrewImportSession)
+from models import (CrewMember, Position, Company, CrewImportSession,
+                    Show, ShowCrewAssignment, ShowOpenSlot)
+from datetime import date as date_cls, datetime
 
 crew_import_bp = Blueprint("crew_import", __name__)
 
@@ -30,12 +32,19 @@ crew_import_bp = Blueprint("crew_import", __name__)
 # ── Column aliases (XLSX headers we accept) ──────────────────────────────────
 # Lower-case + stripped before lookup. The first match wins.
 COLUMN_ALIASES = {
-    "first_name": ["first name", "first", "firstname", "first_name", "given name", "given"],
-    "last_name":  ["last name", "last", "lastname", "last_name", "surname", "family name"],
-    "email":      ["email", "e-mail", "email address", "e mail"],
-    "phone":      ["phone", "phone number", "mobile", "cell", "tel", "telephone"],
-    "position":   ["position", "title", "role", "job title", "job", "position/title"],
-    "company":    ["company", "vendor", "employer", "organization", "org", "business"],
+    "first_name":      ["first name", "first", "firstname", "first_name", "given name", "given"],
+    "last_name":       ["last name", "last", "lastname", "last_name", "surname", "family name"],
+    "email":           ["email", "e-mail", "email address", "e mail"],
+    "phone":           ["phone", "phone number", "mobile", "cell", "tel", "telephone"],
+    "position":        ["position", "title", "role", "job title", "job", "position/title"],
+    "company":         ["company", "vendor", "employer", "organization", "org", "business"],
+    # Phase A — optional booking columns. Only used when import is targeted
+    # at a specific show.
+    "booking_task":    ["booking task", "task", "phase", "booking"],
+    "travel_in":       ["travel in", "travel_in", "travel in date", "fly in"],
+    "start":           ["start", "start date", "on-site start"],
+    "end":             ["end", "end date", "on-site end"],
+    "travel_out":      ["travel out", "travel_out", "travel out date", "fly out"],
 }
 
 
@@ -179,26 +188,63 @@ def _enrich_with_match_info(rec, all_crew_by_email, all_crew_by_namekey,
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 
+def _parse_loose_date(v):
+    """Parse a date value from an XLSX cell — handles both datetime objects
+    that openpyxl returns for true date cells, and free-text like '5/25/2026'
+    or '2026-05-25'."""
+    if not v:
+        return None
+    if isinstance(v, datetime):
+        return v.date()
+    if hasattr(v, "year") and hasattr(v, "month"):
+        return v
+    s = str(v).strip()
+    if not s:
+        return None
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y", "%-m/%-d/%Y", "%-m/%-d/%y"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _back_to_target(session_or_show_id):
+    """After import, send the user back to the show's crew page if this was
+    a targeted import, else the master roster."""
+    if isinstance(session_or_show_id, CrewImportSession):
+        sid = session_or_show_id.target_show_id
+    else:
+        sid = session_or_show_id
+    if sid:
+        return redirect(url_for("show_crew.show_crew", show_id=sid))
+    return redirect(url_for("crew.index"))
+
+
 @crew_import_bp.route("/import/upload", methods=["POST"])
 def upload():
     f = request.files.get("file")
+    target_show_id_raw = (request.form.get("target_show_id") or "").strip()
+    target_show_id = int(target_show_id_raw) if target_show_id_raw.isdigit() else None
+    back_to = lambda: _back_to_target(target_show_id)
+
     if not f or not f.filename:
         flash("Please pick a file first.", "danger")
-        return redirect(url_for("crew.index"))
+        return back_to()
 
     if not f.filename.lower().endswith((".xlsx", ".xlsm")):
         flash("Only .xlsx files are supported for now. (PDF coming later.)", "danger")
-        return redirect(url_for("crew.index"))
+        return back_to()
 
     try:
         parsed = _parse_xlsx(f)
     except ValueError as e:
         flash(str(e), "danger")
-        return redirect(url_for("crew.index"))
+        return back_to()
 
     if not parsed:
         flash("No usable rows found in the file (need at least First + Last name).", "warning")
-        return redirect(url_for("crew.index"))
+        return back_to()
 
     # Pre-load existing crew + positions + companies for matching
     all_crew = CrewMember.query.all()
@@ -217,8 +263,14 @@ def upload():
 
     enriched = [_enrich_with_match_info(r, by_email, by_namekey, by_pos, by_co)
                 for r in parsed]
+    # Normalize booking date strings into ISO so the preview/commit can use
+    # them directly. (Parser stored raw cell text.)
+    for r in enriched:
+        for k in ("travel_in", "start", "end", "travel_out"):
+            d = _parse_loose_date(r.get(k))
+            r[k] = d.isoformat() if d else (r.get(k) or "")
 
-    session = CrewImportSession(filename=f.filename)
+    session = CrewImportSession(filename=f.filename, target_show_id=target_show_id)
     session.rows = enriched
     db.session.add(session)
     db.session.commit()
@@ -336,17 +388,34 @@ def _resolve_company(row, form):
     return None
 
 
+def _apply_booking_to_assignment(a, row):
+    """Fill blanks on a ShowCrewAssignment from the row's booking fields.
+    Never overwrites a value that's already set."""
+    if not (a.booking_task or "").strip() and (row.get("booking_task") or "").strip():
+        a.booking_task = row["booking_task"].strip()
+    for db_col, row_key in (("travel_in_date",  "travel_in"),
+                            ("start_date",      "start"),
+                            ("end_date",        "end"),
+                            ("travel_out_date", "travel_out")):
+        if getattr(a, db_col) is None:
+            d = _parse_loose_date(row.get(row_key))
+            if d:
+                setattr(a, db_col, d)
+
+
 @crew_import_bp.route("/import/<int:sid>/commit", methods=["POST"])
 def commit(sid):
     session = CrewImportSession.query.get_or_404(sid)
     if session.status != "pending":
         flash(f"Already {session.status}.", "info")
-        return redirect(url_for("crew.index"))
+        return _back_to_target(session)
 
     form = request.form
     rows = session.rows
-    counts = {"added": 0, "updated": 0, "skipped": 0, "errors": 0}
+    counts = {"added": 0, "updated": 0, "skipped": 0, "errors": 0,
+              "show_assigned": 0, "tbd_slots": 0}
     errors = []
+    target_show = Show.query.get(session.target_show_id) if session.target_show_id else None
 
     for row in rows:
         n = row["n"]
@@ -366,11 +435,32 @@ def commit(sid):
             company  = _resolve_company(row, form)
 
             if action == "add":
-                if not (row.get("first_name") and row.get("last_name")):
+                first = (row.get("first_name") or "").strip()
+                last  = (row.get("last_name")  or "").strip()
+                # File 1 has rows like first="TBD", last="" + a position — these
+                # are open slots, not crew. Recognize and create accordingly.
+                if target_show and (first.upper() == "TBD" or not first) and not last:
+                    if not position and not (row.get("position") or "").strip():
+                        raise ValueError("TBD slot needs at least a position")
+                    slot = ShowOpenSlot(
+                        show_id           = target_show.id,
+                        position_id       = position.id if position else None,
+                        placeholder_label = (row.get("position") or "").strip() or None,
+                        booking_task      = (row.get("booking_task") or "").strip() or None,
+                        travel_in_date    = _parse_loose_date(row.get("travel_in")),
+                        start_date        = _parse_loose_date(row.get("start")),
+                        end_date          = _parse_loose_date(row.get("end")),
+                        travel_out_date   = _parse_loose_date(row.get("travel_out")),
+                    )
+                    db.session.add(slot)
+                    counts["tbd_slots"] += 1
+                    row["decision"] = "tbd_slot"
+                    continue
+                if not (first and last):
                     raise ValueError("first and last name required")
                 cm = CrewMember(
-                    first_name = row["first_name"].strip(),
-                    last_name  = row["last_name"].strip(),
+                    first_name = first,
+                    last_name  = last,
                     email      = (row.get("email")  or "").strip() or None,
                     phone      = (row.get("phone")  or "").strip() or None,
                     position_id= position.id if position else None,
@@ -378,8 +468,20 @@ def commit(sid):
                     active     = True,
                 )
                 db.session.add(cm)
+                db.session.flush()  # so cm.id is available for the assignment below
                 counts["added"] += 1
                 row["decision"] = "add"
+                # If targeting a show, also create a ShowCrewAssignment
+                if target_show:
+                    existing = ShowCrewAssignment.query.filter_by(
+                        show_id=target_show.id, crew_member_id=cm.id).first()
+                    if not existing:
+                        a = ShowCrewAssignment(show_id=target_show.id, crew_member_id=cm.id)
+                        _apply_booking_to_assignment(a, row)
+                        db.session.add(a)
+                        counts["show_assigned"] += 1
+                    else:
+                        _apply_booking_to_assignment(existing, row)
                 continue
 
             if action == "update":
@@ -409,6 +511,17 @@ def commit(sid):
                     cm.company_id = company.id
                 counts["updated"] += 1
                 row["decision"] = "update"
+                # If targeting a show, also create/update the assignment
+                if target_show:
+                    existing = ShowCrewAssignment.query.filter_by(
+                        show_id=target_show.id, crew_member_id=cm.id).first()
+                    if not existing:
+                        a = ShowCrewAssignment(show_id=target_show.id, crew_member_id=cm.id)
+                        _apply_booking_to_assignment(a, row)
+                        db.session.add(a)
+                        counts["show_assigned"] += 1
+                    else:
+                        _apply_booking_to_assignment(existing, row)
                 continue
 
             # action == "conflict" but no per-row decision made → skip
@@ -426,13 +539,20 @@ def commit(sid):
     session.summary = json.dumps({"counts": counts, "errors": errors})
     db.session.commit()
 
-    msg = (f"Import complete — added {counts['added']}, "
-           f"updated {counts['updated']}, skipped {counts['skipped']}"
-           + (f", errors {counts['errors']}" if counts['errors'] else "") + ".")
-    flash(msg, "success" if counts["errors"] == 0 else "warning")
+    parts = [f"added {counts['added']}",
+             f"updated {counts['updated']}",
+             f"skipped {counts['skipped']}"]
+    if counts.get("show_assigned"):
+        parts.append(f"assigned to show {counts['show_assigned']}")
+    if counts.get("tbd_slots"):
+        parts.append(f"TBD slots {counts['tbd_slots']}")
+    if counts['errors']:
+        parts.append(f"errors {counts['errors']}")
+    flash("Import complete — " + ", ".join(parts) + ".",
+          "success" if counts["errors"] == 0 else "warning")
     for e in errors[:5]:
         flash(e, "danger")
-    return redirect(url_for("crew.index"))
+    return _back_to_target(session)
 
 
 @crew_import_bp.route("/import/<int:sid>/cancel", methods=["POST"])
@@ -442,4 +562,4 @@ def cancel(sid):
         session.status = "cancelled"
         db.session.commit()
     flash("Import cancelled.", "info")
-    return redirect(url_for("crew.index"))
+    return _back_to_target(session)

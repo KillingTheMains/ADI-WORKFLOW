@@ -8,6 +8,32 @@ to **Deployed** with the date.
 
 ## Pending Deploy
 
+### Phase A — Enriched crew booking sheet (per show)
+- The Show Crew page gains a **📋 Booking Sheet** at the top — one
+  table per Booking Task (PREP / Set Up / 3 Show / Strike / etc.),
+  each row inline-editable.
+- ShowCrewAssignment now stores per-show booking info per person:
+  `booking_task`, `travel_in_date`, `start_date`, `end_date`,
+  `travel_out_date`.
+- **TBD / Open Slots** are first-class: click `+ Add TBD slot` to add
+  unfilled positions (LOCAL LABOR pattern). Each TBD row carries the
+  same booking-info shape and can later be filled — converting it to a
+  real assignment carries the dates and task across.
+- New `show_open_slots` table for TBD rows. Five new columns added to
+  `show_crew_assignments` (auto-migration).
+
+### Bulk importer extended for File-1 style sheets
+- Crew import accepts new columns: **Booking Task, Travel In, Start,
+  End, Travel Out** (with flexible header naming).
+- New "📥 Import Crew to this Show" button on the Show Crew page —
+  uploads target the current show. When set, the importer also
+  creates/updates the per-show booking info on the assignment.
+- Rows with first name "TBD" (or blank) plus a Position become
+  ShowOpenSlot rows on the target show, not crew members on the
+  master roster.
+- Importer can still target the master roster only (no show selected)
+  for general crew adds.
+
 ### Bulk crew import from XLSX
 - New 📥 Import Crew button at the top of the Crew Roster page.
 - Upload an .xlsx with crew info → preview page → review per-row → apply.

@@ -460,14 +460,24 @@ SUB_SCHEDULE_META = {
 
 class ShowCrewAssignment(db.Model):
     """
-    Links a crew member to a specific show.
+    Links a crew member to a specific show, with booking info.
     Only assigned crew appear in the day-editor dropdown for that show.
+
+    Booking fields (added Phase A): track a person's role-on-this-show
+    and personal date window. `booking_task` is a free-text label like
+    "PREP", "3 Show", "Set Up", "Strike" — matches how ADI's existing
+    crew sheets are organized.
     """
     __tablename__ = "show_crew_assignments"
     id             = db.Column(db.Integer, primary_key=True)
     show_id        = db.Column(db.Integer, db.ForeignKey("shows.id"), nullable=False)
     crew_member_id = db.Column(db.Integer, db.ForeignKey("crew_members.id"), nullable=False)
     role_override  = db.Column(db.String(100))  # optional show-specific role note
+    booking_task   = db.Column(db.String(50))   # PREP / 3 Show / Set Up / Strike / etc.
+    travel_in_date = db.Column(db.Date)
+    start_date     = db.Column(db.Date)         # first on-site day
+    end_date       = db.Column(db.Date)         # last on-site day
+    travel_out_date= db.Column(db.Date)
     created_at     = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (db.UniqueConstraint("show_id", "crew_member_id",
@@ -478,6 +488,43 @@ class ShowCrewAssignment(db.Model):
 
     def __repr__(self):
         return f"<ShowCrewAssignment show={self.show_id} crew={self.crew_member_id}>"
+
+
+class ShowOpenSlot(db.Model):
+    """
+    An unfilled crew position on a show — what ADI's sheets call
+    'LOCAL LABOR' or 'TBD' rows. Has the same booking-info shape as
+    a ShowCrewAssignment but no person attached. When filled, you
+    convert it into a ShowCrewAssignment (and delete the slot).
+    """
+    __tablename__ = "show_open_slots"
+    id               = db.Column(db.Integer, primary_key=True)
+    show_id          = db.Column(db.Integer, db.ForeignKey("shows.id"), nullable=False)
+    position_id      = db.Column(db.Integer, db.ForeignKey("positions.id"))  # nullable for "position TBD"
+    placeholder_label= db.Column(db.String(200))   # e.g. "LED Lead — Set Up" if no Position picked
+    booking_task     = db.Column(db.String(50))
+    travel_in_date   = db.Column(db.Date)
+    start_date       = db.Column(db.Date)
+    end_date         = db.Column(db.Date)
+    travel_out_date  = db.Column(db.Date)
+    notes            = db.Column(db.Text)
+    created_at       = db.Column(db.DateTime, default=datetime.utcnow)
+
+    show     = db.relationship("Show")
+    position = db.relationship("Position")
+
+    @property
+    def display_title(self):
+        if self.position:
+            base = self.position.title
+        else:
+            base = self.placeholder_label or "TBD"
+        if self.placeholder_label and self.position:
+            return f"{base} — {self.placeholder_label}"
+        return base
+
+    def __repr__(self):
+        return f"<ShowOpenSlot show={self.show_id} {self.display_title!r}>"
 
 
 class SubScheduleEntry(db.Model):
@@ -683,9 +730,15 @@ IMPORT_STATUS = ["pending", "applied", "cancelled"]
 
 class CrewImportSession(db.Model):
     __tablename__ = "crew_import_sessions"
-    id          = db.Column(db.Integer, primary_key=True)
-    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
-    filename    = db.Column(db.String(255))
+    id             = db.Column(db.Integer, primary_key=True)
+    uploaded_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    filename       = db.Column(db.String(255))
+    # Phase A: when set, the importer also creates/updates the
+    # ShowCrewAssignment rows on this show using the parsed booking info
+    # (Booking Task / Travel In / Start / End / Travel Out). When NULL,
+    # the importer only touches the master crew roster.
+    target_show_id = db.Column(db.Integer, db.ForeignKey("shows.id"))
+    target_show    = db.relationship("Show")
     # rows_json: JSON list of dicts, each row from the parser plus a
     # "decision" key the preview UI writes into on commit. Shape:
     #   {

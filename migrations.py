@@ -45,6 +45,15 @@ MIGRATIONS = [
     ("schedule_days", "wristband_notes",         "TEXT"),
     # COMS tables (show_comm_channels, crew_comm_assignments) are created
     # automatically by db.create_all() since they're brand-new tables.
+    # 2026-06-30 — Phase A: enriched crew booking
+    ("show_crew_assignments", "booking_task",    "VARCHAR(50)"),
+    ("show_crew_assignments", "travel_in_date",  "DATE"),
+    ("show_crew_assignments", "start_date",      "DATE"),
+    ("show_crew_assignments", "end_date",        "DATE"),
+    ("show_crew_assignments", "travel_out_date", "DATE"),
+    # show_open_slots is a new table → created by db.create_all().
+    # 2026-06-30 — Phase A: importer can target a specific show
+    ("crew_import_sessions",  "target_show_id",  "INTEGER REFERENCES shows(id)"),
 ]
 
 

@@ -6,7 +6,8 @@ URL prefix: /shows/<show_id>/crew
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from extensions import db
 from models import Show, CrewMember, ShowCrewAssignment, Company, Position, \
-    ScheduleActivity, CrewRow
+    ScheduleActivity, CrewRow, ShowOpenSlot
+from datetime import date as date_cls
 
 show_crew_bp = Blueprint("show_crew", __name__)
 
@@ -48,11 +49,45 @@ def show_crew(show_id):
     # Sort companies alphabetically
     sorted_companies = sorted(companies.values(), key=lambda c: c["name"])
 
+    # ── Phase A: booked crew + open slots, grouped by booking_task ──────────
+    assignments = (ShowCrewAssignment.query
+                   .filter_by(show_id=show_id)
+                   .all())
+    open_slots  = (ShowOpenSlot.query
+                   .filter_by(show_id=show_id)
+                   .order_by(ShowOpenSlot.id)
+                   .all())
+
+    # Group both into a single "by task" structure so the template can render
+    # tasks like "PREP" / "3 Show" / "Set Up" / "Strike" in one table each.
+    task_groups = {}
+    for a in assignments:
+        key = (a.booking_task or "Unassigned task")
+        task_groups.setdefault(key, {"assignments": [], "slots": []})
+        task_groups[key]["assignments"].append(a)
+    for s in open_slots:
+        key = (s.booking_task or "Unassigned task")
+        task_groups.setdefault(key, {"assignments": [], "slots": []})
+        task_groups[key]["slots"].append(s)
+
+    # Stable display order: known task names first, then anything else alpha.
+    KNOWN_ORDER = ["PREP", "Set Up", "3 Show", "Show", "Strike",
+                   "Travel", "Tech", "Rehearsal", "Unassigned task"]
+    def _order_key(k):
+        return (KNOWN_ORDER.index(k) if k in KNOWN_ORDER else 99, k.lower())
+    ordered_task_keys = sorted(task_groups.keys(), key=_order_key)
+
+    # Position list for the "+ TBD slot" picker
+    all_positions = Position.query.order_by(Position.department, Position.title).all()
+
     return render_template(
         "shows/show_crew.html",
         show=show,
         sorted_companies=sorted_companies,
         assigned_ids=assigned_ids,
+        task_groups=task_groups,
+        ordered_task_keys=ordered_task_keys,
+        all_positions=all_positions,
     )
 
 
@@ -293,3 +328,133 @@ def hours_report(show_id):
         day_totals=day_totals,
         grand_total=grand_total,
     )
+
+
+
+# ── Phase A: edit booking info on an existing assignment ─────────────────────
+
+def _parse_date(s):
+    s = (s or "").strip()
+    if not s:
+        return None
+    try:
+        return date_cls.fromisoformat(s)
+    except ValueError:
+        return None
+
+
+@show_crew_bp.route("/<int:show_id>/crew/assignment/<int:aid>/edit", methods=["POST"])
+def edit_assignment(show_id, aid):
+    a = ShowCrewAssignment.query.get_or_404(aid)
+    if a.show_id != show_id:
+        flash("Assignment doesn't belong to this show.", "danger")
+        return redirect(url_for("show_crew.show_crew", show_id=show_id))
+    f = request.form
+    a.booking_task    = (f.get("booking_task") or "").strip() or None
+    a.travel_in_date  = _parse_date(f.get("travel_in_date"))
+    a.start_date      = _parse_date(f.get("start_date"))
+    a.end_date        = _parse_date(f.get("end_date"))
+    a.travel_out_date = _parse_date(f.get("travel_out_date"))
+    a.role_override   = (f.get("role_override") or "").strip() or None
+    db.session.commit()
+    flash(f"Saved booking for {a.crew_member.full_name}.", "success")
+    return redirect(url_for("show_crew.show_crew", show_id=show_id))
+
+
+# ── Phase A: TBD / open-slot CRUD ────────────────────────────────────────────
+
+@show_crew_bp.route("/<int:show_id>/crew/slot/add", methods=["POST"])
+def add_slot(show_id):
+    show = Show.query.get_or_404(show_id)
+    f = request.form
+    pos_id = (f.get("position_id") or "").strip()
+    slot = ShowOpenSlot(
+        show_id          = show_id,
+        position_id      = int(pos_id) if pos_id.isdigit() else None,
+        placeholder_label= (f.get("placeholder_label") or "").strip() or None,
+        booking_task     = (f.get("booking_task") or "").strip() or None,
+        travel_in_date   = _parse_date(f.get("travel_in_date")),
+        start_date       = _parse_date(f.get("start_date")),
+        end_date         = _parse_date(f.get("end_date")),
+        travel_out_date  = _parse_date(f.get("travel_out_date")),
+        notes            = (f.get("notes") or "").strip() or None,
+    )
+    if not slot.position_id and not slot.placeholder_label:
+        flash("Pick a Position OR enter a label for the slot.", "danger")
+        return redirect(url_for("show_crew.show_crew", show_id=show_id))
+    db.session.add(slot)
+    db.session.commit()
+    flash(f"Added TBD slot: {slot.display_title}.", "success")
+    return redirect(url_for("show_crew.show_crew", show_id=show_id))
+
+
+@show_crew_bp.route("/<int:show_id>/crew/slot/<int:sid>/edit", methods=["POST"])
+def edit_slot(show_id, sid):
+    slot = ShowOpenSlot.query.get_or_404(sid)
+    if slot.show_id != show_id:
+        flash("Slot doesn't belong to this show.", "danger")
+        return redirect(url_for("show_crew.show_crew", show_id=show_id))
+    f = request.form
+    pos_id = (f.get("position_id") or "").strip()
+    slot.position_id      = int(pos_id) if pos_id.isdigit() else None
+    slot.placeholder_label= (f.get("placeholder_label") or "").strip() or None
+    slot.booking_task     = (f.get("booking_task") or "").strip() or None
+    slot.travel_in_date   = _parse_date(f.get("travel_in_date"))
+    slot.start_date       = _parse_date(f.get("start_date"))
+    slot.end_date         = _parse_date(f.get("end_date"))
+    slot.travel_out_date  = _parse_date(f.get("travel_out_date"))
+    slot.notes            = (f.get("notes") or "").strip() or None
+    db.session.commit()
+    flash("Slot updated.", "success")
+    return redirect(url_for("show_crew.show_crew", show_id=show_id))
+
+
+@show_crew_bp.route("/<int:show_id>/crew/slot/<int:sid>/delete", methods=["POST"])
+def delete_slot(show_id, sid):
+    slot = ShowOpenSlot.query.get_or_404(sid)
+    if slot.show_id != show_id:
+        flash("Slot doesn't belong to this show.", "danger")
+        return redirect(url_for("show_crew.show_crew", show_id=show_id))
+    db.session.delete(slot)
+    db.session.commit()
+    flash("Slot removed.", "success")
+    return redirect(url_for("show_crew.show_crew", show_id=show_id))
+
+
+@show_crew_bp.route("/<int:show_id>/crew/slot/<int:sid>/fill", methods=["POST"])
+def fill_slot(show_id, sid):
+    """Convert a TBD slot into a real ShowCrewAssignment, carrying the
+    slot's booking_task and date window over to the new assignment."""
+    slot = ShowOpenSlot.query.get_or_404(sid)
+    if slot.show_id != show_id:
+        flash("Slot doesn't belong to this show.", "danger")
+        return redirect(url_for("show_crew.show_crew", show_id=show_id))
+    cm_id = (request.form.get("crew_member_id") or "").strip()
+    if not cm_id.isdigit():
+        flash("Pick a crew member to fill this slot.", "danger")
+        return redirect(url_for("show_crew.show_crew", show_id=show_id))
+
+    # Don't double-assign the same person to the same show
+    existing = ShowCrewAssignment.query.filter_by(
+        show_id=show_id, crew_member_id=int(cm_id)).first()
+    if existing:
+        # Just merge the slot's booking info into the existing assignment
+        existing.booking_task    = existing.booking_task    or slot.booking_task
+        existing.travel_in_date  = existing.travel_in_date  or slot.travel_in_date
+        existing.start_date      = existing.start_date      or slot.start_date
+        existing.end_date        = existing.end_date        or slot.end_date
+        existing.travel_out_date = existing.travel_out_date or slot.travel_out_date
+    else:
+        db.session.add(ShowCrewAssignment(
+            show_id          = show_id,
+            crew_member_id   = int(cm_id),
+            booking_task     = slot.booking_task,
+            travel_in_date   = slot.travel_in_date,
+            start_date       = slot.start_date,
+            end_date         = slot.end_date,
+            travel_out_date  = slot.travel_out_date,
+        ))
+    db.session.delete(slot)
+    db.session.commit()
+    flash("Slot filled.", "success")
+    return redirect(url_for("show_crew.show_crew", show_id=show_id))
