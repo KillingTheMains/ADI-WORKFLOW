@@ -45,6 +45,15 @@ COLUMN_ALIASES = {
     "start":           ["start", "start date", "on-site start"],
     "end":             ["end", "end date", "on-site end"],
     "travel_out":      ["travel out", "travel_out", "travel out date", "fly out"],
+    # Phase B — optional travel columns
+    "hotel_name":          ["hotel", "hotel name", "hotel:"],
+    "hotel_check_in":      ["check in", "check-in", "check in date", "check  in date", "checkin", "hotel check in"],
+    "hotel_check_out":     ["check out", "check-out", "check out date", "checkout", "hotel check out"],
+    "hotel_confirmation":  ["hotel confirmation number", "hotel confirmation", "hotel confirm", "confirmation #", "conf #", "confirmation number"],
+    "hotel_cost":          ["total hotel cost", "hotel cost", "total cost", "hotel total"],
+    "arrival_flight_raw":  ["arrival flight", "arrival flight # / time", "arrival flight #/time", "flight in", "arrival"],
+    "departure_flight_raw":["departure flight", "departure flight # / time", "departure flight #/time", "flight out", "departure"],
+    "itinerary_link":      ["travel itinerary", "travel itinerary (link)", "itinerary", "itinerary link"],
 }
 
 
@@ -209,6 +218,30 @@ def _parse_loose_date(v):
     return None
 
 
+def _split_flight_time(raw):
+    """File 2 stores 'SW WN2877 / 5:35pm' — split into (flight, time).
+    Tolerates already-split strings (returns flight, None when no slash)."""
+    s = (str(raw) if raw is not None else "").strip()
+    if not s:
+        return None, None
+    if "/" in s:
+        a, b = s.split("/", 1)
+        return a.strip() or None, b.strip() or None
+    return s, None
+
+
+def _to_float_loose(v):
+    if v is None:
+        return None
+    s = str(v).strip().replace("$", "").replace(",", "")
+    if not s:
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
 def _back_to_target(session_or_show_id):
     """After import, send the user back to the show's crew page if this was
     a targeted import, else the master roster."""
@@ -266,9 +299,17 @@ def upload():
     # Normalize booking date strings into ISO so the preview/commit can use
     # them directly. (Parser stored raw cell text.)
     for r in enriched:
-        for k in ("travel_in", "start", "end", "travel_out"):
+        for k in ("travel_in", "start", "end", "travel_out",
+                  "hotel_check_in", "hotel_check_out"):
             d = _parse_loose_date(r.get(k))
             r[k] = d.isoformat() if d else (r.get(k) or "")
+        # Split combined "SW WN2877 / 5:35pm" cells
+        af, at_ = _split_flight_time(r.get("arrival_flight_raw"))
+        r["arrival_flight"]  = af or ""
+        r["arrival_time"]    = at_ or ""
+        df, dt_ = _split_flight_time(r.get("departure_flight_raw"))
+        r["departure_flight"]= df or ""
+        r["departure_time"]  = dt_ or ""
 
     session = CrewImportSession(filename=f.filename, target_show_id=target_show_id)
     session.rows = enriched
@@ -389,8 +430,9 @@ def _resolve_company(row, form):
 
 
 def _apply_booking_to_assignment(a, row):
-    """Fill blanks on a ShowCrewAssignment from the row's booking fields.
-    Never overwrites a value that's already set."""
+    """Fill blanks on a ShowCrewAssignment from the row's booking +
+    travel fields. Never overwrites a value that's already set."""
+    # Booking
     if not (a.booking_task or "").strip() and (row.get("booking_task") or "").strip():
         a.booking_task = row["booking_task"].strip()
     for db_col, row_key in (("travel_in_date",  "travel_in"),
@@ -401,6 +443,30 @@ def _apply_booking_to_assignment(a, row):
             d = _parse_loose_date(row.get(row_key))
             if d:
                 setattr(a, db_col, d)
+    # Travel — string fields: fill if blank
+    for db_col, row_key in (("hotel_name",         "hotel_name"),
+                            ("hotel_confirmation", "hotel_confirmation"),
+                            ("arrival_flight",     "arrival_flight"),
+                            ("arrival_time",       "arrival_time"),
+                            ("departure_flight",   "departure_flight"),
+                            ("departure_time",     "departure_time"),
+                            ("itinerary_link",     "itinerary_link")):
+        if not (getattr(a, db_col) or "").strip():
+            v = (row.get(row_key) or "").strip()
+            if v:
+                setattr(a, db_col, v)
+    # Travel — dates: fill if None
+    for db_col, row_key in (("hotel_check_in",  "hotel_check_in"),
+                            ("hotel_check_out", "hotel_check_out")):
+        if getattr(a, db_col) is None:
+            d = _parse_loose_date(row.get(row_key))
+            if d:
+                setattr(a, db_col, d)
+    # Travel — numeric: fill if None
+    if a.hotel_cost is None:
+        c = _to_float_loose(row.get("hotel_cost"))
+        if c is not None:
+            a.hotel_cost = c
 
 
 @crew_import_bp.route("/import/<int:sid>/commit", methods=["POST"])

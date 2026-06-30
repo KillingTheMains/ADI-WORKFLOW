@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}Travel — {{ show.name }}{% endblock %}
+{% block page_title %}✈ Travel — {{ show.name }}{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> /
+  <a href="{{ url_for('shows.detail', show_id=show.id) }}">{{ show.name }}</a> /
+  <a href="{{ url_for('show_crew.show_crew', show_id=show.id) }}">Crew</a> / Travel
+{% endblock %}
+
+{% block top_actions %}
+  <form method="POST" action="{{ url_for('crew_import.upload') }}"
+        enctype="multipart/form-data" style="display:inline-block;margin-right:6px;">
+    <input type="hidden" name="target_show_id" value="{{ show.id }}">
+    <label class="btn btn-sm btn-outline-secondary" style="margin:0;cursor:pointer;">
+      📥 Import Travel (.xlsx)
+      <input type="file" name="file" accept=".xlsx,.xlsm"
+             onchange="this.form.submit()" style="display:none;">
+    </label>
+  </form>
+  <a href="{{ url_for('show_crew.show_crew', show_id=show.id) }}"
+     class="btn btn-sm btn-outline-secondary">← Crew</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .travel-table { font-size:.8rem; }
+  .travel-table th {
+    background:#fafafa; font-size:.66rem; text-transform:uppercase;
+    letter-spacing:.05em; color:#666; font-weight:600; padding:5px 8px;
+  }
+  .travel-table td { padding:5px 8px; vertical-align:middle; }
+  .travel-table input, .travel-table select {
+    font-size:.76rem; padding:2px 6px;
+  }
+  .travel-table input[type="date"] { width:130px; }
+  .travel-table input[type="text"]:not(.flight) { width:100%; min-width:90px; }
+  .travel-table input.flight { width:100px; }
+  .travel-table input.time   { width:80px;  }
+  .travel-table input.cost   { width:90px; text-align:right; }
+  .travel-table input.conf   { width:110px; }
+  .save-btn-inline {
+    font-size:.7rem; padding:2px 8px;
+    background:#16A34A; color:#fff; border:none; border-radius:4px;
+  }
+  .save-btn-inline:hover { background:#15803D; }
+  .summary-bar {
+    background:#1C2333; color:#C9A84C;
+    padding:8px 14px; font-size:.78rem;
+    border-radius:6px 6px 0 0;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .name-cell { white-space:nowrap; }
+  .name-cell .pos { font-size:.66rem; color:#888; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="card mb-3">
+  <div class="summary-bar">
+    <span style="font-weight:700;">
+      {{ assignments|length }} traveler{{ '' if assignments|length == 1 else 's' }}
+    </span>
+    <span>
+      Grand-total hotel cost:
+      <strong>${{ '{:,.2f}'.format(grand_total) }}</strong>
+    </span>
+  </div>
+
+  {% if not assignments %}
+  <div class="card-body p-4 text-muted text-center">
+    No crew assigned to this show yet. Head to the
+    <a href="{{ url_for('show_crew.show_crew', show_id=show.id) }}">Crew page</a>
+    to assign someone first.
+  </div>
+  {% else %}
+  <div class="table-responsive">
+    <table class="table table-sm travel-table mb-0">
+      <thead>
+        <tr>
+          <th>Crew / Role</th>
+          <th colspan="5" style="border-left:1px solid #E8E4D7;">🏨 Hotel</th>
+          <th colspan="4" style="border-left:1px solid #E8E4D7;">✈ Flights</th>
+          <th style="border-left:1px solid #E8E4D7;">Itinerary</th>
+          <th></th>
+        </tr>
+        <tr>
+          <th></th>
+          <th style="border-left:1px solid #E8E4D7;">Name</th>
+          <th>Check In</th>
+          <th>Check Out</th>
+          <th title="Auto from check-in/out">Nights</th>
+          <th>Conf #</th>
+          <th>Cost</th>
+          <th style="border-left:1px solid #E8E4D7;">In #</th>
+          <th>In time</th>
+          <th>Out #</th>
+          <th>Out time</th>
+          <th style="border-left:1px solid #E8E4D7;">Link</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in assignments %}
+        <tr>
+          <form method="POST"
+                action="{{ url_for('show_crew.edit_assignment', show_id=show.id, aid=a.id) }}">
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <td class="name-cell">
+              <div style="font-weight:600;">{{ a.crew_member.full_name }}</div>
+              <div class="pos">
+                {% if a.crew_member.position %}{{ a.crew_member.position.title }}{% endif %}
+                {% if a.booking_task %} · {{ a.booking_task }}{% endif %}
+              </div>
+            </td>
+            <td style="border-left:1px solid #E8E4D7;">
+              <input type="text" name="hotel_name"
+                     value="{{ a.hotel_name or '' }}"
+                     placeholder="Hotel name" class="form-control form-control-sm">
+            </td>
+            <td>
+              <input type="date" name="hotel_check_in"
+                     value="{{ a.hotel_check_in.isoformat() if a.hotel_check_in else '' }}"
+                     class="form-control form-control-sm">
+            </td>
+            <td>
+              <input type="date" name="hotel_check_out"
+                     value="{{ a.hotel_check_out.isoformat() if a.hotel_check_out else '' }}"
+                     class="form-control form-control-sm">
+            </td>
+            <td style="text-align:center;color:#888;font-weight:600;">
+              {{ a.hotel_nights if a.hotel_nights is not none else '—' }}
+            </td>
+            <td>
+              <input type="text" name="hotel_confirmation"
+                     value="{{ a.hotel_confirmation or '' }}"
+                     placeholder="Conf #" class="form-control form-control-sm conf">
+            </td>
+            <td>
+              <input type="text" name="hotel_cost"
+                     value="{{ '%.2f' % a.hotel_cost if a.hotel_cost is not none else '' }}"
+                     placeholder="0.00" class="form-control form-control-sm cost">
+            </td>
+            <td style="border-left:1px solid #E8E4D7;">
+              <input type="text" name="arrival_flight"
+                     value="{{ a.arrival_flight or '' }}"
+                     placeholder="SW WN2877" class="form-control form-control-sm flight">
+            </td>
+            <td>
+              <input type="text" name="arrival_time"
+                     value="{{ a.arrival_time or '' }}"
+                     placeholder="5:35pm" class="form-control form-control-sm time">
+            </td>
+            <td>
+              <input type="text" name="departure_flight"
+                     value="{{ a.departure_flight or '' }}"
+                     placeholder="SW WN2287" class="form-control form-control-sm flight">
+            </td>
+            <td>
+              <input type="text" name="departure_time"
+                     value="{{ a.departure_time or '' }}"
+                     placeholder="2:10pm" class="form-control form-control-sm time">
+            </td>
+            <td style="border-left:1px solid #E8E4D7;">
+              <input type="text" name="itinerary_link"
+                     value="{{ a.itinerary_link or '' }}"
+                     placeholder="https://..." class="form-control form-control-sm">
+            </td>
+            <td>
+              <button type="submit" class="save-btn-inline" title="Save row">💾</button>
+            </td>
+          </form>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+
+<p class="text-muted" style="font-size:.78rem;">
+  Save changes per row. Travel fields can also land here via the
+  <strong>Import Travel</strong> button at the top — File 2-style sheets
+  with Check-in/out, Confirmation, Hotel cost, and combined "Flight # / Time"
+  columns are recognized.
+</p>
+{% endblock %}

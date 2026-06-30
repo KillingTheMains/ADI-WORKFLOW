@@ -478,6 +478,17 @@ class ShowCrewAssignment(db.Model):
     start_date     = db.Column(db.Date)         # first on-site day
     end_date       = db.Column(db.Date)         # last on-site day
     travel_out_date= db.Column(db.Date)
+    # ── Phase B: per-crew-per-show travel detail ──────────────────────────
+    hotel_name         = db.Column(db.String(200))
+    hotel_check_in     = db.Column(db.Date)
+    hotel_check_out    = db.Column(db.Date)
+    hotel_confirmation = db.Column(db.String(100))
+    hotel_cost         = db.Column(db.Float)
+    arrival_flight     = db.Column(db.String(50))   # e.g. "SW WN2877"
+    arrival_time       = db.Column(db.String(20))   # e.g. "5:35pm"
+    departure_flight   = db.Column(db.String(50))
+    departure_time     = db.Column(db.String(20))
+    itinerary_link     = db.Column(db.String(500))
     created_at     = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (db.UniqueConstraint("show_id", "crew_member_id",
@@ -485,6 +496,14 @@ class ShowCrewAssignment(db.Model):
 
     show        = db.relationship("Show", back_populates="crew_assignments")
     crew_member = db.relationship("CrewMember")
+
+    @property
+    def hotel_nights(self):
+        """Derived from check_in/out — saves storing a redundant column."""
+        if self.hotel_check_in and self.hotel_check_out:
+            delta = (self.hotel_check_out - self.hotel_check_in).days
+            return max(delta, 0)
+        return None
 
     def __repr__(self):
         return f"<ShowCrewAssignment show={self.show_id} crew={self.crew_member_id}>"

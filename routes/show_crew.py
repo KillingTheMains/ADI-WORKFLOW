@@ -343,6 +343,27 @@ def _parse_date(s):
         return None
 
 
+def _set_if_present(obj, attr, form, key, transform=None):
+    """Only update attr if the form key is in the request — lets booking
+    page and travel page each post their own slice of fields without
+    blanking the other's data."""
+    if key not in form:
+        return
+    raw = form.get(key) or ""
+    val = transform(raw) if transform else (raw.strip() or None)
+    setattr(obj, attr, val)
+
+
+def _to_float(s):
+    s = (s or "").strip().replace("$", "").replace(",", "")
+    if not s:
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
 @show_crew_bp.route("/<int:show_id>/crew/assignment/<int:aid>/edit", methods=["POST"])
 def edit_assignment(show_id, aid):
     a = ShowCrewAssignment.query.get_or_404(aid)
@@ -350,14 +371,33 @@ def edit_assignment(show_id, aid):
         flash("Assignment doesn't belong to this show.", "danger")
         return redirect(url_for("show_crew.show_crew", show_id=show_id))
     f = request.form
-    a.booking_task    = (f.get("booking_task") or "").strip() or None
-    a.travel_in_date  = _parse_date(f.get("travel_in_date"))
-    a.start_date      = _parse_date(f.get("start_date"))
-    a.end_date        = _parse_date(f.get("end_date"))
-    a.travel_out_date = _parse_date(f.get("travel_out_date"))
-    a.role_override   = (f.get("role_override") or "").strip() or None
+    next_url = (f.get("next") or "").strip()
+
+    # Booking fields (Booking Sheet form)
+    _set_if_present(a, "booking_task",   f, "booking_task")
+    _set_if_present(a, "role_override",  f, "role_override")
+    _set_if_present(a, "travel_in_date", f, "travel_in_date", _parse_date)
+    _set_if_present(a, "start_date",     f, "start_date",     _parse_date)
+    _set_if_present(a, "end_date",       f, "end_date",       _parse_date)
+    _set_if_present(a, "travel_out_date",f, "travel_out_date",_parse_date)
+    # Travel fields (Travel page form)
+    _set_if_present(a, "hotel_name",         f, "hotel_name")
+    _set_if_present(a, "hotel_check_in",     f, "hotel_check_in",  _parse_date)
+    _set_if_present(a, "hotel_check_out",    f, "hotel_check_out", _parse_date)
+    _set_if_present(a, "hotel_confirmation", f, "hotel_confirmation")
+    _set_if_present(a, "hotel_cost",         f, "hotel_cost",      _to_float)
+    _set_if_present(a, "arrival_flight",     f, "arrival_flight")
+    _set_if_present(a, "arrival_time",       f, "arrival_time")
+    _set_if_present(a, "departure_flight",   f, "departure_flight")
+    _set_if_present(a, "departure_time",     f, "departure_time")
+    _set_if_present(a, "itinerary_link",     f, "itinerary_link")
+
     db.session.commit()
-    flash(f"Saved booking for {a.crew_member.full_name}.", "success")
+    flash(f"Saved {a.crew_member.full_name}.", "success")
+    # Respect a posted `next=` (Travel page submits it) so we land back
+    # where the user came from.
+    if next_url and next_url.startswith("/"):
+        return redirect(next_url)
     return redirect(url_for("show_crew.show_crew", show_id=show_id))
 
 
@@ -458,3 +498,24 @@ def fill_slot(show_id, sid):
     db.session.commit()
     flash("Slot filled.", "success")
     return redirect(url_for("show_crew.show_crew", show_id=show_id))
+
+
+
+# ── Phase B: Travel page (per-crew hotel + flight detail) ────────────────────
+
+@show_crew_bp.route("/<int:show_id>/crew/travel")
+def travel(show_id):
+    show = Show.query.get_or_404(show_id)
+    assignments = (ShowCrewAssignment.query
+                   .filter_by(show_id=show_id)
+                   .all())
+    # Sort by check-in date (None → bottom), then by name
+    def _sort_key(a):
+        return (a.hotel_check_in or date_cls.max,
+                (a.crew_member.last_name or "").lower())
+    assignments.sort(key=_sort_key)
+    grand_total = sum((a.hotel_cost or 0) for a in assignments)
+    return render_template("shows/show_crew_travel.html",
+                           show=show,
+                           assignments=assignments,
+                           grand_total=grand_total)

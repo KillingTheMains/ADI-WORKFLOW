@@ -8,6 +8,25 @@ to **Deployed** with the date.
 
 ## Pending Deploy
 
+### Phase B — Per-crew Travel detail (hotel + flights)
+- New **✈ Travel** page on each show (linked from the Crew page top
+  actions). One row per assigned crew member with inline-editable
+  hotel + flight detail.
+- Hotel columns: name, check-in, check-out, nights (auto from dates),
+  confirmation #, cost. Show-wide grand-total hotel cost in the header.
+- Flight columns: arrival flight # + time, departure flight # + time,
+  itinerary link.
+- 10 new nullable columns on `show_crew_assignments` (auto-migration).
+- Importer extended to read File 2-style sheets:
+  * Aliases for Check-in / Check-out / Confirmation / Total Hotel Cost.
+  * Recognizes combined "SW WN2877 / 5:35pm" cells and splits them
+    into flight + time fields automatically.
+  * Travel info applies to the show assignment when uploading with
+    target_show_id set.
+- The same edit endpoint now serves both the Booking Sheet and the
+  Travel page — each form posts only the fields it owns, so they
+  don't blank each other's data.
+
 ### Phase A — Enriched crew booking sheet (per show)
 - The Show Crew page gains a **📋 Booking Sheet** at the top — one
   table per Booking Task (PREP / Set Up / 3 Show / Strike / etc.),

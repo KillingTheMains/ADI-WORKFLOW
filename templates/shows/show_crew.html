@@ -16,6 +16,8 @@
              onchange="this.form.submit()" style="display:none;">
     </label>
   </form>
+  <a href="{{ url_for('show_crew.travel', show_id=show.id) }}"
+     class="btn btn-sm btn-outline-secondary">✈ Travel</a>
   <a href="{{ url_for('show_crew.contact_sheet', show_id=show.id) }}"
      class="btn btn-sm btn-outline-secondary" target="_blank">📋 Contact Sheet</a>
   <a href="{{ url_for('show_crew.hours_report', show_id=show.id) }}"

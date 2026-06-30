@@ -54,6 +54,17 @@ MIGRATIONS = [
     # show_open_slots is a new table → created by db.create_all().
     # 2026-06-30 — Phase A: importer can target a specific show
     ("crew_import_sessions",  "target_show_id",  "INTEGER REFERENCES shows(id)"),
+    # 2026-06-30 — Phase B: per-crew-per-show travel detail
+    ("show_crew_assignments", "hotel_name",         "VARCHAR(200)"),
+    ("show_crew_assignments", "hotel_check_in",     "DATE"),
+    ("show_crew_assignments", "hotel_check_out",    "DATE"),
+    ("show_crew_assignments", "hotel_confirmation", "VARCHAR(100)"),
+    ("show_crew_assignments", "hotel_cost",         "FLOAT"),
+    ("show_crew_assignments", "arrival_flight",     "VARCHAR(50)"),
+    ("show_crew_assignments", "arrival_time",       "VARCHAR(20)"),
+    ("show_crew_assignments", "departure_flight",   "VARCHAR(50)"),
+    ("show_crew_assignments", "departure_time",     "VARCHAR(20)"),
+    ("show_crew_assignments", "itinerary_link",     "VARCHAR(500)"),
 ]
 
 
