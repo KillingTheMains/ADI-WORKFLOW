@@ -787,3 +787,93 @@ class CrewImportSession(db.Model):
 
     def __repr__(self):
         return f"<CrewImportSession {self.id} {self.filename} {self.status}>"
+
+
+
+# ── Phase C: F&B v2 — meal services with multi-location support ──────────────
+#
+# Replaces the generic F&B SubScheduleEntry with a structured planner:
+#   * MealService     — one "meal event" (Breakfast, Lunch, Dinner, All Day
+#                       Beverages, ...) on a specific show day, optionally
+#                       linked to a schedule activity for meal-break sync.
+#   * MealServiceLocation — 1..N locations per service (Backstage, FOH,
+#                       Local Labor, Talent Green Room, ...). Total headcount
+#                       is the sum across locations.
+#   * ShowDietaryNote — per-show dietary preference rollup (e.g. "30%
+#                       vegetarian", "2 GF, 1 vegan").
+
+MEAL_KINDS = ["breakfast", "lunch", "dinner", "beverages", "snack", "other"]
+
+
+class MealService(db.Model):
+    __tablename__ = "meal_services"
+    id              = db.Column(db.Integer, primary_key=True)
+    show_id         = db.Column(db.Integer, db.ForeignKey("shows.id"), nullable=False)
+    schedule_day_id = db.Column(db.Integer, db.ForeignKey("schedule_days.id"), nullable=False)
+    # Optional link to a specific schedule activity (e.g. the LUNCH BREAK
+    # activity). Used by the meal-break detector.
+    activity_id     = db.Column(db.Integer, db.ForeignKey("schedule_activities.id"), nullable=True)
+    name            = db.Column(db.String(200), nullable=False)   # "Breakfast", "All Day Beverages", ...
+    kind            = db.Column(db.String(30), default="other")   # one of MEAL_KINDS
+    is_recurring    = db.Column(db.Boolean, default=False)        # True for All Day Beverages type
+    notes           = db.Column(db.Text)
+    sort_order      = db.Column(db.Integer, default=0)
+
+    show            = db.relationship("Show")
+    schedule_day    = db.relationship("ScheduleDay")
+    linked_activity = db.relationship("ScheduleActivity")
+    locations       = db.relationship("MealServiceLocation",
+                                      back_populates="meal_service",
+                                      order_by="MealServiceLocation.sort_order, MealServiceLocation.id",
+                                      cascade="all, delete-orphan")
+
+    @property
+    def total_headcount(self):
+        return sum((loc.headcount or 0) for loc in self.locations)
+
+    @property
+    def earliest_time(self):
+        """Earliest start_time across locations (for sorting/display)."""
+        times = [loc.start_time for loc in self.locations if loc.start_time]
+        return min(times) if times else None
+
+    @property
+    def is_linked(self):
+        return self.activity_id is not None
+
+    def __repr__(self):
+        return f"<MealService {self.name} day={self.schedule_day_id}>"
+
+
+class MealServiceLocation(db.Model):
+    __tablename__ = "meal_service_locations"
+    id              = db.Column(db.Integer, primary_key=True)
+    meal_service_id = db.Column(db.Integer, db.ForeignKey("meal_services.id"), nullable=False)
+    location_name   = db.Column(db.String(200))   # "Backstage", "FOH MainStage", ...
+    start_time      = db.Column(db.String(20))    # "HH:MM"
+    end_time        = db.Column(db.String(20))
+    headcount       = db.Column(db.Integer)
+    notes           = db.Column(db.Text)
+    sort_order      = db.Column(db.Integer, default=0)
+
+    meal_service    = db.relationship("MealService", back_populates="locations")
+
+    def __repr__(self):
+        return f"<MealServiceLocation {self.location_name} service={self.meal_service_id}>"
+
+
+class ShowDietaryNote(db.Model):
+    """Per-show rollup of dietary preferences (Vegetarian %, GF count, etc.)."""
+    __tablename__ = "show_dietary_notes"
+    id         = db.Column(db.Integer, primary_key=True)
+    show_id    = db.Column(db.Integer, db.ForeignKey("shows.id"), nullable=False)
+    preference = db.Column(db.String(100), nullable=False)   # "Vegetarian", "GF", ...
+    percentage = db.Column(db.Integer)   # 0-100, optional
+    count      = db.Column(db.Integer)   # optional headcount, e.g. "3 GF"
+    notes      = db.Column(db.Text)
+    sort_order = db.Column(db.Integer, default=0)
+
+    show       = db.relationship("Show")
+
+    def __repr__(self):
+        return f"<ShowDietaryNote {self.preference} show={self.show_id}>"

@@ -22,6 +22,7 @@ from models import (
     ShowCommChannel, CrewCommAssignment, ShowCrewAssignment,
     CrewMember, COM_PACK_TYPES, COM_PACK_BRANDS,
     RadioChannel, COM_PACK_BRAND_LIMITS, COM_PACK_HARD_CAP, RADIO_CHANNEL_SLOTS,
+    MealService, MealServiceLocation, ShowDietaryNote, MEAL_KINDS,
 )
 
 oss_bp = Blueprint("oss", __name__)
@@ -104,11 +105,23 @@ def oss_hub(show_id):
             for a in d.activities
         ]
 
-    # Meal-break activities across the whole show that don't have an F&B
-    # linked. We surface the count as a badge on the F&B tab and a short
-    # list of missing items on the F&B tab body.
+    # ── F&B v2: load meal services + dietary notes ─────────────────────
+    meal_services = (MealService.query
+                     .filter_by(show_id=show_id)
+                     .order_by(MealService.sort_order, MealService.id)
+                     .all())
+    # Group by schedule_day_id for the tab UI
+    meals_by_day = {}
+    for svc in meal_services:
+        meals_by_day.setdefault(svc.schedule_day_id, []).append(svc)
+    dietary_notes = (ShowDietaryNote.query
+                     .filter_by(show_id=show_id)
+                     .order_by(ShowDietaryNote.sort_order, ShowDietaryNote.id)
+                     .all())
+
+    # Meal-break detection now uses MealService.activity_id
     fb_linked_activity_ids = {
-        e.activity_id for e in all_entries if e.type == "F&B" and e.activity_id
+        svc.activity_id for svc in meal_services if svc.activity_id
     }
     missing_fb = []
     for d in show.days:
@@ -165,6 +178,10 @@ def oss_hub(show_id):
         com_pack_brands       = COM_PACK_BRANDS,
         com_pack_brand_limits = COM_PACK_BRAND_LIMITS,
         com_pack_hard_cap     = COM_PACK_HARD_CAP,
+        meal_services         = meal_services,
+        meals_by_day          = meals_by_day,
+        dietary_notes         = dietary_notes,
+        meal_kinds            = MEAL_KINDS,
     )
 
 
@@ -475,3 +492,186 @@ def coms_radio_save(show_id):
     db.session.commit()
     flash("Radio channel names saved.", "success")
     return redirect(url_for("oss.oss_hub", show_id=show_id, tab="COMS"))
+
+
+
+# ── F&B v2: Meal service + location + dietary CRUD ───────────────────────────
+
+def _int_or_none(v):
+    s = (v or "").strip()
+    return int(s) if s.isdigit() else None
+
+
+def _back_to_fb(show_id):
+    return redirect(url_for("oss.oss_hub", show_id=show_id, tab="F&B"))
+
+
+@oss_bp.route("/<int:show_id>/oss/fb/service/add", methods=["POST"])
+def fb_service_add(show_id):
+    show = Show.query.get_or_404(show_id)
+    day_id = _int_or_none(request.form.get("schedule_day_id"))
+    if not day_id:
+        flash("Pick a day for this meal service.", "danger")
+        return _back_to_fb(show_id)
+    day = ScheduleDay.query.get(day_id)
+    if not day or day.show_id != show_id:
+        flash("Day doesn't belong to this show.", "danger")
+        return _back_to_fb(show_id)
+
+    kind = (request.form.get("kind") or "other").strip()
+    if kind not in MEAL_KINDS:
+        kind = "other"
+
+    svc = MealService(
+        show_id         = show_id,
+        schedule_day_id = day_id,
+        activity_id     = _int_or_none(request.form.get("activity_id")),
+        name            = (request.form.get("name") or "Meal service").strip(),
+        kind            = kind,
+        is_recurring    = bool(request.form.get("is_recurring")),
+        notes           = (request.form.get("notes") or "").strip() or None,
+    )
+    # Sort order: end of the day's list
+    svc.sort_order = (MealService.query
+                      .filter_by(schedule_day_id=day_id).count()) * 10
+    db.session.add(svc)
+    db.session.flush()
+
+    # Create one initial location so the service is immediately editable
+    db.session.add(MealServiceLocation(
+        meal_service_id = svc.id,
+        location_name   = (request.form.get("location_name") or "").strip() or None,
+        start_time      = (request.form.get("start_time") or "").strip() or None,
+        end_time        = (request.form.get("end_time") or "").strip() or None,
+        headcount       = _int_or_none(request.form.get("headcount")),
+    ))
+    db.session.commit()
+    flash(f"Added meal service '{svc.name}'.", "success")
+    return _back_to_fb(show_id)
+
+
+@oss_bp.route("/<int:show_id>/oss/fb/service/<int:svc_id>/edit", methods=["POST"])
+def fb_service_edit(show_id, svc_id):
+    svc = MealService.query.get_or_404(svc_id)
+    if svc.show_id != show_id:
+        flash("Service doesn't belong to this show.", "danger")
+        return _back_to_fb(show_id)
+    svc.name        = (request.form.get("name") or svc.name).strip()
+    kind = (request.form.get("kind") or svc.kind or "other").strip()
+    svc.kind        = kind if kind in MEAL_KINDS else "other"
+    svc.is_recurring= bool(request.form.get("is_recurring"))
+    svc.activity_id = _int_or_none(request.form.get("activity_id"))
+    svc.notes       = (request.form.get("notes") or "").strip() or None
+    db.session.commit()
+    flash("Meal service updated.", "success")
+    return _back_to_fb(show_id)
+
+
+@oss_bp.route("/<int:show_id>/oss/fb/service/<int:svc_id>/delete", methods=["POST"])
+def fb_service_delete(show_id, svc_id):
+    svc = MealService.query.get_or_404(svc_id)
+    if svc.show_id != show_id:
+        flash("Service doesn't belong to this show.", "danger")
+        return _back_to_fb(show_id)
+    db.session.delete(svc)
+    db.session.commit()
+    flash("Meal service removed.", "success")
+    return _back_to_fb(show_id)
+
+
+@oss_bp.route("/<int:show_id>/oss/fb/service/<int:svc_id>/location/add", methods=["POST"])
+def fb_location_add(show_id, svc_id):
+    svc = MealService.query.get_or_404(svc_id)
+    if svc.show_id != show_id:
+        flash("Service doesn't belong to this show.", "danger")
+        return _back_to_fb(show_id)
+    last_sort = (db.session.query(db.func.max(MealServiceLocation.sort_order))
+                 .filter_by(meal_service_id=svc.id).scalar() or 0)
+    db.session.add(MealServiceLocation(
+        meal_service_id = svc.id,
+        location_name   = (request.form.get("location_name") or "").strip() or None,
+        start_time      = (request.form.get("start_time") or "").strip() or None,
+        end_time        = (request.form.get("end_time") or "").strip() or None,
+        headcount       = _int_or_none(request.form.get("headcount")),
+        sort_order      = last_sort + 10,
+    ))
+    db.session.commit()
+    flash("Location added.", "success")
+    return _back_to_fb(show_id)
+
+
+@oss_bp.route("/<int:show_id>/oss/fb/location/<int:loc_id>/edit", methods=["POST"])
+def fb_location_edit(show_id, loc_id):
+    loc = MealServiceLocation.query.get_or_404(loc_id)
+    if loc.meal_service.show_id != show_id:
+        flash("Location doesn't belong to this show.", "danger")
+        return _back_to_fb(show_id)
+    loc.location_name = (request.form.get("location_name") or "").strip() or None
+    loc.start_time    = (request.form.get("start_time") or "").strip() or None
+    loc.end_time      = (request.form.get("end_time") or "").strip() or None
+    loc.headcount     = _int_or_none(request.form.get("headcount"))
+    loc.notes         = (request.form.get("notes") or "").strip() or None
+    db.session.commit()
+    flash("Location updated.", "success")
+    return _back_to_fb(show_id)
+
+
+@oss_bp.route("/<int:show_id>/oss/fb/location/<int:loc_id>/delete", methods=["POST"])
+def fb_location_delete(show_id, loc_id):
+    loc = MealServiceLocation.query.get_or_404(loc_id)
+    if loc.meal_service.show_id != show_id:
+        flash("Location doesn't belong to this show.", "danger")
+        return _back_to_fb(show_id)
+    db.session.delete(loc)
+    db.session.commit()
+    flash("Location removed.", "success")
+    return _back_to_fb(show_id)
+
+
+@oss_bp.route("/<int:show_id>/oss/fb/dietary/add", methods=["POST"])
+def fb_dietary_add(show_id):
+    Show.query.get_or_404(show_id)
+    pref = (request.form.get("preference") or "").strip()
+    if not pref:
+        flash("Enter a preference name.", "danger")
+        return _back_to_fb(show_id)
+    last_sort = (db.session.query(db.func.max(ShowDietaryNote.sort_order))
+                 .filter_by(show_id=show_id).scalar() or 0)
+    db.session.add(ShowDietaryNote(
+        show_id    = show_id,
+        preference = pref,
+        percentage = _int_or_none(request.form.get("percentage")),
+        count      = _int_or_none(request.form.get("count")),
+        notes      = (request.form.get("notes") or "").strip() or None,
+        sort_order = last_sort + 10,
+    ))
+    db.session.commit()
+    flash(f"Added '{pref}'.", "success")
+    return _back_to_fb(show_id)
+
+
+@oss_bp.route("/<int:show_id>/oss/fb/dietary/<int:did>/edit", methods=["POST"])
+def fb_dietary_edit(show_id, did):
+    d = ShowDietaryNote.query.get_or_404(did)
+    if d.show_id != show_id:
+        flash("Dietary note doesn't belong to this show.", "danger")
+        return _back_to_fb(show_id)
+    d.preference = (request.form.get("preference") or d.preference).strip()
+    d.percentage = _int_or_none(request.form.get("percentage"))
+    d.count      = _int_or_none(request.form.get("count"))
+    d.notes      = (request.form.get("notes") or "").strip() or None
+    db.session.commit()
+    flash("Dietary note updated.", "success")
+    return _back_to_fb(show_id)
+
+
+@oss_bp.route("/<int:show_id>/oss/fb/dietary/<int:did>/delete", methods=["POST"])
+def fb_dietary_delete(show_id, did):
+    d = ShowDietaryNote.query.get_or_404(did)
+    if d.show_id != show_id:
+        flash("Dietary note doesn't belong to this show.", "danger")
+        return _back_to_fb(show_id)
+    db.session.delete(d)
+    db.session.commit()
+    flash("Dietary note removed.", "success")
+    return _back_to_fb(show_id)

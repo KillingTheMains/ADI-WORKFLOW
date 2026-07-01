@@ -1,0 +1,291 @@
+{# F&B v2 tab — meal services grouped by day + dietary rollup. #}
+
+<style>
+  .meal-card { border:1px solid #E8E4D7; border-radius:8px; margin-bottom:10px; background:#fff; }
+  .meal-card .head {
+    background:#1C2333; color:#C9A84C;
+    padding:6px 12px; font-size:.8rem;
+    border-radius:8px 8px 0 0; display:flex; align-items:center; gap:8px;
+  }
+  .meal-card .head .name { font-weight:700; flex:1; }
+  .meal-card .head .kind {
+    background:rgba(201,168,76,.2); padding:1px 8px; border-radius:8px;
+    font-size:.66rem; text-transform:uppercase; letter-spacing:.04em;
+  }
+  .meal-card .head .total {
+    background:#C9A84C; color:#1C2333; padding:2px 10px; border-radius:10px;
+    font-weight:700;
+  }
+  .meal-card .body { padding:8px 10px; }
+  .loc-table { font-size:.78rem; margin:0; width:100%; }
+  .loc-table th { font-size:.66rem; text-transform:uppercase;
+                  color:#666; font-weight:600; padding:4px 6px; background:#fafafa; }
+  .loc-table td { padding:4px 6px; vertical-align:middle; }
+  .loc-table input { font-size:.76rem; padding:2px 6px; width:100%; }
+  .loc-table input.time     { max-width:80px; }
+  .loc-table input.count    { max-width:60px; text-align:right; }
+  .day-header {
+    background:#F0EDE0; color:#1C2333; padding:6px 12px;
+    font-size:.82rem; font-weight:700;
+    border-radius:6px; margin:16px 0 8px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .add-service-form { padding:6px; background:#FFF8EC; border:1px dashed #E8DCA8;
+                      border-radius:6px; margin-top:6px; font-size:.76rem; }
+  .dietary-card { border:1px solid #E8E4D7; border-radius:8px; }
+  .dietary-card .head {
+    background:#1C2333; color:#C9A84C;
+    padding:6px 12px; font-size:.82rem; font-weight:700; border-radius:8px 8px 0 0;
+  }
+</style>
+
+<div class="oss-section-help">
+  🍽 <strong>F&amp;B</strong> — meal services on each show day. A single service
+  can have <strong>multiple locations</strong> (Backstage, FOH, Local Labor…) with
+  their own times and headcounts. Totals roll up automatically. Add per-show
+  dietary preferences at the bottom.
+</div>
+
+{% if t == 'F&B' and missing_fb %}
+<div class="alert alert-warning py-2 px-3" style="font-size:.82rem;">
+  <strong>⚠ {{ missing_fb|length }} meal break{% if missing_fb|length != 1 %}s{% endif %}
+  with no F&amp;B service.</strong>
+  <ul class="mb-0 mt-1" style="font-size:.78rem;">
+    {% for w in missing_fb %}
+    <li>
+      <a href="{{ w.day_url }}">{{ w.day.date.strftime('%a %-m/%-d') }}</a>
+      · {{ w.activity.time or '—' }} · {{ w.activity.description }}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% if not show.days %}
+<div class="oss-empty">
+  Add scheduled days first in the
+  <a href="{{ url_for('schedule.overview', show_id=show.id) }}">Schedule Builder</a>.
+</div>
+{% else %}
+
+{# ── Per-day meal services ──────────────────────────────────────────── #}
+{% for d in days %}
+{% set day_meals = meals_by_day.get(d.id, []) %}
+
+<div class="day-header">
+  <span>
+    {{ d.date.strftime('%A, %B %-d') }}
+    {% if d.label %} · {{ d.label }}{% endif %}
+    {% if d.phase %} · {{ d.phase }}{% endif %}
+  </span>
+  <span class="text-muted" style="font-weight:400;font-size:.74rem;">
+    {{ day_meals|length }} service{{ '' if day_meals|length == 1 else 's' }}
+  </span>
+</div>
+
+{% for svc in day_meals %}
+<div class="meal-card">
+  <div class="head">
+    <span class="kind">{{ svc.kind }}</span>
+    {# Editable name in the head #}
+    <form method="POST" style="flex:1;margin:0;"
+          action="{{ url_for('oss.fb_service_edit', show_id=show.id, svc_id=svc.id) }}">
+      <input type="text" name="name" value="{{ svc.name }}"
+             class="form-control form-control-sm"
+             style="background:transparent;color:#C9A84C;border:none;font-weight:700;
+                    font-size:.86rem;padding:2px 4px;"
+             onblur="this.form.submit()">
+      <input type="hidden" name="kind" value="{{ svc.kind }}">
+      <input type="hidden" name="is_recurring" value="{{ '1' if svc.is_recurring else '' }}">
+      <input type="hidden" name="activity_id" value="{{ svc.activity_id or '' }}">
+    </form>
+    <span class="total">Total: {{ svc.total_headcount }}</span>
+    <form method="POST" style="margin:0;"
+          action="{{ url_for('oss.fb_service_delete', show_id=show.id, svc_id=svc.id) }}"
+          onsubmit="return confirm('Delete this meal service and all its locations?');">
+      <button type="submit" class="btn btn-sm p-0"
+              style="color:#fff;background:none;border:none;font-size:.84rem;" title="Delete service">✕</button>
+    </form>
+  </div>
+  <div class="body">
+    {# Locations table — one row per location, inline editable #}
+    <table class="loc-table">
+      <thead>
+        <tr>
+          <th style="width:40%;">Location</th>
+          <th class="time" style="width:70px;">Start</th>
+          <th class="time" style="width:70px;">End</th>
+          <th class="count" style="width:60px;">Count</th>
+          <th>Notes</th>
+          <th style="width:30px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if svc.locations %}
+          {% for loc in svc.locations %}
+          <tr>
+            <form method="POST" style="display:contents;"
+                  action="{{ url_for('oss.fb_location_edit', show_id=show.id, loc_id=loc.id) }}">
+              <td><input type="text" name="location_name" value="{{ loc.location_name or '' }}"
+                         placeholder="e.g. Backstage / FOH / Local Labor"></td>
+              <td><input type="time" name="start_time" value="{{ loc.start_time or '' }}" class="time"></td>
+              <td><input type="time" name="end_time"   value="{{ loc.end_time or '' }}" class="time"></td>
+              <td><input type="number" name="headcount" value="{{ loc.headcount if loc.headcount is not none else '' }}"
+                         min="0" step="1" class="count"></td>
+              <td><input type="text" name="notes" value="{{ loc.notes or '' }}"></td>
+              <td style="text-align:center;">
+                <button type="submit" class="btn btn-sm p-0 text-success" title="Save row" style="font-size:.9rem;">💾</button>
+            </form>
+                <form method="POST" style="display:inline;"
+                      action="{{ url_for('oss.fb_location_delete', show_id=show.id, loc_id=loc.id) }}"
+                      onsubmit="return confirm('Remove this location?');">
+                  <button type="submit" class="btn btn-sm p-0 text-danger" title="Delete" style="font-size:.8rem;">✕</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        {% endif %}
+
+        {# Add-location row #}
+        <tr style="background:#FFF8EC;">
+          <form method="POST" style="display:contents;"
+                action="{{ url_for('oss.fb_location_add', show_id=show.id, svc_id=svc.id) }}">
+            <td><input type="text" name="location_name" placeholder="+ location name"></td>
+            <td><input type="time" name="start_time" class="time"></td>
+            <td><input type="time" name="end_time"   class="time"></td>
+            <td><input type="number" name="headcount" placeholder="0" min="0" step="1" class="count"></td>
+            <td></td>
+            <td style="text-align:center;">
+              <button type="submit" class="btn btn-sm btn-adi p-0 px-2" style="font-size:.7rem;">+ Add</button>
+            </td>
+          </form>
+        </tr>
+      </tbody>
+    </table>
+
+    {% if svc.notes %}
+    <div class="text-muted mt-2" style="font-size:.72rem;font-style:italic;">
+      {{ svc.notes }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+
+{# + Add meal service for this day #}
+<form method="POST" action="{{ url_for('oss.fb_service_add', show_id=show.id) }}"
+      class="add-service-form">
+  <input type="hidden" name="schedule_day_id" value="{{ d.id }}">
+  <div class="row g-1 align-items-end">
+    <div class="col-md-2">
+      <label style="font-size:.66rem;font-weight:600;">Service</label>
+      <input type="text" name="name" placeholder="e.g. Breakfast, All Day Bev"
+             class="form-control form-control-sm" style="font-size:.76rem;" required>
+    </div>
+    <div class="col-md-1">
+      <label style="font-size:.66rem;font-weight:600;">Kind</label>
+      <select name="kind" class="form-select form-select-sm" style="font-size:.76rem;">
+        {% for k in meal_kinds %}
+        <option value="{{ k }}">{{ k }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label style="font-size:.66rem;font-weight:600;">First location</label>
+      <input type="text" name="location_name" placeholder="e.g. Backstage"
+             class="form-control form-control-sm" style="font-size:.76rem;">
+    </div>
+    <div class="col-md-1">
+      <label style="font-size:.66rem;font-weight:600;">Start</label>
+      <input type="time" name="start_time" class="form-control form-control-sm">
+    </div>
+    <div class="col-md-1">
+      <label style="font-size:.66rem;font-weight:600;">End</label>
+      <input type="time" name="end_time" class="form-control form-control-sm">
+    </div>
+    <div class="col-md-1">
+      <label style="font-size:.66rem;font-weight:600;">Headcount</label>
+      <input type="number" name="headcount" min="0" step="1"
+             class="form-control form-control-sm" style="font-size:.76rem;">
+    </div>
+    <div class="col-md-1">
+      <label style="font-size:.66rem;font-weight:600;" title="Link to schedule activity">Activity</label>
+      <select name="activity_id" class="form-select form-select-sm" style="font-size:.72rem;">
+        <option value="">— none —</option>
+        {% for act in d.activities %}
+        <option value="{{ act.id }}">{{ act.time or '' }} {{ act.description|truncate(24) }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label style="font-size:.66rem;font-weight:600;">Notes</label>
+      <input type="text" name="notes" class="form-control form-control-sm" style="font-size:.76rem;">
+    </div>
+    <div class="col-md-1">
+      <button type="submit" class="btn btn-sm btn-adi w-100" style="font-size:.74rem;">+ Service</button>
+    </div>
+  </div>
+</form>
+
+{% endfor %}
+
+{# ── Per-show dietary preferences ────────────────────────────────────── #}
+<div class="day-header" style="background:#1C2333;color:#C9A84C;">
+  <span>🥗 Dietary preferences (show-wide)</span>
+  <span class="text-muted" style="color:rgba(255,255,255,.55) !important;font-weight:400;font-size:.74rem;">
+    {{ dietary_notes|length }} note{{ '' if dietary_notes|length == 1 else 's' }}
+  </span>
+</div>
+
+<div class="dietary-card">
+  <div class="card-body p-3">
+    <table class="loc-table">
+      <thead>
+        <tr>
+          <th style="width:30%;">Preference</th>
+          <th style="width:80px;">Percentage</th>
+          <th style="width:80px;">Count</th>
+          <th>Notes</th>
+          <th style="width:30px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in dietary_notes %}
+        <tr>
+          <form method="POST" style="display:contents;"
+                action="{{ url_for('oss.fb_dietary_edit', show_id=show.id, did=d.id) }}">
+            <td><input type="text" name="preference" value="{{ d.preference }}"></td>
+            <td><input type="number" name="percentage" value="{{ d.percentage if d.percentage is not none else '' }}"
+                       min="0" max="100" step="1" class="count"></td>
+            <td><input type="number" name="count" value="{{ d.count if d.count is not none else '' }}"
+                       min="0" step="1" class="count"></td>
+            <td><input type="text" name="notes" value="{{ d.notes or '' }}"></td>
+            <td style="text-align:center;">
+              <button type="submit" class="btn btn-sm p-0 text-success" style="font-size:.9rem;">💾</button>
+          </form>
+              <form method="POST" style="display:inline;"
+                    action="{{ url_for('oss.fb_dietary_delete', show_id=show.id, did=d.id) }}"
+                    onsubmit="return confirm('Remove this dietary note?');">
+                <button type="submit" class="btn btn-sm p-0 text-danger" style="font-size:.8rem;">✕</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+        <tr style="background:#FFF8EC;">
+          <form method="POST" style="display:contents;"
+                action="{{ url_for('oss.fb_dietary_add', show_id=show.id) }}">
+            <td><input type="text" name="preference" placeholder="+ e.g. Vegetarian" required></td>
+            <td><input type="number" name="percentage" placeholder="%" min="0" max="100" step="1" class="count"></td>
+            <td><input type="number" name="count" placeholder="qty" min="0" step="1" class="count"></td>
+            <td><input type="text" name="notes"></td>
+            <td style="text-align:center;">
+              <button type="submit" class="btn btn-sm btn-adi p-0 px-2" style="font-size:.7rem;">+ Add</button>
+            </td>
+          </form>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endif %}

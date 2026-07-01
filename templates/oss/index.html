@@ -76,7 +76,9 @@
             data-bs-toggle="tab" data-bs-target="#tab-{{ loop.index }}" type="button"
             data-tab-key="{{ t }}">
       <span class="icon">{{ m.icon }}</span>{{ m.label }}
-      {% if grouped[t] %}<span class="oss-pill ms-1">{{ grouped[t]|length }}</span>{% endif %}
+      {% if t == 'F&B' %}
+        {% if meal_services %}<span class="oss-pill ms-1">{{ meal_services|length }}</span>{% endif %}
+      {% elif grouped[t] %}<span class="oss-pill ms-1">{{ grouped[t]|length }}</span>{% endif %}
       {% if t == 'F&B' and missing_fb %}
       <span title="Meal-break activities with no F&B entry"
             style="display:inline-block;font-size:.62rem;font-weight:700;
@@ -159,6 +161,8 @@
       {% include 'oss/_wristbands_tab.html' %}
     {% elif t == 'COMS' %}
       {% include 'oss/_coms_tab.html' %}
+    {% elif t == 'F&B' %}
+      {% include 'oss/_fb_tab.html' %}
     {% else %}
     {% if t == 'F&B' and missing_fb %}
     <div class="alert alert-warning py-2 px-3" style="font-size:.82rem;">

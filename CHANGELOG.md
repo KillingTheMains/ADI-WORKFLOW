@@ -8,6 +8,27 @@ to **Deployed** with the date.
 
 ## Pending Deploy
 
+### Phase C — F&B v2 (multi-location meal services)
+- OSS F&B tab rebuilt as a structured meal planner.
+- Three new models: `MealService` (per meal event on a show day, with
+  an optional link to a schedule activity), `MealServiceLocation`
+  (1..N per service — Backstage, FOH, Local Labor, etc.), and
+  `ShowDietaryNote` (per-show dietary preference rollup).
+- Tab UI groups services by day. Each service is a card with an
+  inline-editable table of locations (name, start, end, headcount,
+  notes). Total headcount rolls up automatically at the top of the
+  card. "+ Add location" per service; "+ Add meal service" per day.
+- Dietary preferences section at the bottom of the tab — inline
+  editable table with preference / % / count / notes.
+- **Data migration:** existing `type='F&B'` SubScheduleEntry rows were
+  auto-converted into one MealService + one MealServiceLocation each,
+  preserving activity_id, time (from linked activity when present),
+  count, and notes. Old F&B rows deleted. Registered in
+  DATA_MIGRATIONS as `2026-06-30-fb-v2-migrate-entries`; will run
+  once per environment on next reload.
+- Meal-break detection now uses `MealService.activity_id` instead of
+  the old F&B entry. All existing warnings still work.
+
 ### Phase B — Per-crew Travel detail (hotel + flights)
 - New **✈ Travel** page on each show (linked from the Crew page top
   actions). One row per assigned crew member with inline-editable

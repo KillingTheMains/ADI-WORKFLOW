@@ -71,9 +71,64 @@ MIGRATIONS = [
 # ── Data migrations (run once, tracked by key) ───────────────────────────────
 # Each entry: (key, callable). The callable receives the db session.
 
+def _migrate_fb_entries_to_meal_services(session):
+    """
+    Phase C: convert existing SubScheduleEntry rows of type='F&B' into
+    MealService + MealServiceLocation. Each old entry becomes one meal
+    service with one location, preserving activity_id, time, count, and
+    notes. Old entries are deleted after conversion.
+    """
+    from models import (SubScheduleEntry, MealService, MealServiceLocation,
+                        ScheduleActivity)
+
+    def _guess_kind(name):
+        if not name:
+            return "other"
+        n = name.upper()
+        if "BREAKFAST" in n: return "breakfast"
+        if "LUNCH"     in n: return "lunch"
+        if "DINNER"    in n: return "dinner"
+        if "BEVERAGE"  in n or "COFFEE" in n or "SNACK" in n:
+            return "beverages" if "BEVERAGE" in n or "COFFEE" in n else "snack"
+        return "other"
+
+    old = SubScheduleEntry.query.filter_by(type="F&B").all()
+    for e in old:
+        # Determine display time — linked activity's time takes precedence,
+        # else the entry's own free-form time.
+        eff_time = None
+        if e.activity_id:
+            act = ScheduleActivity.query.get(e.activity_id)
+            if act:
+                eff_time = act.time
+        eff_time = eff_time or e.time
+
+        svc = MealService(
+            show_id         = e.show_id,
+            schedule_day_id = e.schedule_day_id,
+            activity_id     = e.activity_id,
+            name            = (e.activity or "Meal service"),
+            kind            = _guess_kind(e.activity),
+            is_recurring    = False,
+            notes           = e.notes,
+            sort_order      = e.sort_order or 0,
+        )
+        session.add(svc)
+        session.flush()   # get svc.id
+        session.add(MealServiceLocation(
+            meal_service_id = svc.id,
+            location_name   = None,        # single-location legacy → unnamed
+            start_time      = eff_time,
+            end_time        = None,
+            headcount       = e.count,
+            notes           = None,
+        ))
+        session.delete(e)
+    session.commit()
+
+
 DATA_MIGRATIONS = [
-    # Example pattern (no real migrations yet):
-    # ("2026-06-01-backfill-something", lambda s: s.execute(text("UPDATE ..."))),
+    ("2026-06-30-fb-v2-migrate-entries", _migrate_fb_entries_to_meal_services),
 ]
 
 
