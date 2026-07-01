@@ -68,6 +68,32 @@ def move_down(member_id):
     return redirect(url_for("crew.index"))
 
 
+@crew_bp.route("/reorder", methods=["POST"])
+def reorder():
+    """
+    Bulk-update sort_order from a drag-and-drop reorder. Accepts JSON:
+       { "order": [id1, id2, id3, ...] }
+    Assigns sort_order = idx * 10 to each id in the order given. IDs not in
+    the payload are left as-is (they'll be pushed below the reordered ones
+    by the next _ensure_sort_order pass if they had a NULL, otherwise their
+    numeric order stays).
+    """
+    data = request.get_json(silent=True) or {}
+    order = data.get("order") or []
+    if not isinstance(order, list):
+        return {"ok": False, "error": "order must be a list"}, 400
+    for idx, cm_id in enumerate(order):
+        try:
+            cm_id = int(cm_id)
+        except (TypeError, ValueError):
+            continue
+        cm = CrewMember.query.get(cm_id)
+        if cm:
+            cm.sort_order = idx * 10
+    db.session.commit()
+    return {"ok": True, "count": len(order)}
+
+
 @crew_bp.route("/<int:member_id>/edit-inline", methods=["POST"])
 def edit_inline(member_id):
     """Save only the fields the inline row form sends (first/last name,

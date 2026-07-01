@@ -93,7 +93,7 @@
     <table class="table table-sm table-hover mb-0" id="crew-table" style="font-size:.82rem;">
       <thead style="background:var(--adi-surface);">
         <tr>
-          <th style="width:56px;">Order</th>
+          <th style="width:34px;" title="Drag any row by this handle to reorder"></th>
           <th class="px-2 py-2 sortable" data-col="name" style="cursor:pointer;">
             Name <span class="sort-indicator">↕</span>
           </th>
@@ -109,6 +109,7 @@
       <tbody id="crew-tbody">
         {% for m in members %}
         <tr class="crew-row"
+            data-crew-id="{{ m.id }}"
             data-name="{{ m.full_name | lower }}"
             data-dept="{{ (m.position.department if m.position else '') | lower }}"
             data-position="{{ (m.position.title if m.position else '') | lower }}"
@@ -118,14 +119,9 @@
             data-sort-name="{{ m.last_name | lower }},{{ m.first_name | lower }}"
             data-sort-dept="{{ (m.position.department if m.position else 'zzz') | lower }}"
             data-sort-company="{{ (m.company.name if m.company else 'zzz') | lower }}">
-          <td class="px-2" style="white-space:nowrap;">
-            <form method="POST" action="{{ url_for('crew.move_up', member_id=m.id) }}" style="display:inline;">
-              <button type="submit" class="btn btn-sm btn-link p-0 text-dark" title="Move up" style="font-size:.9rem;">↑</button>
-            </form>
-            <form method="POST" action="{{ url_for('crew.move_down', member_id=m.id) }}" style="display:inline;">
-              <button type="submit" class="btn btn-sm btn-link p-0 text-dark" title="Move down" style="font-size:.9rem;">↓</button>
-            </form>
-          </td>
+          <td class="drag-handle"
+              style="cursor:grab;text-align:center;color:#999;font-size:1rem;user-select:none;"
+              title="Drag to reorder">⋮⋮</td>
           <form method="POST" action="{{ url_for('crew.edit_inline', member_id=m.id) }}" style="display:contents;">
             <td class="px-2">
               <div class="d-flex gap-1">
@@ -334,4 +330,36 @@
   applyAll();
 })();
 </script>
+
+<!-- ── Drag-and-drop reorder (SortableJS via CDN) ────────────────────────── -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+(function () {
+  const tbody = document.getElementById('crew-tbody');
+  if (!tbody || typeof Sortable === 'undefined') return;
+
+  Sortable.create(tbody, {
+    handle: '.drag-handle',
+    animation: 150,
+    ghostClass: 'crew-drag-ghost',
+    chosenClass: 'crew-drag-chosen',
+    onEnd: function () {
+      const order = Array.from(tbody.querySelectorAll('.crew-row'))
+                         .map(tr => parseInt(tr.dataset.crewId, 10))
+                         .filter(id => !isNaN(id));
+      fetch("{{ url_for('crew.reorder') }}", {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:    JSON.stringify({order: order}),
+      }).catch(err => console.warn('reorder save failed', err));
+    },
+  });
+})();
+</script>
+
+<style>
+  .crew-drag-ghost   { opacity: 0.4; background: #FFF8EC !important; }
+  .crew-drag-chosen  { background: #FEF3C7 !important; }
+  .drag-handle:hover { color: #1C2333 !important; }
+</style>
 {% endblock %}

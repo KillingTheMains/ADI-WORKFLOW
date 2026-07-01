@@ -17,12 +17,13 @@ to **Deployed** with the date.
   that matches an existing master Position now auto-sets position_id
   so hours reports pick it up.
 
-### Crew Roster: inline edit + manual reordering
+### Crew Roster: inline edit + drag-to-reorder
 - Every crew row on the master roster is now inline-editable — First
   name, Last name, Position (dropdown), Company (dropdown), Email,
   Phone. Edit and hit the 💾 Save button per row.
-- Two new arrow buttons per row (↑ ↓) reorder the roster manually.
-  Move a person to the top by clicking ↑ repeatedly, etc.
+- **Rows are draggable** by the ⋮⋮ handle on the left. Grab and drag
+  a row up or down; the new order saves automatically on drop.
+  Works on touch too. Powered by SortableJS (CDN).
 - Rates, active/inactive, and notes still live behind the "…more"
   link (full edit form).
 - New `sort_order` column on `crew_members` (auto-migration).
