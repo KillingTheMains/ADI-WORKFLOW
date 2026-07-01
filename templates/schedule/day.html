@@ -503,20 +503,60 @@
               <tr class="group-header"><td colspan="6">{{ row.group_label }}</td></tr>
               {% else %}
               <tr>
-                <td>{{ row.qty }}</td>
-                <td>{{ row.hours if row.hours else '—' }}</td>
-                <td>{{ row.position or '—' }}</td>
-                <td>{{ row.display_name }}</td>
-                <td class="text-muted" style="font-size:.72rem;">{{ row.crew_type }}</td>
-                <td>
-                  <form method="POST"
-                        action="{{ url_for('schedule.delete_crew_row', show_id=show.id, day_id=day.id, row_id=row.id) }}"
-                        style="display:inline;">
-                    <button type="submit" class="btn btn-sm btn-link text-danger p-0"
-                            style="font-size:.7rem;">✕</button>
-                  </form>
-                </td>
-              </tr>
+                <form method="POST" style="display:contents;"
+                      action="{{ url_for('schedule.edit_crew_row', show_id=show.id, day_id=day.id, row_id=row.id) }}">
+                  <td><input type="number" name="qty" value="{{ row.qty }}" min="1" step="1"
+                             class="form-control form-control-sm"
+                             style="font-size:.72rem;padding:1px 4px;width:44px;"></td>
+                  <td><input type="number" name="hours" value="{{ row.hours if row.hours is not none else '' }}"
+                             min="0" step="0.25"
+                             class="form-control form-control-sm"
+                             style="font-size:.72rem;padding:1px 4px;width:56px;"></td>
+                  <td><input type="text" name="position" value="{{ row.position or '' }}"
+                             list="crew-row-positions-{{ act.id }}"
+                             class="form-control form-control-sm"
+                             style="font-size:.72rem;padding:1px 4px;"></td>
+                  <td>
+                    {% if row.crew_member %}
+                      <input type="text" name="name_override" value="{{ row.name_override or '' }}"
+                             placeholder="{{ row.crew_member.full_name }}"
+                             title="Override display name (leave blank to show {{ row.crew_member.full_name }})"
+                             class="form-control form-control-sm"
+                             style="font-size:.72rem;padding:1px 4px;">
+                    {% else %}
+                      <input type="text" name="name_override" value="{{ row.name_override or '' }}"
+                             placeholder="TBD" class="form-control form-control-sm"
+                             style="font-size:.72rem;padding:1px 4px;">
+                    {% endif %}
+                  </td>
+                  <td>
+                    <select name="crew_type" class="form-select form-select-sm"
+                            style="font-size:.7rem;padding:1px 4px;">
+                      {% for ct in crew_types %}
+                      <option value="{{ ct }}" {% if row.crew_type == ct %}selected{% endif %}>{{ ct }}</option>
+                      {% endfor %}
+                    </select>
+                  </td>
+                  <td style="white-space:nowrap;">
+                    <button type="submit" class="btn btn-sm btn-link text-success p-0"
+                            style="font-size:.85rem;line-height:1;" title="Save row">💾</button>
+                </form>
+                    <form method="POST" style="display:inline;"
+                          action="{{ url_for('schedule.delete_crew_row', show_id=show.id, day_id=day.id, row_id=row.id) }}"
+                          onsubmit="return confirm('Delete this crew row?');">
+                      <button type="submit" class="btn btn-sm btn-link text-danger p-0"
+                              style="font-size:.7rem;">✕</button>
+                    </form>
+                  </td>
+                </tr>
+                {# datalist shared per activity for the position autocomplete #}
+                {% if loop.first %}
+                <datalist id="crew-row-positions-{{ act.id }}">
+                  {% for p in positions %}
+                  <option value="{{ p.title }}">
+                  {% endfor %}
+                </datalist>
+                {% endif %}
               {% endif %}
               {% endfor %}
             </tbody>

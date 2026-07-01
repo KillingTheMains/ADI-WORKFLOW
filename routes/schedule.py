@@ -711,6 +711,47 @@ def add_crew_row(show_id, day_id, act_id):
     return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
 
 
+@schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/crew/<int:row_id>/edit",
+                   methods=["POST"])
+def edit_crew_row(show_id, day_id, row_id):
+    """Wishlist #7 — inline edit for a crew row within an activity."""
+    row = CrewRow.query.get_or_404(row_id)
+    f = request.form
+
+    if "qty" in f:
+        raw = (f.get("qty") or "").strip()
+        try:
+            row.qty = int(raw) if raw else 1
+        except ValueError:
+            pass
+    if "hours" in f:
+        raw = (f.get("hours") or "").strip()
+        try:
+            row.hours = float(raw) if raw else None
+        except ValueError:
+            row.hours = None
+    if "position" in f:
+        v = (f.get("position") or "").strip()
+        row.position = v or None
+        # If the free-text position exactly matches a Position title,
+        # also update position_id so hours reports + reports pick it up.
+        if v:
+            match = Position.query.filter(
+                db.func.lower(Position.title) == v.lower()).first()
+            row.position_id = match.id if match else None
+        else:
+            row.position_id = None
+    if "name_override" in f:
+        v = (f.get("name_override") or "").strip()
+        row.name_override = v or None
+    if "crew_type" in f:
+        v = (f.get("crew_type") or "").strip()
+        if v in CREW_TYPES:
+            row.crew_type = v
+    db.session.commit()
+    return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
+
+
 @schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/crew/<int:row_id>/delete",
                    methods=["POST"])
 def delete_crew_row(show_id, day_id, row_id):

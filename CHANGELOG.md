@@ -8,6 +8,15 @@ to **Deployed** with the date.
 
 ## Pending Deploy
 
+### Day editor: inline edit for crew rows within an activity
+- The crew table under each activity is now inline-editable per row.
+- Editable fields: Qty, Hours, Position (with autocomplete from the
+  master Position list — but free text also accepted), Name (as a
+  display override), and Crew Type (Lead / Local / Vendor / Union).
+- Save button (💾) per row. Delete (✕) still there. Free-text position
+  that matches an existing master Position now auto-sets position_id
+  so hours reports pick it up.
+
 ### Crew Roster: inline edit + manual reordering
 - Every crew row on the master roster is now inline-editable — First
   name, Last name, Position (dropdown), Company (dropdown), Email,
