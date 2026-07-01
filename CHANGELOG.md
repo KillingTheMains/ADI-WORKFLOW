@@ -17,6 +17,34 @@ to **Deployed** with the date.
   that matches an existing master Position now auto-sets position_id
   so hours reports pick it up.
 
+### Duplicate Show button
+- New **📋 Duplicate** button on the show detail page. Modal collects:
+  * New show name (default: "Copy of X")
+  * Optional new show code
+  * Date offset in days (positive shifts later, negative earlier, 0 keeps
+    the same dates)
+- Clones the schedule STRUCTURE:
+  * ScheduleDay records with dates shifted by offset
+  * All ScheduleActivity records within each day
+  * All CrewRow records — position, qty, estimated hours, crew_type,
+    sort_order all preserved. crew_member_id is WIPED so each row
+    starts as TBD on the new show.
+  * ProductionPhase records with dates shifted
+  * Show basic info (client, venue, room, notes)
+- Deliberately NOT cloned: booking sheet (ShowCrewAssignment),
+  travel info, OSS entries, meal services + locations, COMS setup,
+  wristband overrides, actual_hours. The new show starts fresh
+  in all of those areas.
+
+### Actual hours per crew row (est vs actual)
+- New `actual_hours` column on CrewRow (auto-migration).
+- Day editor's crew table shows Est + Actual side-by-side, both
+  inline-editable. Actual cell tints amber when it exceeds the
+  estimate to catch overruns at a glance.
+- Hours Report gains three new columns per crew member (Est / Actual / Δ)
+  that appear only when at least one Actual has been recorded. Delta
+  is red for overage, green for under, gray for ±.
+
 ### Show Crew Booking Sheet: drag-to-reorder within each task card
 - The same drag-and-drop reorder from the master roster is now on
   every show's Booking Sheet page. Each Booking Task card (PREP /

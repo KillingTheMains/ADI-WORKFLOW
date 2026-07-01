@@ -59,6 +59,8 @@ MIGRATIONS = [
     # 2026-07-01 — Drag-to-reorder on the Show Crew Booking Sheet
     ("show_crew_assignments", "sort_order",         "INTEGER"),
     ("show_open_slots",       "sort_order",         "INTEGER"),
+    # 2026-07-01 — Actual hours per crew row (planned vs actual)
+    ("crew_rows",             "actual_hours",       "FLOAT"),
     # 2026-06-30 — Phase B: per-crew-per-show travel detail
     ("show_crew_assignments", "hotel_name",         "VARCHAR(200)"),
     ("show_crew_assignments", "hotel_check_in",     "DATE"),

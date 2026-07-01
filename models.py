@@ -309,7 +309,8 @@ class CrewRow(db.Model):
 
     # Crew line fields
     qty             = db.Column(db.Integer, default=1)
-    hours           = db.Column(db.Float)
+    hours           = db.Column(db.Float)      # ESTIMATED / planned hours
+    actual_hours    = db.Column(db.Float)      # ACTUAL hours worked (post-show)
     position        = db.Column(db.String(100))      # free-text or from Position table
     position_id     = db.Column(db.Integer, db.ForeignKey("positions.id"), nullable=True)
     crew_member_id  = db.Column(db.Integer, db.ForeignKey("crew_members.id"), nullable=True)

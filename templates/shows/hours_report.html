@@ -176,7 +176,11 @@
             </span>
           </th>
           {% endfor %}
-          <th style="width:70px;text-align:center;">Total</th>
+          <th style="width:70px;text-align:center;" title="Estimated / planned">Est</th>
+          {% if any_actual_recorded %}
+          <th style="width:70px;text-align:center;" title="Actual hours worked">Actual</th>
+          <th style="width:70px;text-align:center;" title="Actual − Estimated">Δ</th>
+          {% endif %}
         </tr>
       </thead>
       <tbody>
@@ -185,7 +189,7 @@
           {% if entry.company != current_company.val %}
             {% set current_company.val = entry.company %}
             <tr class="company-divider">
-              <td colspan="{{ 4 + show_days|length + 1 }}">
+              <td colspan="{{ 4 + show_days|length + 1 + (2 if any_actual_recorded else 0) }}">
                 {{ entry.company or 'No Company' }}
               </td>
             </tr>
@@ -202,6 +206,17 @@
             </td>
             {% endfor %}
             <td class="total-cell">{{ "%.1f"|format(entry.total) }}</td>
+            {% if any_actual_recorded %}
+            {% set delta = entry.total_actual - entry.total %}
+            <td class="total-cell"
+                style="color:{% if entry.total_actual %}var(--adi-blue){% else %}#ccc{% endif %};">
+              {% if entry.total_actual %}{{ "%.1f"|format(entry.total_actual) }}{% else %}—{% endif %}
+            </td>
+            <td class="total-cell"
+                style="color:{% if delta > 0.05 %}#B91C1C{% elif delta < -0.05 %}#065F46{% else %}#888{% endif %};">
+              {% if entry.total_actual %}{% if delta > 0 %}+{% endif %}{{ "%.1f"|format(delta) }}{% else %}—{% endif %}
+            </td>
+            {% endif %}
           </tr>
         {% endfor %}
 
@@ -215,6 +230,16 @@
           <td class="total-cell" style="color:var(--adi-gold) !important;">
             {{ "%.1f"|format(grand_total) }}
           </td>
+          {% if any_actual_recorded %}
+          {% set g_delta = grand_total_actual - grand_total %}
+          <td class="total-cell" style="color:var(--adi-gold) !important;">
+            {{ "%.1f"|format(grand_total_actual) }}
+          </td>
+          <td class="total-cell"
+              style="color:{% if g_delta > 0.05 %}#B91C1C{% elif g_delta < -0.05 %}#065F46{% else %}#888{% endif %} !important;">
+            {% if g_delta > 0 %}+{% endif %}{{ "%.1f"|format(g_delta) }}
+          </td>
+          {% endif %}
         </tr>
       </tbody>
     </table>

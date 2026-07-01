@@ -490,7 +490,8 @@
             <thead>
               <tr>
                 <th style="width:40px;">Qty</th>
-                <th style="width:50px;">Hrs</th>
+                <th style="width:56px;" title="Estimated hours">Est</th>
+                <th style="width:56px;" title="Actual hours worked">Actual</th>
                 <th>Position</th>
                 <th>Name</th>
                 <th style="width:100px;">Type</th>
@@ -509,9 +510,14 @@
                              class="form-control form-control-sm"
                              style="font-size:.72rem;padding:1px 4px;width:44px;"></td>
                   <td><input type="number" name="hours" value="{{ row.hours if row.hours is not none else '' }}"
-                             min="0" step="0.25"
+                             min="0" step="0.25" title="Estimated hours"
                              class="form-control form-control-sm"
                              style="font-size:.72rem;padding:1px 4px;width:56px;"></td>
+                  <td><input type="number" name="actual_hours" value="{{ row.actual_hours if row.actual_hours is not none else '' }}"
+                             min="0" step="0.25" title="Actual hours worked"
+                             class="form-control form-control-sm"
+                             style="font-size:.72rem;padding:1px 4px;width:56px;
+                                    {% if row.actual_hours is not none and row.hours and row.actual_hours > row.hours %}background:#FEF3C7;{% endif %}"></td>
                   <td><input type="text" name="position" value="{{ row.position or '' }}"
                              list="crew-row-positions-{{ act.id }}"
                              class="form-control form-control-sm"

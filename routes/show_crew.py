@@ -291,7 +291,9 @@ def hours_report(show_id):
             for row in act.crew_rows:
                 if row.is_group_header:
                     continue
-                hrs = (row.hours or 0) * (row.qty or 1)
+                qty     = row.qty or 1
+                hrs     = (row.hours or 0) * qty
+                actual  = (row.actual_hours or 0) * qty
                 if row.crew_member_id:
                     if row.crew_member_id not in crew_data:
                         cm = row.crew_member
@@ -303,10 +305,15 @@ def hours_report(show_id):
                             "type":     row.crew_type or "",
                             "days":     {},
                             "total":    0.0,
+                            "total_actual": 0.0,
+                            "actual_recorded": False,
                         }
                     entry = crew_data[row.crew_member_id]
                     entry["days"][day.id] = entry["days"].get(day.id, 0.0) + hrs
                     entry["total"] += hrs
+                    entry["total_actual"] += actual
+                    if row.actual_hours is not None:
+                        entry["actual_recorded"] = True
                 else:
                     # TBD / local unnamed row — track separately
                     tbd_data.append({
@@ -315,6 +322,7 @@ def hours_report(show_id):
                         "type":     row.crew_type or "",
                         "day_id":   day.id,
                         "hours":    hrs,
+                        "actual":   actual if row.actual_hours is not None else None,
                         "activity": act.description,
                     })
 
@@ -330,7 +338,9 @@ def hours_report(show_id):
         for day_id, hrs in entry["days"].items():
             day_totals[day_id] = day_totals.get(day_id, 0.0) + hrs
 
-    grand_total = sum(e["total"] for e in sorted_crew)
+    grand_total        = sum(e["total"] for e in sorted_crew)
+    grand_total_actual = sum(e["total_actual"] for e in sorted_crew)
+    any_actual_recorded = any(e.get("actual_recorded") for e in sorted_crew)
 
     return render_template(
         "shows/hours_report.html",
@@ -340,6 +350,8 @@ def hours_report(show_id):
         tbd_data=tbd_data,
         day_totals=day_totals,
         grand_total=grand_total,
+        grand_total_actual=grand_total_actual,
+        any_actual_recorded=any_actual_recorded,
     )
 
 

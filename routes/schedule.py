@@ -730,6 +730,12 @@ def edit_crew_row(show_id, day_id, row_id):
             row.hours = float(raw) if raw else None
         except ValueError:
             row.hours = None
+    if "actual_hours" in f:
+        raw = (f.get("actual_hours") or "").strip()
+        try:
+            row.actual_hours = float(raw) if raw else None
+        except ValueError:
+            row.actual_hours = None
     if "position" in f:
         v = (f.get("position") or "").strip()
         row.position = v or None
