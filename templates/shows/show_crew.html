@@ -173,6 +173,7 @@
       <table class="table table-sm booking-table">
         <thead>
           <tr>
+            <th style="width:26px;" title="Drag to reorder"></th>
             <th>Name / Role</th>
             <th>Position</th>
             <th style="width:120px;">Task</th>
@@ -183,11 +184,17 @@
             <th style="width:90px;"></th>
           </tr>
         </thead>
-        <tbody>
+        <tbody class="booking-sortable" data-show-id="{{ show.id }}">
 
-          {# Real crew assignments #}
-          {% for a in group.assignments %}
-          <tr>
+          {# Unified list: real assignments AND TBD slots in sort_order #}
+          {% for row in group.rows %}
+          {% if row.kind == "a" %}
+          {% set a = row.obj %}
+          <tr data-item-type="a" data-item-id="{{ a.id }}">
+            <td class="booking-drag-handle"
+                style="cursor:grab;text-align:center;color:#999;font-size:.9rem;
+                       user-select:none;vertical-align:middle;"
+                title="Drag to reorder">⋮⋮</td>
             <form method="POST"
                   action="{{ url_for('show_crew.edit_assignment', show_id=show.id, aid=a.id) }}">
               <td>
@@ -220,11 +227,14 @@
               </td>
             </form>
           </tr>
-          {% endfor %}
-
-          {# TBD slots — each row is its own form #}
-          {% for slot in group.slots %}
-          <tr class="tbd-row">
+          {% else %}
+          {# TBD slot #}
+          {% set slot = row.obj %}
+          <tr class="tbd-row" data-item-type="s" data-item-id="{{ slot.id }}">
+            <td class="booking-drag-handle"
+                style="cursor:grab;text-align:center;color:#999;font-size:.9rem;
+                       user-select:none;vertical-align:middle;"
+                title="Drag to reorder">⋮⋮</td>
             <form method="POST"
                   action="{{ url_for('show_crew.edit_slot', show_id=show.id, sid=slot.id) }}">
               <td>
@@ -272,9 +282,11 @@
                 </form>
               </td>
             </tr>
-            {# Fill-slot row (collapsible) — a second tr per slot #}
-            <tr class="tbd-row" style="border-top:0;">
-              <td colspan="8" style="padding-top:0;">
+            {# Fill-slot row — a second tr per slot. Marked non-draggable
+               and JS re-attaches it below its slot after any reorder. #}
+            <tr class="tbd-row tbd-fill-row" data-fill-for="{{ slot.id }}"
+                style="border-top:0;">
+              <td colspan="9" style="padding-top:0;">
                 <form method="POST"
                       action="{{ url_for('show_crew.fill_slot', show_id=show.id, sid=slot.id) }}"
                       class="d-flex align-items-center gap-1">
@@ -293,6 +305,7 @@
                   <button type="submit" class="btn btn-sm btn-adi" style="font-size:.7rem;padding:2px 10px;">Fill</button>
                 </form>
               </td>
+          {% endif %}
           {% endfor %}
 
         </tbody>
@@ -443,5 +456,64 @@
   <a href="{{ url_for('crew.add') }}" class="btn btn-adi">+ Add Crew Member</a>
 </div>
 {% endif %}
+
+<!-- ── Drag-to-reorder on Booking Sheet (SortableJS via CDN) ─────────────── -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+(function () {
+  if (typeof Sortable === 'undefined') return;
+  const REORDER_URL = "{{ url_for('show_crew.reorder', show_id=show.id) }}";
+
+  // Each slot's "Fill this slot" row is a second <tr> that must stay
+  // directly below its parent slot row. When a drag reshuffles things,
+  // we walk the tbody and reattach any fill rows next to their slot.
+  function reattachFillRows(tbody) {
+    tbody.querySelectorAll('tr[data-item-type="s"]').forEach(function (slotRow) {
+      const sid = slotRow.dataset.itemId;
+      const fillRow = tbody.querySelector(
+        'tr.tbd-fill-row[data-fill-for="' + sid + '"]');
+      if (fillRow && fillRow.previousElementSibling !== slotRow) {
+        slotRow.after(fillRow);
+      }
+    });
+  }
+
+  function collectOrder(tbody) {
+    return Array.from(tbody.querySelectorAll('tr[data-item-type]'))
+                .map(function (tr) {
+                  return {type: tr.dataset.itemType, id: parseInt(tr.dataset.itemId, 10)};
+                })
+                .filter(function (o) { return !isNaN(o.id); });
+  }
+
+  document.querySelectorAll('tbody.booking-sortable').forEach(function (tbody) {
+    Sortable.create(tbody, {
+      handle: '.booking-drag-handle',
+      filter: '.tbd-fill-row',
+      animation: 150,
+      ghostClass:  'booking-drag-ghost',
+      chosenClass: 'booking-drag-chosen',
+      onEnd: function () {
+        reattachFillRows(tbody);
+        const items = collectOrder(tbody);
+        fetch(REORDER_URL, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body:    JSON.stringify({items: items}),
+        }).catch(function (err) { console.warn('booking reorder failed', err); });
+      },
+    });
+    // Also reattach any fill rows on page load in case the server-side
+    // sort_order interleaved them oddly.
+    reattachFillRows(tbody);
+  });
+})();
+</script>
+
+<style>
+  .booking-drag-ghost   { opacity: 0.4; background: #FFF8EC !important; }
+  .booking-drag-chosen  { background: #FEF3C7 !important; }
+  .booking-drag-handle:hover { color: #1C2333 !important; }
+</style>
 
 {% endblock %}

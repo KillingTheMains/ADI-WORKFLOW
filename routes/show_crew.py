@@ -55,20 +55,33 @@ def show_crew(show_id):
                    .all())
     open_slots  = (ShowOpenSlot.query
                    .filter_by(show_id=show_id)
-                   .order_by(ShowOpenSlot.id)
                    .all())
 
-    # Group both into a single "by task" structure so the template can render
-    # tasks like "PREP" / "3 Show" / "Set Up" / "Strike" in one table each.
+    # Group both into a single "by task" structure. Within a task, merge
+    # assignments and slots into ONE list, ordered by sort_order (NULLs
+    # last), so drag-to-reorder can freely move rows across the a/s
+    # boundary.
     task_groups = {}
     for a in assignments:
         key = (a.booking_task or "Unassigned task")
-        task_groups.setdefault(key, {"assignments": [], "slots": []})
+        task_groups.setdefault(key, {"assignments": [], "slots": [], "rows": []})
         task_groups[key]["assignments"].append(a)
+        task_groups[key]["rows"].append({
+            "kind": "a", "obj": a,
+            "_sort": (a.sort_order if a.sort_order is not None else 999_999,
+                      0, a.id),
+        })
     for s in open_slots:
         key = (s.booking_task or "Unassigned task")
-        task_groups.setdefault(key, {"assignments": [], "slots": []})
+        task_groups.setdefault(key, {"assignments": [], "slots": [], "rows": []})
         task_groups[key]["slots"].append(s)
+        task_groups[key]["rows"].append({
+            "kind": "s", "obj": s,
+            "_sort": (s.sort_order if s.sort_order is not None else 999_999,
+                      1, s.id),
+        })
+    for g in task_groups.values():
+        g["rows"].sort(key=lambda r: r["_sort"])
 
     # Stable display order: known task names first, then anything else alpha.
     KNOWN_ORDER = ["PREP", "Set Up", "3 Show", "Show", "Strike",
@@ -519,3 +532,42 @@ def travel(show_id):
                            show=show,
                            assignments=assignments,
                            grand_total=grand_total)
+
+
+
+# ── Drag-to-reorder on the Booking Sheet ─────────────────────────────────────
+
+@show_crew_bp.route("/<int:show_id>/crew/reorder", methods=["POST"])
+def reorder(show_id):
+    """
+    Bulk-update sort_order from a drag-and-drop reorder within a booking-task
+    card. Accepts JSON:
+       { "items": [{"type": "a"|"s", "id": <int>}, ...] }
+    Assigns sort_order = idx * 10 to each item in the given order. Rows
+    from a different show are ignored defensively.
+    """
+    from flask import jsonify
+    data = request.get_json(silent=True) or {}
+    items = data.get("items") or []
+    if not isinstance(items, list):
+        return jsonify(ok=False, error="items must be a list"), 400
+    n = 0
+    for idx, it in enumerate(items):
+        if not isinstance(it, dict):
+            continue
+        kind = it.get("type")
+        try:
+            rid = int(it.get("id"))
+        except (TypeError, ValueError):
+            continue
+        if kind == "a":
+            obj = ShowCrewAssignment.query.get(rid)
+        elif kind == "s":
+            obj = ShowOpenSlot.query.get(rid)
+        else:
+            continue
+        if obj and obj.show_id == show_id:
+            obj.sort_order = idx * 10
+            n += 1
+    db.session.commit()
+    return jsonify(ok=True, count=n)

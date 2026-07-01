@@ -17,6 +17,19 @@ to **Deployed** with the date.
   that matches an existing master Position now auto-sets position_id
   so hours reports pick it up.
 
+### Show Crew Booking Sheet: drag-to-reorder within each task card
+- The same drag-and-drop reorder from the master roster is now on
+  every show's Booking Sheet page. Each Booking Task card (PREP /
+  Set Up / 3 Show / Strike) is a separate sortable — grab any row
+  by the ⋮⋮ handle on the left, drop it where you want.
+- Real crew assignments and TBD slots share the same order within a
+  card so you can freely arrange them together.
+- The "Fill this slot →" row that appears below each TBD stays
+  attached to its parent slot even after drag — JS reattaches it
+  automatically on drop.
+- New `sort_order` column on both `show_crew_assignments` and
+  `show_open_slots` (auto-migration).
+
 ### Crew Roster: inline edit + drag-to-reorder
 - Every crew row on the master roster is now inline-editable — First
   name, Last name, Position (dropdown), Company (dropdown), Email,

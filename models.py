@@ -482,6 +482,8 @@ class ShowCrewAssignment(db.Model):
     start_date     = db.Column(db.Date)         # first on-site day
     end_date       = db.Column(db.Date)         # last on-site day
     travel_out_date= db.Column(db.Date)
+    # Manual reorder within a booking task card on the Show Crew page.
+    sort_order     = db.Column(db.Integer)
     # ── Phase B: per-crew-per-show travel detail ──────────────────────────
     hotel_name         = db.Column(db.String(200))
     hotel_check_in     = db.Column(db.Date)
@@ -531,6 +533,8 @@ class ShowOpenSlot(db.Model):
     end_date         = db.Column(db.Date)
     travel_out_date  = db.Column(db.Date)
     notes            = db.Column(db.Text)
+    # Manual reorder within a booking task card on the Show Crew page.
+    sort_order       = db.Column(db.Integer)
     created_at       = db.Column(db.DateTime, default=datetime.utcnow)
 
     show     = db.relationship("Show")
