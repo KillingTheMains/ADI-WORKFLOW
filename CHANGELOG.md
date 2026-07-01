@@ -8,6 +8,18 @@ to **Deployed** with the date.
 
 ## Pending Deploy
 
+### Crew Roster: inline edit + manual reordering
+- Every crew row on the master roster is now inline-editable — First
+  name, Last name, Position (dropdown), Company (dropdown), Email,
+  Phone. Edit and hit the 💾 Save button per row.
+- Two new arrow buttons per row (↑ ↓) reorder the roster manually.
+  Move a person to the top by clicking ↑ repeatedly, etc.
+- Rates, active/inactive, and notes still live behind the "…more"
+  link (full edit form).
+- New `sort_order` column on `crew_members` (auto-migration).
+  Auto-backfilled with alphabetical order on first view so existing
+  rosters land in the same order they were.
+
 ### Wishlist quick-fix batch
 - **Activity times now display 12-hour with AM/PM** everywhere — day
   editor headers, schedule overview, OSS master view. Underlying

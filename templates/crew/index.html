@@ -93,24 +93,17 @@
     <table class="table table-sm table-hover mb-0" id="crew-table" style="font-size:.82rem;">
       <thead style="background:var(--adi-surface);">
         <tr>
-          <th class="px-3 py-2 sortable" data-col="name" style="cursor:pointer;">
+          <th style="width:56px;">Order</th>
+          <th class="px-2 py-2 sortable" data-col="name" style="cursor:pointer;">
             Name <span class="sort-indicator">↕</span>
           </th>
-          <th class="sortable" data-col="dept" style="cursor:pointer;">
-            Dept <span class="sort-indicator"></span>
-          </th>
-          <th class="sortable" data-col="position" style="cursor:pointer;">
-            Position <span class="sort-indicator"></span>
-          </th>
-          <th class="sortable" data-col="company" style="cursor:pointer;">
-            Company <span class="sort-indicator"></span>
-          </th>
+          <th class="sortable" data-col="dept" style="cursor:pointer;">Dept</th>
+          <th class="sortable" data-col="position" style="cursor:pointer;">Position</th>
+          <th class="sortable" data-col="company" style="cursor:pointer;">Company</th>
           <th>Email</th>
-          <th class="sortable" data-col="rate" style="cursor:pointer;">
-            ST Rate <span class="sort-indicator"></span>
-          </th>
-          <th>Status</th>
-          <th></th>
+          <th>Phone</th>
+          <th class="sortable" data-col="rate" style="cursor:pointer;">ST</th>
+          <th style="width:120px;"></th>
         </tr>
       </thead>
       <tbody id="crew-tbody">
@@ -125,25 +118,59 @@
             data-sort-name="{{ m.last_name | lower }},{{ m.first_name | lower }}"
             data-sort-dept="{{ (m.position.department if m.position else 'zzz') | lower }}"
             data-sort-company="{{ (m.company.name if m.company else 'zzz') | lower }}">
-          <td class="px-3" style="font-weight:600;">{{ m.full_name }}</td>
-          <td class="text-muted" style="font-size:.78rem;">
-            {{ m.position.department if m.position else '—' }}
+          <td class="px-2" style="white-space:nowrap;">
+            <form method="POST" action="{{ url_for('crew.move_up', member_id=m.id) }}" style="display:inline;">
+              <button type="submit" class="btn btn-sm btn-link p-0 text-dark" title="Move up" style="font-size:.9rem;">↑</button>
+            </form>
+            <form method="POST" action="{{ url_for('crew.move_down', member_id=m.id) }}" style="display:inline;">
+              <button type="submit" class="btn btn-sm btn-link p-0 text-dark" title="Move down" style="font-size:.9rem;">↓</button>
+            </form>
           </td>
-          <td>{{ m.position.title if m.position else '—' }}</td>
-          <td>{{ m.company.name if m.company else '—' }}</td>
-          <td class="text-muted">{{ m.email or '—' }}</td>
-          <td>{{ '$%.0f/hr' % m.rate_standard if m.rate_standard else '—' }}</td>
-          <td>
-            {% if m.active %}
-            <span class="status-badge status-Active">Active</span>
-            {% else %}
-            <span class="status-badge status-Closed">Inactive</span>
-            {% endif %}
-          </td>
-          <td>
-            <a href="{{ url_for('crew.edit', member_id=m.id) }}"
-               class="btn btn-sm btn-link p-0">edit</a>
-          </td>
+          <form method="POST" action="{{ url_for('crew.edit_inline', member_id=m.id) }}" style="display:contents;">
+            <td class="px-2">
+              <div class="d-flex gap-1">
+                <input type="text" name="first_name" value="{{ m.first_name }}"
+                       class="form-control form-control-sm" style="font-size:.78rem;max-width:110px;">
+                <input type="text" name="last_name"  value="{{ m.last_name }}"
+                       class="form-control form-control-sm" style="font-size:.78rem;max-width:130px;">
+              </div>
+            </td>
+            <td class="text-muted" style="font-size:.72rem;">
+              {{ m.position.department if m.position else '—' }}
+            </td>
+            <td>
+              <select name="position_id" class="form-select form-select-sm" style="font-size:.74rem;max-width:180px;">
+                <option value="">—</option>
+                {% for p in positions %}
+                <option value="{{ p.id }}" {% if m.position_id == p.id %}selected{% endif %}>{{ p.title }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td>
+              <select name="company_id" class="form-select form-select-sm" style="font-size:.74rem;max-width:150px;">
+                <option value="">—</option>
+                {% for co in companies %}
+                <option value="{{ co.id }}" {% if m.company_id == co.id %}selected{% endif %}>{{ co.name }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td>
+              <input type="email" name="email" value="{{ m.email or '' }}"
+                     class="form-control form-control-sm" style="font-size:.74rem;max-width:200px;">
+            </td>
+            <td>
+              <input type="text" name="phone" value="{{ m.phone or '' }}"
+                     class="form-control form-control-sm" style="font-size:.74rem;max-width:130px;">
+            </td>
+            <td class="text-muted" style="font-size:.76rem;">
+              {{ '$%.0f' % m.rate_standard if m.rate_standard else '—' }}
+            </td>
+            <td style="white-space:nowrap;">
+              <button type="submit" class="btn btn-sm btn-adi" style="font-size:.72rem;padding:2px 8px;" title="Save row">💾</button>
+          </form>
+              <a href="{{ url_for('crew.edit', member_id=m.id) }}"
+                 class="btn btn-sm btn-link p-0" style="font-size:.7rem;" title="Full edit (rates, notes, etc.)">…more</a>
+            </td>
         </tr>
         {% endfor %}
       </tbody>

@@ -54,6 +54,8 @@ MIGRATIONS = [
     # show_open_slots is a new table → created by db.create_all().
     # 2026-06-30 — Phase A: importer can target a specific show
     ("crew_import_sessions",  "target_show_id",  "INTEGER REFERENCES shows(id)"),
+    # 2026-07-01 — Wishlist #3: manual crew roster ordering
+    ("crew_members",          "sort_order",         "INTEGER"),
     # 2026-06-30 — Phase B: per-crew-per-show travel detail
     ("show_crew_assignments", "hotel_name",         "VARCHAR(200)"),
     ("show_crew_assignments", "hotel_check_in",     "DATE"),

@@ -90,6 +90,10 @@ class CrewMember(db.Model):
     per_diem       = db.Column(db.Float)
     active         = db.Column(db.Boolean, default=True)
     notes          = db.Column(db.Text)
+    # Phase D wishlist: manual roster ordering — up/down arrows move a
+    # person around. NULL means "not manually ordered yet" and falls back
+    # to alphabetical by last_name in the view.
+    sort_order     = db.Column(db.Integer)
     company        = db.relationship("Company", back_populates="crew")
     position       = db.relationship("Position")
 
