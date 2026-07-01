@@ -157,7 +157,7 @@
     {% for act in day.activities[:4] %}
     <div class="d-flex gap-2 align-items-baseline mb-1" style="font-size:.82rem;">
       <span style="min-width:70px;font-weight:600;color:var(--adi-gold);">
-        {{ act.time or '—' }}
+        {{ act.time|to_12hr if act.time else '—' }}
       </span>
       <span>{{ act.description }}</span>
       {% if act.crew_rows %}

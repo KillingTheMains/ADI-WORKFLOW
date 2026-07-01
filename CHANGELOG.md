@@ -8,6 +8,21 @@ to **Deployed** with the date.
 
 ## Pending Deploy
 
+### Wishlist quick-fix batch
+- **Activity times now display 12-hour with AM/PM** everywhere — day
+  editor headers, schedule overview, OSS master view. Underlying
+  storage stays HH:MM 24hr (what `<input type="time">` submits), just
+  the display converts. New `to_12hr` Jinja filter.
+- **New activities auto-sort by time.** Adding a 5:30 AM activity to
+  a day that already has one at 8:00 AM now lands above it, not at
+  the bottom of the list. Editing an activity's time also re-sorts;
+  editing only the description leaves the order alone.
+- **OSS Master Schedule now includes F&B** (meal services + their
+  locations) alongside the other departments. Interleaved with
+  Dock/Doors/etc. by time, day-by-day. Fixes the "Daily OSS doesn't
+  populate the main overall schedule" report — F&B had disappeared
+  from that view after the Phase C migration.
+
 ### Phase C — F&B v2 (multi-location meal services)
 - OSS F&B tab rebuilt as a structured meal planner.
 - Three new models: `MealService` (per meal event on a show day, with

@@ -66,7 +66,7 @@
     <button class="nav-link {% if active_tab == 'master' %}active{% endif %}"
             data-bs-toggle="tab" data-bs-target="#tab-master" type="button">
       <span class="icon">📋</span>Master Schedule
-      {% if all_entries %}<span class="oss-pill ms-1">{{ all_entries|length }}</span>{% endif %}
+      {% if master_items %}<span class="oss-pill ms-1">{{ master_items|length }}</span>{% endif %}
     </button>
   </li>
   {% for t in ordered_types %}
@@ -100,12 +100,12 @@
     <div class="oss-section-help">
       All OSS entries across every department, grouped by show day and sorted by time.
     </div>
-    {% if all_entries %}
+    {% if master_items %}
     <table class="table table-sm oss-table">
       <thead>
         <tr>
-          <th style="width:60px;">Time</th>
-          <th style="width:120px;">Department</th>
+          <th style="width:70px;">Time</th>
+          <th style="width:130px;">Department</th>
           <th>Activity</th>
           <th style="width:70px;">Count</th>
           <th style="width:70px;">Hrs</th>
@@ -114,33 +114,24 @@
       </thead>
       <tbody>
         {% set ns = namespace(prev_day=None) %}
-        {% for e in all_entries %}
-          {% if e.schedule_day_id != ns.prev_day %}
+        {% for item in master_items %}
+          {% if item.day_id != ns.prev_day %}
           <tr class="oss-master-day-header">
             <td colspan="6">
-              {{ e.schedule_day.date.strftime('%A, %B %-d, %Y') }}
-              {% if e.schedule_day.label %} · {{ e.schedule_day.label }}{% endif %}
-              {% if e.schedule_day.phase %} · {{ e.schedule_day.phase }}{% endif %}
+              {{ item.day.date.strftime('%A, %B %-d, %Y') if item.day else 'No day' }}
+              {% if item.day and item.day.label %} · {{ item.day.label }}{% endif %}
+              {% if item.day and item.day.phase %} · {{ item.day.phase }}{% endif %}
             </td>
           </tr>
-          {% set ns.prev_day = e.schedule_day_id %}
+          {% set ns.prev_day = item.day_id %}
           {% endif %}
           <tr>
-            <td>
-              {{ e.effective_time or '—' }}
-              {% if e.is_linked %}<span title="Linked to a schedule activity — time follows the activity"
-                                        style="color:#C9A84C;font-size:.72rem;">🔗</span>{% endif %}
-            </td>
-            <td><span class="oss-pill">{{ e.meta.icon }} {{ e.meta.label }}</span></td>
-            <td>
-              {{ e.activity or '—' }}
-              {% if e.is_linked and e.linked_activity %}
-                <div style="font-size:.7rem;color:#888;">↳ {{ e.linked_activity.description }}</div>
-              {% endif %}
-            </td>
-            <td>{{ e.count if e.count is not none else '—' }}</td>
-            <td>{{ e.duration_hrs if e.duration_hrs is not none else '—' }}</td>
-            <td class="text-muted" style="font-size:.78rem;">{{ e.notes or '' }}</td>
+            <td>{{ item.time|to_12hr if item.time else '—' }}</td>
+            <td><span class="oss-pill">{{ item.icon }} {{ item.dept }}</span></td>
+            <td>{{ item.activity or '—' }}</td>
+            <td>{{ item.count if item.count is not none else '—' }}</td>
+            <td>{{ item.duration_hrs if item.duration_hrs is not none else '—' }}</td>
+            <td class="text-muted" style="font-size:.78rem;">{{ item.notes or '' }}</td>
           </tr>
         {% endfor %}
       </tbody>

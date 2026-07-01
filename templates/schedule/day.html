@@ -412,7 +412,7 @@
              style="border-bottom:1px solid var(--adi-border);background:#FAFAFA;">
           <span class="act-drag-handle" title="Drag to reorder">⠿</span>
           <span style="min-width:74px;font-weight:700;color:var(--adi-blue);font-size:.85rem;">
-            {{ act.time or '—' }}
+            {{ act.time|to_12hr if act.time else '—' }}
           </span>
           <span style="font-weight:600;font-size:.9rem;flex:1;">
             {{ act.description }}

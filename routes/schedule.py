@@ -584,16 +584,36 @@ def stamp_activity_to_phase(show_id, day_id, act_id):
 
 # ── Activities ───────────────────────────────────────────────────────────────
 
+def _resort_day_by_time(day_id):
+    """
+    Re-number sort_order on all activities in a day so they appear in
+    time order. Activities without a parseable time get pushed to the
+    bottom (their relative order among themselves is preserved).
+    """
+    acts = ScheduleActivity.query.filter_by(day_id=day_id).all()
+    def _key(a):
+        m = _parse_time_to_minutes(a.time)
+        # Timed activities first (0), untimed second (1). Ties broken by
+        # existing sort_order so manual reordering of untimed rows sticks.
+        return (0, m) if m is not None else (1, a.sort_order or 0)
+    acts.sort(key=_key)
+    for idx, a in enumerate(acts):
+        a.sort_order = idx * 10
+
+
 @schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/activities/add", methods=["POST"])
 def add_activity(show_id, day_id):
     day  = ScheduleDay.query.get_or_404(day_id)
     f    = request.form
+    # Insert with a temp sort_order at the end, then re-sort the whole day.
     last = db.session.query(db.func.max(ScheduleActivity.sort_order)).filter_by(day_id=day_id).scalar() or 0
     db.session.add(ScheduleActivity(
         day_id=day_id, time=f.get("time", ""),
         description=f.get("description", ""),
         notes=f.get("notes", ""), sort_order=last + 10,
     ))
+    db.session.flush()
+    _resort_day_by_time(day_id)
     db.session.commit()
     flash("Activity added.", "success")
     return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
@@ -604,9 +624,14 @@ def add_activity(show_id, day_id):
 def edit_activity(show_id, day_id, act_id):
     act = ScheduleActivity.query.get_or_404(act_id)
     f   = request.form
+    old_time = act.time
     act.time        = f.get("time", "")
     act.description = f.get("description", "")
     act.notes       = f.get("notes", "")
+    # Re-sort only when the time actually changed, so a description-only
+    # edit doesn't blow away any manual reordering the user did.
+    if (act.time or "") != (old_time or ""):
+        _resort_day_by_time(day_id)
     db.session.commit()
     return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
 

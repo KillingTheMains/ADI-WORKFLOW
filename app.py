@@ -34,6 +34,40 @@ def create_app():
     app.register_blueprint(oss_bp,          url_prefix="/shows")
     app.register_blueprint(crew_import_bp,  url_prefix="/crew")
 
+    # ── Jinja filters ─────────────────────────────────────────────────────────
+    @app.template_filter("to_12hr")
+    def to_12hr_filter(v):
+        """
+        Render a time string as 12-hour with AM/PM.
+        Accepts:
+          * 24hr 'HH:MM' or 'H:MM' from <input type="time"> (e.g. '06:00', '13:00')
+          * 12hr strings that already have AM/PM — passed through as-is
+          * anything else → returned unchanged
+        """
+        if v is None:
+            return ""
+        s = str(v).strip()
+        if not s:
+            return ""
+        # Already 12-hour? Trust it.
+        upper = s.upper()
+        if "AM" in upper or "PM" in upper:
+            return s
+        # Split HH:MM
+        parts = s.split(":")
+        if len(parts) < 2 or not parts[0].isdigit() or not parts[1][:2].isdigit():
+            return s
+        try:
+            h = int(parts[0])
+            m = int(parts[1][:2])
+        except ValueError:
+            return s
+        if not (0 <= h <= 23 and 0 <= m <= 59):
+            return s
+        ampm = "AM" if h < 12 else "PM"
+        display_h = h % 12 or 12
+        return f"{display_h}:{m:02d} {ampm}"
+
     # ── Context processors ────────────────────────────────────────────────────
     @app.context_processor
     def inject_globals():

@@ -114,6 +114,46 @@ def oss_hub(show_id):
     meals_by_day = {}
     for svc in meal_services:
         meals_by_day.setdefault(svc.schedule_day_id, []).append(svc)
+
+    # ── Build a unified "master view" list combining SubScheduleEntries
+    # (all non-F&B departments) + MealService/Location rows. Each item is a
+    # dict with the same shape so the template can iterate one list.
+    master_items = []
+    for e in all_entries:
+        master_items.append({
+            "day_id":   e.schedule_day_id,
+            "day":      e.schedule_day,
+            "sort_time": e.effective_time or "99:99",
+            "time":     e.effective_time or "",
+            "icon":     e.meta.get("icon", "•"),
+            "dept":     e.meta.get("label", e.type),
+            "activity": e.activity or "",
+            "count":    e.count,
+            "duration_hrs": e.duration_hrs,
+            "notes":    e.notes or "",
+        })
+    for svc in meal_services:
+        # A meal service without locations still shows as one row.
+        locs = svc.locations or [None]
+        for loc in locs:
+            master_items.append({
+                "day_id":   svc.schedule_day_id,
+                "day":      svc.schedule_day,
+                "sort_time": (loc.start_time if loc else svc.earliest_time) or "99:99",
+                "time":     (loc.start_time if loc else svc.earliest_time) or "",
+                "icon":     "🍽",
+                "dept":     "F&B",
+                "activity": svc.name + (f" · {loc.location_name}" if loc and loc.location_name else ""),
+                "count":    loc.headcount if loc else None,
+                "duration_hrs": None,
+                "notes":    (loc.notes if loc else None) or svc.notes or "",
+            })
+    # Sort by day date (None → last) then by time within each day.
+    from datetime import date as _date_cls
+    def _mi_sort(item):
+        d = item["day"].date if item["day"] else _date_cls.max
+        return (d, item["sort_time"])
+    master_items.sort(key=_mi_sort)
     dietary_notes = (ShowDietaryNote.query
                      .filter_by(show_id=show_id)
                      .order_by(ShowDietaryNote.sort_order, ShowDietaryNote.id)
@@ -182,6 +222,7 @@ def oss_hub(show_id):
         meals_by_day          = meals_by_day,
         dietary_notes         = dietary_notes,
         meal_kinds            = MEAL_KINDS,
+        master_items          = master_items,
     )
 
 
