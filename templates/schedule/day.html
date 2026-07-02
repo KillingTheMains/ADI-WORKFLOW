@@ -101,11 +101,20 @@
     <div class="card mb-3">
       <div class="card-header gold">Day Settings</div>
       <div class="card-body p-3">
-        <form method="POST" action="{{ url_for('schedule.edit_day', show_id=show.id, day_id=day.id) }}">
+        <form method="POST" action="{{ url_for('schedule.edit_day', show_id=show.id, day_id=day.id) }}"
+              id="day-settings-form"
+              data-original-date="{{ day.date.isoformat() if day.date else '' }}"
+              data-original-date-human="{{ day.date.strftime('%A, %B %-d, %Y') if day.date else 'this day' }}"
+              onsubmit="return confirmDayDateChange(this);">
           <div class="mb-2">
             <label class="form-label">Date</label>
             <input type="date" name="date" class="form-control form-control-sm"
                    value="{{ day.date.isoformat() }}" required>
+            <div class="form-text" style="font-size:.72rem;color:#B45309;">
+              ⚠ Changing this <em>renames</em> this day. To add a new day
+              for a different date, use <strong>+ Add Day</strong> on the
+              Schedule Overview.
+            </div>
           </div>
           <div class="mb-2">
             <label class="form-label">Phase</label>
@@ -1815,6 +1824,39 @@ async function confirmShiftModal() {
     console.error('addCompanyCrew error', err);
     if (btn) { btn.textContent = '⚠ Error'; btn.disabled = false; setTimeout(() => { btn.textContent = origText; }, 2000); }
   }
+}
+
+// Guardrail: warn when someone changes the Day Settings date field, because
+// that RENAMES the current day (and its activities/crew), it doesn't create
+// a new one. A user typing 9/10 when they meant "add a day for 9/10" would
+// otherwise silently overwrite their 9/9.
+function confirmDayDateChange(form) {
+  const original = form.dataset.originalDate || '';
+  const originalHuman = form.dataset.originalDateHuman || 'this day';
+  const dateInput = form.querySelector('input[name="date"]');
+  const newDate = dateInput ? dateInput.value : '';
+  if (!original || !newDate || newDate === original) {
+    return true;   // no date change → allow save
+  }
+  // Format new date to a friendlier readable form
+  let newHuman = newDate;
+  try {
+    const [y, m, d] = newDate.split('-').map(n => parseInt(n, 10));
+    const dt = new Date(y, m - 1, d);
+    newHuman = dt.toLocaleDateString(undefined,
+      { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  } catch (e) { /* fall back to ISO */ }
+  const msg =
+    'You are RENAMING this day from\n' +
+    '    ' + originalHuman + '\n' +
+    'to\n' +
+    '    ' + newHuman + '\n\n' +
+    'All activities and crew on this day will now show under ' + newHuman +
+    '. This does NOT create a new day.\n\n' +
+    'If you meant to ADD a new day, click Cancel here and use the ' +
+    '"+ Add Day" button on the Schedule Overview.\n\n' +
+    'Continue with the rename?';
+  return window.confirm(msg);
 }
 </script>
 {% endblock %}
