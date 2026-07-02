@@ -134,8 +134,25 @@ def _migrate_fb_entries_to_meal_services(session):
     session.commit()
 
 
+def _seed_position_prompter(session):
+    """Add 'Prompter' to the master Position list if it's not there yet."""
+    from models import Position
+    from sqlalchemy import func
+    existing = Position.query.filter(
+        func.lower(Position.title) == "prompter"
+    ).first()
+    if existing:
+        return
+    session.add(Position(
+        title="Prompter", department="Video", type="specialty",
+        union_eligible=False,
+    ))
+    session.commit()
+
+
 DATA_MIGRATIONS = [
     ("2026-06-30-fb-v2-migrate-entries", _migrate_fb_entries_to_meal_services),
+    ("2026-07-02-add-prompter-position", _seed_position_prompter),
 ]
 
 
