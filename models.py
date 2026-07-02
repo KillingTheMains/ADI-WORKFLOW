@@ -886,3 +886,51 @@ class ShowDietaryNote(db.Model):
 
     def __repr__(self):
         return f"<ShowDietaryNote {self.preference} show={self.show_id}>"
+
+
+
+# ── Undo/Redo audit log ──────────────────────────────────────────────────────
+#
+# Every INSERT / UPDATE / DELETE on a tracked model writes an entry here.
+# The full row state before + after each change is stored as JSON so an
+# undo can restore the exact prior value, and a redo can re-apply.
+#
+# Rows are grouped by `group_id` (one UUID per HTTP request) so a single
+# user action that cascades — e.g. deleting a ScheduleDay which cascades
+# to its Activities and CrewRows — can be undone as a unit.
+#
+# `undone=True` means the change has been reversed. Redo flips it back
+# to False.
+
+AUDIT_TRACKED_TABLES = [
+    "schedule_days",
+    "schedule_activities",
+    "crew_rows",
+    "show_crew_assignments",
+    "show_open_slots",
+    "sub_schedule_entries",
+    "meal_services",
+    "meal_service_locations",
+    "show_dietary_notes",
+    "shows",
+    "production_phases",
+]
+
+
+class AuditLog(db.Model):
+    __tablename__ = "audit_log"
+    id           = db.Column(db.Integer, primary_key=True)
+    group_id     = db.Column(db.String(36), index=True)   # UUID per request
+    timestamp    = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    table_name   = db.Column(db.String(80), nullable=False, index=True)
+    row_id       = db.Column(db.Integer, nullable=False)
+    action       = db.Column(db.String(10), nullable=False)   # insert / update / delete
+    before_json  = db.Column(db.Text)   # NULL for insert
+    after_json   = db.Column(db.Text)   # NULL for delete
+    undone       = db.Column(db.Boolean, default=False, index=True)
+    request_path = db.Column(db.String(200))
+    label        = db.Column(db.String(200))   # optional human-readable summary
+
+    def __repr__(self):
+        return (f"<AuditLog {self.action} {self.table_name}#{self.row_id} "
+                f"undone={self.undone}>")

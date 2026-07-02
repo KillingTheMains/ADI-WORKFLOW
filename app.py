@@ -9,6 +9,7 @@ from routes.crew         import crew_bp
 from routes.show_crew    import show_crew_bp
 from routes.oss          import oss_bp
 from routes.crew_import  import crew_import_bp
+from routes.audit_routes import audit_bp
 
 
 def create_app():
@@ -33,6 +34,12 @@ def create_app():
     app.register_blueprint(show_crew_bp,    url_prefix="/shows")
     app.register_blueprint(oss_bp,          url_prefix="/shows")
     app.register_blueprint(crew_import_bp,  url_prefix="/crew")
+    app.register_blueprint(audit_bp)
+
+    # Install SQLAlchemy audit listeners for undo/redo. Must happen after
+    # models is imported (which db.init_app already triggered).
+    from audit import install_audit_listeners
+    install_audit_listeners(app)
 
     # ── Jinja filters ─────────────────────────────────────────────────────────
     @app.template_filter("to_12hr")

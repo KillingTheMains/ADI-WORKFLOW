@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Recent Activity — Undo / Redo{% endblock %}
+{% block page_title %}Recent Activity — Undo &amp; Redo{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> / Recent Activity
+{% endblock %}
+
+{% block content %}
+
+<div class="card mb-3 p-3" style="background:#FFF8EC;border:1px solid #E8DCA8;">
+  <div style="font-size:.85rem;">
+    <strong>Undo / redo any recent change.</strong> Each item below is one
+    user action. Click <strong>↶ Undo</strong> to reverse it, or
+    <strong>↷ Redo</strong> to re-apply. Nested changes from a single click
+    (like deleting a day, which cascades to its activities and crew) are
+    grouped and can be undone together.
+  </div>
+</div>
+
+{% if not groups %}
+<div class="card p-4 text-center text-muted">
+  Nothing yet. Once you edit something, changes will show up here.
+</div>
+{% else %}
+
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0" style="font-size:.85rem;">
+      <thead style="background:#fafafa;">
+        <tr>
+          <th style="width:130px;">When</th>
+          <th>What changed</th>
+          <th style="width:150px;">Page</th>
+          <th style="width:180px;text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for g in groups %}
+        <tr style="{% if g.all_undone %}background:#F3F4F6;{% endif %}">
+          <td style="font-size:.78rem;color:#555;white-space:nowrap;">
+            {{ g.timestamp.strftime('%b %-d, %-I:%M %p') if g.timestamp else '—' }}
+          </td>
+          <td>
+            <div>
+              {% for e in g.entries[:3] %}
+              <div style="{% if e.undone %}text-decoration:line-through;color:#999;{% endif %}">
+                <span class="badge"
+                      style="background:{% if e.action == 'insert' %}#16A34A{% elif e.action == 'update' %}#2563EB{% else %}#DC2626{% endif %};
+                             color:#fff;font-size:.62rem;">{{ e.action }}</span>
+                {{ e.label or e.table_name }}
+              </div>
+              {% endfor %}
+              {% if g.entries|length > 3 %}
+              <div class="text-muted" style="font-size:.72rem;">
+                … and {{ g.entries|length - 3 }} more
+              </div>
+              {% endif %}
+            </div>
+          </td>
+          <td class="text-muted" style="font-size:.72rem;font-family:monospace;">
+            {{ g.path or '—' }}
+          </td>
+          <td style="text-align:right;white-space:nowrap;">
+            {% if g.group_id %}
+              {% if not g.all_undone %}
+              <form method="POST" style="display:inline;"
+                    action="{{ url_for('audit.undo_grp', group_id=g.group_id) }}"
+                    onsubmit="return confirm('Undo all {{ g.entries|length }} change(s) in this action?');">
+                <button type="submit" class="btn btn-sm btn-outline-warning">↶ Undo</button>
+              </form>
+              {% endif %}
+              {% if g.any_undone %}
+              <form method="POST" style="display:inline;"
+                    action="{{ url_for('audit.redo_grp', group_id=g.group_id) }}">
+                <button type="submit" class="btn btn-sm btn-outline-success">↷ Redo</button>
+              </form>
+              {% endif %}
+            {% else %}
+              {% for e in g.entries %}
+                {% if not e.undone %}
+                <form method="POST" style="display:inline;"
+                      action="{{ url_for('audit.undo_one', entry_id=e.id) }}">
+                  <button type="submit" class="btn btn-sm btn-outline-warning">↶ Undo</button>
+                </form>
+                {% else %}
+                <form method="POST" style="display:inline;"
+                      action="{{ url_for('audit.redo_one', entry_id=e.id) }}">
+                  <button type="submit" class="btn btn-sm btn-outline-success">↷ Redo</button>
+                </form>
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endif %}
+
+{% endblock %}

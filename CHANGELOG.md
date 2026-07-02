@@ -17,6 +17,37 @@ to **Deployed** with the date.
   that matches an existing master Position now auto-sets position_id
   so hours reports pick it up.
 
+### Undo / Redo for every schedule + OSS change
+- New `audit_log` table (auto-created) captures the before-and-after
+  state of every INSERT / UPDATE / DELETE on schedule days, activities,
+  crew rows, show crew assignments, open slots, OSS entries, meal
+  services and locations, dietary notes, shows, and production phases.
+- All changes made in a single HTTP request share a group_id, so a
+  cascading operation (delete a day → its activities → their crew
+  rows) is one undoable unit.
+- New sidebar link **↶ Recent Activity** shows the last 100 changes,
+  each with a ↶ Undo or ↷ Redo button. Undoing a delete recreates
+  the row (with its original id). Undoing an update restores the
+  prior column values. Undoing an insert removes the row.
+- The undo order is dependency-aware — a parent (ScheduleDay) is
+  recreated before its children (ScheduleActivity → CrewRow) so FKs
+  resolve.
+- Won't catch every possible edit — CrewMember, Position, Company,
+  and a few small tables aren't tracked yet since they're low-blast-
+  radius. Easy to add later; the tracked list is a single constant.
+
+### Safeguard: confirm before renaming a schedule day
+- Reported bug: on the day editor, typing a new date into the Day
+  Settings field and clicking Save was intended as "add a day for that
+  date" but the app correctly interpreted it as "rename this day."
+  All the activities and crew on the old day silently moved to the new
+  date, which felt like data loss.
+- Fix: Day Settings now shows a warning line under the Date field, and
+  on Save, if the date changed, a confirm() dialog spells out exactly
+  what the change will do (old date → new date) and points the user to
+  "+ Add Day" if they meant to create a new day. No confirmation
+  appears on other Day Settings edits (phase, milestones, notes, etc.).
+
 ### Duplicate Show button
 - New **📋 Duplicate** button on the show detail page. Modal collects:
   * New show name (default: "Copy of X")
