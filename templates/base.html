@@ -58,6 +58,11 @@
        title="Undo/redo recent changes">
       <span class="nav-icon">↶</span> Recent Activity
     </a>
+    <a href="{{ url_for('requests_bp.index') }}"
+       class="{% if request.endpoint and request.endpoint.startswith('requests_bp.') %}active{% endif %}"
+       title="Feature requests, bugs, and questions">
+      <span class="nav-icon">📋</span> Requests
+    </a>
 
     <div class="nav-section">Shows</div>
     <a href="{{ url_for('shows.index') }}"

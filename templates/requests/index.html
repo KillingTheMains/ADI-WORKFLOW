@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+{% block title %}Requests — ADI Workflow{% endblock %}
+{% block page_title %}Requests{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> / Requests
+{% endblock %}
+
+{% block content %}
+
+<style>
+  /* ── Priority badges ────────────────────────────────────────────────── */
+  .prio-badge { display:inline-block; font-weight:600; font-size:.72rem;
+                padding:2px 7px; border-radius:10px; letter-spacing:.03em; }
+  .prio-P0 { background:#FEE2E2; color:#991B1B; border:1px solid #FCA5A5; }
+  .prio-P1 { background:#FEF3C7; color:#92400E; border:1px solid #FCD34D; }
+  .prio-P2 { background:#DBEAFE; color:#1E40AF; border:1px solid #93C5FD; }
+  .prio-P3 { background:#E5E7EB; color:#374151; border:1px solid #D1D5DB; }
+
+  /* ── Status badges ──────────────────────────────────────────────────── */
+  .status-badge { display:inline-block; font-weight:600; font-size:.72rem;
+                  padding:2px 8px; border-radius:10px; letter-spacing:.02em; }
+  .status-requested     { background:#FEF3C7; color:#92400E; border:1px solid #FDE68A; }
+  .status-in_progress   { background:#DBEAFE; color:#1E40AF; border:1px solid #93C5FD; }
+  .status-ready_to_test { background:#EDE9FE; color:#5B21B6; border:1px solid #C4B5FD; }
+  .status-deployed      { background:#D1FAE5; color:#065F46; border:1px solid #6EE7B7; }
+  .status-deferred      { background:#F3F4F6; color:#6B7280; border:1px solid #D1D5DB; }
+
+  /* ── Category chips ─────────────────────────────────────────────────── */
+  .cat-chip { display:inline-block; font-size:.7rem; padding:1px 6px;
+              border-radius:8px; background:#F5F5F5; color:#555;
+              border:1px solid #E5E5E5; }
+  .cat-bug      { background:#FEE2E2; color:#991B1B; border-color:#FECACA; }
+  .cat-feature  { background:#DBEAFE; color:#1E40AF; border-color:#BFDBFE; }
+  .cat-ux       { background:#FCE7F3; color:#831843; border-color:#F9A8D4; }
+  .cat-question { background:#FEF9C3; color:#713F12; border-color:#FEF08A; }
+
+  /* ── Filter bar ─────────────────────────────────────────────────────── */
+  .filter-bar { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center;
+                margin-bottom:1rem; padding:.75rem; background:#FAFAFA;
+                border:1px solid #E5E5E5; border-radius:6px; }
+  .filter-bar select, .filter-bar input {
+      padding:4px 8px; font-size:.85rem; border:1px solid #CCC; border-radius:4px;
+  }
+  .status-pill { padding:4px 10px; background:#fff; border:1px solid #DDD;
+                 border-radius:16px; font-size:.78rem; text-decoration:none;
+                 color:#333; }
+  .status-pill:hover { background:#EEF2FF; }
+  .status-pill.active { background:#1E40AF; color:#fff; border-color:#1E40AF; }
+
+  /* ── Table ──────────────────────────────────────────────────────────── */
+  .req-table { width:100%; border-collapse:collapse; font-size:.85rem; }
+  .req-table thead th { background:#FAFAFA; border-bottom:2px solid #E5E5E5;
+                        padding:8px 6px; text-align:left; font-weight:600;
+                        color:#555; font-size:.78rem; text-transform:uppercase;
+                        letter-spacing:.04em; }
+  .req-table tbody td { border-bottom:1px solid #F0F0F0; padding:8px 6px;
+                        vertical-align:top; }
+  .req-table tbody tr:hover { background:#FAFBFF; }
+  .req-table input[type="text"], .req-table textarea, .req-table select {
+      border:1px solid transparent; background:transparent;
+      padding:2px 4px; font-size:.85rem; width:100%; border-radius:3px;
+      resize:vertical;
+  }
+  .req-table input[type="text"]:hover, .req-table textarea:hover,
+  .req-table select:hover { border-color:#DDD; background:#fff; }
+  .req-table input[type="text"]:focus, .req-table textarea:focus,
+  .req-table select:focus { border-color:#3B82F6; background:#fff; outline:none; }
+
+  .drag-handle { cursor:grab; color:#BBB; font-size:1.1rem; user-select:none;
+                 padding:0 4px; }
+  .drag-handle:hover { color:#666; }
+
+  .req-title { font-weight:600; color:#111; }
+  .req-desc  { color:#666; font-size:.78rem; margin-top:2px; }
+
+  .add-form { display:grid;
+              grid-template-columns: 2fr 100px 90px 110px 130px 90px;
+              gap:.4rem; align-items:end; margin-bottom:1rem;
+              padding:.75rem; background:#F0FDF4; border:1px solid #BBF7D0;
+              border-radius:6px; }
+  .add-form label { font-size:.7rem; color:#555; text-transform:uppercase;
+                    letter-spacing:.04em; margin-bottom:2px; display:block; }
+  .add-form input, .add-form select {
+      width:100%; padding:5px 8px; font-size:.85rem;
+      border:1px solid #CCC; border-radius:4px;
+  }
+  .add-form button { padding:6px 12px; background:#059669; color:#fff;
+                     border:none; border-radius:4px; font-weight:600;
+                     cursor:pointer; }
+  .add-form button:hover { background:#047857; }
+
+  .btn-mini { padding:2px 8px; font-size:.72rem; border:1px solid #CCC;
+              background:#fff; border-radius:3px; cursor:pointer;
+              color:#333; text-decoration:none; }
+  .btn-mini:hover { background:#F5F5F5; }
+  .btn-mini.danger { color:#991B1B; border-color:#FCA5A5; }
+  .btn-mini.danger:hover { background:#FEE2E2; }
+</style>
+
+<!-- ── Filter / status pills ────────────────────────────────────────────── -->
+<div class="filter-bar">
+  <a href="{{ url_for('requests_bp.index') }}"
+     class="status-pill {% if not filters.status %}active{% endif %}">
+    All ({{ counts.values() | sum }})
+  </a>
+  {% for s in statuses %}
+    <a href="{{ url_for('requests_bp.index', status=s) }}"
+       class="status-pill {% if filters.status == s %}active{% endif %}">
+      {{ status_labels[s] }} ({{ counts[s] }})
+    </a>
+  {% endfor %}
+
+  <div style="flex:1;"></div>
+
+  <form method="get" action="{{ url_for('requests_bp.index') }}"
+        style="display:flex; gap:.4rem; align-items:center;">
+    <input type="hidden" name="status" value="{{ filters.status }}">
+    <select name="priority" onchange="this.form.submit()">
+      <option value="">All priorities</option>
+      {% for p in priorities %}
+      <option value="{{ p }}" {% if filters.priority == p %}selected{% endif %}>{{ p }}</option>
+      {% endfor %}
+    </select>
+    <select name="category" onchange="this.form.submit()">
+      <option value="">All categories</option>
+      {% for c in categories %}
+      <option value="{{ c }}" {% if filters.category == c %}selected{% endif %}>{{ c|capitalize }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="by" placeholder="Requested by…"
+           value="{{ filters.by }}" style="width:140px;">
+    <button type="submit" class="btn-mini">Filter</button>
+    {% if filters.priority or filters.category or filters.by %}
+    <a href="{{ url_for('requests_bp.index', status=filters.status) }}"
+       class="btn-mini">Clear</a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- ── Quick-add form ────────────────────────────────────────────────────── -->
+<form class="add-form" method="post" action="{{ url_for('requests_bp.add') }}">
+  <div>
+    <label>Title *</label>
+    <input type="text" name="title" required
+           placeholder="Short summary of the request or bug…">
+  </div>
+  <div>
+    <label>Category</label>
+    <select name="category">
+      <option value="feature" selected>Feature</option>
+      <option value="bug">Bug</option>
+      <option value="ux">UX</option>
+      <option value="question">Question</option>
+    </select>
+  </div>
+  <div>
+    <label>Priority</label>
+    <select name="priority">
+      <option value="P2" selected>P2</option>
+      <option value="P0">P0 (blocker)</option>
+      <option value="P1">P1 (soon)</option>
+      <option value="P3">P3 (backlog)</option>
+    </select>
+  </div>
+  <div>
+    <label>Status</label>
+    <select name="status">
+      <option value="requested" selected>Requested</option>
+      <option value="in_progress">In Progress</option>
+      <option value="ready_to_test">Ready to Test</option>
+      <option value="deployed">Deployed</option>
+      <option value="deferred">Deferred</option>
+    </select>
+  </div>
+  <div>
+    <label>Requested by</label>
+    <input type="text" name="requested_by" placeholder="Larry, Jason…">
+  </div>
+  <div>
+    <button type="submit">+ Add</button>
+  </div>
+</form>
+
+<!-- ── Requests table ────────────────────────────────────────────────────── -->
+{% if not requests_list %}
+<div class="card p-4 text-center text-muted">
+  {% if filters.status or filters.priority or filters.category or filters.by %}
+    No requests match those filters.
+    <a href="{{ url_for('requests_bp.index') }}">Clear filters</a>.
+  {% else %}
+    No requests yet. Add your first one using the form above.
+  {% endif %}
+</div>
+{% else %}
+<div class="card p-0" style="overflow:hidden;">
+<table class="req-table">
+  <thead>
+    <tr>
+      <th style="width:24px;"></th>
+      <th style="width:36%;">Title</th>
+      <th style="width:80px;">Cat</th>
+      <th style="width:70px;">Prio</th>
+      <th style="width:130px;">Status</th>
+      <th style="width:110px;">By</th>
+      <th>Notes</th>
+      <th style="width:75px;">Updated</th>
+      <th style="width:60px;"></th>
+    </tr>
+  </thead>
+  <tbody id="req-tbody">
+    {% for r in requests_list %}
+    <tr data-req-id="{{ r.id }}">
+      <td><span class="drag-handle" title="Drag to reorder">☰</span></td>
+
+      <td>
+        <form data-autosave="true" method="post"
+              action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
+          <input type="text" name="title" value="{{ r.title }}"
+                 class="req-title-input" style="font-weight:600;">
+          <textarea name="description" rows="1" placeholder="Add description…"
+                    style="font-size:.78rem;color:#666;margin-top:2px;"
+          >{{ r.description or "" }}</textarea>
+        </form>
+      </td>
+
+      <td>
+        <form data-autosave="true" method="post"
+              action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
+          <select name="category" class="cat-select">
+            {% for c in categories %}
+            <option value="{{ c }}" {% if r.category == c %}selected{% endif %}>
+              {{ c|capitalize }}
+            </option>
+            {% endfor %}
+          </select>
+        </form>
+      </td>
+
+      <td>
+        <form data-autosave="true" method="post"
+              action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
+          <select name="priority">
+            {% for p in priorities %}
+            <option value="{{ p }}" {% if r.priority == p %}selected{% endif %}>
+              {{ p }}
+            </option>
+            {% endfor %}
+          </select>
+        </form>
+      </td>
+
+      <td>
+        <form data-autosave="true" method="post"
+              action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
+          <select name="status">
+            {% for s in statuses %}
+            <option value="{{ s }}" {% if r.status == s %}selected{% endif %}>
+              {{ status_labels[s] }}
+            </option>
+            {% endfor %}
+          </select>
+        </form>
+      </td>
+
+      <td>
+        <form data-autosave="true" method="post"
+              action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
+          <input type="text" name="requested_by"
+                 value="{{ r.requested_by or '' }}"
+                 placeholder="—" style="font-size:.78rem;">
+        </form>
+      </td>
+
+      <td>
+        <form data-autosave="true" method="post"
+              action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
+          <textarea name="notes" rows="1" placeholder="Add notes…"
+                    style="font-size:.78rem;">{{ r.notes or "" }}</textarea>
+        </form>
+      </td>
+
+      <td style="font-size:.72rem; color:#888; white-space:nowrap;">
+        {{ r.updated_at.strftime("%m/%d") if r.updated_at else "" }}
+      </td>
+
+      <td style="text-align:right;">
+        <form method="post"
+              action="{{ url_for('requests_bp.delete', req_id=r.id) }}"
+              onsubmit="return confirm('Delete this request? (You can undo from Recent Activity.)');"
+              style="display:inline;">
+          <button type="submit" class="btn-mini danger" title="Delete">✕</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+
+<div style="margin-top:1rem; padding:.75rem; background:#F9FAFB;
+            border:1px solid #E5E5E5; border-radius:6px;
+            font-size:.78rem; color:#666;">
+  <strong>Tips:</strong> Click any field to edit — autosaves as you type.
+  Drag the ☰ handle to reorder within a status. Deleted a row by mistake?
+  <a href="{{ url_for('audit.recent') }}">Undo it from Recent Activity</a>.
+</div>
+
+<!-- ── Drag-to-reorder (SortableJS) ──────────────────────────────────────── -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+  (function () {
+    const tbody = document.getElementById("req-tbody");
+    if (!tbody) return;
+    new Sortable(tbody, {
+      handle: ".drag-handle",
+      animation: 150,
+      onEnd: async function () {
+        const ids = Array.from(tbody.querySelectorAll("tr[data-req-id]"))
+                         .map(tr => tr.dataset.reqId);
+        try {
+          await fetch("{{ url_for('requests_bp.reorder') }}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json",
+                       "X-Requested-With": "XMLHttpRequest" },
+            body: JSON.stringify({ ids })
+          });
+        } catch (e) { console.warn("reorder failed", e); }
+      }
+    });
+  })();
+</script>
+
+{% endblock %}

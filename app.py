@@ -10,6 +10,7 @@ from routes.show_crew    import show_crew_bp
 from routes.oss          import oss_bp
 from routes.crew_import  import crew_import_bp
 from routes.audit_routes import audit_bp
+from routes.requests_routes import requests_bp
 
 
 def create_app():
@@ -35,6 +36,7 @@ def create_app():
     app.register_blueprint(oss_bp,          url_prefix="/shows")
     app.register_blueprint(crew_import_bp,  url_prefix="/crew")
     app.register_blueprint(audit_bp)
+    app.register_blueprint(requests_bp)
 
     # Install SQLAlchemy audit listeners for undo/redo. Must happen after
     # models is imported (which db.init_app already triggered).
@@ -102,6 +104,7 @@ def create_app():
             app.logger.error(f"Migration failure on startup: {e}")
         _seed_positions()
         _seed_day_templates()
+        _seed_requests_board()
 
     return app
 
@@ -248,6 +251,136 @@ def _seed_day_templates():
             activities_json=json.dumps(activities),
         )
         db.session.add(t)
+    db.session.commit()
+
+
+def _seed_requests_board():
+    """
+    On first startup after the Requests board ships, populate it with the
+    recent work items (marked Deployed) so Jason and Larry see history
+    instead of an empty board. Idempotent: skips if the table already has
+    entries, so re-runs (or manual additions) don't duplicate.
+    """
+    from models import Request as ReqModel
+    if ReqModel.query.first():
+        return
+
+    from datetime import datetime
+    now = datetime.utcnow()
+
+    # (title, description, category, priority, requested_by, notes)
+    # All will be marked status="deployed", deployed_at=now.
+    seed = [
+        # ── Recent — post-9/9 recovery batch ─────────────────────────────
+        ("Undo/Redo audit log for all data changes",
+         "SQLAlchemy event listeners capture insert/update/delete on 11 tables. "
+         "Every user action is grouped by request UUID and can be undone or "
+         "redone from the Recent Activity page. Answers Larry's 9/9 data-loss "
+         "concern.",
+         "feature", "P0", "Larry", "Layer 3 of the safety plan. Deployed 6/30."),
+
+        ("Prompter position added to master roster",
+         "Added a first-class Prompter position under Video department so it "
+         "appears in the position dropdown everywhere.",
+         "feature", "P2", "Larry", "Chunk 1."),
+
+        ("Contact sheet prints blank — Chrome PDF fix",
+         "Chrome's Print to PDF strips colored backgrounds by default. Added "
+         "-webkit-print-color-adjust: exact + print-color-adjust: exact so the "
+         "contact sheet renders correctly to PDF.",
+         "bug", "P1", "Larry", "Chunk 1."),
+
+        ("Auto-save booking and travel fields (350ms debounce)",
+         "Any form with data-autosave=\"true\" now saves in the background as "
+         "you edit — no more manual Save buttons on the booking + travel pages.",
+         "ux", "P1", "Larry", "Chunk 2."),
+
+        ("Travel page: sort by vendor + XLSX export + PDF export",
+         "Sort dropdown, contact sheet Excel export, travel Excel export, and "
+         "landscape travel PDF (WeasyPrint) with 13-column layout.",
+         "feature", "P1", "Larry", "Chunk 3."),
+
+        ("Inline + New Position modal from the roster dropdown",
+         "\"+ New position…\" sentinel option in the position dropdown pops a "
+         "modal to create a Position on the fly without leaving the row.",
+         "feature", "P2", "Larry", "Chunk 4."),
+
+        # ── Wishlist batch ───────────────────────────────────────────────
+        ("Actual hours column next to Estimated hours on crew rows",
+         "Both Est and Actual show side by side in the day editor crew table "
+         "so the day-of numbers can be captured against the plan.",
+         "feature", "P2", "Larry", "Wishlist item."),
+
+        ("Duplicate Show button",
+         "Deep-copies a show's Schedule Days, Activities, and Crew Rows into "
+         "a new show. Wipes crew_member_id so the new show doesn't inherit "
+         "specific assignments.",
+         "feature", "P2", "Larry", "Wishlist item."),
+
+        ("Crew roster: drag-to-reorder + inline edit",
+         "Replaced up/down arrows with SortableJS drag handles. All roster "
+         "fields (name, phone, email, position, company) are inline-editable.",
+         "ux", "P2", "Larry", "Wishlist item #3."),
+
+        ("Show crew Booking Sheet: drag-to-reorder",
+         "Applied the same drag-and-drop pattern to the per-show booking sheet.",
+         "ux", "P2", "Larry", "Wishlist item."),
+
+        ("Edit CrewRow inline within an activity",
+         "Row-level edits inside a schedule activity save inline instead of "
+         "requiring a modal.",
+         "ux", "P2", "Larry", "Wishlist item #7."),
+
+        ("Date-change confirmation on Day Settings",
+         "Changing a day's date now prompts for confirmation, since it can "
+         "cascade into scheduling conflicts.",
+         "ux", "P2", "Larry", "Wishlist item."),
+
+        # ── Bigger recent features ───────────────────────────────────────
+        ("Phase A: Crew Booking sheet (per-show)",
+         "New per-show Booking page: track offer/booked status, contract sent, "
+         "notes, and TBD open slots that can be filled in later. Includes "
+         "bulk File 1 importer.",
+         "feature", "P1", "Larry", "Phase A."),
+
+        ("Phase B: Travel page (per-show)",
+         "Hotel + flight fields on ShowCrewAssignment. Per-show Travel page "
+         "with sortable columns and File 2 travel-column importer.",
+         "feature", "P1", "Larry", "Phase B."),
+
+        ("Phase C: F&B v2 — multi-location meal services",
+         "MealService + MealServiceLocation + ShowDietaryNote models. Existing "
+         "F&B SubScheduleEntries data-migrated into the new structure.",
+         "feature", "P1", "Larry", "Phase C."),
+
+        ("Crew XLSX bulk importer",
+         "Upload File 1 (booking) or File 2 (travel) as .xlsx, preview matched "
+         "rows, confirm to commit. Handles fuzzy name matching + position "
+         "resolution.",
+         "feature", "P1", "Larry", "Deployed with Phase A."),
+
+        # ── The move we just made ────────────────────────────────────────
+        ("Requests board (this page)",
+         "Replaces the \"ADI Build Notes\" Google Doc with a structured, "
+         "inline-editable, filterable requests board. Every change is "
+         "audit-tracked so mistakes are undoable from Recent Activity.",
+         "feature", "P1", "Jason",
+         "Categories: Bug / Feature / UX / Question. Priorities: P0 / P1 / "
+         "P2 / P3. Statuses: Requested → In Progress → Ready to Test → "
+         "Deployed → Deferred. Sort_order supports drag-to-reorder within "
+         "a status."),
+    ]
+
+    for i, (title, desc, cat, prio, by, notes) in enumerate(seed):
+        r = ReqModel(
+            title=title, description=desc,
+            category=cat, priority=prio,
+            status="deployed",
+            requested_by=by, notes=notes,
+            sort_order=i,
+            deployed_at=now,
+        )
+        db.session.add(r)
     db.session.commit()
 
 

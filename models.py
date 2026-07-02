@@ -914,6 +914,7 @@ AUDIT_TRACKED_TABLES = [
     "show_dietary_notes",
     "shows",
     "production_phases",
+    "requests",
 ]
 
 
@@ -934,3 +935,44 @@ class AuditLog(db.Model):
     def __repr__(self):
         return (f"<AuditLog {self.action} {self.table_name}#{self.row_id} "
                 f"undone={self.undone}>")
+
+
+
+# ── Feature / bug request board ──────────────────────────────────────────────
+#
+# Replaces the "ADI Build Notes" Google Doc so Jason and Larry can track
+# feature requests, bug reports, and their status from inside the app.
+
+REQUEST_PRIORITIES = ["P0", "P1", "P2", "P3"]
+REQUEST_STATUSES   = ["requested", "in_progress", "ready_to_test",
+                      "deployed", "deferred"]
+REQUEST_CATEGORIES = ["bug", "feature", "ux", "question"]
+
+REQUEST_STATUS_LABELS = {
+    "requested":     "Requested",
+    "in_progress":   "In Progress",
+    "ready_to_test": "Ready to Test",
+    "deployed":      "Deployed",
+    "deferred":      "Deferred",
+}
+
+
+class Request(db.Model):
+    __tablename__ = "requests"
+    id            = db.Column(db.Integer, primary_key=True)
+    title         = db.Column(db.String(300), nullable=False)
+    description   = db.Column(db.Text)
+    category      = db.Column(db.String(20), default="feature")   # bug/feature/ux/question
+    priority      = db.Column(db.String(5),  default="P2")        # P0/P1/P2/P3
+    status        = db.Column(db.String(20), default="requested")
+    requested_by  = db.Column(db.String(80))                      # freetext (Larry / Jason / ...)
+    notes         = db.Column(db.Text)                            # ongoing comments
+    commit_ref    = db.Column(db.String(50))                      # optional commit sha
+    sort_order    = db.Column(db.Integer, default=0)
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at    = db.Column(db.DateTime, default=datetime.utcnow,
+                              onupdate=datetime.utcnow)
+    deployed_at   = db.Column(db.DateTime)
+
+    def __repr__(self):
+        return f"<Request #{self.id} {self.status} '{self.title[:40]}'>"

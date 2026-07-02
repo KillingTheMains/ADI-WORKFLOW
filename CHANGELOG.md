@@ -8,6 +8,31 @@ to **Deployed** with the date.
 
 ## Pending Deploy
 
+### Requests board — replaces the "ADI Build Notes" Google Doc
+- New sidebar link 📋 **Requests** opens an inline-editable, filterable
+  board for feature requests, bugs, UX suggestions, and questions.
+- Fields per request: Title + Description, Category (Bug / Feature / UX /
+  Question), Priority (P0 / P1 / P2 / P3), Status (Requested → In Progress
+  → Ready to Test → Deployed → Deferred), Requested by, Notes, Commit ref.
+- Colored badges for priority + status. Colored chips for category.
+  Status pills at top of the page act as filters + show live counts.
+- Inline autosave (350 ms debounce) on every field — no Save button.
+- Drag-to-reorder (SortableJS) inside a status.
+- Every change is captured by the audit log → undo/redo works from the
+  Recent Activity page (a delete is fully recoverable).
+- Auto-stamps `deployed_at` when a request enters "deployed".
+- First-run seed: 17 recent completed items (undo/redo audit log,
+  Prompter, contact-sheet PDF fix, autosave, travel exports, position
+  modal, Phase A/B/C, importer, drag-reorder, actual-hours column,
+  Duplicate Show button, etc.) all marked Deployed so the board shows
+  history from day one.
+- Model: new `requests` table, added to `AUDIT_TRACKED_TABLES`.
+- Routes: `routes/requests_routes.py` (blueprint `requests_bp`) with
+  `/requests`, `/requests/add`, `/requests/<id>/edit` (autosave-friendly
+  XHR + field-present semantics), `/requests/<id>/status`,
+  `/requests/<id>/delete`, and `/requests/reorder`.
+- Template: `templates/requests/index.html`.
+
 ### Day editor: inline edit for crew rows within an activity
 - The crew table under each activity is now inline-editable per row.
 - Editable fields: Qty, Hours, Position (with autocomplete from the
