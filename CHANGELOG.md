@@ -17,6 +17,34 @@ to **Deployed** with the date.
   that matches an existing master Position now auto-sets position_id
   so hours reports pick it up.
 
+### Larry's Wednesday requests (5 items in 4 chunks)
+- **Prompter added to Position master list** (Video / specialty).
+  Seeded via a data migration so it lands on both local + live DBs.
+- **Contact Sheet no longer prints blank.** Root cause: Chrome's
+  "Print → Save as PDF" hides colored backgrounds by default, so the
+  dark company header rendered as white-on-white. Fix: forced
+  `print-color-adjust: exact` on every element.
+- **Auto-save everywhere on Booking Sheet + Travel page.** Any change
+  to a date, hotel field, flight field, or note fires a debounced
+  fetch to the existing edit endpoint. A small ✓ saved indicator
+  flashes on success. No more clicking Save per row.
+- **Travel sort by vendor** (plus Check-in / Name / Position) via
+  a dropdown at the top of the Travel page. The XLSX + PDF exports
+  respect the current sort.
+- **Excel + PDF exports for Travel; Excel export for Contact Sheet.**
+  📊 XLSX buttons use openpyxl with formatted headers and column widths.
+  📄 PDF uses WeasyPrint server-side for a deterministic layout,
+  landscape letter. If WeasyPrint's native libs aren't installed
+  (dev macs without Pango) the PDF route gracefully falls back to
+  the on-screen page with a flash suggesting Print → Save as PDF.
+- **+ New Position inline from the crew roster.** Every Position
+  dropdown on the roster now has a `+ New position…` option at the
+  bottom. Picking it opens a small modal (Title, Department, Type,
+  Union-eligible), saves via a JSON endpoint, then splices the new
+  option into every position dropdown on the page and preselects
+  it in the one that triggered the modal. Case-insensitive
+  duplicate detection so you don't get two "A1" entries.
+
 ### Undo / Redo for every schedule + OSS change
 - New `audit_log` table (auto-created) captures the before-and-after
   state of every INSERT / UPDATE / DELETE on schedule days, activities,

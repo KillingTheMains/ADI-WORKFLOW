@@ -94,6 +94,43 @@ def reorder():
     return {"ok": True, "count": len(order)}
 
 
+@crew_bp.route("/positions/create", methods=["POST"])
+def positions_create():
+    """Create a new Position on the fly from the roster's inline modal.
+    Returns JSON so the modal JS can slot the new option into the
+    dropdown that opened it and preselect it."""
+    from flask import jsonify
+    f = request.form
+    title = (f.get("title") or "").strip()
+    if not title:
+        return jsonify(ok=False, error="Title is required"), 400
+    if len(title) > 100:
+        title = title[:100]
+
+    # Duplicate detection (case-insensitive)
+    existing = Position.query.filter(
+        db.func.lower(Position.title) == title.lower()
+    ).first()
+    if existing:
+        return jsonify(ok=True, id=existing.id, title=existing.title,
+                       department=existing.department, duplicate=True)
+
+    dept = (f.get("department") or "").strip() or None
+    typ  = (f.get("type") or "").strip() or None
+    union = f.get("union_eligible") == "1"
+
+    p = Position(
+        title=title,
+        department=dept,
+        type=typ,
+        union_eligible=union,
+    )
+    db.session.add(p)
+    db.session.commit()
+    return jsonify(ok=True, id=p.id, title=p.title,
+                   department=p.department, duplicate=False)
+
+
 @crew_bp.route("/<int:member_id>/edit-inline", methods=["POST"])
 def edit_inline(member_id):
     """Save only the fields the inline row form sends (first/last name,
