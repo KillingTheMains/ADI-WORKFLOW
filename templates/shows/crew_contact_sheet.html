@@ -133,6 +133,8 @@
 <div class="toolbar">
   <a href="{{ url_for('show_crew.show_crew', show_id=show.id) }}" class="btn-back">← Crew List</a>
   <button class="btn-print" onclick="window.print()">🖨 Print / Save PDF</button>
+  <a href="{{ url_for('show_crew.contact_sheet_xlsx', show_id=show.id) }}"
+     class="btn-back" style="text-decoration:none;">📊 Excel</a>
   <span class="crew-count">{{ total }} crew member{{ 's' if total != 1 }} assigned</span>
 </div>
 

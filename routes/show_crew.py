@@ -528,22 +528,43 @@ def fill_slot(show_id, sid):
 
 # ── Phase B: Travel page (per-crew hotel + flight detail) ────────────────────
 
+def _travel_assignments_sorted(show_id, sort_by="check_in"):
+    """Return this show's assignments in the given sort order."""
+    items = ShowCrewAssignment.query.filter_by(show_id=show_id).all()
+
+    def _name(a):
+        return (a.crew_member.last_name or "").lower() if a.crew_member else ""
+    def _company(a):
+        cm = a.crew_member
+        return (cm.company.name or "").lower() if cm and cm.company else "zzz"
+    def _position(a):
+        cm = a.crew_member
+        return (cm.position.title or "").lower() if cm and cm.position else "zzz"
+
+    if sort_by == "company":
+        items.sort(key=lambda a: (_company(a), _name(a)))
+    elif sort_by == "name":
+        items.sort(key=_name)
+    elif sort_by == "position":
+        items.sort(key=lambda a: (_position(a), _name(a)))
+    else:   # check_in — default (None → bottom, then by name)
+        items.sort(key=lambda a: (a.hotel_check_in or date_cls.max, _name(a)))
+    return items
+
+
 @show_crew_bp.route("/<int:show_id>/crew/travel")
 def travel(show_id):
     show = Show.query.get_or_404(show_id)
-    assignments = (ShowCrewAssignment.query
-                   .filter_by(show_id=show_id)
-                   .all())
-    # Sort by check-in date (None → bottom), then by name
-    def _sort_key(a):
-        return (a.hotel_check_in or date_cls.max,
-                (a.crew_member.last_name or "").lower())
-    assignments.sort(key=_sort_key)
+    sort_by = (request.args.get("sort") or "check_in").strip().lower()
+    if sort_by not in ("check_in", "name", "company", "position"):
+        sort_by = "check_in"
+    assignments = _travel_assignments_sorted(show_id, sort_by)
     grand_total = sum((a.hotel_cost or 0) for a in assignments)
     return render_template("shows/show_crew_travel.html",
                            show=show,
                            assignments=assignments,
-                           grand_total=grand_total)
+                           grand_total=grand_total,
+                           sort_by=sort_by)
 
 
 
@@ -583,3 +604,208 @@ def reorder(show_id):
             n += 1
     db.session.commit()
     return jsonify(ok=True, count=n)
+
+
+
+# ── Contact sheet + Travel exports (XLSX / PDF) ──────────────────────────────
+import io as _io
+from flask import send_file
+
+
+def _xlsx_response(wb, filename):
+    """Serialize an openpyxl Workbook and stream it as a download."""
+    buf = _io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+def _slugify(s):
+    return "".join(c if c.isalnum() else "_" for c in (s or "")).strip("_")
+
+
+@show_crew_bp.route("/<int:show_id>/crew/contact-sheet.xlsx")
+def contact_sheet_xlsx(show_id):
+    """Same data as the on-screen contact sheet, delivered as XLSX."""
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill
+
+    show = Show.query.get_or_404(show_id)
+    assignments = (
+        db.session.query(ShowCrewAssignment)
+        .join(CrewMember, ShowCrewAssignment.crew_member_id == CrewMember.id)
+        .outerjoin(Position, CrewMember.position_id == Position.id)
+        .filter(ShowCrewAssignment.show_id == show_id, CrewMember.active == True)
+        .order_by(CrewMember.company_id, Position.department, CrewMember.last_name)
+        .all()
+    )
+    # Group by company (same as the HTML view)
+    companies = {}
+    for a in assignments:
+        cm = a.crew_member
+        co_name = cm.company.name if cm.company else "No Company"
+        co_id   = cm.company_id or 0
+        companies.setdefault(co_id, {"name": co_name, "crew": []})["crew"].append(cm)
+    sorted_companies = sorted(companies.values(), key=lambda c: c["name"])
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Contact Sheet"
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill("solid", fgColor="1A1A1A")
+    company_fill = PatternFill("solid", fgColor="F5F5F5")
+
+    # Title row
+    ws.append([f"{show.code or ''}   {show.name}"])
+    ws["A1"].font = Font(bold=True, size=14)
+    ws.append([f"Crew Contact Sheet   ·   "
+               f"{show.venue.name + ' — ' + show.venue.city if show.venue else ''}"])
+    ws.append([])
+
+    headers = ["Name", "Position", "Department", "Phone", "Email", "Notes"]
+    for co in sorted_companies:
+        # Company banner
+        ws.append([f"{co['name']}   —   {len(co['crew'])} member(s)"])
+        row = ws.max_row
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=len(headers))
+        ws.cell(row=row, column=1).font = header_font
+        ws.cell(row=row, column=1).fill = header_fill
+
+        # Header row
+        ws.append(headers)
+        for c in range(1, len(headers) + 1):
+            ws.cell(row=ws.max_row, column=c).font = Font(bold=True, size=9)
+            ws.cell(row=ws.max_row, column=c).fill = company_fill
+
+        # Data
+        for cm in co["crew"]:
+            ws.append([
+                cm.full_name,
+                cm.position.title if cm.position else "",
+                cm.position.department if cm.position else "",
+                cm.phone or "",
+                cm.email or "",
+                cm.notes or "",
+            ])
+        ws.append([])
+
+    # Column widths
+    widths = [22, 18, 14, 15, 30, 30]
+    for idx, w in enumerate(widths, start=1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(idx)].width = w
+
+    fname = f"{_slugify(show.code or show.name)}_contact_sheet.xlsx"
+    return _xlsx_response(wb, fname)
+
+
+@show_crew_bp.route("/<int:show_id>/crew/travel.xlsx")
+def travel_xlsx(show_id):
+    """Travel table as XLSX, respecting the ?sort= query param."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill
+
+    show = Show.query.get_or_404(show_id)
+    sort_by = (request.args.get("sort") or "check_in").strip().lower()
+    if sort_by not in ("check_in", "name", "company", "position"):
+        sort_by = "check_in"
+    assignments = _travel_assignments_sorted(show_id, sort_by)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Travel"
+
+    ws.append([f"{show.code or ''}   {show.name}   —   Travel"])
+    ws["A1"].font = Font(bold=True, size=14)
+    ws.append([f"Sorted by: {sort_by.replace('_', ' ')}"])
+    ws.append([])
+
+    headers = ["Name", "Company", "Position", "Booking Task",
+               "Hotel", "Check In", "Check Out", "Nights",
+               "Conf #", "Cost",
+               "Arr Flight #", "Arr Time", "Dep Flight #", "Dep Time",
+               "Itinerary"]
+    ws.append(headers)
+    for c in range(1, len(headers) + 1):
+        cell = ws.cell(row=ws.max_row, column=c)
+        cell.font = Font(bold=True, color="FFFFFF", size=10)
+        cell.fill = PatternFill("solid", fgColor="1A1A1A")
+
+    for a in assignments:
+        cm = a.crew_member
+        ws.append([
+            cm.full_name if cm else "",
+            cm.company.name if cm and cm.company else "",
+            cm.position.title if cm and cm.position else "",
+            a.booking_task or "",
+            a.hotel_name or "",
+            a.hotel_check_in.isoformat() if a.hotel_check_in else "",
+            a.hotel_check_out.isoformat() if a.hotel_check_out else "",
+            a.hotel_nights if a.hotel_nights is not None else "",
+            a.hotel_confirmation or "",
+            a.hotel_cost if a.hotel_cost is not None else "",
+            a.arrival_flight or "",
+            a.arrival_time or "",
+            a.departure_flight or "",
+            a.departure_time or "",
+            a.itinerary_link or "",
+        ])
+
+    # Grand total cost row
+    grand = sum((a.hotel_cost or 0) for a in assignments)
+    ws.append([])
+    total_row = ws.max_row + 1
+    ws.cell(row=total_row, column=9, value="Grand-total hotel cost:").font = Font(bold=True)
+    ws.cell(row=total_row, column=10, value=grand).font = Font(bold=True)
+
+    widths = [22, 18, 18, 14,   22, 12, 12, 8, 18, 12,   16, 10, 16, 10, 40]
+    for idx, w in enumerate(widths, start=1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(idx)].width = w
+
+    fname = f"{_slugify(show.code or show.name)}_travel.xlsx"
+    return _xlsx_response(wb, fname)
+
+
+@show_crew_bp.route("/<int:show_id>/crew/travel.pdf")
+def travel_pdf(show_id):
+    """Travel table as PDF via WeasyPrint. Renders a print-styled HTML page
+    to PDF server-side so the layout is deterministic (not browser-dependent).
+
+    On systems where WeasyPrint's native dependencies (Pango, GObject) aren't
+    available (e.g. a dev Mac without `brew install pango`), we gracefully
+    redirect to the on-screen HTML print view with a flash message."""
+    show = Show.query.get_or_404(show_id)
+    sort_by = (request.args.get("sort") or "check_in").strip().lower()
+    if sort_by not in ("check_in", "name", "company", "position"):
+        sort_by = "check_in"
+    try:
+        from weasyprint import HTML   # may raise OSError on macOS w/o pango
+    except (ImportError, OSError) as e:
+        flash("PDF export unavailable on this server "
+              "(WeasyPrint's native dependencies aren't installed). "
+              "Use your browser's Print → Save as PDF instead.", "warning")
+        return redirect(url_for("show_crew.travel", show_id=show_id, sort=sort_by))
+
+    assignments = _travel_assignments_sorted(show_id, sort_by)
+    grand_total = sum((a.hotel_cost or 0) for a in assignments)
+    html = render_template(
+        "shows/show_crew_travel_pdf.html",
+        show=show,
+        assignments=assignments,
+        grand_total=grand_total,
+        sort_by=sort_by,
+    )
+    try:
+        pdf_bytes = HTML(string=html, base_url=request.url_root).write_pdf()
+    except OSError:
+        flash("PDF rendering failed (missing native fonts/libs). "
+              "Use your browser's Print → Save as PDF instead.", "warning")
+        return redirect(url_for("show_crew.travel", show_id=show_id, sort=sort_by))
+    buf = _io.BytesIO(pdf_bytes)
+    fname = f"{_slugify(show.code or show.name)}_travel.pdf"
+    return send_file(buf, as_attachment=True, download_name=fname,
+                     mimetype="application/pdf")

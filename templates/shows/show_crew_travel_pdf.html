@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>{{ show.name }} — Travel</title>
+<style>
+  @page { size: letter landscape; margin: 0.4in; }
+  body { font-family: -apple-system, "Segoe UI", sans-serif;
+         font-size: 9px; color: #1a1a1a; }
+  .doc-header { border-bottom: 2px solid #1a1a1a; padding-bottom: 8px;
+                margin-bottom: 12px; display: flex;
+                justify-content: space-between; align-items: flex-start; }
+  .doc-title { font-size: 16px; font-weight: 700; }
+  .doc-sub   { font-size: 9px; color: #555; margin-top: 2px; }
+  .doc-meta  { font-size: 8px; color: #777; text-align: right; }
+  .show-code { font-size: 8px; font-weight: 700; letter-spacing: .1em;
+               text-transform: uppercase; color: #B45309; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { background: #1a1a1a; color: #fff; font-weight: 700;
+             font-size: 7.5px; text-transform: uppercase; letter-spacing: .04em;
+             padding: 4px 5px; text-align: left; }
+  tbody td { padding: 4px 5px; font-size: 8.5px; border-bottom: 1px solid #eee;
+             vertical-align: top; }
+  tbody tr:nth-child(even) td { background: #fafafa; }
+  .col-name { font-weight: 600; }
+  .col-num  { text-align: right; }
+  .summary-row td { font-weight: 700; background: #fef3c7; }
+  .footer   { margin-top: 10px; font-size: 8px; color: #888;
+              display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div>
+    {% if show.code %}<div class="show-code">{{ show.code }}</div>{% endif %}
+    <div class="doc-title">{{ show.name }}</div>
+    <div class="doc-sub">
+      Crew Travel
+      {% if show.venue %} · {{ show.venue.name }}, {{ show.venue.city }}{% endif %}
+      {% if show.date_range %} · {{ show.date_range }}{% endif %}
+    </div>
+  </div>
+  <div class="doc-meta">
+    Sorted by: {{ sort_by.replace('_', ' ') }}<br>
+    {{ assignments|length }} traveler{{ '' if assignments|length == 1 else 's' }}<br>
+    Grand total: <strong>${{ '{:,.2f}'.format(grand_total) }}</strong>
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Company</th>
+      <th>Role</th>
+      <th>Hotel</th>
+      <th>Check In</th>
+      <th>Check Out</th>
+      <th>Nts</th>
+      <th>Conf #</th>
+      <th class="col-num">Cost</th>
+      <th>Arr Flight</th>
+      <th>Arr Time</th>
+      <th>Dep Flight</th>
+      <th>Dep Time</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for a in assignments %}
+    {% set cm = a.crew_member %}
+    <tr>
+      <td class="col-name">{{ cm.full_name if cm else '—' }}</td>
+      <td>{{ cm.company.name if cm and cm.company else '' }}</td>
+      <td>{{ cm.position.title if cm and cm.position else '' }}
+          {% if a.booking_task %}<br><span style="color:#888;">· {{ a.booking_task }}</span>{% endif %}</td>
+      <td>{{ a.hotel_name or '' }}</td>
+      <td>{{ a.hotel_check_in.strftime('%-m/%-d') if a.hotel_check_in else '' }}</td>
+      <td>{{ a.hotel_check_out.strftime('%-m/%-d') if a.hotel_check_out else '' }}</td>
+      <td>{{ a.hotel_nights if a.hotel_nights is not none else '' }}</td>
+      <td>{{ a.hotel_confirmation or '' }}</td>
+      <td class="col-num">{{ '${:,.2f}'.format(a.hotel_cost) if a.hotel_cost is not none else '' }}</td>
+      <td>{{ a.arrival_flight or '' }}</td>
+      <td>{{ a.arrival_time or '' }}</td>
+      <td>{{ a.departure_flight or '' }}</td>
+      <td>{{ a.departure_time or '' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="footer">
+  <span>Generated {{ now.strftime('%b %-d, %Y') if now else '' }}</span>
+  <span>{{ show.code or '' }} · {{ show.name }}</span>
+</div>
+
+</body></html>
