@@ -103,7 +103,7 @@
       <tbody>
         {% for a in assignments %}
         <tr>
-          <form method="POST"
+          <form method="POST" data-autosave="true"
                 action="{{ url_for('show_crew.edit_assignment', show_id=show.id, aid=a.id) }}">
             <input type="hidden" name="next" value="{{ request.path }}">
             <td class="name-cell">

@@ -195,7 +195,7 @@
                 style="cursor:grab;text-align:center;color:#999;font-size:.9rem;
                        user-select:none;vertical-align:middle;"
                 title="Drag to reorder">⋮⋮</td>
-            <form method="POST"
+            <form method="POST" data-autosave="true"
                   action="{{ url_for('show_crew.edit_assignment', show_id=show.id, aid=a.id) }}">
               <td>
                 <div style="font-weight:600;">{{ a.crew_member.full_name }}</div>
@@ -235,7 +235,7 @@
                 style="cursor:grab;text-align:center;color:#999;font-size:.9rem;
                        user-select:none;vertical-align:middle;"
                 title="Drag to reorder">⋮⋮</td>
-            <form method="POST"
+            <form method="POST" data-autosave="true"
                   action="{{ url_for('show_crew.edit_slot', show_id=show.id, sid=slot.id) }}">
               <td>
                 <div style="font-weight:600;">
