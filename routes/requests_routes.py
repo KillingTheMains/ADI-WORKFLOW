@@ -103,21 +103,38 @@ def index():
     if f_by:
         q = q.filter(ReqModel.requested_by.ilike(f"%{f_by}%"))
 
-    # Order: status priority (open work first), then priority, then sort_order,
-    # then most-recently-updated first.
-    status_rank = {s: i for i, s in enumerate(
-        ["requested", "in_progress", "ready_to_test", "deferred", "deployed"])}
+    # Sort within each status group by priority, then category, then most
+    # recently updated first.
     prio_rank = {p: i for i, p in enumerate(REQUEST_PRIORITIES)}
+    cat_rank  = {c: i for i, c in enumerate(REQUEST_CATEGORIES)}
 
     all_reqs = q.all()
     all_reqs.sort(key=lambda r: (
-        status_rank.get(r.status, 99),
         prio_rank.get(r.priority, 99),
-        r.sort_order or 0,
+        cat_rank.get(r.category, 99),
         -(r.updated_at.timestamp() if r.updated_at else 0),
     ))
 
-    # Counts for the top bar
+    # Group by status. Iteration order = STATUS_DISPLAY_ORDER (open first,
+    # deployed last). Skip empty groups so the page is not cluttered with
+    # empty section headers.
+    STATUS_DISPLAY_ORDER = [
+        "requested", "in_progress", "ready_to_test", "deferred", "deployed",
+    ]
+    grouped = []
+    for status in STATUS_DISPLAY_ORDER:
+        # NOTE: key is "entries", not "items" — Jinja2 resolves .items on a
+        # dict to the built-in dict.items() method, which broke iteration.
+        rows = [r for r in all_reqs if r.status == status]
+        if rows:
+            grouped.append({
+                "status":       status,
+                "status_label": REQUEST_STATUS_LABELS.get(status, status),
+                "entries":      rows,
+                "count":        len(rows),
+            })
+
+    # Counts for the top bar (full totals, not the filtered view)
     counts = {s: 0 for s in REQUEST_STATUSES}
     for r in ReqModel.query.all():
         if r.status in counts:
@@ -129,7 +146,8 @@ def index():
 
     return render_template(
         "requests/index.html",
-        requests_list=all_reqs,
+        grouped_requests=grouped,
+        requests_list=all_reqs,   # kept for any template code that still uses it
         counts=counts,
         people=people,
         priorities=REQUEST_PRIORITIES,

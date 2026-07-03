@@ -769,42 +769,26 @@ def travel_xlsx(show_id):
     return _xlsx_response(wb, fname)
 
 
-@show_crew_bp.route("/<int:show_id>/crew/travel.pdf")
-def travel_pdf(show_id):
-    """Travel table as PDF via WeasyPrint. Renders a print-styled HTML page
-    to PDF server-side so the layout is deterministic (not browser-dependent).
+@show_crew_bp.route("/<int:show_id>/crew/travel/print")
+def travel_print(show_id):
+    """Print-friendly Travel view. Renders the same on-screen page with a
+    print stylesheet that hides the sidebar/nav/buttons. Users hit Cmd+P
+    (Ctrl+P on Windows) to save as PDF via their browser.
 
-    On systems where WeasyPrint's native dependencies (Pango, GObject) aren't
-    available (e.g. a dev Mac without `brew install pango`), we gracefully
-    redirect to the on-screen HTML print view with a flash message."""
+    Replaces the previous WeasyPrint route, which failed on PythonAnywhere
+    because Pango/GObject native libs aren't installed there. Browser-side
+    printing is portable, reliable, and needs no server deps."""
     show = Show.query.get_or_404(show_id)
     sort_by = (request.args.get("sort") or "check_in").strip().lower()
     if sort_by not in ("check_in", "name", "company", "position"):
         sort_by = "check_in"
-    try:
-        from weasyprint import HTML   # may raise OSError on macOS w/o pango
-    except (ImportError, OSError) as e:
-        flash("PDF export unavailable on this server "
-              "(WeasyPrint's native dependencies aren't installed). "
-              "Use your browser's Print → Save as PDF instead.", "warning")
-        return redirect(url_for("show_crew.travel", show_id=show_id, sort=sort_by))
-
     assignments = _travel_assignments_sorted(show_id, sort_by)
     grand_total = sum((a.hotel_cost or 0) for a in assignments)
-    html = render_template(
-        "shows/show_crew_travel_pdf.html",
+    return render_template(
+        "shows/show_crew_travel.html",
         show=show,
         assignments=assignments,
         grand_total=grand_total,
         sort_by=sort_by,
+        print_mode=True,
     )
-    try:
-        pdf_bytes = HTML(string=html, base_url=request.url_root).write_pdf()
-    except OSError:
-        flash("PDF rendering failed (missing native fonts/libs). "
-              "Use your browser's Print → Save as PDF instead.", "warning")
-        return redirect(url_for("show_crew.travel", show_id=show_id, sort=sort_by))
-    buf = _io.BytesIO(pdf_bytes)
-    fname = f"{_slugify(show.code or show.name)}_travel.pdf"
-    return send_file(buf, as_attachment=True, download_name=fname,
-                     mimetype="application/pdf")

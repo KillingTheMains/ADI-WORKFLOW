@@ -21,8 +21,9 @@
   </div>
   <a href="{{ url_for('show_crew.travel_xlsx', show_id=show.id, sort=sort_by) }}"
      class="btn btn-sm btn-outline-success" title="Download Excel">📊 XLSX</a>
-  <a href="{{ url_for('show_crew.travel_pdf', show_id=show.id, sort=sort_by) }}"
-     class="btn btn-sm btn-outline-danger" title="Download PDF">📄 PDF</a>
+  <a href="{{ url_for('show_crew.travel_print', show_id=show.id, sort=sort_by) }}"
+     class="btn btn-sm btn-outline-danger" title="Open the print-friendly view — then use your browser's Print → Save as PDF"
+     target="_blank">🖨 Print</a>
   <form method="POST" action="{{ url_for('crew_import.upload') }}"
         enctype="multipart/form-data" style="display:inline-block;margin-left:6px;">
     <input type="hidden" name="target_show_id" value="{{ show.id }}">
@@ -66,7 +67,40 @@
   }
   .name-cell { white-space:nowrap; }
   .name-cell .pos { font-size:.66rem; color:#888; }
+
+  /* Print-friendly styles — hide sidebar, nav, buttons; go full-width. */
+  @media print {
+    /* Force color-adjust so backgrounds print (same fix as contact sheet). */
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    /* Hide navigation chrome */
+    .sidebar, .top-actions, .btn-group, .btn, form, .breadcrumb,
+    nav, .page-header .d-flex, header { display: none !important; }
+    /* Expand main content */
+    .page-body, .content, main { margin: 0 !important; padding: 8px !important; }
+    /* Shrink table */
+    .travel-table { font-size: 8pt; }
+    .travel-table th, .travel-table td { padding: 3px 5px !important; }
+    /* Make form inputs render as plain text */
+    .travel-table input, .travel-table select {
+      border: 0 !important; padding: 0 !important; background: transparent !important;
+      appearance: none; -webkit-appearance: none;
+    }
+    /* Page setup: landscape, small margins */
+    @page { size: letter landscape; margin: 0.4in; }
+    /* Ensure summary bar prints its color */
+    .summary-bar { background: #1C2333 !important; color: #C9A84C !important; }
+  }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+{% if print_mode %}
+<script>
+  // If we arrived via /travel/print, kick off the browser print dialog
+  // as soon as everything's rendered. User confirms/cancels — no server round-trip.
+  window.addEventListener("load", function () { setTimeout(function () { window.print(); }, 300); });
+</script>
+{% endif %}
 {% endblock %}
 
 {% block content %}

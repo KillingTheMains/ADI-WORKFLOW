@@ -181,8 +181,8 @@
   </div>
 </form>
 
-<!-- ── Requests table ────────────────────────────────────────────────────── -->
-{% if not requests_list %}
+<!-- ── Grouped-by-status sections ────────────────────────────────────────── -->
+{% if not grouped_requests %}
 <div class="card p-4 text-center text-muted">
   {% if filters.status or filters.priority or filters.category or filters.by %}
     No requests match those filters.
@@ -192,110 +192,148 @@
   {% endif %}
 </div>
 {% else %}
-<div class="card p-0" style="overflow:hidden;">
-<table class="req-table">
-  <thead>
-    <tr>
-      <th style="width:24px;"></th>
-      <th style="width:36%;">Title</th>
-      <th style="width:80px;">Cat</th>
-      <th style="width:70px;">Prio</th>
-      <th style="width:130px;">Status</th>
-      <th style="width:110px;">By</th>
-      <th>Notes</th>
-      <th style="width:75px;">Updated</th>
-      <th style="width:60px;"></th>
-    </tr>
-  </thead>
-  <tbody id="req-tbody">
-    {% for r in requests_list %}
-    <tr data-req-id="{{ r.id }}">
-      <td><span class="drag-handle" title="Drag to reorder">☰</span></td>
 
-      <td>
-        <form data-autosave="true" method="post"
-              action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
-          <input type="text" name="title" value="{{ r.title }}"
-                 class="req-title-input" style="font-weight:600;">
-          <textarea name="description" rows="1" placeholder="Add description…"
-                    style="font-size:.78rem;color:#666;margin-top:2px;"
-          >{{ r.description or "" }}</textarea>
-        </form>
-      </td>
+{% macro row_form(r) %}
+  <tr data-req-id="{{ r.id }}" class="req-row row-status-{{ r.status }}">
+    <td><span class="drag-handle" title="Drag to reorder">☰</span></td>
 
-      <td>
-        <form data-autosave="true" method="post"
-              action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
-          <select name="category" class="cat-select">
-            {% for c in categories %}
-            <option value="{{ c }}" {% if r.category == c %}selected{% endif %}>
-              {{ c|capitalize }}
-            </option>
-            {% endfor %}
-          </select>
-        </form>
-      </td>
+    <td>
+      <form data-autosave="true" method="post"
+            action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
+        <input type="text" name="title" value="{{ r.title }}"
+               class="req-title-input" style="font-weight:600;">
+        <textarea name="description" rows="1" placeholder="Add description…"
+                  style="font-size:.78rem;color:#666;margin-top:2px;"
+        >{{ r.description or "" }}</textarea>
+      </form>
+    </td>
 
-      <td>
-        <form data-autosave="true" method="post"
-              action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
-          <select name="priority">
-            {% for p in priorities %}
-            <option value="{{ p }}" {% if r.priority == p %}selected{% endif %}>
-              {{ p }}
-            </option>
-            {% endfor %}
-          </select>
-        </form>
-      </td>
+    <td>
+      <form data-autosave="true" method="post"
+            action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
+        <select name="category" class="cat-select">
+          {% for c in categories %}
+          <option value="{{ c }}" {% if r.category == c %}selected{% endif %}>
+            {{ c|capitalize }}
+          </option>
+          {% endfor %}
+        </select>
+      </form>
+    </td>
 
-      <td>
-        <form data-autosave="true" method="post"
-              action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
-          <select name="status">
-            {% for s in statuses %}
-            <option value="{{ s }}" {% if r.status == s %}selected{% endif %}>
-              {{ status_labels[s] }}
-            </option>
-            {% endfor %}
-          </select>
-        </form>
-      </td>
+    <td>
+      <form data-autosave="true" method="post"
+            action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
+        <select name="priority">
+          {% for p in priorities %}
+          <option value="{{ p }}" {% if r.priority == p %}selected{% endif %}>
+            {{ p }}
+          </option>
+          {% endfor %}
+        </select>
+      </form>
+    </td>
 
-      <td>
-        <form data-autosave="true" method="post"
-              action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
-          <input type="text" name="requested_by"
-                 value="{{ r.requested_by or '' }}"
-                 placeholder="—" style="font-size:.78rem;">
-        </form>
-      </td>
+    <td>
+      <form data-autosave="true" method="post"
+            action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
+        <select name="status">
+          {% for s in statuses %}
+          <option value="{{ s }}" {% if r.status == s %}selected{% endif %}>
+            {{ status_labels[s] }}
+          </option>
+          {% endfor %}
+        </select>
+      </form>
+    </td>
 
-      <td>
-        <form data-autosave="true" method="post"
-              action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
-          <textarea name="notes" rows="1" placeholder="Add notes…"
-                    style="font-size:.78rem;">{{ r.notes or "" }}</textarea>
-        </form>
-      </td>
+    <td>
+      <form data-autosave="true" method="post"
+            action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
+        <input type="text" name="requested_by"
+               value="{{ r.requested_by or '' }}"
+               placeholder="—" style="font-size:.78rem;">
+      </form>
+    </td>
 
-      <td style="font-size:.72rem; color:#888; white-space:nowrap;">
-        {{ r.updated_at.strftime("%m/%d") if r.updated_at else "" }}
-      </td>
+    <td>
+      <form data-autosave="true" method="post"
+            action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
+        <textarea name="notes" rows="1" placeholder="Add notes…"
+                  style="font-size:.78rem;">{{ r.notes or "" }}</textarea>
+      </form>
+    </td>
 
-      <td style="text-align:right;">
-        <form method="post"
-              action="{{ url_for('requests_bp.delete', req_id=r.id) }}"
-              onsubmit="return confirm('Delete this request? (You can undo from Recent Activity.)');"
-              style="display:inline;">
-          <button type="submit" class="btn-mini danger" title="Delete">✕</button>
-        </form>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+    <td style="font-size:.72rem; color:#888; white-space:nowrap;">
+      {{ r.updated_at.strftime("%m/%d") if r.updated_at else "" }}
+    </td>
+
+    <td style="text-align:right;">
+      <form method="post"
+            action="{{ url_for('requests_bp.delete', req_id=r.id) }}"
+            onsubmit="return confirm('Delete this request? (You can undo from Recent Activity.)');"
+            style="display:inline;">
+        <button type="submit" class="btn-mini danger" title="Delete">✕</button>
+      </form>
+    </td>
+  </tr>
+{% endmacro %}
+
+{% for group in grouped_requests %}
+<div class="req-group req-group-{{ group.status }}">
+  <div class="req-group-header status-badge status-{{ group.status }}"
+       style="border-radius:6px 6px 0 0; padding:6px 12px; font-size:.85rem;">
+    {{ group.status_label }}
+    <span style="opacity:.75; font-weight:500;">· {{ group.count }}</span>
+  </div>
+  <div class="card p-0" style="overflow:hidden; border-radius:0 0 6px 6px; margin-bottom:1.25rem;">
+    <table class="req-table">
+      <thead>
+        <tr>
+          <th style="width:24px;"></th>
+          <th style="width:36%;">Title</th>
+          <th style="width:80px;">Cat</th>
+          <th style="width:70px;">Prio</th>
+          <th style="width:130px;">Status</th>
+          <th style="width:110px;">By</th>
+          <th>Notes</th>
+          <th style="width:75px;">Updated</th>
+          <th style="width:60px;"></th>
+        </tr>
+      </thead>
+      <tbody class="req-tbody" data-status="{{ group.status }}">
+        {% for r in group.entries %}
+          {{ row_form(r) }}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
+{% endfor %}
+
+<style>
+  /* Deployed rows: soft green tint on the entire row + faded strikethrough on
+     title so the eye jumps straight to open work above. */
+  .req-row.row-status-deployed td {
+    background: #ECFDF5;
+    color: #065F46;
+  }
+  .req-row.row-status-deployed .req-title-input {
+    color: #065F46;
+    text-decoration: line-through;
+    text-decoration-color: rgba(6,95,70,.35);
+  }
+  .req-row.row-status-deployed textarea { color: #065F46; }
+  .req-row.row-status-deployed:hover td { background: #D1FAE5; }
+
+  /* Ready to test — subtle purple hint */
+  .req-row.row-status-ready_to_test td { background: #FAF5FF; }
+
+  /* Deferred — muted */
+  .req-row.row-status-deferred td { color: #6B7280; }
+  .req-row.row-status-deferred .req-title-input { color: #6B7280; }
+</style>
+
 {% endif %}
 
 <div style="margin-top:1rem; padding:.75rem; background:#F9FAFB;
@@ -306,27 +344,34 @@
   <a href="{{ url_for('audit.recent') }}">Undo it from Recent Activity</a>.
 </div>
 
-<!-- ── Drag-to-reorder (SortableJS) ──────────────────────────────────────── -->
+<!-- ── Drag-to-reorder (SortableJS) — one Sortable per status group ──────── -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
   (function () {
-    const tbody = document.getElementById("req-tbody");
-    if (!tbody) return;
-    new Sortable(tbody, {
-      handle: ".drag-handle",
-      animation: 150,
-      onEnd: async function () {
-        const ids = Array.from(tbody.querySelectorAll("tr[data-req-id]"))
-                         .map(tr => tr.dataset.reqId);
-        try {
-          await fetch("{{ url_for('requests_bp.reorder') }}", {
-            method: "POST",
-            headers: { "Content-Type": "application/json",
-                       "X-Requested-With": "XMLHttpRequest" },
-            body: JSON.stringify({ ids })
-          });
-        } catch (e) { console.warn("reorder failed", e); }
-      }
+    async function persist(orderedIds) {
+      try {
+        await fetch("{{ url_for('requests_bp.reorder') }}", {
+          method: "POST",
+          headers: { "Content-Type": "application/json",
+                     "X-Requested-With": "XMLHttpRequest" },
+          body: JSON.stringify({ ids: orderedIds })
+        });
+      } catch (e) { console.warn("reorder failed", e); }
+    }
+
+    document.querySelectorAll("tbody.req-tbody").forEach(function (tbody) {
+      new Sortable(tbody, {
+        handle: ".drag-handle",
+        animation: 150,
+        onEnd: function () {
+          // Persist the order of ALL rows across every group so sort_order
+          // is a single global sequence — top-to-bottom, group-by-group.
+          const allIds = [];
+          document.querySelectorAll("tbody.req-tbody tr[data-req-id]")
+                  .forEach(tr => allIds.push(tr.dataset.reqId));
+          persist(allIds);
+        }
+      });
     });
   })();
 </script>
