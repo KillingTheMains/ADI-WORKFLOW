@@ -227,6 +227,111 @@ def delete(req_id):
     return redirect(url_for("requests_bp.index"))
 
 
+# ── JSON API (for Claude / external clients) ────────────────────────────────
+
+@requests_bp.route("/requests.json")
+def as_json():
+    """
+    Return the request list as clean JSON. Filter via query params:
+      ?status=requested            (comma-sep list ok: ?status=requested,in_progress)
+      ?priority=P0,P1
+      ?category=bug,feature
+      ?by=Larry                    (case-insensitive substring match)
+      ?since=2026-07-01T00:00:00   (updated_at >= this ISO8601 timestamp)
+      ?limit=100                   (defaults to 500)
+
+    Response shape:
+      {
+        "count": 17,
+        "generated_at": "2026-07-03T15:04:00Z",
+        "filters": { ...echoed... },
+        "requests": [ {full row as dict}, ... ]
+      }
+    """
+    from datetime import datetime as _dt
+
+    def _split(param):
+        raw = request.args.get(param, "")
+        return [x.strip() for x in raw.split(",") if x.strip()] if raw else []
+
+    f_status   = _split("status")
+    f_priority = _split("priority")
+    f_category = _split("category")
+    f_by       = request.args.get("by", "").strip()
+    f_since    = request.args.get("since", "").strip()
+    try:
+        f_limit = min(int(request.args.get("limit", "500")), 2000)
+    except ValueError:
+        f_limit = 500
+
+    q = ReqModel.query
+    if f_status:
+        q = q.filter(ReqModel.status.in_(f_status))
+    if f_priority:
+        q = q.filter(ReqModel.priority.in_(f_priority))
+    if f_category:
+        q = q.filter(ReqModel.category.in_(f_category))
+    if f_by:
+        q = q.filter(ReqModel.requested_by.ilike(f"%{f_by}%"))
+    if f_since:
+        try:
+            cutoff = _dt.fromisoformat(f_since.replace("Z", ""))
+            q = q.filter(ReqModel.updated_at >= cutoff)
+        except ValueError:
+            pass  # bad since format — silently ignore
+
+    # Order: open work first (Requested, In Progress, Ready), then by priority,
+    # then most-recently-updated first.
+    status_rank = {s: i for i, s in enumerate(
+        ["requested", "in_progress", "ready_to_test", "deferred", "deployed"])}
+    prio_rank = {p: i for i, p in enumerate(REQUEST_PRIORITIES)}
+    all_reqs = q.all()
+    all_reqs.sort(key=lambda r: (
+        status_rank.get(r.status, 99),
+        prio_rank.get(r.priority, 99),
+        -(r.updated_at.timestamp() if r.updated_at else 0),
+    ))
+    all_reqs = all_reqs[:f_limit]
+
+    def _dt_iso(dt):
+        return dt.isoformat() + "Z" if dt else None
+
+    payload = {
+        "count": len(all_reqs),
+        "generated_at": _dt.utcnow().isoformat() + "Z",
+        "filters": {
+            "status":   f_status,
+            "priority": f_priority,
+            "category": f_category,
+            "by":       f_by or None,
+            "since":    f_since or None,
+            "limit":    f_limit,
+        },
+        "requests": [
+            {
+                "id":            r.id,
+                "title":         r.title,
+                "description":   r.description,
+                "category":      r.category,
+                "priority":      r.priority,
+                "status":        r.status,
+                "status_label":  REQUEST_STATUS_LABELS.get(r.status, r.status),
+                "requested_by":  r.requested_by,
+                "notes":         r.notes,
+                "commit_ref":    r.commit_ref,
+                "sort_order":    r.sort_order,
+                "created_at":    _dt_iso(r.created_at),
+                "updated_at":    _dt_iso(r.updated_at),
+                "deployed_at":   _dt_iso(r.deployed_at),
+                "url":           url_for("requests_bp.index", _external=True)
+                                 + f"#req-{r.id}",
+            }
+            for r in all_reqs
+        ],
+    }
+    return jsonify(payload)
+
+
 # ── drag-to-reorder ──────────────────────────────────────────────────────────
 
 @requests_bp.route("/requests/reorder", methods=["POST"])
