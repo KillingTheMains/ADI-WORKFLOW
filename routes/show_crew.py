@@ -667,7 +667,7 @@ def contact_sheet_xlsx(show_id):
                f"{show.venue.name + ' — ' + show.venue.city if show.venue else ''}"])
     ws.append([])
 
-    headers = ["Name", "Position", "Department", "Phone", "Email", "Notes"]
+    headers = ["Name", "Position", "Department", "Phone", "Email"]
     for co in sorted_companies:
         # Company banner
         ws.append([f"{co['name']}   —   {len(co['crew'])} member(s)"])
@@ -690,12 +690,11 @@ def contact_sheet_xlsx(show_id):
                 cm.position.department if cm.position else "",
                 cm.phone or "",
                 cm.email or "",
-                cm.notes or "",
             ])
         ws.append([])
 
     # Column widths
-    widths = [22, 18, 14, 15, 30, 30]
+    widths = [22, 18, 14, 15, 34]
     for idx, w in enumerate(widths, start=1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(idx)].width = w
 

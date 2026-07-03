@@ -15,7 +15,7 @@
     <a href="{{ url_for('show_crew.travel', show_id=show.id, sort='name') }}"
        class="btn btn-sm {% if sort_by == 'name' %}btn-adi{% else %}btn-outline-secondary{% endif %}">Name</a>
     <a href="{{ url_for('show_crew.travel', show_id=show.id, sort='company') }}"
-       class="btn btn-sm {% if sort_by == 'company' %}btn-adi{% else %}btn-outline-secondary{% endif %}">Vendor</a>
+       class="btn btn-sm {% if sort_by == 'company' %}btn-adi{% else %}btn-outline-secondary{% endif %}">Company</a>
     <a href="{{ url_for('show_crew.travel', show_id=show.id, sort='position') }}"
        class="btn btn-sm {% if sort_by == 'position' %}btn-adi{% else %}btn-outline-secondary{% endif %}">Position</a>
   </div>
