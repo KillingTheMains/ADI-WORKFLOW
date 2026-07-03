@@ -915,6 +915,7 @@ AUDIT_TRACKED_TABLES = [
     "shows",
     "production_phases",
     "requests",
+    "request_attachments",
 ]
 
 
@@ -974,5 +975,30 @@ class Request(db.Model):
                               onupdate=datetime.utcnow)
     deployed_at   = db.Column(db.DateTime)
 
+    attachments   = db.relationship(
+        "RequestAttachment",
+        backref="request",
+        cascade="all, delete-orphan",
+        order_by="RequestAttachment.uploaded_at.asc()",
+    )
+
     def __repr__(self):
         return f"<Request #{self.id} {self.status} '{self.title[:40]}'>"
+
+
+class RequestAttachment(db.Model):
+    """Image attachment on a Request — typically a bug-report screenshot."""
+    __tablename__ = "request_attachments"
+    id              = db.Column(db.Integer, primary_key=True)
+    request_id      = db.Column(db.Integer,
+                                db.ForeignKey("requests.id", ondelete="CASCADE"),
+                                nullable=False, index=True)
+    filename        = db.Column(db.String(300))          # original client filename
+    stored_filename = db.Column(db.String(80))           # server-side UUID.ext
+    content_type    = db.Column(db.String(80))           # e.g. image/png
+    size_bytes      = db.Column(db.Integer)
+    uploaded_at     = db.Column(db.DateTime, default=datetime.utcnow)
+    uploaded_by     = db.Column(db.String(80))           # optional, freetext
+
+    def __repr__(self):
+        return f"<RequestAttachment #{self.id} req#{self.request_id} {self.filename}>"

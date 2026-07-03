@@ -268,7 +268,16 @@
       {{ r.updated_at.strftime("%m/%d") if r.updated_at else "" }}
     </td>
 
-    <td style="text-align:right;">
+    <td style="text-align:right; white-space:nowrap;">
+      <form method="post" enctype="multipart/form-data"
+            action="{{ url_for('requests_bp.upload_attachment', req_id=r.id) }}"
+            style="display:inline; margin-right:2px;">
+        <label class="btn-mini" title="Attach image (screenshot)"
+               style="cursor:pointer; margin-bottom:0;">📎<input
+               type="file" name="files" multiple
+               accept="image/png,image/jpeg,image/gif,image/webp"
+               onchange="this.form.submit()" style="display:none;"></label>
+      </form>
       <form method="post"
             action="{{ url_for('requests_bp.delete', req_id=r.id) }}"
             onsubmit="return confirm('Delete this request? (You can undo from Recent Activity.)');"
@@ -277,6 +286,41 @@
       </form>
     </td>
   </tr>
+  {% if r.attachments %}
+  <tr class="req-attachments-row row-status-{{ r.status }}">
+    <td></td>
+    <td colspan="8" style="padding:6px 4px 10px;">
+      <div style="display:flex; flex-wrap:wrap; gap:8px;">
+        {% for att in r.attachments %}
+        <div style="position:relative; border:1px solid #E5E5E5;
+                    border-radius:6px; padding:3px; background:#fff;">
+          <a href="{{ url_for('requests_bp.serve_attachment',
+                              req_id=r.id, att_id=att.id) }}"
+             target="_blank"
+             title="{{ att.filename }} — {{ (att.size_bytes / 1024)|int }} KB">
+            <img src="{{ url_for('requests_bp.serve_attachment',
+                                 req_id=r.id, att_id=att.id) }}"
+                 alt="{{ att.filename }}"
+                 style="height:70px; width:auto; max-width:120px;
+                        object-fit:cover; border-radius:3px; display:block;">
+          </a>
+          <form method="post"
+                action="{{ url_for('requests_bp.delete_attachment',
+                                   req_id=r.id, att_id=att.id) }}"
+                onsubmit="return confirm('Delete this attachment?');"
+                style="position:absolute; top:-6px; right:-6px;">
+            <button type="submit"
+                    style="border:none; background:#EF4444; color:#fff;
+                           border-radius:50%; width:18px; height:18px;
+                           font-size:.7rem; cursor:pointer; line-height:1;"
+                    title="Delete attachment">✕</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+    </td>
+  </tr>
+  {% endif %}
 {% endmacro %}
 
 {% for group in grouped_requests %}
@@ -340,7 +384,8 @@
             border:1px solid #E5E5E5; border-radius:6px;
             font-size:.78rem; color:#666;">
   <strong>Tips:</strong> Click any field to edit — autosaves as you type.
-  Drag the ☰ handle to reorder within a status. Deleted a row by mistake?
+  Drag the ☰ handle to reorder within a status. Click 📎 on a row to attach
+  a screenshot (PNG / JPG / GIF / WebP, max 5 MB each). Deleted a row by mistake?
   <a href="{{ url_for('audit.recent') }}">Undo it from Recent Activity</a>.
 </div>
 

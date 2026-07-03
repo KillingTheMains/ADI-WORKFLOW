@@ -23,6 +23,10 @@ def create_app():
     default_db = f"sqlite:///{home}/.adi_workflow.db"
     app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", default_db)
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    # Max total request body size: covers request-board image uploads
+    # (8 files × 5 MB per file = 40 MB) plus headroom for the crew XLSX
+    # importer. Anything larger is rejected by Werkzeug before it hits a route.
+    app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 
     # ── Extensions ────────────────────────────────────────────────────────────
     db.init_app(app)

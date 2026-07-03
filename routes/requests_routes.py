@@ -12,13 +12,39 @@ Routes:
   POST /requests/<id>/status         — quick status change (button)
   POST /requests/reorder             — drag-to-reorder within a status
 """
+import os
+import uuid
 from datetime import datetime
 from flask import (Blueprint, render_template, request, redirect,
-                   url_for, flash, jsonify)
+                   url_for, flash, jsonify, send_file, abort)
+from werkzeug.utils import secure_filename
 from extensions import db
-from models import (Request as ReqModel,
+from models import (Request as ReqModel, RequestAttachment,
                     REQUEST_PRIORITIES, REQUEST_STATUSES,
                     REQUEST_CATEGORIES, REQUEST_STATUS_LABELS)
+
+
+# ── attachment storage config ────────────────────────────────────────────────
+# Files live outside the git repo so a bad commit can't delete them and so PA's
+# free-tier repo size stays small.
+
+UPLOAD_ROOT = os.path.expanduser("~/adi_workflow_uploads/requests")
+MAX_FILE_BYTES = 5 * 1024 * 1024       # 5 MB per file
+MAX_FILES_PER_REQUEST = 8
+ALLOWED_CONTENT_TYPES = {
+    "image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp",
+}
+ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
+
+
+def _ensure_upload_dir(req_id):
+    d = os.path.join(UPLOAD_ROOT, str(req_id))
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def _attachment_path(att):
+    return os.path.join(UPLOAD_ROOT, str(att.request_id), att.stored_filename)
 
 requests_bp = Blueprint("requests_bp", __name__)
 
@@ -343,6 +369,19 @@ def as_json():
                 "deployed_at":   _dt_iso(r.deployed_at),
                 "url":           url_for("requests_bp.index", _external=True)
                                  + f"#req-{r.id}",
+                "attachments":   [
+                    {
+                        "id":            att.id,
+                        "filename":      att.filename,
+                        "content_type":  att.content_type,
+                        "size_bytes":    att.size_bytes,
+                        "uploaded_at":   _dt_iso(att.uploaded_at),
+                        "url":           url_for("requests_bp.serve_attachment",
+                                                 req_id=r.id, att_id=att.id,
+                                                 _external=True),
+                    }
+                    for att in (r.attachments or [])
+                ],
             }
             for r in all_reqs
         ],
@@ -363,3 +402,104 @@ def reorder():
             r.sort_order = i
     db.session.commit()
     return jsonify({"ok": True, "count": len(ids)})
+
+
+# ── image attachments (screenshots for bug reports) ──────────────────────────
+
+@requests_bp.route("/requests/<int:req_id>/attachments/upload",
+                   methods=["POST"])
+def upload_attachment(req_id):
+    """Multipart upload — one or more files under the 'file' or 'files' key."""
+    r = ReqModel.query.get_or_404(req_id)
+    files = request.files.getlist("file") + request.files.getlist("files")
+    if not files:
+        flash("No file was uploaded.", "warning")
+        return redirect(url_for("requests_bp.index"))
+
+    if len(r.attachments or []) + len(files) > MAX_FILES_PER_REQUEST:
+        flash(f"Too many attachments — max {MAX_FILES_PER_REQUEST} per request. "
+              f"Delete some first.", "warning")
+        return redirect(url_for("requests_bp.index"))
+
+    _ensure_upload_dir(req_id)
+    saved = 0
+    for f in files:
+        if not f or not f.filename:
+            continue
+
+        # Validate content type + extension
+        content_type = (f.content_type or "").lower()
+        ext = os.path.splitext(f.filename)[1].lower()
+        if content_type not in ALLOWED_CONTENT_TYPES and ext not in ALLOWED_EXTENSIONS:
+            flash(f"“{f.filename}”: only PNG / JPEG / GIF / WebP images allowed.",
+                  "warning")
+            continue
+
+        # Validate size (stream length)
+        f.stream.seek(0, os.SEEK_END)
+        size = f.stream.tell()
+        f.stream.seek(0)
+        if size <= 0:
+            flash(f"“{f.filename}”: file is empty.", "warning")
+            continue
+        if size > MAX_FILE_BYTES:
+            flash(f"“{f.filename}”: too large "
+                  f"({size // 1024} KB, max {MAX_FILE_BYTES // 1024} KB).",
+                  "warning")
+            continue
+
+        # Store under a UUID so original filenames can't collide or
+        # traversal-attack the filesystem.
+        stored = f"{uuid.uuid4().hex}{ext or '.bin'}"
+        dst = os.path.join(UPLOAD_ROOT, str(req_id), stored)
+        f.save(dst)
+
+        att = RequestAttachment(
+            request_id      = req_id,
+            filename        = secure_filename(f.filename)[:300] or "upload",
+            stored_filename = stored,
+            content_type    = content_type or f"image/{ext.lstrip('.')}",
+            size_bytes      = size,
+        )
+        db.session.add(att)
+        saved += 1
+
+    if saved:
+        r.updated_at = datetime.utcnow()
+        db.session.commit()
+        flash(f"Attached {saved} image{'s' if saved != 1 else ''} to request "
+              f"#{req_id}.", "success")
+    return redirect(url_for("requests_bp.index") + f"#req-{req_id}")
+
+
+@requests_bp.route("/requests/<int:req_id>/attachments/<int:att_id>")
+def serve_attachment(req_id, att_id):
+    """Serve the file inline so browsers show images in a new tab."""
+    att = RequestAttachment.query.filter_by(id=att_id, request_id=req_id) \
+                                 .first_or_404()
+    path = _attachment_path(att)
+    if not os.path.exists(path):
+        abort(404)
+    return send_file(path, mimetype=att.content_type or "application/octet-stream",
+                     as_attachment=False, download_name=att.filename)
+
+
+@requests_bp.route("/requests/<int:req_id>/attachments/<int:att_id>/delete",
+                   methods=["POST"])
+def delete_attachment(req_id, att_id):
+    att = RequestAttachment.query.filter_by(id=att_id, request_id=req_id) \
+                                 .first_or_404()
+    path = _attachment_path(att)
+    # Delete DB row first (audit-tracked). Then remove file on disk;
+    # if the file's already gone that's fine.
+    fname = att.filename
+    db.session.delete(att)
+    db.session.commit()
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except OSError as e:
+        # Don't fail the request over a disk hiccup — the DB is authoritative.
+        pass
+    flash(f"Removed attachment “{fname}”.", "info")
+    return redirect(url_for("requests_bp.index") + f"#req-{req_id}")
