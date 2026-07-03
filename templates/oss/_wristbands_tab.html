@@ -18,7 +18,7 @@
 </div>
 {% else %}
 
-<form method="POST" action="{{ url_for('oss.wristbands_save', show_id=show.id) }}">
+<form method="POST" data-autosave="true" action="{{ url_for('oss.wristbands_save', show_id=show.id) }}">
   <table class="table table-sm oss-table">
     <thead>
       <tr>

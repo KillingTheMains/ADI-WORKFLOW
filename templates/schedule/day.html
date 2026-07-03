@@ -219,7 +219,7 @@
         </span>
       </div>
       <div class="card-body p-3">
-        <form method="POST" action="{{ url_for('schedule.edit_day', show_id=show.id, day_id=day.id) }}">
+        <form method="POST" data-autosave="true" action="{{ url_for('schedule.edit_day', show_id=show.id, day_id=day.id) }}">
           <!-- Pass through non-travel fields as hidden inputs so they don't reset -->
           <input type="hidden" name="date" value="{{ day.date.isoformat() }}">
           <input type="hidden" name="phase" value="{{ day.phase or '' }}">
@@ -467,7 +467,7 @@
         <!-- Edit activity (collapse) -->
         <div class="collapse px-3 py-2" id="edit-act-{{ act.id }}"
              style="background:#FFF8EC;border-bottom:1px solid var(--adi-border);">
-          <form method="POST"
+          <form method="POST" data-autosave="true"
                 action="{{ url_for('schedule.edit_activity', show_id=show.id, day_id=day.id, act_id=act.id) }}">
             <div class="row g-2 align-items-end">
               <div class="col-md-2">
@@ -513,7 +513,7 @@
               <tr class="group-header"><td colspan="6">{{ row.group_label }}</td></tr>
               {% else %}
               <tr>
-                <form method="POST" style="display:contents;"
+                <form method="POST" data-autosave="true" style="display:contents;"
                       action="{{ url_for('schedule.edit_crew_row', show_id=show.id, day_id=day.id, row_id=row.id) }}">
                   <td><input type="number" name="qty" value="{{ row.qty }}" min="1" step="1"
                              class="form-control form-control-sm"

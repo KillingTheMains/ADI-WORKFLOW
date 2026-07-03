@@ -88,13 +88,12 @@
   <div class="head">
     <span class="kind">{{ svc.kind }}</span>
     {# Editable name in the head #}
-    <form method="POST" style="flex:1;margin:0;"
+    <form method="POST" data-autosave="true" style="flex:1;margin:0;"
           action="{{ url_for('oss.fb_service_edit', show_id=show.id, svc_id=svc.id) }}">
       <input type="text" name="name" value="{{ svc.name }}"
              class="form-control form-control-sm"
              style="background:transparent;color:#C9A84C;border:none;font-weight:700;
-                    font-size:.86rem;padding:2px 4px;"
-             onblur="this.form.submit()">
+                    font-size:.86rem;padding:2px 4px;">
       <input type="hidden" name="kind" value="{{ svc.kind }}">
       <input type="hidden" name="is_recurring" value="{{ '1' if svc.is_recurring else '' }}">
       <input type="hidden" name="activity_id" value="{{ svc.activity_id or '' }}">
@@ -124,7 +123,7 @@
         {% if svc.locations %}
           {% for loc in svc.locations %}
           <tr>
-            <form method="POST" style="display:contents;"
+            <form method="POST" data-autosave="true" style="display:contents;"
                   action="{{ url_for('oss.fb_location_edit', show_id=show.id, loc_id=loc.id) }}">
               <td><input type="text" name="location_name" value="{{ loc.location_name or '' }}"
                          placeholder="e.g. Backstage / FOH / Local Labor"></td>
@@ -252,7 +251,7 @@
       <tbody>
         {% for d in dietary_notes %}
         <tr>
-          <form method="POST" style="display:contents;"
+          <form method="POST" data-autosave="true" style="display:contents;"
                 action="{{ url_for('oss.fb_dietary_edit', show_id=show.id, did=d.id) }}">
             <td><input type="text" name="preference" value="{{ d.preference }}"></td>
             <td><input type="number" name="percentage" value="{{ d.percentage if d.percentage is not none else '' }}"
