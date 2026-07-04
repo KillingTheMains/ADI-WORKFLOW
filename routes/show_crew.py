@@ -12,14 +12,10 @@ from datetime import date as date_cls
 show_crew_bp = Blueprint("show_crew", __name__)
 
 
-# ── Helper ───────────────────────────────────────────────────────────────────
-
-def _get_show_or_404(show_id):
-    return db.session.get(Show, show_id) or \
-        (_ for _ in ()).throw(Exception("404"))
-
-
 # ── Show crew roster page ─────────────────────────────────────────────────────
+#
+# (Removed a dead `_get_show_or_404` helper that raised a bare Exception
+# instead of a real 404. Every route uses `Show.query.get_or_404` directly.)
 
 @show_crew_bp.route("/<int:show_id>/crew")
 def show_crew(show_id):

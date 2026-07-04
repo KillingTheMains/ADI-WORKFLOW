@@ -237,7 +237,20 @@
     timers.set(form, setTimeout(() => submitForm(form), DEBOUNCE_MS));
   }
 
+  // A form MUST NOT be autosaved if it's a date-guarded form (e.g. Day Settings).
+  // These carry data-date-guard="true" because their onsubmit confirms date
+  // changes — the 9/9 data-loss protection. If they were autosaved, the
+  // confirm would be bypassed and a mis-typed date would silently rename the
+  // day. This check hard-refuses even if data-autosave="true" is present.
+  function _isAutosavable(form) {
+    if (!form || !form.matches) return false;
+    if (!form.matches('form[data-autosave="true"]')) return false;
+    if (form.dataset && form.dataset.dateGuard === "true") return false;
+    return true;
+  }
+
   document.querySelectorAll('form[data-autosave="true"]').forEach(function (form) {
+    if (!_isAutosavable(form)) return;
     // Hide the manual Save button since it's no longer needed. Uses
     // form.elements (not querySelectorAll) so HTML5 form-associated
     // buttons — e.g. the ones on the Travel page, where the <form> lives
@@ -263,8 +276,7 @@
   // Both share the same debounce timer per form (keyed via WeakMap).
   function _autosaveFormFor(target) {
     if (!target || !target.form) return null;
-    var f = target.form;
-    return (f.matches && f.matches('form[data-autosave="true"]')) ? f : null;
+    return _isAutosavable(target.form) ? target.form : null;
   }
   document.addEventListener('change', function (e) {
     if (!e.target || !e.target.matches) return;

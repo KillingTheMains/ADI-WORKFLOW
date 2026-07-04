@@ -36,6 +36,20 @@ ALLOWED_CONTENT_TYPES = {
 }
 ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 
+# Canonical serve-time mimetype per extension. Serving user-uploaded bytes
+# with the client-declared content_type would let an attacker upload a
+# .png-labeled file with content_type: text/html and have it rendered as
+# HTML inline — a stored-XSS shape. We ignore the stored content_type on
+# read and re-derive from extension against a strict allowlist. Anything
+# unrecognized falls back to octet-stream + download-as-attachment.
+_EXT_TO_MIMETYPE = {
+    ".png":  "image/png",
+    ".jpg":  "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif":  "image/gif",
+    ".webp": "image/webp",
+}
+
 
 def _ensure_upload_dir(req_id):
     d = os.path.join(UPLOAD_ROOT, str(req_id))
@@ -427,11 +441,17 @@ def upload_attachment(req_id):
         if not f or not f.filename:
             continue
 
-        # Validate content type + extension
+        # Validate content type AND extension.
+        # Previously this used OR (`... and ext not in ...`) which meant a
+        # file could pass if either signal looked like an image. That let
+        # (a) a `.html` payload with a spoofed `image/png` content_type
+        # through, and (b) an image-extension file with an odd content_type
+        # through. Require both to be valid — Fable 5 review.
         content_type = (f.content_type or "").lower()
         ext = os.path.splitext(f.filename)[1].lower()
-        if content_type not in ALLOWED_CONTENT_TYPES and ext not in ALLOWED_EXTENSIONS:
-            flash(f"“{f.filename}”: only PNG / JPEG / GIF / WebP images allowed.",
+        if content_type not in ALLOWED_CONTENT_TYPES or ext not in ALLOWED_EXTENSIONS:
+            flash(f"“{f.filename}”: only PNG / JPEG / GIF / WebP images allowed "
+                  "(both file extension and content type must match).",
                   "warning")
             continue
 
@@ -474,14 +494,28 @@ def upload_attachment(req_id):
 
 @requests_bp.route("/requests/<int:req_id>/attachments/<int:att_id>")
 def serve_attachment(req_id, att_id):
-    """Serve the file inline so browsers show images in a new tab."""
+    """Serve the file inline so browsers show images in a new tab.
+
+    Mimetype is derived from the stored file extension against a strict
+    allowlist; the client-declared ``content_type`` at upload time is NOT
+    trusted here. Anything outside the allowlist is served as a downloadable
+    ``application/octet-stream`` so the browser cannot execute it inline.
+    Combined with the ``X-Content-Type-Options: nosniff`` header set in
+    ``app.py``, this closes the stored-XSS shape flagged in the Fable 5 review.
+    """
     att = RequestAttachment.query.filter_by(id=att_id, request_id=req_id) \
                                  .first_or_404()
     path = _attachment_path(att)
     if not os.path.exists(path):
         abort(404)
-    return send_file(path, mimetype=att.content_type or "application/octet-stream",
-                     as_attachment=False, download_name=att.filename)
+    ext = os.path.splitext(att.stored_filename or "")[1].lower()
+    safe_mime = _EXT_TO_MIMETYPE.get(ext)
+    if safe_mime:
+        return send_file(path, mimetype=safe_mime,
+                         as_attachment=False, download_name=att.filename)
+    # Unknown extension → never render inline.
+    return send_file(path, mimetype="application/octet-stream",
+                     as_attachment=True, download_name=att.filename)
 
 
 @requests_bp.route("/requests/<int:req_id>/attachments/<int:att_id>/delete",

@@ -26,7 +26,22 @@ def create_app():
     app = Flask(__name__)
 
     # ── Config ────────────────────────────────────────────────────────────────
-    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "adi-workflow-dev-key-change-in-prod")
+    # SECRET_KEY: prefer env var. If missing, generate a per-process random
+    # key so sessions are still signed, but log a warning so it's obvious the
+    # deployment forgot to set one. The old hardcoded fallback
+    # "adi-workflow-dev-key-change-in-prod" was disclosed in the repo + Drive
+    # docs; refusing to bake it into the binary means a leaked repo cannot
+    # forge sessions in a deploy that forgot the env var.
+    _secret = os.environ.get("SECRET_KEY", "").strip()
+    if not _secret:
+        import secrets as _secrets
+        _secret = _secrets.token_urlsafe(48)
+        app.logger.warning(
+            "SECRET_KEY env var is not set; using a random per-process key. "
+            "Sessions will NOT survive a restart. Set SECRET_KEY in the PA "
+            "WSGI file (or launchd plist for local dev) to persist sessions."
+        )
+    app.config["SECRET_KEY"] = _secret
     # Store the DB in the user's home dir so it works even on Google Drive mounts
     home = os.path.expanduser("~")
     default_db = f"sqlite:///{home}/.adi_workflow.db"
@@ -99,6 +114,23 @@ def create_app():
         ampm = "AM" if h < 12 else "PM"
         display_h = h % 12 or 12
         return f"{display_h}:{m:02d} {ampm}"
+
+    # ── Security response headers ────────────────────────────────────────────
+    # Fable 5 review: the live site returned no X-Frame-Options,
+    # X-Content-Type-Options, Referrer-Policy, or HSTS. Cheap defense-in-depth,
+    # even for a small-team trusted-network app. No CSP yet — inline styles
+    # and scripts are used pervasively and a real CSP is a bigger project.
+    @app.after_request
+    def _security_headers(resp):
+        resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+        resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+        resp.headers.setdefault("Referrer-Policy", "same-origin")
+        # HSTS: only meaningful over HTTPS. PA serves HTTPS in prod.
+        resp.headers.setdefault(
+            "Strict-Transport-Security",
+            "max-age=31536000; includeSubDomains",
+        )
+        return resp
 
     # ── Context processors ────────────────────────────────────────────────────
     @app.context_processor

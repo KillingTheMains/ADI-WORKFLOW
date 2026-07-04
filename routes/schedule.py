@@ -258,10 +258,26 @@ def day_detail(show_id, day_id):
 def edit_day(show_id, day_id):
     day = ScheduleDay.query.get_or_404(day_id)
     f   = request.form
+
+    # Server-side rename detection — the second layer of the 9/9 protection.
+    # The JS `confirmDayDateChange` is the first layer, but if it ever gets
+    # bypassed (autosave misconfiguration, a scripted client), the server
+    # still shows an obvious flash telling the user the date changed. Compare
+    # the form's _original_date hidden input against the incoming date.
+    old_date = day.date
+    original_iso = (f.get("_original_date") or "").strip()
     try:
-        day.date = date.fromisoformat(f["date"])
+        new_date = date.fromisoformat(f["date"])
+        day.date = new_date
     except (ValueError, KeyError):
-        pass
+        new_date = day.date
+
+    date_changed = False
+    if original_iso and new_date and new_date.isoformat() != original_iso:
+        date_changed = True
+    elif old_date and new_date and new_date != old_date:
+        date_changed = True
+
     day.label      = f.get("label", "")
     day.call_time  = f.get("call_time", "")
     day.wrap_time  = f.get("wrap_time", "")
@@ -278,7 +294,16 @@ def edit_day(show_id, day_id):
     day.travel_hotel_name     = f.get("travel_hotel_name", "")
     day.travel_hotel_confirm  = f.get("travel_hotel_confirm", "")
     db.session.commit()
-    flash("Day updated.", "success")
+
+    if date_changed:
+        # Loud, non-dismissible-feeling notice so a silent rename is impossible.
+        flash(
+            f"⚠ Day RENAMED from {original_iso or old_date} to {new_date}. "
+            f"If this was not intended, use Recent Activity to undo.",
+            "warning",
+        )
+    else:
+        flash("Day updated.", "success")
     return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
 
 

@@ -101,11 +101,23 @@
     <div class="card mb-3">
       <div class="card-header gold">Day Settings</div>
       <div class="card-body p-3">
+        {# data-date-guard: signals to the shared autosave JS to REFUSE to
+           autosave this form even if data-autosave gets added by mistake.
+           The confirmDayDateChange() confirm is the 9/9 protection — the
+           form must submit through the real submit event, not a background
+           fetch. Belt-and-suspenders after Fable 5 review. #}
         <form method="POST" action="{{ url_for('schedule.edit_day', show_id=show.id, day_id=day.id) }}"
               id="day-settings-form"
+              data-date-guard="true"
               data-original-date="{{ day.date.isoformat() if day.date else '' }}"
               data-original-date-human="{{ day.date.strftime('%A, %B %-d, %Y') if day.date else 'this day' }}"
               onsubmit="return confirmDayDateChange(this);">
+          {# Send the original date server-side so edit_day can detect a rename
+             independently of the browser JS confirm. If the JS ever gets
+             bypassed, the server-side check will still flash a bold rename
+             notice on the next page. Second layer of the 9/9 protection. #}
+          <input type="hidden" name="_original_date"
+                 value="{{ day.date.isoformat() if day.date else '' }}">
           <div class="mb-2">
             <label class="form-label">Date</label>
             <input type="date" name="date" class="form-control form-control-sm"
