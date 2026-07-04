@@ -62,7 +62,15 @@ def _serialize(obj):
 
 def _deserialize(model_cls, data):
     """Turn a serialized dict back into kwargs suitable for a model constructor
-    or setattr. Parses ISO dates/datetimes back into their Python types."""
+    or setattr.
+
+    Parses ISO dates/datetimes back into their Python types, and normalizes
+    boolean-column values to Python ``True`` / ``False``.  SQLite stores bools
+    as 0/1 and JSON round-trips are usually fine, but a delete-then-undo can
+    reconstruct via a mix of ints/strings depending on when the row was
+    serialized.  Normalize here so restored rows are always ``bool``."""
+    _TRUE  = {True, 1, "1", "true", "TRUE", "True", "t", "T"}
+    _FALSE = {False, 0, "0", "false", "FALSE", "False", "f", "F", ""}
     result = {}
     for col in model_cls.__table__.columns:
         if col.name not in data:
@@ -80,6 +88,13 @@ def _deserialize(model_cls, data):
                     v = date.fromisoformat(v)
                 except ValueError:
                     pass
+            elif "BOOL" in coltype:
+                # Cover BOOLEAN (SQLAlchemy) and the underlying SQLite storage
+                # variants.  Anything not recognized falls through unchanged.
+                if v in _TRUE:
+                    v = True
+                elif v in _FALSE:
+                    v = False
         result[col.name] = v
     return result
 
@@ -353,6 +368,7 @@ def undo_group(group_id):
     #   updates + inserts: no ordering constraint really; reverse-chronological
     parent_order = {
         "shows":                    0,
+        "requests":                 0,
         "schedule_days":            1,
         "production_phases":        1,
         "schedule_activities":      2,
@@ -361,6 +377,7 @@ def undo_group(group_id):
         "show_crew_assignments":    2,
         "show_open_slots":          2,
         "show_dietary_notes":       2,
+        "request_attachments":      2,
         "meal_service_locations":   3,
         "crew_rows":                3,
     }

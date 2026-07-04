@@ -1,0 +1,14 @@
+# Dev / test deps — NOT installed on PA. Local only.
+#
+# Install into the dev venv with:
+#   ~/.adi-workflow/venv/bin/pip install -r requirements-dev.txt
+#
+# Then run tests from the repo root with:
+#   ~/.adi-workflow/venv/bin/pytest -v
+#
+# Tests use an in-memory SQLite DB (see tests/conftest.py) so they don't
+# touch the real ~/.adi_workflow.db.
+
+-r requirements.txt
+
+pytest==8.3.3

@@ -135,6 +135,22 @@
     </div>
   </div>
 
+  {# One or more blueprints failed to load at startup — a specific feature is
+     unavailable, but the rest of the site still boots. Rendered on every page
+     for visibility (not auto-dismissible). #}
+  {% if blueprint_errors %}
+    <div class="px-4 pt-3">
+      <div class="alert alert-warning py-2 px-3 mb-0" role="alert"
+           style="border-left:4px solid #B45309;">
+        <strong>⚠ Some features are unavailable — a blueprint failed to load at startup.</strong>
+        The rest of the site is working. Check the PA error log for details.<br>
+        <span style="font-family:monospace; font-size:.8rem; color:#78350F;">
+          {% for path, err in blueprint_errors.items() %}{{ path }}: {{ err }}<br>{% endfor %}
+        </span>
+      </div>
+    </div>
+  {% endif %}
+
   {# Startup migration failure — never auto-dismissible. Rendered on every page
      because a half-migrated DB is a whole-app problem, not a per-page one. #}
   {% if migration_error %}

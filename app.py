@@ -1,16 +1,25 @@
 import os
+import importlib
 from datetime import datetime
 from flask import Flask
 from extensions import db
-from routes.main         import main_bp
-from routes.shows        import shows_bp
-from routes.schedule     import schedule_bp
-from routes.crew         import crew_bp
-from routes.show_crew    import show_crew_bp
-from routes.oss          import oss_bp
-from routes.crew_import  import crew_import_bp
-from routes.audit_routes import audit_bp
-from routes.requests_routes import requests_bp
+
+
+# List of (import_path, blueprint_attr, url_prefix) — driven at runtime
+# so a single broken module degrades to a dead nav link, not a dead site.
+# This is the general form of the July 2 requests_bp outage — hardcoding
+# the sidebar href fixed the symptom, this fixes the class.
+_BLUEPRINTS = [
+    ("routes.main",             "main_bp",         None),
+    ("routes.shows",            "shows_bp",        "/shows"),
+    ("routes.schedule",         "schedule_bp",     "/shows"),
+    ("routes.crew",             "crew_bp",         "/crew"),
+    ("routes.show_crew",        "show_crew_bp",    "/shows"),
+    ("routes.oss",              "oss_bp",          "/shows"),
+    ("routes.crew_import",      "crew_import_bp",  "/crew"),
+    ("routes.audit_routes",     "audit_bp",        None),
+    ("routes.requests_routes",  "requests_bp",     None),
+]
 
 
 def create_app():
@@ -31,16 +40,26 @@ def create_app():
     # ── Extensions ────────────────────────────────────────────────────────────
     db.init_app(app)
 
-    # ── Blueprints ────────────────────────────────────────────────────────────
-    app.register_blueprint(main_bp)
-    app.register_blueprint(shows_bp,        url_prefix="/shows")
-    app.register_blueprint(schedule_bp,     url_prefix="/shows")
-    app.register_blueprint(crew_bp,         url_prefix="/crew")
-    app.register_blueprint(show_crew_bp,    url_prefix="/shows")
-    app.register_blueprint(oss_bp,          url_prefix="/shows")
-    app.register_blueprint(crew_import_bp,  url_prefix="/crew")
-    app.register_blueprint(audit_bp)
-    app.register_blueprint(requests_bp)
+    # ── Blueprints (resilient loader) ────────────────────────────────────────
+    # Each blueprint is imported and registered inside its own try/except.
+    # A failure is captured in app.config["BLUEPRINT_ERRORS"] (a dict) so:
+    #   1) the rest of the site still boots and serves 200s
+    #   2) the affected feature 404s (the routes never registered)
+    #   3) the failure is visible on the dashboard via a banner
+    # base.html hardcodes the sidebar hrefs where possible so a missing
+    # blueprint does not blow up template rendering. See July 2 hotfix.
+    app.config["BLUEPRINT_ERRORS"] = {}
+    for import_path, attr_name, url_prefix in _BLUEPRINTS:
+        try:
+            module = importlib.import_module(import_path)
+            bp = getattr(module, attr_name)
+            if url_prefix is None:
+                app.register_blueprint(bp)
+            else:
+                app.register_blueprint(bp, url_prefix=url_prefix)
+        except Exception as e:
+            app.logger.exception("Failed to load blueprint %s.%s", import_path, attr_name)
+            app.config["BLUEPRINT_ERRORS"][import_path] = str(e)
 
     # Install SQLAlchemy audit listeners for undo/redo. Must happen after
     # models is imported (which db.init_app already triggered).
@@ -95,6 +114,7 @@ def create_app():
             "logo_exists": os.path.exists(logo_path),
             "all_shows": all_shows,
             "migration_error": app.config.get("MIGRATION_ERROR"),
+            "blueprint_errors": app.config.get("BLUEPRINT_ERRORS") or {},
         }
 
     # ── Create tables + apply pending migrations + seed data ────────────────
