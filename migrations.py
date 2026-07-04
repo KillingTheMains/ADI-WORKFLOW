@@ -241,9 +241,22 @@ def run_migrations(verbose=True):
             print(f"[migration] {msg}")
 
     # 2. Data migrations
-    for key, fn in DATA_MIGRATIONS:
-        if _already_applied(key):
-            continue
+    # If ANY are pending, take a pre-migration DB snapshot first. Data
+    # migrations can mutate/delete rows (e.g. _migrate_fb_entries_to_meal_services
+    # deletes SubScheduleEntry rows after converting them). If one half-fails
+    # or produces bad data, we want the pre-state on disk to restore from.
+    pending = [(k, fn) for (k, fn) in DATA_MIGRATIONS if not _already_applied(k)]
+    if pending:
+        try:
+            _pre_migration_snapshot(pending, verbose=verbose)
+        except Exception as e:
+            # Never let backup failure block startup — log and continue.
+            # A backup that failed is worse than no migration, but not
+            # worse than a broken app.
+            if verbose:
+                print(f"[migration] WARNING: pre-migration snapshot failed: {e}")
+
+    for key, fn in pending:
         try:
             fn(db.session)
             _mark_applied(key)
@@ -257,3 +270,51 @@ def run_migrations(verbose=True):
             raise
 
     return applied
+
+
+# ── Pre-migration snapshot ───────────────────────────────────────────────────
+
+def _pre_migration_snapshot(pending, verbose=True):
+    """VACUUM INTO a snapshot of the live DB before any pending data migration
+    runs. Path: ~/backups/pre-migration-<ISO ts>.db
+
+    Cheap insurance — only fires when data migrations actually have work to do.
+    Uses only stdlib (sqlite3) so nothing here can pull in a broken dep.
+    """
+    import os
+    import sqlite3
+    from datetime import datetime, timezone
+    from flask import current_app
+
+    uri = current_app.config.get("SQLALCHEMY_DATABASE_URI", "")
+    if not uri.startswith("sqlite:"):
+        # Only SQLite understands VACUUM INTO in this form. If we ever move
+        # off SQLite, this branch turns into a no-op (which is safe: the
+        # pre-migration snapshot is a defense, not a correctness requirement).
+        if verbose:
+            print("[migration] snapshot skipped (non-sqlite backend)")
+        return
+
+    path = uri.split("sqlite:///", 1)[-1]
+    if path and not path.startswith("/"):
+        path = os.path.abspath(path)
+    if not path or not os.path.exists(path):
+        if verbose:
+            print(f"[migration] snapshot skipped (source DB not found at {path!r})")
+        return
+
+    backup_dir = os.path.expanduser("~/backups")
+    os.makedirs(backup_dir, exist_ok=True)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    dest = os.path.join(backup_dir, f"pre-migration-{ts}.db")
+
+    con = sqlite3.connect(path)
+    try:
+        safe = dest.replace("'", "''")
+        con.execute(f"VACUUM INTO '{safe}'")
+    finally:
+        con.close()
+
+    if verbose:
+        pending_keys = ", ".join(k for k, _ in pending)
+        print(f"[migration] pre-snapshot saved: {dest}  (before applying: {pending_keys})")

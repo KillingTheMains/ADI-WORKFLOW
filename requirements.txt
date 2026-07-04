@@ -1,7 +1,13 @@
+# On PythonAnywhere: install with `~/adi-workflow/venv/bin/pip install -r requirements.txt`.
+# Do NOT use `pip3.10 install --user` — that installs to ~/.local/ where the
+# Flask venv can't see it. Bit us twice already (July 3 openpyxl 500s).
+
 Flask==3.0.3
 Flask-SQLAlchemy==3.1.1
 Flask-WTF==1.2.1
 WTForms==3.1.2
-WeasyPrint==62.3
 python-dateutil==2.9.0
 openpyxl==3.1.5
+# WeasyPrint was removed July 3 — PA can't install its Pango/GObject native
+# deps. Replaced with browser Print-to-PDF via @media print CSS. Do not
+# re-add the WeasyPrint pin; a fresh venv rebuild will fail to install it.

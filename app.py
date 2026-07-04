@@ -94,18 +94,24 @@ def create_app():
             "now": datetime.utcnow(),
             "logo_exists": os.path.exists(logo_path),
             "all_shows": all_shows,
+            "migration_error": app.config.get("MIGRATION_ERROR"),
         }
 
     # ── Create tables + apply pending migrations + seed data ────────────────
+    #
+    # Migration failure is captured on app.config so the dashboard can surface
+    # a red banner. Silently logging (as we did before July 4) meant a
+    # half-migrated DB could keep serving traffic with only a log line to show
+    # for it — that's the "silent failure on PA" pattern Larry got bitten by.
+    app.config["MIGRATION_ERROR"] = None
     with app.app_context():
         db.create_all()
-        # Apply any pending column-adds or data migrations defined in
-        # migrations.py. Safe to run every startup — idempotent.
         try:
             from migrations import run_migrations
             run_migrations()
         except Exception as e:
-            app.logger.error(f"Migration failure on startup: {e}")
+            app.logger.exception("Migration failure on startup")
+            app.config["MIGRATION_ERROR"] = str(e)
         _seed_positions()
         _seed_day_templates()
         _seed_requests_board()

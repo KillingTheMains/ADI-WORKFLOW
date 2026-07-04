@@ -135,6 +135,23 @@
     </div>
   </div>
 
+  {# Startup migration failure — never auto-dismissible. Rendered on every page
+     because a half-migrated DB is a whole-app problem, not a per-page one. #}
+  {% if migration_error %}
+    <div class="px-4 pt-3">
+      <div class="alert alert-danger py-2 px-3 mb-0" role="alert"
+           style="border-left:4px solid #B91C1C;">
+        <strong>⚠ Migration failed on startup.</strong>
+        The database may be in a half-migrated state. Do not enter new data
+        until this is resolved. Check the PA error log and the pre-migration
+        snapshot under <code>~/backups/</code>.<br>
+        <span style="font-family:monospace; font-size:.8rem; color:#7F1D1D;">
+          {{ migration_error }}
+        </span>
+      </div>
+    </div>
+  {% endif %}
+
   <!-- Flash messages -->
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -205,19 +222,13 @@
   }
 
   document.querySelectorAll('form[data-autosave="true"]').forEach(function (form) {
-    // Hide the manual Save button since it's no longer needed. Keep it in the
-    // DOM so keyboard Enter still works; just visually collapse it.
-    form.querySelectorAll('button[type="submit"]').forEach(function (btn) {
-      btn.style.display = 'none';
-    });
-    form.addEventListener('change', function (e) {
-      if (e.target && e.target.matches('input, select, textarea')) {
-        scheduleSave(form);
-      }
-    });
-    form.addEventListener('input', function (e) {
-      if (e.target && e.target.matches('input[type="text"], input[type="email"], input[type="number"], textarea')) {
-        scheduleSave(form);
+    // Hide the manual Save button since it's no longer needed. Uses
+    // form.elements (not querySelectorAll) so HTML5 form-associated
+    // buttons — e.g. the ones on the Travel page, where the <form> lives
+    // outside the <table> for HTML validity — are also caught.
+    Array.prototype.forEach.call(form.elements, function (el) {
+      if (el && el.matches && el.matches('button[type="submit"]')) {
+        el.style.display = 'none';
       }
     });
     // Prevent the "real" submit from doing a full page reload — autosave
@@ -226,6 +237,30 @@
       e.preventDefault();
       submitForm(form);
     });
+  });
+
+  // Document-level input/change delegation. Handles both:
+  //   1) inputs that are DOM descendants of a data-autosave form (original case)
+  //   2) inputs that are form-associated via form="…" but live elsewhere in
+  //      the DOM (Travel page — where <form> outside <tr> was needed to fix
+  //      invalid HTML that was silently breaking edits on Safari)
+  // Both share the same debounce timer per form (keyed via WeakMap).
+  function _autosaveFormFor(target) {
+    if (!target || !target.form) return null;
+    var f = target.form;
+    return (f.matches && f.matches('form[data-autosave="true"]')) ? f : null;
+  }
+  document.addEventListener('change', function (e) {
+    if (!e.target || !e.target.matches) return;
+    if (!e.target.matches('input, select, textarea')) return;
+    var f = _autosaveFormFor(e.target);
+    if (f) scheduleSave(f);
+  });
+  document.addEventListener('input', function (e) {
+    if (!e.target || !e.target.matches) return;
+    if (!e.target.matches('input[type="text"], input[type="email"], input[type="number"], textarea')) return;
+    var f = _autosaveFormFor(e.target);
+    if (f) scheduleSave(f);
   });
 })();
 </script>

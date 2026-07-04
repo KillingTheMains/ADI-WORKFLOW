@@ -152,84 +152,101 @@
         </tr>
       </thead>
       <tbody>
+        {# HTML5 form-associated inputs: each row's <form> lives BELOW the table
+           (a <form> is not a valid child of <tr> — the parser hoists it, which
+           silently orphans inputs on Safari, which is what Larry uses). Every
+           input carries form="travel-row-<id>" so it submits to its row's
+           form even though it isn't a DOM descendant.  See base.html autosave
+           JS — it uses document-level input/change delegation and reads
+           e.target.form so form-associated inputs still autosave. #}
         {% for a in assignments %}
+        {% set fid = 'travel-row-' ~ a.id %}
         <tr>
-          <form method="POST" data-autosave="true"
-                action="{{ url_for('show_crew.edit_assignment', show_id=show.id, aid=a.id) }}">
-            <input type="hidden" name="next" value="{{ request.path }}">
-            <td class="name-cell">
-              <div style="font-weight:600;">{{ a.crew_member.full_name }}</div>
-              <div class="pos">
-                {% if a.crew_member.position %}{{ a.crew_member.position.title }}{% endif %}
-                {% if a.booking_task %} · {{ a.booking_task }}{% endif %}
-              </div>
-            </td>
-            <td style="font-size:.74rem;color:#555;white-space:nowrap;">
-              {% if a.crew_member.company %}{{ a.crew_member.company.name }}{% endif %}
-            </td>
-            <td style="border-left:1px solid #E8E4D7;">
-              <input type="text" name="hotel_name"
-                     value="{{ a.hotel_name or '' }}"
-                     placeholder="Hotel name" class="form-control form-control-sm">
-            </td>
-            <td>
-              <input type="date" name="travel_in_date"
-                     value="{{ a.travel_in_date.isoformat() if a.travel_in_date else '' }}"
-                     class="form-control form-control-sm"
-                     title="Shared with Travel In on the Crew booking sheet">
-            </td>
-            <td>
-              <input type="date" name="travel_out_date"
-                     value="{{ a.travel_out_date.isoformat() if a.travel_out_date else '' }}"
-                     class="form-control form-control-sm"
-                     title="Shared with Travel Out on the Crew booking sheet">
-            </td>
-            <td style="text-align:center;color:#888;font-weight:600;">
-              {{ a.stay_nights if a.stay_nights is not none else '—' }}
-            </td>
-            <td>
-              <input type="text" name="hotel_confirmation"
-                     value="{{ a.hotel_confirmation or '' }}"
-                     placeholder="Conf #" class="form-control form-control-sm conf">
-            </td>
-            <td>
-              <input type="text" name="hotel_cost"
-                     value="{{ '%.2f' % a.hotel_cost if a.hotel_cost is not none else '' }}"
-                     placeholder="0.00" class="form-control form-control-sm cost">
-            </td>
-            <td style="border-left:1px solid #E8E4D7;">
-              <input type="text" name="arrival_flight"
-                     value="{{ a.arrival_flight or '' }}"
-                     placeholder="SW WN2877" class="form-control form-control-sm flight">
-            </td>
-            <td>
-              <input type="text" name="arrival_time"
-                     value="{{ a.arrival_time or '' }}"
-                     placeholder="5:35pm" class="form-control form-control-sm time">
-            </td>
-            <td>
-              <input type="text" name="departure_flight"
-                     value="{{ a.departure_flight or '' }}"
-                     placeholder="SW WN2287" class="form-control form-control-sm flight">
-            </td>
-            <td>
-              <input type="text" name="departure_time"
-                     value="{{ a.departure_time or '' }}"
-                     placeholder="2:10pm" class="form-control form-control-sm time">
-            </td>
-            <td style="border-left:1px solid #E8E4D7;">
-              <input type="text" name="itinerary_link"
-                     value="{{ a.itinerary_link or '' }}"
-                     placeholder="https://..." class="form-control form-control-sm">
-            </td>
-            <td>
-              <button type="submit" class="save-btn-inline" title="Save row">💾</button>
-            </td>
-          </form>
+          <td class="name-cell">
+            <div style="font-weight:600;">{{ a.crew_member.full_name }}</div>
+            <div class="pos">
+              {% if a.crew_member.position %}{{ a.crew_member.position.title }}{% endif %}
+              {% if a.booking_task %} · {{ a.booking_task }}{% endif %}
+            </div>
+          </td>
+          <td style="font-size:.74rem;color:#555;white-space:nowrap;">
+            {% if a.crew_member.company %}{{ a.crew_member.company.name }}{% endif %}
+          </td>
+          <td style="border-left:1px solid #E8E4D7;">
+            <input form="{{ fid }}" type="text" name="hotel_name"
+                   value="{{ a.hotel_name or '' }}"
+                   placeholder="Hotel name" class="form-control form-control-sm">
+          </td>
+          <td>
+            <input form="{{ fid }}" type="date" name="travel_in_date"
+                   value="{{ a.travel_in_date.isoformat() if a.travel_in_date else '' }}"
+                   class="form-control form-control-sm"
+                   title="Shared with Travel In on the Crew booking sheet">
+          </td>
+          <td>
+            <input form="{{ fid }}" type="date" name="travel_out_date"
+                   value="{{ a.travel_out_date.isoformat() if a.travel_out_date else '' }}"
+                   class="form-control form-control-sm"
+                   title="Shared with Travel Out on the Crew booking sheet">
+          </td>
+          <td style="text-align:center;color:#888;font-weight:600;">
+            {{ a.stay_nights if a.stay_nights is not none else '—' }}
+          </td>
+          <td>
+            <input form="{{ fid }}" type="text" name="hotel_confirmation"
+                   value="{{ a.hotel_confirmation or '' }}"
+                   placeholder="Conf #" class="form-control form-control-sm conf">
+          </td>
+          <td>
+            <input form="{{ fid }}" type="text" name="hotel_cost"
+                   value="{{ '%.2f' % a.hotel_cost if a.hotel_cost is not none else '' }}"
+                   placeholder="0.00" class="form-control form-control-sm cost">
+          </td>
+          <td style="border-left:1px solid #E8E4D7;">
+            <input form="{{ fid }}" type="text" name="arrival_flight"
+                   value="{{ a.arrival_flight or '' }}"
+                   placeholder="SW WN2877" class="form-control form-control-sm flight">
+          </td>
+          <td>
+            <input form="{{ fid }}" type="text" name="arrival_time"
+                   value="{{ a.arrival_time or '' }}"
+                   placeholder="5:35pm" class="form-control form-control-sm time">
+          </td>
+          <td>
+            <input form="{{ fid }}" type="text" name="departure_flight"
+                   value="{{ a.departure_flight or '' }}"
+                   placeholder="SW WN2287" class="form-control form-control-sm flight">
+          </td>
+          <td>
+            <input form="{{ fid }}" type="text" name="departure_time"
+                   value="{{ a.departure_time or '' }}"
+                   placeholder="2:10pm" class="form-control form-control-sm time">
+          </td>
+          <td style="border-left:1px solid #E8E4D7;">
+            <input form="{{ fid }}" type="text" name="itinerary_link"
+                   value="{{ a.itinerary_link or '' }}"
+                   placeholder="https://..." class="form-control form-control-sm">
+          </td>
+          <td>
+            <button form="{{ fid }}" type="submit"
+                    class="save-btn-inline" title="Save row">💾</button>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+  </div>
+
+  {# Row forms live here — outside the table, so they are HTML-valid. Each
+     one is empty (its inputs are form-associated via the form=… attribute on
+     each control in the corresponding row). #}
+  <div class="travel-row-forms" style="display:none;">
+    {% for a in assignments %}
+    <form id="travel-row-{{ a.id }}" method="POST" data-autosave="true"
+          action="{{ url_for('show_crew.edit_assignment', show_id=show.id, aid=a.id) }}">
+      <input type="hidden" name="next" value="{{ request.path }}">
+    </form>
+    {% endfor %}
   </div>
   {% endif %}
 </div>
