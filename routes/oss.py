@@ -227,7 +227,16 @@ def oss_hub(show_id):
 
 
 def _ensure_radio_channels(show_id):
-    """Return the show's 16 radio channels (creating them if missing)."""
+    """Return the show's 16 radio channels (creating them if missing).
+
+    GET-with-side-effect: this creates rows if they don't exist. Under
+    Larry's multi-tab habit two simultaneous first-loads could race to
+    create the same slot. Catch IntegrityError and re-fetch instead of
+    500ing — the unique constraint on (show_id, slot) already prevents
+    corruption; we just need to not surface it as an error.
+    """
+    from sqlalchemy.exc import IntegrityError
+
     existing = (RadioChannel.query
                 .filter_by(show_id=show_id)
                 .order_by(RadioChannel.slot)
@@ -237,7 +246,12 @@ def _ensure_radio_channels(show_id):
         for slot in range(1, RADIO_CHANNEL_SLOTS + 1):
             if slot not in have_slots:
                 db.session.add(RadioChannel(show_id=show_id, slot=slot))
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            # Another concurrent request beat us to it. Roll back and let
+            # the re-fetch below pick up the winner's rows.
+            db.session.rollback()
         existing = (RadioChannel.query
                     .filter_by(show_id=show_id)
                     .order_by(RadioChannel.slot)
@@ -262,6 +276,8 @@ def _build_coms_assignments(show):
     existing = {a.crew_member_id: a
                 for a in CrewCommAssignment.query.filter_by(show_id=show.id).all()}
 
+    from sqlalchemy.exc import IntegrityError
+
     out = []
     created = False
     for crew, _show_assign in rows:
@@ -272,7 +288,17 @@ def _build_coms_assignments(show):
             created = True
         out.append({"crew_member": crew, "assignment": a})
     if created:
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            # Multi-tab race: another request already created the assignments.
+            # Roll back, re-read, and rebuild `out` from the winner's rows.
+            db.session.rollback()
+            existing = {a.crew_member_id: a
+                        for a in CrewCommAssignment.query.filter_by(show_id=show.id).all()}
+            out = [{"crew_member": crew,
+                    "assignment": existing.get(crew.id)}
+                   for crew, _ in rows]
     return out
 
 

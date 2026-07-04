@@ -67,7 +67,8 @@
   .req-table select:focus { border-color:#3B82F6; background:#fff; outline:none; }
 
   .drag-handle { cursor:grab; color:#BBB; font-size:1.1rem; user-select:none;
-                 padding:0 4px; }
+                 padding:8px 8px; display:inline-block; min-width:22px;
+                 text-align:center; touch-action:none; }
   .drag-handle:hover { color:#666; }
 
   .req-title { font-weight:600; color:#111; }
@@ -89,9 +90,16 @@
                      cursor:pointer; }
   .add-form button:hover { background:#047857; }
 
-  .btn-mini { padding:2px 8px; font-size:.72rem; border:1px solid #CCC;
+  /* Bumped touch targets from ~18-20px to ≥40px on the row action buttons
+     (📎 attach, ✕ delete). Larry uses this board from iPad — mis-taps
+     erode trust. Icons stay visually small; the invisible click area is
+     larger via padding. */
+  .btn-mini { padding:8px 12px; font-size:.72rem; border:1px solid #CCC;
               background:#fff; border-radius:3px; cursor:pointer;
-              color:#333; text-decoration:none; }
+              color:#333; text-decoration:none;
+              display:inline-block; min-width:36px; min-height:36px;
+              line-height:1.2; text-align:center;
+              touch-action:manipulation; }
   .btn-mini:hover { background:#F5F5F5; }
   .btn-mini.danger { color:#991B1B; border-color:#FCA5A5; }
   .btn-mini.danger:hover { background:#FEE2E2; }
@@ -311,8 +319,10 @@
                 style="position:absolute; top:-6px; right:-6px;">
             <button type="submit"
                     style="border:none; background:#EF4444; color:#fff;
-                           border-radius:50%; width:18px; height:18px;
-                           font-size:.7rem; cursor:pointer; line-height:1;"
+                           border-radius:50%; width:32px; height:32px;
+                           font-size:.85rem; cursor:pointer; line-height:1;
+                           display:flex; align-items:center; justify-content:center;
+                           touch-action:manipulation;"
                     title="Delete attachment">✕</button>
           </form>
         </div>

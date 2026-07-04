@@ -1,5 +1,50 @@
 # Deploying ADI Workflow
 
+## Traps that have already bitten us — read first
+
+**1. Installing packages on PA: use the venv's pip, not `pip3.10 --user`.**
+
+The Flask app on PA runs from a virtualenv at
+`/home/killingthemains/adi-workflow/venv/`. Packages installed with
+`pip3.10 install --user <pkg>` land in `~/.local/lib/...` where the venv
+can't see them — the module still shows `ModuleNotFoundError` when Flask
+imports it. This bit us with `openpyxl` twice (July 2–3) and caused two
+production 500s for Larry.
+
+**The only correct install command on PA is:**
+```bash
+~/adi-workflow/venv/bin/pip install -r ~/adi-workflow/requirements.txt
+```
+or for a single package:
+```bash
+~/adi-workflow/venv/bin/pip install <package>==<version>
+```
+
+**2. `backup_db.py` in the repo is DEAD CODE — do not use it.**
+
+It shells out to `mysqldump` against a MySQL host. The app runs on SQLite.
+That script has never produced a valid backup. The real backup story is:
+- Manual: `GET /backup-db?key=<BACKUP_KEY>` downloads a fresh
+  `VACUUM INTO` snapshot. Set `BACKUP_KEY` as an env var (see WSGI file).
+- Automatic: `backup_sqlite.py` is the standalone script for a scheduled
+  task — but requires paid PA. On free tier, use the manual download.
+- Pre-migration: `run_migrations()` takes a `VACUUM INTO` snapshot to
+  `~/backups/pre-migration-<ts>.db` automatically whenever a data
+  migration is pending. Free.
+
+**3. Environment variables live in the PA WSGI file (free tier).**
+
+If the PA Web tab doesn't show an "Environment variables" section
+(happens on some free-tier accounts), edit the WSGI file directly:
+`/var/www/killingthemains_pythonanywhere_com_wsgi.py`. Add lines like:
+```python
+os.environ['SECRET_KEY'] = 'a-long-random-string-from-secrets-token-urlsafe'
+os.environ['BACKUP_KEY'] = 'a-different-long-random-string'
+```
+Save the file, then click Reload on the Web tab.
+
+---
+
 ## TL;DR — one command to go live
 
 Open the **PythonAnywhere → Bash console** and paste:

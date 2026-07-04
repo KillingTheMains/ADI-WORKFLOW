@@ -100,17 +100,39 @@ def _deserialize(model_cls, data):
 
 
 # ── Locate the model class for a table name ──────────────────────────────────
+#
+# Called from every audit-log write and every undo/redo entry. The old
+# implementation did `dir(models_module)` on every call — O(models) work
+# on the hot path. Build a {tablename: class} dict once on first call.
 
-def _model_for_table(table_name):
+_MODEL_FOR_TABLE_CACHE = None
+
+
+def _build_model_cache():
     import models as models_module
-    # Walk mapped model classes and match by __tablename__
+    m = {}
     for name in dir(models_module):
         cls = getattr(models_module, name)
         if not isinstance(cls, type):
             continue
-        if getattr(cls, "__tablename__", None) == table_name:
-            return cls
-    return None
+        tn = getattr(cls, "__tablename__", None)
+        if tn:
+            m[tn] = cls
+    return m
+
+
+def _model_for_table(table_name):
+    global _MODEL_FOR_TABLE_CACHE
+    if _MODEL_FOR_TABLE_CACHE is None:
+        _MODEL_FOR_TABLE_CACHE = _build_model_cache()
+    cls = _MODEL_FOR_TABLE_CACHE.get(table_name)
+    if cls is not None:
+        return cls
+    # Cache miss — a new tracked model may have been added since first
+    # populate. Rebuild once so it's found on subsequent calls without
+    # forcing every future lookup to rebuild.
+    _MODEL_FOR_TABLE_CACHE = _build_model_cache()
+    return _MODEL_FOR_TABLE_CACHE.get(table_name)
 
 
 # ── The event handler ────────────────────────────────────────────────────────
@@ -272,6 +294,45 @@ def install_audit_listeners(app):
                 cls._audit_after_insert_wired = True
         # Set a fresh group_id per request
         g.audit_group_id = str(uuid.uuid4())
+
+
+# ── Retention: cap unbounded audit-log growth ────────────────────────────────
+
+# Default: keep 90 days of un-undone history. Undone rows are kept regardless
+# of age because they carry the "you can redo this" affordance and are rare.
+AUDIT_RETENTION_DAYS_DEFAULT = 90
+
+
+def prune_old_audit_rows(days=AUDIT_RETENTION_DAYS_DEFAULT, verbose=True):
+    """Delete AuditLog rows older than `days` where undone=False.
+
+    On PA's ~512 MB disk quota, the audit log — which stores the full
+    before/after JSON of every mutation — will grow without bound. This
+    caps it. Undone rows are preserved so redo history stays intact.
+
+    Idempotent, safe to run every startup. Returns the number of rows
+    deleted (0 if the cutoff catches nothing).
+    """
+    from datetime import timedelta
+    from models import AuditLog
+    from extensions import db
+
+    cutoff = datetime.utcnow() - timedelta(days=int(days))
+    q = AuditLog.query.filter(AuditLog.timestamp < cutoff,
+                              AuditLog.undone == False)  # noqa: E712
+    n = q.count()
+    if n == 0:
+        if verbose:
+            print(f"[audit] prune: 0 rows older than {days}d (nothing to do)")
+        return 0
+    # Use bulk delete — we intentionally do NOT audit-track this operation
+    # (a self-pruning audit would loop forever). The pre-migration
+    # snapshot in migrations.py protects against catastrophic mistakes.
+    q.delete(synchronize_session=False)
+    db.session.commit()
+    if verbose:
+        print(f"[audit] prune: deleted {n} rows older than {days}d")
+    return n
 
 
 # ── Undo / Redo core ─────────────────────────────────────────────────────────

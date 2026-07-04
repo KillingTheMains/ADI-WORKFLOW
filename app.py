@@ -167,6 +167,14 @@ def create_app():
         _seed_positions()
         _seed_day_templates()
         _seed_requests_board()
+        # Cap the audit_log table's growth. Runs once per app boot and
+        # deletes at most a few dozen rows on a mature deployment. Safe
+        # if the table doesn't exist yet (fresh install) — wrap in try.
+        try:
+            from audit import prune_old_audit_rows
+            prune_old_audit_rows()
+        except Exception as e:
+            app.logger.warning("audit prune skipped: %s", e)
 
     return app
 
