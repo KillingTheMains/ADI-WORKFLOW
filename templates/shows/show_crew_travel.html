@@ -128,6 +128,7 @@
       <thead>
         <tr>
           <th>Crew / Role</th>
+          <th>Company</th>
           <th colspan="5" style="border-left:1px solid #E8E4D7;">🏨 Hotel</th>
           <th colspan="4" style="border-left:1px solid #E8E4D7;">✈ Flights</th>
           <th style="border-left:1px solid #E8E4D7;">Itinerary</th>
@@ -135,9 +136,10 @@
         </tr>
         <tr>
           <th></th>
+          <th></th>
           <th style="border-left:1px solid #E8E4D7;">Name</th>
-          <th>Check In</th>
-          <th>Check Out</th>
+          <th title="Shared with Travel In on the Crew booking sheet">Check In</th>
+          <th title="Shared with Travel Out on the Crew booking sheet">Check Out</th>
           <th title="Auto from check-in/out">Nights</th>
           <th>Conf #</th>
           <th>Cost</th>
@@ -162,23 +164,28 @@
                 {% if a.booking_task %} · {{ a.booking_task }}{% endif %}
               </div>
             </td>
+            <td style="font-size:.74rem;color:#555;white-space:nowrap;">
+              {% if a.crew_member.company %}{{ a.crew_member.company.name }}{% endif %}
+            </td>
             <td style="border-left:1px solid #E8E4D7;">
               <input type="text" name="hotel_name"
                      value="{{ a.hotel_name or '' }}"
                      placeholder="Hotel name" class="form-control form-control-sm">
             </td>
             <td>
-              <input type="date" name="hotel_check_in"
-                     value="{{ a.hotel_check_in.isoformat() if a.hotel_check_in else '' }}"
-                     class="form-control form-control-sm">
+              <input type="date" name="travel_in_date"
+                     value="{{ a.travel_in_date.isoformat() if a.travel_in_date else '' }}"
+                     class="form-control form-control-sm"
+                     title="Shared with Travel In on the Crew booking sheet">
             </td>
             <td>
-              <input type="date" name="hotel_check_out"
-                     value="{{ a.hotel_check_out.isoformat() if a.hotel_check_out else '' }}"
-                     class="form-control form-control-sm">
+              <input type="date" name="travel_out_date"
+                     value="{{ a.travel_out_date.isoformat() if a.travel_out_date else '' }}"
+                     class="form-control form-control-sm"
+                     title="Shared with Travel Out on the Crew booking sheet">
             </td>
             <td style="text-align:center;color:#888;font-weight:600;">
-              {{ a.hotel_nights if a.hotel_nights is not none else '—' }}
+              {{ a.stay_nights if a.stay_nights is not none else '—' }}
             </td>
             <td>
               <input type="text" name="hotel_confirmation"
@@ -228,9 +235,12 @@
 </div>
 
 <p class="text-muted" style="font-size:.78rem;">
-  Save changes per row. Travel fields can also land here via the
-  <strong>Import Travel</strong> button at the top — File 2-style sheets
-  with Check-in/out, Confirmation, Hotel cost, and combined "Flight # / Time"
-  columns are recognized.
+  <strong>Check In / Check Out</strong> are the same dates as
+  <strong>Travel In / Travel Out</strong> on the
+  <a href="{{ url_for('show_crew.show_crew', show_id=show.id) }}">Crew booking sheet</a> —
+  edit them here or there and both sheets stay in sync. Save changes per row.
+  Travel fields can also land here via the <strong>Import Travel</strong> button
+  at the top — File 2-style sheets with Check-in/out, Confirmation, Hotel cost,
+  and combined "Flight # / Time" columns are recognized.
 </p>
 {% endblock %}

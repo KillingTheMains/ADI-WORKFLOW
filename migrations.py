@@ -150,9 +150,28 @@ def _seed_position_prompter(session):
     session.commit()
 
 
+def _backfill_travel_dates_from_hotel(session):
+    """Travel page now uses the shared Travel In / Travel Out dates for
+    check-in / check-out (single source of truth with the Booking Sheet).
+    Carry over any dates that were previously entered only in the old
+    hotel_check_in / hotel_check_out fields so nothing is lost."""
+    from models import ShowCrewAssignment
+    rows = ShowCrewAssignment.query.filter(
+        (ShowCrewAssignment.hotel_check_in.isnot(None)) |
+        (ShowCrewAssignment.hotel_check_out.isnot(None))
+    ).all()
+    for a in rows:
+        if a.travel_in_date is None and a.hotel_check_in is not None:
+            a.travel_in_date = a.hotel_check_in
+        if a.travel_out_date is None and a.hotel_check_out is not None:
+            a.travel_out_date = a.hotel_check_out
+    session.commit()
+
+
 DATA_MIGRATIONS = [
     ("2026-06-30-fb-v2-migrate-entries", _migrate_fb_entries_to_meal_services),
     ("2026-07-02-add-prompter-position", _seed_position_prompter),
+    ("2026-07-04-backfill-travel-dates-from-hotel", _backfill_travel_dates_from_hotel),
 ]
 
 

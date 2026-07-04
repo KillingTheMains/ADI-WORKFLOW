@@ -462,6 +462,13 @@ def _apply_booking_to_assignment(a, row):
             d = _parse_loose_date(row.get(row_key))
             if d:
                 setattr(a, db_col, d)
+    # The Travel page reads the shared Travel In / Travel Out dates, so any
+    # hotel check-in/out that arrived via import should also seed those when
+    # they're still blank (keeps imported travel sheets visible on the grid).
+    if a.travel_in_date is None and a.hotel_check_in is not None:
+        a.travel_in_date = a.hotel_check_in
+    if a.travel_out_date is None and a.hotel_check_out is not None:
+        a.travel_out_date = a.hotel_check_out
     # Travel — numeric: fill if None
     if a.hotel_cost is None:
         c = _to_float_loose(row.get("hotel_cost"))

@@ -8,6 +8,37 @@ to **Deployed** with the date.
 
 ## Pending Deploy
 
+### Travel sheet ↔ Crew booking sheet: linked dates (Larry request — "edit travel grid dates")
+- The Travel page's **Check In / Check Out** now edit the *same* underlying
+  dates as **Travel In / Travel Out** on the Crew booking sheet — single
+  source of truth. Enter a person's travel dates once on either page and
+  the other reflects it automatically; there's no second date pair to
+  keep in sync.
+- **Nights** on the Travel page/exports is now derived from the shared
+  Travel In → Travel Out window (`ShowCrewAssignment.stay_nights`).
+- Default "Check-in" sort, the Travel **XLSX**, and the Travel **PDF/print**
+  view all read the shared `travel_in_date` / `travel_out_date`.
+- The legacy `hotel_check_in` / `hotel_check_out` columns are retained in
+  the DB but no longer edited from the Travel page. One-time data migration
+  `2026-07-04-backfill-travel-dates-from-hotel` copies any date that was
+  previously entered only in those hotel fields into the shared travel
+  fields so nothing is lost. The crew importer likewise seeds the shared
+  travel dates from imported hotel check-in/out when they're blank.
+- Files: `models.py` (stay_nights), `templates/shows/show_crew_travel.html`,
+  `templates/shows/show_crew_travel_pdf.html`, `routes/show_crew.py`
+  (sort + travel_xlsx), `routes/crew_import.py`, `migrations.py`.
+- Note (Jason): implemented as a *shared* date pair rather than an
+  auto-copy, so hotel check-in can't drift from the flight-in date. If a
+  hotel stay ever needs to differ from the travel window, we'd re-add a
+  separate optional override — flag if Larry hits that.
+
+### Travel sheet: show Company column (Larry request #21 — "add company name like crew list")
+- The Travel grid now has a **Company** column (from the crew member's
+  roster company), so travelers can be read/grouped by company — pairs
+  with the existing **Company** sort button. Company was already present
+  in the Travel XLSX and PDF exports; this brings the on-screen grid in line.
+- File: `templates/shows/show_crew_travel.html`.
+
 ### Requests board — replaces the "ADI Build Notes" Google Doc
 - New sidebar link 📋 **Requests** opens an inline-editable, filterable
   board for feature requests, bugs, UX suggestions, and questions.

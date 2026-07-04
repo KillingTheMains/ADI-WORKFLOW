@@ -548,7 +548,8 @@ def _travel_assignments_sorted(show_id, sort_by="check_in"):
     elif sort_by == "position":
         items.sort(key=lambda a: (_position(a), _name(a)))
     else:   # check_in — default (None → bottom, then by name)
-        items.sort(key=lambda a: (a.hotel_check_in or date_cls.max, _name(a)))
+        # Check-in now mirrors the shared Travel In date.
+        items.sort(key=lambda a: (a.travel_in_date or date_cls.max, _name(a)))
     return items
 
 
@@ -742,9 +743,9 @@ def travel_xlsx(show_id):
             cm.position.title if cm and cm.position else "",
             a.booking_task or "",
             a.hotel_name or "",
-            a.hotel_check_in.isoformat() if a.hotel_check_in else "",
-            a.hotel_check_out.isoformat() if a.hotel_check_out else "",
-            a.hotel_nights if a.hotel_nights is not None else "",
+            a.travel_in_date.isoformat() if a.travel_in_date else "",
+            a.travel_out_date.isoformat() if a.travel_out_date else "",
+            a.stay_nights if a.stay_nights is not None else "",
             a.hotel_confirmation or "",
             a.hotel_cost if a.hotel_cost is not None else "",
             a.arrival_flight or "",

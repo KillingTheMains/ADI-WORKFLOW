@@ -512,6 +512,16 @@ class ShowCrewAssignment(db.Model):
             return max(delta, 0)
         return None
 
+    @property
+    def stay_nights(self):
+        """Nights on-site, derived from the shared Travel In → Travel Out
+        window (the same dates shown on the Booking Sheet). The Travel page
+        uses these dates for check-in/out so the two sheets stay in sync."""
+        if self.travel_in_date and self.travel_out_date:
+            delta = (self.travel_out_date - self.travel_in_date).days
+            return max(delta, 0)
+        return None
+
     def __repr__(self):
         return f"<ShowCrewAssignment show={self.show_id} crew={self.crew_member_id}>"
 
