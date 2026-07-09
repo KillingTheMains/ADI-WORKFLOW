@@ -549,6 +549,21 @@ def _travel_assignments_sorted(show_id, sort_by="check_in"):
     return items
 
 
+def _company_name(a):
+    """Display name of an assignment's company ('No Company' when unset)."""
+    cm = a.crew_member
+    return cm.company.name if cm and cm.company else "No Company"
+
+
+def _company_counts(assignments):
+    """{company_name: traveler_count} for the on-screen company banners."""
+    counts = {}
+    for a in assignments:
+        name = _company_name(a)
+        counts[name] = counts.get(name, 0) + 1
+    return counts
+
+
 @show_crew_bp.route("/<int:show_id>/crew/travel")
 def travel(show_id):
     show = Show.query.get_or_404(show_id)
@@ -556,12 +571,77 @@ def travel(show_id):
     if sort_by not in ("check_in", "name", "company", "position"):
         sort_by = "check_in"
     assignments = _travel_assignments_sorted(show_id, sort_by)
-    grand_total = sum((a.hotel_cost or 0) for a in assignments)
+    grand_total  = sum((a.hotel_cost or 0) for a in assignments)
+    grand_nights = sum((a.stay_nights or 0) for a in assignments)
     return render_template("shows/show_crew_travel.html",
                            show=show,
                            assignments=assignments,
                            grand_total=grand_total,
+                           grand_nights=grand_nights,
+                           company_counts=_company_counts(assignments),
                            sort_by=sort_by)
+
+
+@show_crew_bp.route("/<int:show_id>/crew/travel/bulk-dates", methods=["POST"])
+def travel_bulk_dates(show_id):
+    """Set Travel-In / Show-in (start) / Show-out (end) / Travel-Out on many
+    crew at once. Larry's request: 'Select specific crew members or ALL, and
+    set travel in, show, travel out dates for several or all crew at once.'
+
+    Only the date fields that are actually filled in the toolbar are applied;
+    blank fields leave each row's existing value alone (so you can push just a
+    travel-in date to a group without wiping their return dates). Every write
+    goes through the normal SQLAlchemy path, so the audit log captures it and
+    it's undoable from Recent Activity."""
+    Show.query.get_or_404(show_id)
+    f = request.form
+
+    # Which rows? Support checkbox lists posted as assignment_ids.
+    raw_ids = f.getlist("assignment_ids")
+    ids = set()
+    for r in raw_ids:
+        try:
+            ids.add(int(r))
+        except (TypeError, ValueError):
+            continue
+
+    # Map of model-attr → parsed date, keeping only non-empty values.
+    field_map = {
+        "travel_in_date":  _parse_date(f.get("travel_in_date")),
+        "start_date":      _parse_date(f.get("start_date")),
+        "end_date":        _parse_date(f.get("end_date")),
+        "travel_out_date": _parse_date(f.get("travel_out_date")),
+    }
+    updates = {k: v for k, v in field_map.items() if v is not None}
+
+    sort_by = (f.get("sort") or "check_in").strip().lower()
+    if sort_by not in ("check_in", "name", "company", "position"):
+        sort_by = "check_in"
+    back = url_for("show_crew.travel", show_id=show_id, sort=sort_by)
+
+    if not ids:
+        flash("No crew selected — pick at least one row, then apply.", "warning")
+        return redirect(back)
+    if not updates:
+        flash("No dates entered — fill at least one date field, then apply.", "warning")
+        return redirect(back)
+
+    # Only touch assignments that belong to THIS show (defensive).
+    rows = (ShowCrewAssignment.query
+            .filter(ShowCrewAssignment.show_id == show_id,
+                    ShowCrewAssignment.id.in_(ids))
+            .all())
+    n = 0
+    for a in rows:
+        for attr, val in updates.items():
+            setattr(a, attr, val)
+        n += 1
+    db.session.commit()
+
+    which = ", ".join(k.replace("_date", "").replace("_", " ") for k in updates)
+    flash(f"Updated {which} on {n} crew member{'' if n == 1 else 's'}. "
+          f"Undo from Recent Activity if needed.", "success")
+    return redirect(back)
 
 
 
@@ -710,6 +790,7 @@ def travel_xlsx(show_id):
     if sort_by not in ("check_in", "name", "company", "position"):
         sort_by = "check_in"
     assignments = _travel_assignments_sorted(show_id, sort_by)
+    company_counts = _company_counts(assignments)
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -725,14 +806,38 @@ def travel_xlsx(show_id):
                "Conf #", "Cost",
                "Arr Flight #", "Arr Time", "Dep Flight #", "Dep Time",
                "Itinerary"]
-    ws.append(headers)
-    for c in range(1, len(headers) + 1):
-        cell = ws.cell(row=ws.max_row, column=c)
-        cell.font = Font(bold=True, color="FFFFFF", size=10)
-        cell.fill = PatternFill("solid", fgColor="1A1A1A")
 
+    def _write_header_row():
+        ws.append(headers)
+        for c in range(1, len(headers) + 1):
+            cell = ws.cell(row=ws.max_row, column=c)
+            cell.font = Font(bold=True, color="FFFFFF", size=10)
+            cell.fill = PatternFill("solid", fgColor="1A1A1A")
+
+    company_banner = (sort_by == "company")
+    company_fill = PatternFill("solid", fgColor="F5F5F5")
+
+    if not company_banner:
+        _write_header_row()
+
+    cur_company = None
     for a in assignments:
         cm = a.crew_member
+        # When sorted by company, emit a section banner + header row on change,
+        # mirroring the Crew Contact Sheet layout.
+        if company_banner:
+            co_name = _company_name(a)
+            if co_name != cur_company:
+                cur_company = co_name
+                n = company_counts.get(co_name, 0)
+                ws.append([f"{co_name}   —   {n} traveler{'' if n == 1 else 's'}"])
+                brow = ws.max_row
+                ws.merge_cells(start_row=brow, start_column=1,
+                               end_row=brow, end_column=len(headers))
+                bcell = ws.cell(row=brow, column=1)
+                bcell.font = Font(bold=True, color="FFFFFF")
+                bcell.fill = PatternFill("solid", fgColor="1A1A1A")
+                _write_header_row()
         ws.append([
             cm.full_name if cm else "",
             cm.company.name if cm and cm.company else "",
@@ -751,12 +856,16 @@ def travel_xlsx(show_id):
             a.itinerary_link or "",
         ])
 
-    # Grand total cost row
-    grand = sum((a.hotel_cost or 0) for a in assignments)
+    # Grand total rows: hotel cost + hotel nights
+    grand        = sum((a.hotel_cost or 0) for a in assignments)
+    grand_nights = sum((a.stay_nights or 0) for a in assignments)
     ws.append([])
-    total_row = ws.max_row + 1
-    ws.cell(row=total_row, column=9, value="Grand-total hotel cost:").font = Font(bold=True)
-    ws.cell(row=total_row, column=10, value=grand).font = Font(bold=True)
+    cost_row = ws.max_row + 1
+    ws.cell(row=cost_row, column=9, value="Grand-total hotel cost:").font = Font(bold=True)
+    ws.cell(row=cost_row, column=10, value=grand).font = Font(bold=True)
+    nights_row = cost_row + 1
+    ws.cell(row=nights_row, column=7, value="Grand-total hotel nights:").font = Font(bold=True)
+    ws.cell(row=nights_row, column=8, value=grand_nights).font = Font(bold=True)
 
     widths = [22, 18, 18, 14,   22, 12, 12, 8, 18, 12,   16, 10, 16, 10, 40]
     for idx, w in enumerate(widths, start=1):
@@ -780,12 +889,15 @@ def travel_print(show_id):
     if sort_by not in ("check_in", "name", "company", "position"):
         sort_by = "check_in"
     assignments = _travel_assignments_sorted(show_id, sort_by)
-    grand_total = sum((a.hotel_cost or 0) for a in assignments)
+    grand_total  = sum((a.hotel_cost or 0) for a in assignments)
+    grand_nights = sum((a.stay_nights or 0) for a in assignments)
     return render_template(
         "shows/show_crew_travel.html",
         show=show,
         assignments=assignments,
         grand_total=grand_total,
+        grand_nights=grand_nights,
+        company_counts=_company_counts(assignments),
         sort_by=sort_by,
         print_mode=True,
     )

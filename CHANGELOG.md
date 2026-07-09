@@ -8,6 +8,32 @@ to **Deployed** with the date.
 
 ## Pending Deploy
 
+### Travel: company section banners + bulk date editor (Larry requests #28 + bulk-dates)
+- **Company/vendor section headers on Travel (#28, closes #21 follow-up):**
+  when the Travel page is sorted by **Company**, crew are now grouped under
+  dark section banners showing the company name and traveler count —
+  mirroring the Crew Contact Sheet layout. The same banners appear in the
+  Travel **XLSX** export (a repeated header row per company) and in the
+  **print/PDF** view.
+- **Grand-total hotel nights on exports (#28):** the Travel page summary bar,
+  the XLSX, and the print view now show a grand-total **hotel nights** figure
+  alongside the existing grand-total hotel cost. Nights derive from each
+  assignment's shared Travel In → Travel Out window (`stay_nights`).
+- **Bulk travel-date editor (P1 — "set travel in / show / travel out for
+  several or all crew at once"):** a checkbox column + select-all + a toolbar
+  above the Travel table. Fill any of Travel In / Show In / Show Out / Travel
+  Out, check the crew to apply to, and hit **Apply** — only the date boxes you
+  filled are written; blank ones leave existing values alone. New POST route
+  `show_crew.travel_bulk_dates` (`/shows/<id>/crew/travel/bulk-dates`). Writes
+  go through the normal session, so every bulk change is captured in the audit
+  log as one group and is **undoable from Recent Activity**.
+- Only assignments belonging to the current show are touched (defensive id
+  filter, same pattern as `reorder`).
+- Files: `routes/show_crew.py` (`_company_name`, `_company_counts`,
+  `travel`/`travel_print`/`travel_xlsx` grand-nights + banners,
+  `travel_bulk_dates`), `templates/shows/show_crew_travel.html`,
+  `tests/test_travel.py` (new — 5 tests). No schema change, no migration.
+
 ### Travel sheet ↔ Crew booking sheet: linked dates (Larry request — "edit travel grid dates")
 - The Travel page's **Check In / Check Out** now edit the *same* underlying
   dates as **Travel In / Travel Out** on the Crew booking sheet — single

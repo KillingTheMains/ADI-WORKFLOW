@@ -68,13 +68,49 @@
   .name-cell { white-space:nowrap; }
   .name-cell .pos { font-size:.66rem; color:#888; }
 
+  /* Company/vendor section banner (shown when sorted by Company) — mirrors
+     the Crew Contact Sheet's grouped layout. */
+  .travel-table tr.company-banner td {
+    background:#1A1A1A; color:#fff; font-weight:700;
+    font-size:.74rem; letter-spacing:.03em; padding:6px 10px;
+    text-transform:uppercase; position:sticky; left:0;
+  }
+  .travel-table tr.company-banner .count {
+    font-weight:500; text-transform:none; color:#C9A84C; margin-left:6px;
+  }
+
+  /* Bulk date editor */
+  .chk-col { width:34px; text-align:center; }
+  .chk-col input[type="checkbox"] { width:18px; height:18px; cursor:pointer; }
+  .bulk-toolbar {
+    display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px;
+    background:#F3F1EA; border-bottom:1px solid #E8E4D7;
+    padding:10px 14px; font-size:.74rem;
+  }
+  .bulk-toolbar .bt-label { font-weight:700; align-self:center; }
+  .bulk-toolbar label {
+    display:flex; flex-direction:column; font-size:.66rem; color:#666;
+    text-transform:uppercase; letter-spacing:.03em; gap:2px;
+  }
+  .bulk-toolbar input[type="date"] { font-size:.76rem; padding:3px 6px; }
+  .bulk-toolbar .bt-apply {
+    background:#1C2333; color:#C9A84C; border:none; border-radius:5px;
+    padding:6px 14px; font-size:.76rem; font-weight:600; cursor:pointer;
+  }
+  .bulk-toolbar .bt-apply:hover { background:#2A3350; }
+  .bulk-toolbar .bt-apply:disabled { opacity:.5; cursor:not-allowed; }
+  .bulk-toolbar .bt-hint {
+    flex-basis:100%; color:#8A8577; font-size:.68rem; margin-top:2px;
+  }
+
   /* Print-friendly styles — hide sidebar, nav, buttons; go full-width. */
   @media print {
     /* Force color-adjust so backgrounds print (same fix as contact sheet). */
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     /* Hide navigation chrome */
     .sidebar, .top-actions, .btn-group, .btn, form, .breadcrumb,
-    nav, .page-header .d-flex, header { display: none !important; }
+    nav, .page-header .d-flex, header,
+    .bulk-toolbar, .chk-col { display: none !important; }
     /* Expand main content */
     .page-body, .content, main { margin: 0 !important; padding: 8px !important; }
     /* Shrink table */
@@ -100,6 +136,54 @@
   // as soon as everything's rendered. User confirms/cancels — no server round-trip.
   window.addEventListener("load", function () { setTimeout(function () { window.print(); }, 300); });
 </script>
+{% else %}
+<script>
+  // ── Bulk date editor: select-all + live selected counter ──────────────────
+  (function () {
+    var selectAll = document.getElementById("bulk-select-all");
+    var applyBtn  = document.querySelector(".bt-apply");
+    var counter   = document.getElementById("bulk-count");
+    function rowChecks() {
+      return Array.prototype.slice.call(document.querySelectorAll(".bulk-row-check"));
+    }
+    function refresh() {
+      var checks = rowChecks();
+      var n = checks.filter(function (c) { return c.checked; }).length;
+      if (counter) counter.textContent = n;
+      if (applyBtn) applyBtn.disabled = (n === 0);
+      if (selectAll) {
+        selectAll.checked = (n > 0 && n === checks.length);
+        selectAll.indeterminate = (n > 0 && n < checks.length);
+      }
+    }
+    if (selectAll) {
+      selectAll.addEventListener("change", function () {
+        rowChecks().forEach(function (c) { c.checked = selectAll.checked; });
+        refresh();
+      });
+    }
+    document.addEventListener("change", function (e) {
+      if (e.target && e.target.classList.contains("bulk-row-check")) refresh();
+    });
+    // Guard the submit: need a selection AND at least one date filled.
+    var bulkForm = document.getElementById("bulk-dates-form");
+    if (bulkForm) {
+      bulkForm.addEventListener("submit", function (e) {
+        var anyRow = rowChecks().some(function (c) { return c.checked; });
+        var anyDate = Array.prototype.slice
+          .call(document.querySelectorAll('.bulk-toolbar input[type="date"]'))
+          .some(function (d) { return d.value; });
+        if (!anyRow || !anyDate) {
+          e.preventDefault();
+          alert(!anyRow
+            ? "Pick at least one crew member (checkbox) first."
+            : "Fill at least one date in the toolbar first.");
+        }
+      });
+    }
+    refresh();
+  })();
+</script>
 {% endif %}
 {% endblock %}
 
@@ -111,6 +195,9 @@
       {{ assignments|length }} traveler{{ '' if assignments|length == 1 else 's' }}
     </span>
     <span>
+      Grand-total hotel nights:
+      <strong>{{ grand_nights }}</strong>
+      &nbsp;·&nbsp;
       Grand-total hotel cost:
       <strong>${{ '{:,.2f}'.format(grand_total) }}</strong>
     </span>
@@ -123,10 +210,31 @@
     to assign someone first.
   </div>
   {% else %}
+  {# ── Bulk date editor toolbar (P1: set dates on many crew at once) ──────── #}
+  <div class="bulk-toolbar">
+    <span class="bt-label">Bulk-set dates:</span>
+    <label>Travel&nbsp;In
+      <input form="bulk-dates-form" type="date" name="travel_in_date"></label>
+    <label>Show&nbsp;In
+      <input form="bulk-dates-form" type="date" name="start_date"></label>
+    <label>Show&nbsp;Out
+      <input form="bulk-dates-form" type="date" name="end_date"></label>
+    <label>Travel&nbsp;Out
+      <input form="bulk-dates-form" type="date" name="travel_out_date"></label>
+    <button form="bulk-dates-form" type="submit" class="bt-apply"
+            title="Apply the dates you filled in above to every checked crew member">
+      Apply to <span id="bulk-count">0</span> selected
+    </button>
+    <span class="bt-hint">Only the date boxes you fill get applied. Blank ones
+      leave existing dates alone. Undoable from Recent Activity.</span>
+  </div>
   <div class="table-responsive">
     <table class="table table-sm travel-table mb-0">
       <thead>
         <tr>
+          <th class="chk-col" title="Select for bulk date edit">
+            <input type="checkbox" id="bulk-select-all" title="Select all">
+          </th>
           <th>Crew / Role</th>
           <th>Company</th>
           <th colspan="5" style="border-left:1px solid #E8E4D7;">🏨 Hotel</th>
@@ -135,6 +243,7 @@
           <th></th>
         </tr>
         <tr>
+          <th></th>
           <th></th>
           <th></th>
           <th style="border-left:1px solid #E8E4D7;">Name</th>
@@ -159,9 +268,27 @@
            form even though it isn't a DOM descendant.  See base.html autosave
            JS — it uses document-level input/change delegation and reads
            e.target.form so form-associated inputs still autosave. #}
+        {% set ns = namespace(cur=None) %}
         {% for a in assignments %}
         {% set fid = 'travel-row-' ~ a.id %}
+        {% if sort_by == 'company' %}
+          {% set co_name = a.crew_member.company.name if a.crew_member.company else 'No Company' %}
+          {% if co_name != ns.cur %}
+            {% set ns.cur = co_name %}
+          {% set cnt = company_counts.get(co_name, 0) %}
+        <tr class="company-banner">
+          <td colspan="15">{{ co_name }}
+            <span class="count">— {{ cnt }} traveler{{ '' if cnt == 1 else 's' }}</span>
+          </td>
+        </tr>
+          {% endif %}
+        {% endif %}
         <tr>
+          <td class="chk-col">
+            <input type="checkbox" class="bulk-row-check" form="bulk-dates-form"
+                   name="assignment_ids" value="{{ a.id }}"
+                   {% if sort_by == 'company' %}data-company="{{ co_name }}"{% endif %}>
+          </td>
           <td class="name-cell">
             <div style="font-weight:600;">{{ a.crew_member.full_name }}</div>
             <div class="pos">
@@ -248,6 +375,14 @@
     </form>
     {% endfor %}
   </div>
+
+  {# Bulk-dates form. Its visible controls (date inputs + Apply button) and the
+     per-row checkboxes are form-associated to it via form="bulk-dates-form",
+     so they submit here even though they live up in the toolbar / table. #}
+  <form id="bulk-dates-form" method="POST" style="display:none;"
+        action="{{ url_for('show_crew.travel_bulk_dates', show_id=show.id) }}">
+    <input type="hidden" name="sort" value="{{ sort_by }}">
+  </form>
   {% endif %}
 </div>
 
