@@ -270,6 +270,8 @@ def duplicate(show_id):
             label      = day.label,
             call_time  = day.call_time,
             wrap_time  = day.wrap_time,
+            sod        = day.sod,
+            eod        = day.eod,
             phase      = day.phase,
             milestones = day.milestones,
             notes      = day.notes,

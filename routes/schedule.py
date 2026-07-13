@@ -79,6 +79,8 @@ def add_day(show_id):
             label      = f.get("label", ""),
             call_time  = f.get("call_time", ""),
             wrap_time  = f.get("wrap_time", ""),
+            sod        = f.get("sod", ""),
+            eod        = f.get("eod", ""),
             phase      = f.get("phase", ""),
             milestones = f.get("milestones", ""),
             notes      = f.get("notes", ""),
@@ -279,8 +281,20 @@ def edit_day(show_id, day_id):
         date_changed = True
 
     day.label      = f.get("label", "")
-    day.call_time  = f.get("call_time", "")
-    day.wrap_time  = f.get("wrap_time", "")
+    # SOD/EOD replaced Call/Wrap in Day Settings. Only touch the legacy
+    # call/wrap columns if the form still carries them, so saving day settings
+    # never wipes the values Smart Breaks still reads (until it's re-anchored).
+    if "call_time" in f:
+        day.call_time = f.get("call_time", "")
+    if "wrap_time" in f:
+        day.wrap_time = f.get("wrap_time", "")
+    # Field-present semantics (like call/wrap above): the Travel-info form
+    # autosaves without SOD/EOD inputs, so only write them when the submitting
+    # form actually carries them — never wipe on an unrelated partial save.
+    if "sod" in f:
+        day.sod = f.get("sod", "")
+    if "eod" in f:
+        day.eod = f.get("eod", "")
     day.phase      = f.get("phase", "")
     day.milestones = f.get("milestones", "")
     day.notes      = f.get("notes", "")
@@ -327,6 +341,8 @@ def clone_day(show_id, day_id):
         label      = src.label,
         call_time  = src.call_time,
         wrap_time  = src.wrap_time,
+        sod        = src.sod,
+        eod        = src.eod,
         phase      = src.phase,
         milestones = src.milestones,
         notes      = src.notes,

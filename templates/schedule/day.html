@@ -144,16 +144,16 @@
           </div>
           <div class="row g-1 mb-2">
             <div class="col-6">
-              <label class="form-label">Call</label>
-              <input type="time" name="call_time" id="call_time_input"
+              <label class="form-label">Start of Day</label>
+              <input type="time" name="sod" id="sod_input"
                      class="form-control form-control-sm"
-                     value="{{ day.call_time or '' }}">
+                     value="{{ day.sod or '' }}">
             </div>
             <div class="col-6">
-              <label class="form-label">Wrap</label>
-              <input type="time" name="wrap_time" id="wrap_time_input"
+              <label class="form-label">End of Day</label>
+              <input type="time" name="eod" id="eod_input"
                      class="form-control form-control-sm"
-                     value="{{ day.wrap_time or '' }}">
+                     value="{{ day.eod or '' }}">
             </div>
           </div>
           <div class="mb-2">

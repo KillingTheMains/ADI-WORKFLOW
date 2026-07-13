@@ -266,19 +266,18 @@
           {% endif %}
           {% endfor %}
 
-          {# Call/Wrap bar — if both times are set #}
-          {% if day.call_time and day.wrap_time %}
-            {# Parse call time roughly: assumes format like "7:00 AM" #}
+          {# Start/End of Day bar — if both anchors are set #}
+          {% if day.sod and day.eod %}
             {# Use data attributes; JS will position precisely #}
             <div class="tl-bar"
-                 data-call="{{ day.call_time }}"
-                 data-wrap="{{ day.wrap_time }}"
+                 data-call="{{ day.sod }}"
+                 data-wrap="{{ day.eod }}"
                  style="position:absolute;top:6px;bottom:6px;border-radius:4px;
                         background:{{ phase_color }};opacity:0.85;
                         display:flex;align-items:center;overflow:hidden;">
               <span style="font-size:.6rem;color:#fff;white-space:nowrap;
                            padding:0 6px;overflow:hidden;text-overflow:ellipsis;">
-                {{ day.call_time }} – {{ day.wrap_time }}
+                {{ day.sod }} – {{ day.eod }}
                 {% if day.phase %} · {{ day.phase }}{% endif %}
               </span>
             </div>
@@ -325,7 +324,7 @@
           <tr>
             <th style="width:120px;">Date</th>
             <th>Phase</th>
-            <th>Call / Wrap</th>
+            <th>SOD / EOD</th>
             <th class="text-center" style="width:80px;">Activities</th>
             <th class="text-center" style="width:80px;">Crew Slots</th>
           </tr>

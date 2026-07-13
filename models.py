@@ -188,6 +188,8 @@ class ScheduleDay(db.Model):
     label       = db.Column(db.String(200))         # e.g. "Load In Day 1"
     call_time   = db.Column(db.String(20))           # e.g. "6:00 AM"
     wrap_time   = db.Column(db.String(20))           # e.g. "10:00 PM"
+    sod         = db.Column(db.String(20))           # Start of Day anchor, e.g. "6:00 AM"
+    eod         = db.Column(db.String(20))           # End of Day anchor,   e.g. "11:00 PM"
     phase       = db.Column(db.String(50))
     milestones  = db.Column(db.Text)                 # newline-separated milestone notes
     notes       = db.Column(db.Text)
@@ -224,8 +226,10 @@ class ScheduleDay(db.Model):
 
     @property
     def time_window(self):
-        if self.call_time and self.wrap_time:
-            return f"{self.call_time} – {self.wrap_time}"
+        start = self.sod or self.call_time
+        end   = self.eod or self.wrap_time
+        if start and end:
+            return f"{start} – {end}"
         return ""
 
     @property

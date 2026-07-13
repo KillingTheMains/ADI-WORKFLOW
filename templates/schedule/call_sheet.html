@@ -317,16 +317,16 @@
         <div class="cs-day-value blue">{{ day.phase }}</div>
       </div>
       {% endif %}
-      {% if day.call_time %}
+      {% if day.sod %}
       <div class="cs-day-cell">
-        <div class="cs-day-label">Crew Call</div>
-        <div class="cs-day-value blue">{{ day.call_time }}</div>
+        <div class="cs-day-label">Start of Day</div>
+        <div class="cs-day-value blue">{{ day.sod }}</div>
       </div>
       {% endif %}
-      {% if day.wrap_time %}
+      {% if day.eod %}
       <div class="cs-day-cell">
-        <div class="cs-day-label">Wrap</div>
-        <div class="cs-day-value">{{ day.wrap_time }}</div>
+        <div class="cs-day-label">End of Day</div>
+        <div class="cs-day-value">{{ day.eod }}</div>
       </div>
       {% endif %}
       <div class="cs-day-cell">

@@ -72,6 +72,9 @@ MIGRATIONS = [
     ("show_crew_assignments", "departure_flight",   "VARCHAR(50)"),
     ("show_crew_assignments", "departure_time",     "VARCHAR(20)"),
     ("show_crew_assignments", "itinerary_link",     "VARCHAR(500)"),
+    # 2026-07-13 — Start of Day / End of Day anchors (replace Call/Wrap in Day Settings)
+    ("schedule_days", "sod", "VARCHAR(20)"),
+    ("schedule_days", "eod", "VARCHAR(20)"),
 ]
 
 
@@ -168,10 +171,29 @@ def _backfill_travel_dates_from_hotel(session):
     session.commit()
 
 
+def _backfill_sod_eod_from_call_wrap(session):
+    """Start of Day / End of Day anchors replace Call / Wrap in Day Settings.
+    Seed the new anchors from the existing call_time / wrap_time so current
+    shows aren't blank after the switch. Only fills where sod/eod are still
+    empty; the legacy call_time/wrap_time columns are retained (Smart Breaks
+    still reads them until it's re-anchored to crew starts)."""
+    from models import ScheduleDay
+    rows = ScheduleDay.query.filter(
+        (ScheduleDay.call_time.isnot(None)) | (ScheduleDay.wrap_time.isnot(None))
+    ).all()
+    for d in rows:
+        if not d.sod and d.call_time:
+            d.sod = d.call_time
+        if not d.eod and d.wrap_time:
+            d.eod = d.wrap_time
+    session.commit()
+
+
 DATA_MIGRATIONS = [
     ("2026-06-30-fb-v2-migrate-entries", _migrate_fb_entries_to_meal_services),
     ("2026-07-02-add-prompter-position", _seed_position_prompter),
     ("2026-07-04-backfill-travel-dates-from-hotel", _backfill_travel_dates_from_hotel),
+    ("2026-07-13-backfill-sod-eod-from-call-wrap", _backfill_sod_eod_from_call_wrap),
 ]
 
 
