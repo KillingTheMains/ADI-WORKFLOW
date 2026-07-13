@@ -401,59 +401,61 @@ def apply_template(show_id, day_id):
 @schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/build-schedule", methods=["POST"])
 def build_day_schedule(show_id, day_id):
     """
-    Add a full break schedule to the day derived from call time, wrap time,
-    and lunch duration.  Optionally replace existing break/start/wrap activities.
-    Schedule:
-        call        → CREW START
-        call + 2:30 → MORNING BREAK — 15 min
-        call + 5:00 → LUNCH BREAK
-        lunch_end + 2:30 → AFTERNOON BREAK — 15 min
-        wrap        → EOD WRAP
+    Generate a break schedule anchored to each CREW START on the day (#44).
+
+    Breaks belong to the crew, so they hang off crew-start times — not a
+    day-level call time (SOD/EOD replaced Call/Wrap in #36, and EOD is no
+    longer a crew concept). Every CREW START activity with a time spawns its
+    own 10-hour default break set, each break labelled with that crew start's
+    time, so an 08:00 crew and a 09:00 crew get distinct, offset breaks.
+
+    Crew starts are the INPUT now — this never creates or deletes them.
+
+    Per crew start at time T:
+        T + 2:30          → COFFEE BREAK — <T> CREW
+        T + 5:00          → LUNCH BREAK — <T> CREW
+        lunch end + 2:30  → AFTERNOON BREAK — <T> CREW
     """
     day = ScheduleDay.query.get_or_404(day_id)
     f = request.form
 
-    call_time  = (f.get("call_time") or day.call_time or "").strip()
-    wrap_time  = (f.get("wrap_time") or day.wrap_time or "").strip()
     lunch_mins = int(f.get("lunch_minutes") or 30)
     replace    = f.get("replace") == "1"
 
-    call_m = _parse_time_to_minutes(call_time)
-    if call_m is None:
-        flash("Set a call time on this day first.", "warning")
+    # Crew starts are the input. Collect every CREW START activity that has a
+    # parseable time; skip any without a time set.
+    crew_starts = []
+    for act in day.activities:
+        if "CREW START" in (act.description or "").upper():
+            m = _parse_time_to_minutes(act.time or "")
+            if m is not None:
+                crew_starts.append((m, (act.time or "").strip()))
+
+    if not crew_starts:
+        flash("Add a Crew Start with a time to this day first, then build breaks.",
+              "warning")
         return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
 
-    wrap_m = _parse_time_to_minutes(wrap_time)
-
-    # Optionally purge existing break / start / wrap activities
+    # Optionally purge only the breaks WE generate — never crew starts, never
+    # anything else the user placed on the day.
     if replace:
-        BREAK_KEYWORDS = ("break", "lunch", "dinner", "crew start", "eod wrap", "eod")
+        GENERATED = ("coffee break", "lunch break", "afternoon break",
+                     "morning break", "dinner break")
         for act in list(day.activities):
-            if any(kw in act.description.lower() for kw in BREAK_KEYWORDS):
+            if any(kw in (act.description or "").lower() for kw in GENERATED):
                 db.session.delete(act)
         db.session.flush()
 
-    coffee1   = call_m + 150           # +2h 30m
-    lunch_s   = call_m + 300           # +5h 00m
-    lunch_end = lunch_s + lunch_mins
-    coffee2   = lunch_end + 150        # +2h 30m after lunch ends
-
-    to_add = [
-        (call_m,   "CREW START"),
-        (coffee1,  "MORNING BREAK — 15 min"),
-        (lunch_s,  f"LUNCH BREAK — {lunch_mins} min"),
-        (coffee2,  "AFTERNOON BREAK — 15 min"),
-    ]
-
-    # Dinner break required when total elapsed time exceeds 10 hours
-    # AND the calculated dinner time actually falls before the wrap
-    if wrap_m is not None and ((wrap_m - call_m) % (24 * 60)) > 600:
-        dinner_s = lunch_end + 300     # 5h of work after lunch ends
-        if dinner_s < wrap_m:
-            to_add.append((dinner_s, f"DINNER BREAK — {lunch_mins} min"))
-
-    if wrap_m is not None:
-        to_add.append((wrap_m, "EOD WRAP"))
+    to_add = []
+    for base_m, label_time in crew_starts:
+        tag       = f"{label_time} CREW"
+        coffee1   = base_m + 150            # +2h 30m
+        lunch_s   = base_m + 300            # +5h 00m
+        lunch_end = lunch_s + lunch_mins
+        coffee2   = lunch_end + 150         # +2h 30m after lunch ends
+        to_add.append((coffee1, f"COFFEE BREAK — {tag}"))
+        to_add.append((lunch_s, f"LUNCH BREAK — {tag}"))
+        to_add.append((coffee2, f"AFTERNOON BREAK — {tag}"))
 
     to_add.sort(key=lambda x: x[0])
 
@@ -470,9 +472,10 @@ def build_day_schedule(show_id, day_id):
         ))
 
     db.session.commit()
+    n = len(crew_starts)
     flash(
-        f"Day schedule built — {len(to_add)} activities added "
-        f"({call_time} – {wrap_time or 'no wrap set'}).",
+        f"Breaks built for {n} crew start{'s' if n != 1 else ''} "
+        f"({len(to_add)} added).",
         "success"
     )
     return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))

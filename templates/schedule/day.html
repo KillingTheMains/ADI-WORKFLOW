@@ -203,14 +203,14 @@
                style="background:var(--adi-surface);border:1px solid var(--adi-border);
                       border-radius:6px;padding:8px 10px;margin-bottom:10px;
                       font-size:.78rem;line-height:2;color:var(--adi-muted);">
-            Enter call &amp; wrap times above to preview.
+            Breaks generate off each Crew Start on this day (10-hour default).
           </div>
 
           <div class="form-check mb-2" style="font-size:.75rem;">
             <input class="form-check-input" type="checkbox" name="replace" value="1"
                    id="break-replace" checked>
             <label class="form-check-label" for="break-replace">
-              Replace existing breaks &amp; Crew Start
+              Replace existing breaks (Crew Starts are kept)
             </label>
           </div>
 
@@ -318,10 +318,11 @@
           </button>
         </form>
 
-        <!-- Smart Breaks -->
-        <form method="POST" action="{{ url_for('schedule.smart_breaks', show_id=show.id, day_id=day.id) }}" class="mb-2">
+        <!-- Smart Breaks — one-click crew-start break set (regenerates) -->
+        <form method="POST" action="{{ url_for('schedule.build_day_schedule', show_id=show.id, day_id=day.id) }}" class="mb-2">
+          <input type="hidden" name="replace" value="1">
           <button type="submit" class="btn btn-sm btn-outline-secondary tool-btn"
-                  {% if not day.call_time %}title="Set a call time first" style="opacity:.5"{% endif %}>
+                  title="Add coffee & lunch breaks off each Crew Start on this day">
             ☕ Smart Breaks
           </button>
         </form>
