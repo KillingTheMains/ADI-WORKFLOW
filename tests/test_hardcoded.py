@@ -92,3 +92,97 @@ def test_edit_and_delete_routes(app, client, db):
 
     client.post(f"/hard-coded-events/{ev_id}/delete", data={})
     assert HardCodedEvent.query.get(ev_id) is None
+
+
+# ── Phase 2: virtual overlay + per-show toggle ───────────────────────────────
+import datetime as dt
+
+
+def _show_day(db, sod="8:00 AM", eod="10:00 PM"):
+    from models import Show, ScheduleDay
+    show = Show(name="HCE Show", code="HC26")
+    db.session.add(show); db.session.flush()
+    day = ScheduleDay(show_id=show.id, date=dt.date(2026, 7, 16), sod=sod, eod=eod)
+    db.session.add(day); db.session.commit()
+    return show, day
+
+
+def test_overlay_resolves_range_times(db):
+    from models import HardCodedEvent
+    from hardcoded_service import overlay_for_day
+    show, day = _show_day(db)
+    db.session.add(HardCodedEvent(name="Security", department="Security",
+                   start_anchor="SOD", start_offset=-60,
+                   end_anchor="EOD", end_offset=60, active=True))
+    db.session.commit()
+    items, missing = overlay_for_day(day)
+    assert missing is False
+    sec = next(i for i in items if i["name"] == "Security")
+    assert sec["time"] == "7:00 AM"       # SOD 8:00 - 1:00
+    assert sec["end_time"] == "11:00 PM"  # EOD 10:00 + 1:00
+    assert sec["department"] == "Security"
+
+
+def test_overlay_point_event_has_no_end(db):
+    from models import HardCodedEvent
+    from hardcoded_service import overlay_for_day
+    show, day = _show_day(db)
+    db.session.add(HardCodedEvent(name="Beverage", start_anchor="SOD",
+                                  start_offset=-30, active=True))
+    db.session.commit()
+    items, _ = overlay_for_day(day)
+    bev = next(i for i in items if i["name"] == "Beverage")
+    assert bev["time"] == "7:30 AM"
+    assert bev["end_time"] is None
+
+
+def test_overlay_skips_when_anchor_missing(db):
+    from models import HardCodedEvent
+    from hardcoded_service import overlay_for_day
+    show, day = _show_day(db, sod=None, eod=None)
+    db.session.add(HardCodedEvent(name="Security", start_anchor="SOD",
+                                  start_offset=-60, active=True))
+    db.session.commit()
+    items, missing = overlay_for_day(day)
+    assert items == []
+    assert missing is True
+
+
+def test_overlay_respects_per_show_disable(db):
+    from models import HardCodedEvent, ShowHardCodedEvent
+    from hardcoded_service import overlay_for_day
+    show, day = _show_day(db)
+    ev = HardCodedEvent(name="Security", start_anchor="SOD", start_offset=-60, active=True)
+    db.session.add(ev); db.session.commit()
+    db.session.add(ShowHardCodedEvent(show_id=show.id, hce_id=ev.id, enabled=False))
+    db.session.commit()
+    items, _ = overlay_for_day(day)
+    assert items == []
+
+
+def test_overlay_excludes_inactive(db):
+    from models import HardCodedEvent
+    from hardcoded_service import overlay_for_day
+    show, day = _show_day(db)
+    db.session.add(HardCodedEvent(name="Off", start_anchor="SOD",
+                                  start_offset=0, active=False))
+    db.session.commit()
+    items, _ = overlay_for_day(day)
+    assert items == []
+
+
+def test_apply_to_show_route_disables_then_reenables(app, client, db):
+    from models import HardCodedEvent, ShowHardCodedEvent
+    show, day = _show_day(db)
+    ev = HardCodedEvent(name="Security", start_anchor="SOD", start_offset=0, active=True)
+    db.session.add(ev); db.session.commit()
+
+    # No checkbox -> turned off for this show
+    client.post(f"/shows/{show.id}/hard-coded-events/apply", data={})
+    row = ShowHardCodedEvent.query.filter_by(show_id=show.id, hce_id=ev.id).first()
+    assert row is not None and row.enabled is False
+
+    # Checkbox on -> back on
+    client.post(f"/shows/{show.id}/hard-coded-events/apply", data={f"hce_{ev.id}": "1"})
+    row = ShowHardCodedEvent.query.filter_by(show_id=show.id, hce_id=ev.id).first()
+    assert row.enabled is True

@@ -423,6 +423,40 @@
       </div>
     </div>
 
+    <!-- ── Hard-Coded Events (auto, read-only overlay) ─────────────────── -->
+    {% if hardcoded_overlay or hardcoded_missing_anchor %}
+    <div class="card mb-2" style="border-left:3px solid var(--adi-gold);">
+      <div class="card-body py-2 px-3">
+        <div class="d-flex align-items-center justify-content-between mb-1">
+          <span style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--adi-muted);">
+            📌 Hard-Coded Events <span style="text-transform:none;">· auto · timed off SOD/EOD</span>
+          </span>
+          <a href="/hard-coded-events" style="font-size:.72rem;">Manage</a>
+        </div>
+        {% for hc in hardcoded_overlay %}
+        <div class="d-flex align-items-center gap-2 py-1"
+             style="font-size:.85rem;border-top:1px solid var(--adi-border);">
+          <span style="font-weight:700;color:var(--adi-blue);min-width:150px;">
+            {{ hc.time }}{% if hc.end_time %} – {{ hc.end_time }}{% endif %}
+          </span>
+          <span style="flex:1;">{{ hc.name }}</span>
+          {% if hc.department and hc.department in oss_meta %}
+          <span class="badge"
+                style="background:var(--adi-surface);color:var(--adi-muted);border:1px solid var(--adi-border);">
+            {{ oss_meta[hc.department].icon }} {{ oss_meta[hc.department].label }}
+          </span>
+          {% endif %}
+        </div>
+        {% endfor %}
+        {% if hardcoded_missing_anchor %}
+        <div style="font-size:.72rem;color:var(--adi-muted);margin-top:3px;">
+          Set this day's Start/End of Day to place the remaining hard-coded events.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
     <!-- ── Activities List ───────────────────────────────────────────── -->
     {% if day.activities %}
     {% for act in day.activities %}

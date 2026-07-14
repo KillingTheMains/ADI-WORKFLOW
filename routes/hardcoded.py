@@ -9,7 +9,7 @@ day's SOD/EOD, and surface department-tagged ones on their OSS tab (#35).
 #35 folds in here: a hard-coded event's `department` is the auto-assign.
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from models import db, HardCodedEvent, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META
+from models import db, HardCodedEvent, ShowHardCodedEvent, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META
 
 hardcoded_bp = Blueprint("hardcoded_bp", __name__)
 
@@ -104,3 +104,27 @@ def delete(ev_id):
     db.session.commit()
     flash("Deleted.", "success")
     return redirect(url_for("hardcoded_bp.index"))
+
+
+@hardcoded_bp.route("/shows/<int:show_id>/hard-coded-events/apply", methods=["POST"])
+def apply_to_show(show_id):
+    """Per-show on/off. Default is ON; we only persist an 'off' row. A checkbox
+    named hce_<id> present means keep it on for this show."""
+    active = HardCodedEvent.query.filter_by(active=True).all()
+    existing = {r.hce_id: r for r in
+                ShowHardCodedEvent.query.filter_by(show_id=show_id).all()}
+    f = request.form
+    for e in active:
+        on = f.get(f"hce_{e.id}") == "1"
+        row = existing.get(e.id)
+        if on:
+            if row is not None:
+                row.enabled = True     # back on (default), keep row harmless
+        else:
+            if row is None:
+                db.session.add(ShowHardCodedEvent(show_id=show_id, hce_id=e.id, enabled=False))
+            else:
+                row.enabled = False
+    db.session.commit()
+    flash("Hard-coded events updated for this show.", "success")
+    return redirect(url_for("schedule.overview", show_id=show_id))

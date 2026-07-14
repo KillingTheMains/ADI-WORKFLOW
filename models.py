@@ -686,6 +686,18 @@ class HardCodedEvent(db.Model):
         return f"<HardCodedEvent {self.name} {self.start_label}>"
 
 
+class ShowHardCodedEvent(db.Model):
+    """Per-show on/off for a global HardCodedEvent (#37 Phase 2). A missing row
+    means the event applies (default on); a row with enabled=False turns it off
+    for that show."""
+    __tablename__ = "show_hard_coded_events"
+    id      = db.Column(db.Integer, primary_key=True)
+    show_id = db.Column(db.Integer, db.ForeignKey("shows.id"), nullable=False)
+    hce_id  = db.Column(db.Integer, db.ForeignKey("hard_coded_events.id"), nullable=False)
+    enabled = db.Column(db.Boolean, default=True)
+    __table_args__ = (db.UniqueConstraint("show_id", "hce_id", name="uq_show_hce"),)
+
+
 
 # ── COMS (intercom + radio assignments per show) ─────────────────────────────
 #

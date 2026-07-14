@@ -55,7 +55,13 @@ def _get_template_by_phase(phase_type):
 @schedule_bp.route("/<int:show_id>/schedule")
 def overview(show_id):
     show = Show.query.get_or_404(show_id)
-    return render_template("schedule/overview.html", show=show, phases=PHASES)
+    from models import HardCodedEvent, ShowHardCodedEvent
+    hc_events = (HardCodedEvent.query.filter_by(active=True)
+                 .order_by(HardCodedEvent.sort_order, HardCodedEvent.id).all())
+    hc_disabled = {r.hce_id for r in
+                   ShowHardCodedEvent.query.filter_by(show_id=show_id, enabled=False).all()}
+    return render_template("schedule/overview.html", show=show, phases=PHASES,
+                           hc_events=hc_events, hc_disabled=hc_disabled)
 
 
 # ── Add / generate days ──────────────────────────────────────────────────────
@@ -244,6 +250,9 @@ def day_detail(show_id, day_id):
         if not has_fb:
             meal_breaks_missing_fb.add(act.id)
 
+    from hardcoded_service import overlay_for_day
+    hc_overlay, hc_missing_anchor = overlay_for_day(day)
+
     return render_template("schedule/day.html", show=show, day=day,
                            positions=positions, crew_members=crew_members,
                            show_companies=show_companies,
@@ -253,6 +262,8 @@ def day_detail(show_id, day_id):
                            oss_unlinked=oss_unlinked,
                            oss_types=ordered_oss_types,
                            oss_meta=SUB_SCHEDULE_META,
+                           hardcoded_overlay=hc_overlay,
+                           hardcoded_missing_anchor=hc_missing_anchor,
                            meal_breaks_missing_fb=meal_breaks_missing_fb)
 
 

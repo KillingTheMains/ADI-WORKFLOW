@@ -66,6 +66,35 @@
   </div>
 </div>
 
+{# ── Hard-Coded Events for this show (per-show on/off) ── #}
+{% if hc_events %}
+<details class="mb-3">
+  <summary style="cursor:pointer;font-size:.85rem;color:var(--adi-muted);">
+    📌 Hard-Coded Events for this show ({{ hc_events|length }})
+  </summary>
+  <div class="card mt-2"><div class="card-body py-2 px-3">
+    <p style="font-size:.75rem;color:var(--adi-muted);" class="mb-2">
+      These recurring events auto-appear on every day, timed off each day's SOD/EOD.
+      Uncheck any this show doesn't need. <a href="/hard-coded-events">Manage the list</a>.
+    </p>
+    <form method="POST" action="{{ url_for('hardcoded_bp.apply_to_show', show_id=show.id) }}">
+      <div class="d-flex flex-wrap gap-3 mb-2">
+        {% for e in hc_events %}
+        <label style="font-size:.85rem;display:flex;align-items:center;gap:5px;">
+          <input type="checkbox" name="hce_{{ e.id }}" value="1" {% if e.id not in hc_disabled %}checked{% endif %}>
+          {{ e.name }}
+          <span style="color:var(--adi-muted);font-size:.75rem;">
+            ({{ e.start_label }}{% if e.end_label %} → {{ e.end_label }}{% endif %})
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+      <button class="btn btn-sm btn-adi">Save for this show</button>
+    </form>
+  </div></div>
+</details>
+{% endif %}
+
 {% if show.days %}
 
 <!-- View toggle -->
