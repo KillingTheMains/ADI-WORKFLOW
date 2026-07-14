@@ -627,6 +627,65 @@ class SubScheduleEntry(db.Model):
         return f"<SubSchedule {self.type} day={self.schedule_day_id} act={self.activity_id} {self.time}>"
 
 
+class HardCodedEvent(db.Model):
+    """Global recurring events (Security, Crew Beverage Set, …) defined once and
+    (Phase 2) auto-applied to every day, timed as offsets from that day's
+    SOD/EOD. A department, when set, surfaces the event on that OSS tab (#35)."""
+    __tablename__ = "hard_coded_events"
+    id           = db.Column(db.Integer, primary_key=True)
+    name         = db.Column(db.String(120), nullable=False)
+    department   = db.Column(db.String(50))                 # one of SUB_SCHEDULE_TYPES, or blank
+    start_anchor = db.Column(db.String(3), default="SOD")   # "SOD" | "EOD"
+    start_offset = db.Column(db.Integer, default=0)         # signed minutes from anchor
+    end_anchor   = db.Column(db.String(3))                  # "SOD" | "EOD" | None (point event)
+    end_offset   = db.Column(db.Integer)                    # signed minutes, or None
+    active       = db.Column(db.Boolean, default=True)
+    sort_order   = db.Column(db.Integer, default=0)
+
+    @staticmethod
+    def _fmt(mins):
+        if mins is None:
+            return ""
+        m = abs(int(mins))
+        if not m:
+            return ""
+        sign = "+" if mins >= 0 else "\u2212"   # − true minus
+        return f" {sign}{m // 60}:{m % 60:02d}"
+
+    @property
+    def start_label(self):
+        return f"{self.start_anchor or 'SOD'}{self._fmt(self.start_offset)}"
+
+    @property
+    def end_label(self):
+        if not self.end_anchor:
+            return ""
+        return f"{self.end_anchor}{self._fmt(self.end_offset)}"
+
+    @property
+    def is_range(self):
+        return bool(self.end_anchor)
+
+    @staticmethod
+    def _offset_str(mins):
+        """Signed offset for editable inputs: -60 -> '-1:00', 30 -> '+0:30', 0/None -> ''."""
+        if not mins:
+            return ""
+        m = abs(int(mins))
+        return f"{'-' if mins < 0 else '+'}{m // 60}:{m % 60:02d}"
+
+    @property
+    def start_offset_str(self):
+        return self._offset_str(self.start_offset)
+
+    @property
+    def end_offset_str(self):
+        return self._offset_str(self.end_offset)
+
+    def __repr__(self):
+        return f"<HardCodedEvent {self.name} {self.start_label}>"
+
+
 
 # ── COMS (intercom + radio assignments per show) ─────────────────────────────
 #

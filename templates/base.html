@@ -64,6 +64,12 @@
        title="Feature requests, bugs, and questions">
       <span class="nav-icon">📋</span> Requests
     </a>
+    {# Hardcoded href so a missing blueprint can't 500 the whole site. #}
+    <a href="/hard-coded-events"
+       class="{% if request.endpoint and request.endpoint.startswith('hardcoded_bp.') %}active{% endif %}"
+       title="Recurring events defined once, timed off each day's SOD/EOD">
+      <span class="nav-icon">📌</span> Hard-Coded Events
+    </a>
 
     <div class="nav-section">Shows</div>
     <a href="{{ url_for('shows.index') }}"

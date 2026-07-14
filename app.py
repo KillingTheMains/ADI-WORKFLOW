@@ -19,6 +19,7 @@ _BLUEPRINTS = [
     ("routes.crew_import",      "crew_import_bp",  "/crew"),
     ("routes.audit_routes",     "audit_bp",        None),
     ("routes.requests_routes",  "requests_bp",     None),
+    ("routes.hardcoded",        "hardcoded_bp",    None),
 ]
 
 
