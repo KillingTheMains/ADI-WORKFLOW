@@ -4,7 +4,7 @@
 {% block breadcrumb %}
   <a href="{{ url_for('main.dashboard') }}">Home</a> /
   <a href="{{ url_for('shows.detail', show_id=show.id) }}">{{ show.name }}</a> /
-  <a href="{{ url_for('show_crew.show_crew', show_id=show.id) }}">Crew</a> / Travel
+  <a href="{{ url_for('show_crew.show_crew', show_id=show.id) }}">Crew Roster</a> / Travel
 {% endblock %}
 
 {% block top_actions %}

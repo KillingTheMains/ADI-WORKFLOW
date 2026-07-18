@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Show Crew — {{ show.name }}{% endblock %}
-{% block page_title %}Show Crew Roster{% endblock %}
+{% block title %}Crew Roster — {{ show.name }}{% endblock %}
+{% block page_title %}Crew Roster{% endblock %}
 {% block breadcrumb %}
   <a href="{{ url_for('main.dashboard') }}">Home</a> /
-  <a href="{{ url_for('shows.detail', show_id=show.id) }}">{{ show.name }}</a> / Crew
+  <a href="{{ url_for('shows.detail', show_id=show.id) }}">{{ show.name }}</a> / Crew Roster
 {% endblock %}
 
 {% block top_actions %}

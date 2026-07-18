@@ -94,9 +94,9 @@
     <div class="nav-section">Databases</div>
     <a href="{{ url_for('crew.index') }}"
        class="{% if request.endpoint == 'crew.index' or request.endpoint == 'crew.add' or request.endpoint == 'crew.edit' %}active{% endif %}">
-      <span class="nav-icon">👥</span> Crew Roster
+      <span class="nav-icon">👥</span> Crew Database
     </a>
-    {# Per-show links under Crew Roster → that show's crew page #}
+    {# Per-show links under Crew Database → that show's crew page #}
     {{ show_sub_list('show_crew.show_crew') }}
     <a href="#" class="disabled" style="opacity:0.4; cursor:not-allowed;">
       <span class="nav-icon">🏢</span> Vendors
