@@ -148,6 +148,46 @@ def oss_hub(show_id):
                 "duration_hrs": None,
                 "notes":    (loc.notes if loc else None) or svc.notes or "",
             })
+    # ── #39: roll up ALL day activities + crew call times into the master ──
+    # so the Master tab is a genuinely complete per-show timeline, not just OSS
+    # department entries + meals. Same dict shape -> renders in the same table.
+    from hardcoded_service import _parse as _parse_time
+
+    def _hhmm(t):
+        m = _parse_time(t)
+        return "%02d:%02d" % divmod(m, 60) if m is not None else "99:99"
+
+    for d in show.days:
+        for a in d.activities:
+            master_items.append({
+                "day_id": d.id, "day": d,
+                "sort_time": _hhmm(a.time),
+                "time": a.time or "",
+                "icon": "🗓",
+                "dept": "Schedule",
+                "activity": a.description or "",
+                "count": None, "duration_hrs": None,
+                "notes": a.notes or "",
+            })
+            # Crew on a Crew Start -> each crew member's call time is this time.
+            if "CREW START" in (a.description or "").upper():
+                for row in a.crew_rows:
+                    if row.is_group_header or not row.crew_member_id:
+                        continue
+                    cm = row.crew_member
+                    who = cm.full_name if cm else (row.name_override or "TBD")
+                    pos = row.position or (cm.position.title if cm and cm.position else "")
+                    master_items.append({
+                        "day_id": d.id, "day": d,
+                        "sort_time": _hhmm(a.time),
+                        "time": a.time or "",
+                        "icon": "👤",
+                        "dept": "Crew",
+                        "activity": who + (" · " + pos if pos else ""),
+                        "count": None, "duration_hrs": None,
+                        "notes": "",
+                    })
+
     # Sort by day date (None → last) then by time within each day.
     from datetime import date as _date_cls
     def _mi_sort(item):
