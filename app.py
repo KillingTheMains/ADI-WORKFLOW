@@ -157,6 +157,35 @@ def create_app():
     # half-migrated DB could keep serving traffic with only a log line to show
     # for it — that's the "silent failure on PA" pattern Larry got bitten by.
     app.config["MIGRATION_ERROR"] = None
+    # SKIP_DB_STARTUP=1 makes the app boot WITHOUT any database work.
+    #
+    # Every one of the steps below is a SQLite round-trip, and run_migrations()
+    # alone does a PRAGMA read per migrated column. On healthy storage that's
+    # imperceptible; on a degraded/slow filesystem (PythonAnywhere's NFS home
+    # mount, 2026-07-18) it took ~7 minutes, so web workers were killed on
+    # startup timeout and the site served nothing at all -- at 0% CPU, with no
+    # traceback, because the process was blocked on I/O rather than erroring.
+    #
+    # Schema work does not belong on the request-serving hot path: set
+    # SKIP_DB_STARTUP=1 in the WSGI file and run migrations deliberately at
+    # deploy time instead:  python -c "from app import run_db_startup; run_db_startup()"
+    if os.environ.get("SKIP_DB_STARTUP") == "1":
+        app.logger.warning(
+            "SKIP_DB_STARTUP=1 - skipping create_all/migrations/seeds/prune. "
+            "Run them at deploy time via run_db_startup()."
+        )
+        return app
+
+    _run_db_startup(app)
+    return app
+
+
+def _run_db_startup(app):
+    """Create tables, apply pending migrations, seed data, prune the audit log.
+
+    Normally called by create_app(); skipped when SKIP_DB_STARTUP=1 so it can
+    be run deliberately at deploy time instead of on every worker boot.
+    """
     with app.app_context():
         db.create_all()
         try:
@@ -178,6 +207,28 @@ def create_app():
             app.logger.warning("audit prune skipped: %s", e)
 
     return app
+
+
+def run_db_startup():
+    """Deploy-time entry point for the DB work the web app now skips.
+
+    Usage on the server, after a git pull:
+        python -c "from app import run_db_startup; run_db_startup()"
+
+    Builds an app with SKIP_DB_STARTUP forced off so the work actually runs,
+    regardless of what the WSGI environment sets.
+    """
+    import os as _os
+    prev = _os.environ.pop("SKIP_DB_STARTUP", None)
+    try:
+        app = create_app()
+        err = app.config.get("MIGRATION_ERROR")
+        print("MIGRATION_ERROR:", err if err else "none")
+        print("DB startup complete.")
+        return app
+    finally:
+        if prev is not None:
+            _os.environ["SKIP_DB_STARTUP"] = prev
 
 
 def _seed_positions():
