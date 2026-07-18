@@ -158,6 +158,32 @@ def edit_inline(member_id):
     return redirect(url_for("crew.index"))
 
 
+@crew_bp.route("/bulk-edit", methods=["POST"])
+def bulk_edit():
+    """Bulk-set Position and/or Company on the selected crew (#42).
+
+    Non-destructive: a field left on '— leave unchanged —' (empty) is NOT
+    written, so selected members keep their existing value for that field.
+    """
+    ids = [int(x) for x in (request.form.get("ids") or "").split(",") if x.strip().isdigit()]
+    pos_raw = (request.form.get("position_id") or "").strip()
+    co_raw  = (request.form.get("company_id") or "").strip()
+
+    if not ids or not (pos_raw or co_raw):
+        flash("Nothing to update — select crew and choose a field to change.", "warning")
+        return redirect(url_for("crew.index"))
+
+    members = CrewMember.query.filter(CrewMember.id.in_(ids)).all()
+    for m in members:
+        if pos_raw.isdigit():
+            m.position_id = int(pos_raw)
+        if co_raw.isdigit():
+            m.company_id = int(co_raw)
+    db.session.commit()
+    flash(f"Updated {len(members)} crew member{'s' if len(members) != 1 else ''}.", "success")
+    return redirect(url_for("crew.index"))
+
+
 @crew_bp.route("/add", methods=["GET", "POST"])
 def add():
     companies = Company.query.order_by(Company.name).all()
