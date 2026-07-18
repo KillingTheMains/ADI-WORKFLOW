@@ -33,7 +33,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label">Primary Position</label>
-              <select name="position_id" class="form-select">
+              <select name="position_id" class="form-select crew-position-select">
                 <option value="">— Select position —</option>
                 {% set dept = namespace(current='') %}
                 {% for p in positions %}
@@ -43,6 +43,7 @@
                   {% endif %}
                   <option value="{{ p.id }}">{{ p.title }}</option>
                 {% endfor %}
+                <option value="__new__" style="font-style:italic;color:#B45309;">+ New position…</option>
               </select>
             </div>
             <div class="col-md-6">
@@ -104,4 +105,7 @@
     </form>
   </div>
 </div>
+{# Shared "+ New Position" modal (#41) — positions created here are saved globally #}
+{% include "crew/_new_position_modal.html" %}
+
 {% endblock %}

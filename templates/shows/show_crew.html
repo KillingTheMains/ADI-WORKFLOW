@@ -103,11 +103,12 @@
     <div class="row g-1 align-items-end" style="font-size:.78rem;">
       <div class="col-md-2">
         <label style="font-size:.7rem;">Position</label>
-        <select name="position_id" class="form-select form-select-sm" style="font-size:.76rem;">
+        <select name="position_id" class="form-select form-select-sm crew-position-select" style="font-size:.76rem;">
           <option value="">— pick —</option>
           {% for p in all_positions %}
           <option value="{{ p.id }}">{{ p.title }}{% if p.department %} ({{ p.department }}){% endif %}</option>
           {% endfor %}
+          <option value="__new__" style="font-style:italic;color:#B45309;">+ New position…</option>
         </select>
       </div>
       <div class="col-md-2">
@@ -247,13 +248,14 @@
                        class="form-control form-control-sm mt-1">
               </td>
               <td>
-                <select name="position_id" class="form-select form-select-sm">
+                <select name="position_id" class="form-select form-select-sm crew-position-select">
                   <option value="">— none —</option>
                   {% for p in all_positions %}
                   <option value="{{ p.id }}" {% if slot.position_id == p.id %}selected{% endif %}>
                     {{ p.title }}
                   </option>
                   {% endfor %}
+                  <option value="__new__" style="font-style:italic;color:#B45309;">+ New position…</option>
                 </select>
               </td>
               <td>
@@ -515,5 +517,7 @@
   .booking-drag-chosen  { background: #FEF3C7 !important; }
   .booking-drag-handle:hover { color: #1C2333 !important; }
 </style>
+{# Shared "+ New Position" modal (#41) — positions created here are saved globally #}
+{% include "crew/_new_position_modal.html" %}
 
 {% endblock %}

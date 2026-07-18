@@ -1,0 +1,129 @@
+{# Shared "+ New Position" modal (#41).
+   Include once per page that has a position dropdown, then give each
+   <select> the class `crew-position-select` and an
+   <option value="__new__">+ New position…</option> sentinel.
+   Creating a position saves it globally (crew.positions_create), so it
+   becomes available in every position dropdown app-wide. #}
+<div class="modal fade" id="newPositionModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">+ New Position</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label" style="font-size:.82rem;font-weight:600;">Title</label>
+          <input type="text" id="np-title" class="form-control"
+                 placeholder="e.g. Steadicam Op, TelePrompter Op" required>
+        </div>
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label" style="font-size:.82rem;font-weight:600;">Department</label>
+            <input type="text" id="np-department" class="form-control" list="np-depts"
+                   placeholder="e.g. Video">
+            <datalist id="np-depts">
+              <option value="Audio"><option value="Video"><option value="Lighting">
+              <option value="LED"><option value="Rigging"><option value="Scenic">
+              <option value="Production"><option value="General"><option value="Specialty">
+              <option value="Power">
+            </datalist>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-size:.82rem;font-weight:600;">Type</label>
+            <select id="np-type" class="form-select">
+              <option value="">—</option>
+              <option value="lead">Lead</option>
+              <option value="head">Head</option>
+              <option value="hand">Hand</option>
+              <option value="utility">Utility</option>
+              <option value="specialty">Specialty</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-check mt-3">
+          <input type="checkbox" id="np-union" class="form-check-input">
+          <label for="np-union" class="form-check-label" style="font-size:.82rem;">
+            Union-eligible
+          </label>
+        </div>
+        <div id="np-msg" class="mt-2" style="font-size:.78rem;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" id="np-save" class="btn btn-sm btn-adi">Create</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const modalEl = document.getElementById('newPositionModal');
+  if (!modalEl || modalEl.dataset.wired) return;
+  modalEl.dataset.wired = '1';
+  let pendingSelect = null;   // the <select> that triggered the modal
+
+  document.addEventListener('change', function (e) {
+    const sel = e.target;
+    if (!sel.classList || !sel.classList.contains('crew-position-select')) return;
+    if (sel.value !== '__new__') return;
+    sel.dataset.previousValue = sel.dataset.previousValue || '';
+    sel.value = sel.dataset.previousValue;
+    pendingSelect = sel;
+    document.getElementById('np-title').value = '';
+    document.getElementById('np-department').value = '';
+    document.getElementById('np-type').value = '';
+    document.getElementById('np-union').checked = false;
+    document.getElementById('np-msg').textContent = '';
+    new bootstrap.Modal(modalEl).show();
+    setTimeout(() => document.getElementById('np-title').focus(), 200);
+  }, true);
+
+  document.getElementById('np-save').addEventListener('click', function () {
+    const title = document.getElementById('np-title').value.trim();
+    const msg = document.getElementById('np-msg');
+    if (!title) {
+      msg.textContent = 'Title is required';
+      msg.style.color = '#B91C1C';
+      return;
+    }
+    const body = new FormData();
+    body.set('title',      title);
+    body.set('department', document.getElementById('np-department').value.trim());
+    body.set('type',       document.getElementById('np-type').value);
+    body.set('union_eligible', document.getElementById('np-union').checked ? '1' : '');
+
+    fetch("{{ url_for('crew.positions_create') }}", { method: 'POST', body: body })
+      .then(r => r.json())
+      .then(function (data) {
+        if (!data.ok) {
+          msg.textContent = data.error || 'Failed';
+          msg.style.color = '#B91C1C';
+          return;
+        }
+        // Slot the new option into EVERY position dropdown on the page.
+        document.querySelectorAll('.crew-position-select').forEach(function (sel) {
+          let opt = sel.querySelector('option[value="' + data.id + '"]');
+          if (!opt) {
+            opt = document.createElement('option');
+            opt.value = data.id;
+            opt.textContent = data.title;
+            const sentinel = sel.querySelector('option[value="__new__"]');
+            if (sentinel) sel.insertBefore(opt, sentinel);
+            else sel.appendChild(opt);
+          }
+        });
+        if (pendingSelect) {
+          pendingSelect.value = data.id;
+          pendingSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        bootstrap.Modal.getInstance(modalEl).hide();
+      })
+      .catch(function () {
+        msg.textContent = 'Network error';
+        msg.style.color = '#B91C1C';
+      });
+  });
+})();
+</script>
