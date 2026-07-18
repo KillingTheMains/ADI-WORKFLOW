@@ -169,9 +169,13 @@ def bulk_edit():
     pos_raw = (request.form.get("position_id") or "").strip()
     co_raw  = (request.form.get("company_id") or "").strip()
 
+    # Optional return path (e.g. the per-show roster), validated to a local URL.
+    nxt = request.form.get("next") or ""
+    dest = nxt if (nxt.startswith("/") and not nxt.startswith("//")) else url_for("crew.index")
+
     if not ids or not (pos_raw or co_raw):
         flash("Nothing to update — select crew and choose a field to change.", "warning")
-        return redirect(url_for("crew.index"))
+        return redirect(dest)
 
     members = CrewMember.query.filter(CrewMember.id.in_(ids)).all()
     for m in members:
@@ -181,7 +185,7 @@ def bulk_edit():
             m.company_id = int(co_raw)
     db.session.commit()
     flash(f"Updated {len(members)} crew member{'s' if len(members) != 1 else ''}.", "success")
-    return redirect(url_for("crew.index"))
+    return redirect(dest)
 
 
 @crew_bp.route("/add", methods=["GET", "POST"])

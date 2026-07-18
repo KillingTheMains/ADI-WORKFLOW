@@ -97,6 +97,7 @@ def show_crew(show_id):
         task_groups=task_groups,
         ordered_task_keys=ordered_task_keys,
         all_positions=all_positions,
+        all_companies=Company.query.order_by(Company.name).all(),
     )
 
 
