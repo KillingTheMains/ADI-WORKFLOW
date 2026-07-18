@@ -79,7 +79,9 @@ def new():
 @shows_bp.route("/<int:show_id>")
 def detail(show_id):
     show = Show.query.get_or_404(show_id)
-    return render_template("shows/detail.html", show=show)
+    phases = ProductionPhase.query.filter_by(show_id=show.id)\
+               .order_by(ProductionPhase.start_date).all()
+    return render_template("shows/detail.html", show=show, phases=phases)
 
 
 # ── Edit show ─────────────────────────────────────────────────────────────────

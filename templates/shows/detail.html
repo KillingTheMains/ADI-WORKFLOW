@@ -90,6 +90,21 @@
             <td style="padding:5px 0;">{{ show.strike_date.strftime('%a, %b %-d, %Y') if show.strike_date else '—' }}</td>
           </tr>
         </table>
+
+        {% if phases %}
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--adi-border);">
+          <div class="text-muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">Phases</div>
+          {% for p in phases %}
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:.82rem;padding:2px 0;">
+            <span style="font-weight:600;">
+              <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:{{ p.color }};margin-right:5px;vertical-align:middle;"></span>{{ p.name }}
+            </span>
+            <span class="text-muted">{{ p.date_range_display or '—' }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
         {% if show.notes %}
         <div class="divider"></div>
         <div class="text-muted" style="font-size:.8rem;">{{ show.notes }}</div>
