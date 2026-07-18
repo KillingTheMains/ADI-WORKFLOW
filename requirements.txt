@@ -11,3 +11,4 @@ openpyxl==3.1.5
 # WeasyPrint was removed July 3 — PA can't install its Pango/GObject native
 # deps. Replaced with browser Print-to-PDF via @media print CSS. Do not
 # re-add the WeasyPrint pin; a fresh venv rebuild will fail to install it.
+PyMySQL==1.1.1        # MySQL driver (pure-Python, no build step) — see MySQL migration

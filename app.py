@@ -48,6 +48,17 @@ def create_app():
     default_db = f"sqlite:///{home}/.adi_workflow.db"
     app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", default_db)
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+    # MySQL closes idle connections (PythonAnywhere's wait_timeout is ~300s), so
+    # without these the first query after an idle period throws "MySQL server has
+    # gone away". pool_pre_ping checks liveness before handing out a connection;
+    # pool_recycle retires them before MySQL does. Harmless for SQLite, but only
+    # applied when we're actually on a server DB.
+    if app.config["SQLALCHEMY_DATABASE_URI"].startswith(("mysql", "postgresql")):
+        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "pool_pre_ping": True,
+            "pool_recycle": 280,
+        }
     # Max total request body size: covers request-board image uploads
     # (8 files × 5 MB per file = 40 MB) plus headroom for the crew XLSX
     # importer. Anything larger is rejected by Werkzeug before it hits a route.

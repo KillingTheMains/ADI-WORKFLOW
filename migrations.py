@@ -25,7 +25,7 @@ renaming columns, splitting tables), add an entry to DATA_MIGRATIONS with
 a unique key plus a callable. The keys we've already applied are tracked
 in a tiny `applied_migrations` table.
 """
-from sqlalchemy import text
+from sqlalchemy import text, inspect as sa_inspect
 from extensions import db
 
 
@@ -200,22 +200,22 @@ DATA_MIGRATIONS = [
 # ── Internals ────────────────────────────────────────────────────────────────
 
 def _column_exists(table, col):
-    rows = db.session.execute(text(f"PRAGMA table_info({table})")).fetchall()
-    return any(r[1] == col for r in rows)
+    insp = sa_inspect(db.engine)
+    if not insp.has_table(table):
+        return False
+    return any(c["name"] == col for c in insp.get_columns(table))
 
 
 def _table_exists(table):
-    rows = db.session.execute(
-        text("SELECT name FROM sqlite_master WHERE type='table' AND name=:n"),
-        {"n": table},
-    ).fetchall()
-    return bool(rows)
+    return sa_inspect(db.engine).has_table(table)
 
 
 def _ensure_tracking_table():
+    # VARCHAR(190), not TEXT: MySQL can't make a TEXT column a PRIMARY KEY
+    # without a prefix length, and 190 stays under the utf8mb4 index limit.
     db.session.execute(text("""
         CREATE TABLE IF NOT EXISTS applied_migrations (
-            key TEXT PRIMARY KEY,
+            key VARCHAR(190) PRIMARY KEY,
             applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """))
