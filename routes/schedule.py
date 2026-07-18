@@ -250,6 +250,13 @@ def day_detail(show_id, day_id):
         if not has_fb:
             meal_breaks_missing_fb.add(act.id)
 
+    # Show crew grouped by company for the bulk-assign pop-up (#38)
+    crew_by_company = {}
+    for cm in crew_members:
+        key = cm.company.name if cm.company else "No Company"
+        crew_by_company.setdefault(key, []).append(cm)
+    crew_by_company = sorted(crew_by_company.items())
+
     from hardcoded_service import overlay_for_day
     hc_overlay, hc_missing_anchor = overlay_for_day(day)
 
@@ -264,6 +271,7 @@ def day_detail(show_id, day_id):
                            oss_meta=SUB_SCHEDULE_META,
                            hardcoded_overlay=hc_overlay,
                            hardcoded_missing_anchor=hc_missing_anchor,
+                           crew_by_company=crew_by_company,
                            meal_breaks_missing_fb=meal_breaks_missing_fb)
 
 
@@ -763,6 +771,65 @@ def add_crew_row(show_id, day_id, act_id):
         notes=f.get("notes", ""),
     ))
     db.session.commit()
+    return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
+
+
+@schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/bulk-assign-crew", methods=["POST"])
+def bulk_assign_crew(show_id, day_id):
+    """#38 — bulk-assign show crew to a Crew Start event via the pop-up.
+
+    STRICTLY ADDITIVE: never removes or overwrites existing crew rows. Crew
+    already on the target event are skipped (no duplicate row). Only crew
+    actually assigned to this show are eligible. Call time is inherited from
+    the Crew Start event they're dropped into (its time), which is what feeds
+    the master schedule (#39).
+    """
+    show = Show.query.get_or_404(show_id)
+    raw_act = (request.form.get("activity_id") or "").strip()
+    if not raw_act.isdigit():
+        flash("Pick which Crew Start to assign the crew into.", "warning")
+        return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
+
+    activity = ScheduleActivity.query.get_or_404(int(raw_act))
+    if activity.day_id != day_id:
+        flash("That event isn't on this day.", "danger")
+        return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
+
+    # Eligible = selected AND actually assigned to this show.
+    assigned_ids = {a.crew_member_id for a in show.crew_assignments}
+    wanted = [int(x) for x in request.form.getlist("crew_member_ids") if x.isdigit()]
+    ids = [i for i in wanted if i in assigned_ids]
+    if not ids:
+        flash("No crew selected.", "warning")
+        return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
+
+    sort_order = db.session.query(
+        db.func.max(CrewRow.sort_order)).filter_by(activity_id=activity.id).scalar() or 0
+
+    added = skipped = 0
+    for cm in CrewMember.query.filter(CrewMember.id.in_(ids)).all():
+        # additive guard: don't duplicate a crew member already on this event
+        if CrewRow.query.filter_by(activity_id=activity.id, crew_member_id=cm.id).first():
+            skipped += 1
+            continue
+        sort_order += 10
+        db.session.add(CrewRow(
+            activity_id=activity.id,
+            crew_member_id=cm.id,
+            position=cm.position.title if cm.position else "",
+            position_id=cm.position_id,
+            crew_type="Lead Crew",
+            qty=1,
+            sort_order=sort_order,
+        ))
+        added += 1
+    db.session.commit()
+
+    when = activity.time or "the event"
+    msg = f"Assigned {added} crew to {when}."
+    if skipped:
+        msg += f" ({skipped} already there — left as-is.)"
+    flash(msg, "success" if added else "info")
     return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
 
 

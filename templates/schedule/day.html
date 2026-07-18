@@ -457,6 +457,17 @@
     </div>
     {% endif %}
 
+    <!-- ── Bulk Assign Crew (#38) ─────────────────────────────────────── -->
+    <div class="mb-2 d-flex align-items-center gap-2">
+      <button type="button" class="btn btn-sm btn-adi"
+              data-bs-toggle="modal" data-bs-target="#bulkAssignCrewModal">
+        👥 Bulk Assign Crew
+      </button>
+      <span style="font-size:.72rem;color:var(--adi-muted);">
+        Pull show crew into a Crew Start event
+      </span>
+    </div>
+
     <!-- ── Activities List ───────────────────────────────────────────── -->
     {% if day.activities %}
     {% for act in day.activities %}
@@ -1174,6 +1185,94 @@
 </div>
 
 <!-- ══ MODALS ════════════════════════════════════════════════════════════════ -->
+
+<!-- ── Bulk Assign Crew modal (#38) ─────────────────────────────────────────── -->
+<div class="modal fade" id="bulkAssignCrewModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('schedule.bulk_assign_crew', show_id=show.id, day_id=day.id) }}">
+        <div class="modal-header">
+          <h5 class="modal-title">👥 Bulk Assign Crew</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <div style="font-size:.8rem;font-weight:600;margin-bottom:4px;">1. Assign into which Crew Start?</div>
+            {% set found = namespace(any=false) %}
+            {% for act in day.activities %}
+              {% if 'CREW START' in (act.description or '')|upper %}
+              {% set found.any = true %}
+              <label style="display:block;font-size:.85rem;padding:2px 0;">
+                <input type="radio" name="activity_id" value="{{ act.id }}" {% if found.any and loop.first %}checked{% endif %}>
+                <strong>{{ act.time or '—' }}</strong> · {{ act.description }}
+              </label>
+              {% endif %}
+            {% endfor %}
+            {% if not found.any %}
+            <div style="font-size:.8rem;color:var(--adi-muted);">
+              No Crew Start on this day yet — add one from the quick-add row above first.
+            </div>
+            {% endif %}
+          </div>
+
+          <div style="font-size:.8rem;font-weight:600;margin-bottom:4px;">2. Select crew (assigned to this show)</div>
+          {% if crew_by_company %}
+            {% for co_name, crew in crew_by_company %}
+            <div class="mb-2" style="border:1px solid var(--adi-border);border-radius:6px;padding:6px 10px;">
+              <label style="font-weight:600;font-size:.82rem;display:flex;align-items:center;gap:6px;">
+                <input type="checkbox" class="bac-company-all"> {{ co_name }}
+                <span style="color:var(--adi-muted);font-weight:400;">({{ crew|length }})</span>
+              </label>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
+                {% for cm in crew %}
+                <label style="font-size:.82rem;display:flex;align-items:center;gap:4px;min-width:155px;">
+                  <input type="checkbox" class="bac-crew" name="crew_member_ids" value="{{ cm.id }}">
+                  {{ cm.full_name }}
+                  {% if cm.position %}<span style="color:var(--adi-muted);font-size:.72rem;">({{ cm.position.title }})</span>{% endif %}
+                </label>
+                {% endfor %}
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div style="font-size:.8rem;color:var(--adi-muted);">
+              No crew assigned to this show yet — assign crew on the Show Crew Roster first.
+            </div>
+          {% endif %}
+          <p style="font-size:.72rem;color:var(--adi-muted);margin-top:6px;">
+            Additive — crew already on the selected Crew Start are left untouched.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <span id="bac-count" style="font-size:.78rem;color:var(--adi-muted);margin-right:auto;">0 selected</span>
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-adi">Assign to Crew Start</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── Bulk Assign Crew behaviour (#38) ── -->
+<script>
+(function () {
+  const modal = document.getElementById('bulkAssignCrewModal');
+  if (!modal) return;
+  const countEl = modal.querySelector('#bac-count');
+  function refresh() {
+    const n = modal.querySelectorAll('.bac-crew:checked').length;
+    if (countEl) countEl.textContent = n + ' selected';
+  }
+  modal.addEventListener('change', function (e) {
+    const t = e.target;
+    if (t.classList && t.classList.contains('bac-company-all')) {
+      const box = t.closest('div');
+      if (box) box.querySelectorAll('.bac-crew').forEach(b => { b.checked = t.checked; });
+    }
+    refresh();
+  });
+})();
+</script>
 
 <!-- ── Shift Time Modal (company bulk-add) ──────────────────────────────────── -->
 <div class="modal fade" id="shiftTimeModal" tabindex="-1">
