@@ -75,6 +75,9 @@ MIGRATIONS = [
     # 2026-07-13 — Start of Day / End of Day anchors (replace Call/Wrap in Day Settings)
     ("schedule_days", "sod", "VARCHAR(20)"),
     ("schedule_days", "eod", "VARCHAR(20)"),
+    # 2026-07-18 — #31 designated travel window on the show
+    ("shows", "travel_window_start", "DATE"),
+    ("shows", "travel_window_end", "DATE"),
 ]
 
 

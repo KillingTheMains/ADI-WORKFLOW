@@ -121,6 +121,10 @@ class Show(db.Model):
     show_start    = db.Column(db.Date)
     show_end      = db.Column(db.Date)
     strike_date   = db.Column(db.Date)
+    # #31 — designated travel window; crew Travel In/Out auto-fill from these
+    # when assigned to the show. Set via markers on the Schedule Overview.
+    travel_window_start = db.Column(db.Date)
+    travel_window_end   = db.Column(db.Date)
     version       = db.Column(db.Integer, default=1)
     status        = db.Column(db.String(30), default="Planning")
     notes         = db.Column(db.Text)

@@ -103,6 +103,16 @@ def show_crew(show_id):
 
 # ── Assign / unassign a single crew member ────────────────────────────────────
 
+def _autofill_travel_window(assignment, show):
+    """#31 — fill Travel In/Out from the show's designated travel window, but
+    ONLY when blank. Additive: never overwrites a date already set."""
+    if show.travel_window_start and not assignment.travel_in_date:
+        assignment.travel_in_date = show.travel_window_start
+    if show.travel_window_end and not assignment.travel_out_date:
+        assignment.travel_out_date = show.travel_window_end
+    return assignment
+
+
 @show_crew_bp.route("/<int:show_id>/crew/assign", methods=["POST"])
 def assign_crew(show_id):
     show = Show.query.get_or_404(show_id)
@@ -113,8 +123,9 @@ def assign_crew(show_id):
         existing = ShowCrewAssignment.query.filter_by(
             show_id=show_id, crew_member_id=crew_member_id).first()
         if not existing:
-            db.session.add(ShowCrewAssignment(
-                show_id=show_id, crew_member_id=crew_member_id))
+            a = ShowCrewAssignment(show_id=show_id, crew_member_id=crew_member_id)
+            _autofill_travel_window(a, show)
+            db.session.add(a)
             db.session.commit()
     else:
         ShowCrewAssignment.query.filter_by(
@@ -140,8 +151,9 @@ def assign_company(show_id):
             exists = ShowCrewAssignment.query.filter_by(
                 show_id=show_id, crew_member_id=cm.id).first()
             if not exists:
-                db.session.add(ShowCrewAssignment(
-                    show_id=show_id, crew_member_id=cm.id))
+                a = ShowCrewAssignment(show_id=show_id, crew_member_id=cm.id)
+                _autofill_travel_window(a, show)
+                db.session.add(a)
         db.session.commit()
         co = Company.query.get(company_id)
         flash(f"Added all {co.name} crew to {show.name}.", "success")

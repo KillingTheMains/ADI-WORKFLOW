@@ -774,6 +774,29 @@ def add_crew_row(show_id, day_id, act_id):
     return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
 
 
+@schedule_bp.route("/<int:show_id>/travel-window", methods=["POST"])
+def set_travel_window(show_id):
+    """#31 — set the show's designated travel window from the Schedule Overview
+    markers. marker='start'|'end'; day_id=<day> to set, or empty to clear."""
+    show = Show.query.get_or_404(show_id)
+    marker = request.form.get("marker")
+    raw_day = (request.form.get("day_id") or "").strip()
+    the_date = None
+    if raw_day.isdigit():
+        day = ScheduleDay.query.get(int(raw_day))
+        if day and day.show_id == show_id:
+            the_date = day.date
+    if marker == "start":
+        show.travel_window_start = the_date
+    elif marker == "end":
+        show.travel_window_end = the_date
+    else:
+        return jsonify({"ok": False, "error": "bad marker"}), 400
+    db.session.commit()
+    return jsonify({"ok": True, "marker": marker,
+                    "date": the_date.isoformat() if the_date else None})
+
+
 @schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/bulk-assign-crew", methods=["POST"])
 def bulk_assign_crew(show_id, day_id):
     """#38 — bulk-assign show crew to a Crew Start event via the pop-up.

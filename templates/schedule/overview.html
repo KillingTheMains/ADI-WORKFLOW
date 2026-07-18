@@ -356,6 +356,7 @@
             <th>SOD / EOD</th>
             <th class="text-center" style="width:80px;">Activities</th>
             <th class="text-center" style="width:80px;">Crew Slots</th>
+            <th class="text-center" style="width:130px;" title="Mark the travel-window start (🛫) and end (🛬). Crew assigned to this show auto-fill Travel In/Out from these days.">Travel Window</th>
           </tr>
         </thead>
         <tbody>
@@ -381,6 +382,16 @@
               <strong>{{ crew_total.n }}</strong>
               {% else %}<span class="text-muted">—</span>{% endif %}
             </td>
+            <td class="text-center" style="white-space:nowrap;">
+              <label title="Travel window start" style="cursor:pointer;margin-right:8px;">
+                <input type="radio" name="tw_start" class="tw-marker" data-marker="start" value="{{ day.id }}"
+                       {% if show.travel_window_start and day.date == show.travel_window_start %}checked{% endif %}> 🛫
+              </label>
+              <label title="Travel window end" style="cursor:pointer;">
+                <input type="radio" name="tw_end" class="tw-marker" data-marker="end" value="{{ day.id }}"
+                       {% if show.travel_window_end and day.date == show.travel_window_end %}checked{% endif %}> 🛬
+              </label>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
@@ -388,6 +399,33 @@
     </div>
   </div>
 </div>
+
+<!-- ── Travel-window markers (#31) ── -->
+<script>
+(function () {
+  const URL = "{{ url_for('schedule.set_travel_window', show_id=show.id) }}";
+  function post(marker, dayId) {
+    fetch(URL, { method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({ marker: marker, day_id: dayId }) });
+  }
+  document.querySelectorAll('.tw-marker').forEach(function (r) {
+    r.dataset.was = r.checked ? '1' : '0';
+    r.addEventListener('click', function () {
+      const group = document.querySelectorAll('.tw-marker[data-marker="' + r.dataset.marker + '"]');
+      if (r.dataset.was === '1') {           // click the active marker again → clear
+        r.checked = false;
+        group.forEach(x => x.dataset.was = '0');
+        post(r.dataset.marker, '');
+      } else {
+        group.forEach(x => x.dataset.was = '0');
+        r.dataset.was = '1';
+        post(r.dataset.marker, r.value);
+      }
+    });
+  });
+})();
+</script>
 
 {% else %}
 <div class="empty-state">
