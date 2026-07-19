@@ -54,38 +54,36 @@ def show_crew(show_id):
                    .filter_by(show_id=show_id)
                    .all())
 
-    # Group both into a single "by task" structure. Within a task, merge
-    # assignments and slots into ONE list, ordered by sort_order (NULLs
-    # last), so drag-to-reorder can freely move rows across the a/s
-    # boundary.
-    task_groups = {}
+    # ── #29 Phase 2: roster grouped by COMPANY; open/TBD slots collect in
+    # their own group at the end (Option A). Within a company, manual drag
+    # (assignment.sort_order) wins, else the canonical Crew Database order.
+    roster_map = {}
     for a in assignments:
-        key = (a.booking_task or "Unassigned task")
-        task_groups.setdefault(key, {"assignments": [], "slots": [], "rows": []})
-        task_groups[key]["assignments"].append(a)
-        task_groups[key]["rows"].append({
+        cm = a.crew_member
+        co_id = (cm.company_id if cm else None) or 0
+        co_name = cm.company.name if cm and cm.company else "No Company"
+        g = roster_map.setdefault(co_id, {"name": co_name, "assignments": [],
+                                          "slots": [], "rows": []})
+        g["assignments"].append(a)
+        g["rows"].append({
             "kind": "a", "obj": a,
-            "_sort": (a.sort_order if a.sort_order is not None else 999_999,
-                      0, a.id),
+            "_sort": ((a.sort_order if a.sort_order is not None else 10**9,)
+                      + (crew_sort_key(cm) if cm else (10**9,))),
         })
-    for s in open_slots:
-        key = (s.booking_task or "Unassigned task")
-        task_groups.setdefault(key, {"assignments": [], "slots": [], "rows": []})
-        task_groups[key]["slots"].append(s)
-        task_groups[key]["rows"].append({
-            "kind": "s", "obj": s,
-            "_sort": (s.sort_order if s.sort_order is not None else 999_999,
-                      1, s.id),
-        })
-    for g in task_groups.values():
+    for g in roster_map.values():
         g["rows"].sort(key=lambda r: r["_sort"])
+    roster_groups = [g for _, g in sorted(roster_map.items(),
+                                          key=lambda kv: kv[1]["name"].lower())]
 
-    # Stable display order: known task names first, then anything else alpha.
-    KNOWN_ORDER = ["PREP", "Set Up", "3 Show", "Show", "Strike",
-                   "Travel", "Tech", "Rehearsal", "Unassigned task"]
-    def _order_key(k):
-        return (KNOWN_ORDER.index(k) if k in KNOWN_ORDER else 99, k.lower())
-    ordered_task_keys = sorted(task_groups.keys(), key=_order_key)
+    # Open/TBD slots have no company → one group at the end of the roster.
+    if open_slots:
+        tbd = {"name": "Open Positions (TBD)", "assignments": [],
+               "slots": [], "rows": []}
+        for s in sorted(open_slots, key=lambda s: (
+                s.sort_order if s.sort_order is not None else 10**9, s.id)):
+            tbd["slots"].append(s)
+            tbd["rows"].append({"kind": "s", "obj": s, "_sort": ()})
+        roster_groups.append(tbd)
 
     # Position list for the "+ TBD slot" picker
     all_positions = Position.query.order_by(Position.department, Position.title).all()
@@ -95,8 +93,7 @@ def show_crew(show_id):
         show=show,
         sorted_companies=sorted_companies,
         assigned_ids=assigned_ids,
-        task_groups=task_groups,
-        ordered_task_keys=ordered_task_keys,
+        roster_groups=roster_groups,
         all_positions=all_positions,
         all_companies=Company.query.order_by(Company.name).all(),
     )

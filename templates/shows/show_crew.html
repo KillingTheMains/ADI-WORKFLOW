@@ -160,18 +160,21 @@
   <option value="Rehearsal">
 </datalist>
 
-{% if ordered_task_keys %}
+{% if roster_groups %}
+  <div class="d-flex align-items-center gap-2" style="margin:6px 0;">
+    <h6 style="margin:0;font-weight:700;">👥 Crew Roster — {{ show.name }}</h6>
+    <span style="font-size:.75rem;color:var(--adi-muted);">assigned crew, grouped by company</span>
+  </div>
   <!-- ── Bulk actions bar (#42 — per-show roster) ── -->
   <div id="bulk-bar" class="d-flex align-items-center gap-2 mb-2" style="display:none;">
     <span style="font-size:.82rem;color:var(--adi-muted);"><strong id="bulk-count">0</strong> crew selected</span>
     <button type="button" class="btn btn-sm btn-adi" id="bulk-edit-open">Bulk Edit…</button>
     <button type="button" class="btn btn-sm btn-outline-secondary" id="bulk-clear">Clear</button>
   </div>
-  {% for task_key in ordered_task_keys %}
-  {% set group = task_groups[task_key] %}
+  {% for group in roster_groups %}
   <div class="card booking-task-card">
     <div class="task-header">
-      <span>{{ task_key }}</span>
+      <span>{{ group.name }}</span>
       <span style="font-weight:400;color:rgba(255,255,255,.55);">
         {{ group.assignments|length }} crew{% if group.slots %} · {{ group.slots|length }} TBD{% endif %}
       </span>
@@ -335,10 +338,15 @@
 </div>
 {% endif %}
 
-<!-- Info blurb -->
-<p class="text-muted" style="font-size:.85rem;margin-bottom:20px;">
-  Below: pick which crew members are on this show. Once added, set their booking details
-  in the Booking Sheet above. Use <strong>Add All</strong> to assign an entire company.
+<!-- ── CREW DATABASE section (#29 Phase 2) ── -->
+<div class="d-flex align-items-center gap-2"
+     style="margin:26px 0 6px;padding-top:16px;border-top:2px solid var(--adi-border);">
+  <h6 style="margin:0;font-weight:700;">🗂 Crew Database</h6>
+  <span style="font-size:.75rem;color:var(--adi-muted);">all crew, by company — assign anyone to this show</span>
+</div>
+<p class="text-muted" style="font-size:.85rem;margin-bottom:16px;">
+  Pick which crew members are on this show. Once added, set their booking details
+  in the <strong>Crew Roster</strong> above. Use <strong>Add All</strong> to assign an entire company.
 </p>
 
 <!-- Company sections -->
