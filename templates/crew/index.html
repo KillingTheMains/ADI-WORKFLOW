@@ -158,11 +158,12 @@
               </select>
             </td>
             <td>
-              <select name="company_id" class="form-select form-select-sm" style="font-size:.74rem;max-width:150px;">
+              <select name="company_id" class="form-select form-select-sm crew-company-select" style="font-size:.74rem;max-width:150px;">
                 <option value="">—</option>
                 {% for co in companies %}
                 <option value="{{ co.id }}" {% if m.company_id == co.id %}selected{% endif %}>{{ co.name }}</option>
                 {% endfor %}
+                <option value="__new__" style="font-style:italic;color:#B45309;">+ New company…</option>
               </select>
             </td>
             <td>
@@ -395,16 +396,18 @@
           <input type="hidden" name="ids" id="bulk-ids">
           <div class="mb-3">
             <label class="form-label" style="font-size:.82rem;font-weight:600;">Position</label>
-            <select name="position_id" class="form-select form-select-sm">
+            <select name="position_id" class="form-select form-select-sm crew-position-select">
               <option value="">— leave unchanged —</option>
               {% for p in positions %}<option value="{{ p.id }}">{{ p.title }}</option>{% endfor %}
+              <option value="__new__" style="font-style:italic;color:#B45309;">+ New position…</option>
             </select>
           </div>
           <div class="mb-1">
             <label class="form-label" style="font-size:.82rem;font-weight:600;">Company</label>
-            <select name="company_id" class="form-select form-select-sm">
+            <select name="company_id" class="form-select form-select-sm crew-company-select">
               <option value="">— leave unchanged —</option>
               {% for co in companies %}<option value="{{ co.id }}">{{ co.name }}</option>{% endfor %}
+              <option value="__new__" style="font-style:italic;color:#B45309;">+ New company…</option>
             </select>
           </div>
           <p style="font-size:.72rem;color:var(--adi-muted);margin-top:8px;">
@@ -462,5 +465,6 @@
 
 {# New-Position modal + JS, shared with the roster / add / edit pages (#41) #}
 {% include "crew/_new_position_modal.html" %}
+{% include "crew/_new_company_modal.html" %}
 
 {% endblock %}

@@ -1,0 +1,97 @@
+{# Shared "+ New Company" modal.
+   Include once per page that has a company dropdown, then give each
+   <select> the class `crew-company-select` and an
+   <option value="__new__">+ New company…</option> sentinel.
+   Creating a company saves it globally (crew.companies_create), so it
+   becomes available in every company dropdown app-wide. #}
+<div class="modal fade" id="newCompanyModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">+ New Company</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <label class="form-label" style="font-size:.82rem;font-weight:600;">Company name</label>
+          <input type="text" id="nc-name" class="form-control"
+                 placeholder="e.g. Acme Staging" required>
+        </div>
+        <div>
+          <label class="form-label" style="font-size:.82rem;font-weight:600;">Code <span style="font-weight:400;color:#888;">(optional)</span></label>
+          <input type="text" id="nc-code" class="form-control" placeholder="e.g. BAV, CT">
+        </div>
+        <div id="nc-msg" class="mt-2" style="font-size:.78rem;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" id="nc-save" class="btn btn-sm btn-adi">Create</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const modalEl = document.getElementById('newCompanyModal');
+  if (!modalEl || modalEl.dataset.wired) return;
+  modalEl.dataset.wired = '1';
+  let pendingSelect = null;   // the <select> that triggered the modal
+
+  document.addEventListener('change', function (e) {
+    const sel = e.target;
+    if (!sel.classList || !sel.classList.contains('crew-company-select')) return;
+    if (sel.value !== '__new__') return;
+    sel.value = sel.dataset.previousValue || '';
+    pendingSelect = sel;
+    document.getElementById('nc-name').value = '';
+    document.getElementById('nc-code').value = '';
+    document.getElementById('nc-msg').textContent = '';
+    new bootstrap.Modal(modalEl).show();
+    setTimeout(() => document.getElementById('nc-name').focus(), 200);
+  }, true);
+
+  document.getElementById('nc-save').addEventListener('click', function () {
+    const name = document.getElementById('nc-name').value.trim();
+    const msg = document.getElementById('nc-msg');
+    if (!name) {
+      msg.textContent = 'Company name is required';
+      msg.style.color = '#B91C1C';
+      return;
+    }
+    const body = new FormData();
+    body.set('name', name);
+    body.set('code', document.getElementById('nc-code').value.trim());
+
+    fetch("{{ url_for('crew.companies_create') }}", { method: 'POST', body: body })
+      .then(r => r.json())
+      .then(function (data) {
+        if (!data.ok) {
+          msg.textContent = data.error || 'Failed';
+          msg.style.color = '#B91C1C';
+          return;
+        }
+        // Slot the new option into EVERY company dropdown on the page.
+        document.querySelectorAll('.crew-company-select').forEach(function (sel) {
+          if (!sel.querySelector('option[value="' + data.id + '"]')) {
+            const opt = document.createElement('option');
+            opt.value = data.id;
+            opt.textContent = data.name;
+            const sentinel = sel.querySelector('option[value="__new__"]');
+            if (sentinel) sel.insertBefore(opt, sentinel);
+            else sel.appendChild(opt);
+          }
+        });
+        if (pendingSelect) {
+          pendingSelect.value = data.id;
+          pendingSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        bootstrap.Modal.getInstance(modalEl).hide();
+      })
+      .catch(function () {
+        msg.textContent = 'Network error';
+        msg.style.color = '#B91C1C';
+      });
+  });
+})();
+</script>

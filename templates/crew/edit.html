@@ -34,13 +34,14 @@
             </div>
             <div class="col-md-6">
               <label class="form-label">Company</label>
-              <select name="company_id" class="form-select">
+              <select name="company_id" class="form-select crew-company-select">
                 <option value="">— No company —</option>
                 {% for c in companies %}
                 <option value="{{ c.id }}" {% if member.company_id == c.id %}selected{% endif %}>
                   {{ c.name }}
                 </option>
                 {% endfor %}
+                <option value="__new__" style="font-style:italic;color:#B45309;">+ New company…</option>
               </select>
             </div>
             <div class="col-md-6">
@@ -137,5 +138,6 @@
 </div>
 {# Shared "+ New Position" modal (#41) — positions created here are saved globally #}
 {% include "crew/_new_position_modal.html" %}
+{% include "crew/_new_company_modal.html" %}
 
 {% endblock %}

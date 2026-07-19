@@ -513,16 +513,18 @@
           <input type="hidden" name="ids" id="bulk-ids">
           <div class="mb-3">
             <label class="form-label" style="font-size:.82rem;font-weight:600;">Position</label>
-            <select name="position_id" class="form-select form-select-sm">
+            <select name="position_id" class="form-select form-select-sm crew-position-select">
               <option value="">— leave unchanged —</option>
               {% for p in all_positions %}<option value="{{ p.id }}">{{ p.title }}</option>{% endfor %}
+              <option value="__new__" style="font-style:italic;color:#B45309;">+ New position…</option>
             </select>
           </div>
           <div class="mb-1">
             <label class="form-label" style="font-size:.82rem;font-weight:600;">Company</label>
-            <select name="company_id" class="form-select form-select-sm">
+            <select name="company_id" class="form-select form-select-sm crew-company-select">
               <option value="">— leave unchanged —</option>
               {% for co in all_companies %}<option value="{{ co.id }}">{{ co.name }}</option>{% endfor %}
+              <option value="__new__" style="font-style:italic;color:#B45309;">+ New company…</option>
             </select>
           </div>
         </div>
@@ -635,5 +637,6 @@
 </style>
 {# Shared "+ New Position" modal (#41) — positions created here are saved globally #}
 {% include "crew/_new_position_modal.html" %}
+{% include "crew/_new_company_modal.html" %}
 
 {% endblock %}

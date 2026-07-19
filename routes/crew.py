@@ -131,6 +131,34 @@ def positions_create():
                    department=p.department, duplicate=False)
 
 
+@crew_bp.route("/companies/create", methods=["POST"])
+def companies_create():
+    """Create a new Company on the fly from a company dropdown's inline modal.
+    Returns JSON so the modal JS can slot the new option into every company
+    dropdown on the page and preselect it."""
+    from flask import jsonify
+    f = request.form
+    name = (f.get("name") or "").strip()
+    if not name:
+        return jsonify(ok=False, error="Company name is required"), 400
+    if len(name) > 200:
+        name = name[:200]
+
+    existing = Company.query.filter(
+        db.func.lower(Company.name) == name.lower()
+    ).first()
+    if existing:
+        return jsonify(ok=True, id=existing.id, name=existing.name, duplicate=True)
+
+    code = (f.get("code") or "").strip() or None
+    if code and len(code) > 20:
+        code = code[:20]
+    c = Company(name=name, code=code)
+    db.session.add(c)
+    db.session.commit()
+    return jsonify(ok=True, id=c.id, name=c.name, duplicate=False)
+
+
 @crew_bp.route("/<int:member_id>/edit-inline", methods=["POST"])
 def edit_inline(member_id):
     """Save only the fields the inline row form sends (first/last name,
