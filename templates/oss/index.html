@@ -148,6 +148,20 @@
   {% set entries = grouped[t] %}
   <div class="tab-pane oss-tab-pane {% if active_tab == t %}show active{% endif %}"
        id="tab-{{ loop.index }}" role="tabpanel">
+    {% if hardcoded_by_dept[t] %}
+    <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:6px;padding:8px 12px;margin-bottom:12px;">
+      <div style="font-size:.75rem;font-weight:700;color:#92400E;margin-bottom:4px;">
+        📌 Hard-Coded Events <span style="font-weight:400;">(auto from SOD/EOD · read-only · defined on the Hard-Coded Events page)</span>
+      </div>
+      {% for ev in hardcoded_by_dept[t] %}
+      <div style="font-size:.82rem;display:flex;gap:8px;padding:1px 0;">
+        <span style="color:#92400E;min-width:96px;">{{ ev.day.date.strftime('%a %-m/%-d') if ev.day and ev.day.date else '—' }}</span>
+        <span style="font-weight:600;min-width:74px;">{{ ev.time or '—' }}</span>
+        <span>{{ ev.name }}{% if ev.end_time %} → {{ ev.end_time }}{% endif %}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
     {% if t == 'Wristbands' %}
       {% include 'oss/_wristbands_tab.html' %}
     {% elif t == 'COMS' %}

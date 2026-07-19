@@ -189,6 +189,27 @@ def oss_hub(show_id):
                         "notes": "",
                     })
 
+    # ── #37 Phase 2b: surface dept-tagged hard-coded events on their OSS tab
+    # and in the master. Same computed virtual event (overlay_for_day) shown in
+    # both places — nothing stored, no copy. Grouped by department for the tabs.
+    from hardcoded_service import overlay_for_day
+    hardcoded_by_dept = {t: [] for t in SUB_SCHEDULE_TYPES}
+    for d in show.days:
+        ov, _missing = overlay_for_day(d)
+        for ev in ov:
+            master_items.append({
+                "day_id": d.id, "day": d,
+                "sort_time": _hhmm(ev.get("time")),
+                "time": ev.get("time") or "",
+                "icon": "📌",
+                "dept": ev.get("department") or "Hard-Coded",
+                "activity": ev.get("name") or "",
+                "count": None, "duration_hrs": None, "notes": "",
+            })
+            dept = ev.get("department")
+            if dept:
+                hardcoded_by_dept.setdefault(dept, []).append(dict(ev, day=d))
+
     # Sort by day date (None → last) then by time within each day.
     from datetime import date as _date_cls
     def _mi_sort(item):
@@ -246,6 +267,7 @@ def oss_hub(show_id):
         ordered_types         = _ordered_types(),
         meta                  = SUB_SCHEDULE_META,
         grouped               = grouped,
+        hardcoded_by_dept     = hardcoded_by_dept,
         all_entries           = all_entries,
         days                  = show.days,
         activities_by_day     = activities_by_day,
