@@ -203,6 +203,7 @@
           {% for row in group.rows %}
           {% if row.kind == "a" %}
           {% set a = row.obj %}
+          {% set fid = 'assign-row-' ~ a.id %}
           <tr data-item-type="a" data-item-id="{{ a.id }}">
             <td class="booking-drag-handle"
                 style="cursor:grab;text-align:center;color:#999;font-size:.9rem;
@@ -211,11 +212,9 @@
             <td style="text-align:center;vertical-align:middle;">
               <input type="checkbox" class="crew-select" value="{{ a.crew_member.id }}">
             </td>
-            <form method="POST" data-autosave="true"
-                  action="{{ url_for('show_crew.edit_assignment', show_id=show.id, aid=a.id) }}">
               <td>
                 <div style="font-weight:600;">{{ a.crew_member.full_name }}</div>
-                <input type="text" name="role_override" value="{{ a.role_override or '' }}"
+                <input form="{{ fid }}" type="text" name="role_override" value="{{ a.role_override or '' }}"
                        placeholder="role on this show (optional)"
                        class="form-control form-control-sm mt-1">
               </td>
@@ -223,48 +222,47 @@
                 {{ a.crew_member.position.title if a.crew_member.position else '—' }}
               </td>
               <td>
-                <input type="text" name="booking_task" value="{{ a.booking_task or '' }}"
+                <input form="{{ fid }}" type="text" name="booking_task" value="{{ a.booking_task or '' }}"
                        list="task-options" class="form-control form-control-sm">
               </td>
-              <td><input type="date" name="travel_in_date"
+              <td><input form="{{ fid }}" type="date" name="travel_in_date"
                          value="{{ a.travel_in_date.isoformat() if a.travel_in_date else '' }}"
                          class="form-control form-control-sm"></td>
-              <td><input type="date" name="start_date"
+              <td><input form="{{ fid }}" type="date" name="start_date"
                          value="{{ a.start_date.isoformat() if a.start_date else '' }}"
                          class="form-control form-control-sm"></td>
-              <td><input type="date" name="end_date"
+              <td><input form="{{ fid }}" type="date" name="end_date"
                          value="{{ a.end_date.isoformat() if a.end_date else '' }}"
                          class="form-control form-control-sm"></td>
-              <td><input type="date" name="travel_out_date"
+              <td><input form="{{ fid }}" type="date" name="travel_out_date"
                          value="{{ a.travel_out_date.isoformat() if a.travel_out_date else '' }}"
                          class="form-control form-control-sm"></td>
               <td>
-                <button type="submit" class="save-btn-inline">💾 Save</button>
+                <button form="{{ fid }}" type="submit" class="save-btn-inline">💾 Save</button>
               </td>
-            </form>
           </tr>
           {% else %}
           {# TBD slot #}
           {% set slot = row.obj %}
+          {% set fid = 'slot-row-' ~ slot.id %}
+          {% set did = 'slot-del-' ~ slot.id %}
           <tr class="tbd-row" data-item-type="s" data-item-id="{{ slot.id }}">
             <td class="booking-drag-handle"
                 style="cursor:grab;text-align:center;color:#999;font-size:.9rem;
                        user-select:none;vertical-align:middle;"
                 title="Drag to reorder">⋮⋮</td>
             <td style="text-align:center;vertical-align:middle;color:#ccc;" title="Assign this slot to bulk-edit its crew">·</td>
-            <form method="POST" data-autosave="true"
-                  action="{{ url_for('show_crew.edit_slot', show_id=show.id, sid=slot.id) }}">
               <td>
                 <div style="font-weight:600;">
                   {{ slot.display_title }}<span class="tbd-badge">TBD</span>
                 </div>
-                <input type="text" name="placeholder_label"
+                <input form="{{ fid }}" type="text" name="placeholder_label"
                        value="{{ slot.placeholder_label or '' }}"
                        placeholder="custom label (optional)"
                        class="form-control form-control-sm mt-1">
               </td>
               <td>
-                <select name="position_id" class="form-select form-select-sm crew-position-select">
+                <select form="{{ fid }}" name="position_id" class="form-select form-select-sm crew-position-select">
                   <option value="">— none —</option>
                   {% for p in all_positions %}
                   <option value="{{ p.id }}" {% if slot.position_id == p.id %}selected{% endif %}>
@@ -275,29 +273,25 @@
                 </select>
               </td>
               <td>
-                <input type="text" name="booking_task" value="{{ slot.booking_task or '' }}"
+                <input form="{{ fid }}" type="text" name="booking_task" value="{{ slot.booking_task or '' }}"
                        list="task-options" class="form-control form-control-sm">
               </td>
-              <td><input type="date" name="travel_in_date"
+              <td><input form="{{ fid }}" type="date" name="travel_in_date"
                          value="{{ slot.travel_in_date.isoformat() if slot.travel_in_date else '' }}"
                          class="form-control form-control-sm"></td>
-              <td><input type="date" name="start_date"
+              <td><input form="{{ fid }}" type="date" name="start_date"
                          value="{{ slot.start_date.isoformat() if slot.start_date else '' }}"
                          class="form-control form-control-sm"></td>
-              <td><input type="date" name="end_date"
+              <td><input form="{{ fid }}" type="date" name="end_date"
                          value="{{ slot.end_date.isoformat() if slot.end_date else '' }}"
                          class="form-control form-control-sm"></td>
-              <td><input type="date" name="travel_out_date"
+              <td><input form="{{ fid }}" type="date" name="travel_out_date"
                          value="{{ slot.travel_out_date.isoformat() if slot.travel_out_date else '' }}"
                          class="form-control form-control-sm"></td>
               <td style="white-space:nowrap;">
-                <button type="submit" class="save-btn-inline" title="Save changes">💾</button>
-            </form>
-                <form method="POST" style="display:inline;"
-                      action="{{ url_for('show_crew.delete_slot', show_id=show.id, sid=slot.id) }}"
-                      onsubmit="return confirm('Delete this TBD slot?');">
-                  <button type="submit" class="del-btn-inline" title="Delete slot">✕</button>
-                </form>
+                <button form="{{ fid }}" type="submit" class="save-btn-inline" title="Save changes">💾</button>
+                <button form="{{ did }}" type="submit" class="del-btn-inline" title="Delete slot"
+                        onclick="return confirm('Delete this TBD slot?');">✕</button>
               </td>
             </tr>
             {# Fill-slot row — a second tr per slot. Marked non-draggable
@@ -337,6 +331,27 @@
   above to start sketching out unfilled positions.
 </div>
 {% endif %}
+
+{# #43 — row edit forms live OUTSIDE the table (a <form> is not a valid child
+   of <tr>: the browser hoists it, orphaning the inputs and breaking autosave).
+   Each row's inputs carry form="assign-row-<id>" / "slot-row-<id>" and submit
+   to the matching empty form here, so autosave fires on change (base.html reads
+   e.target.form) and the Save button is no longer load-bearing. #}
+<div style="display:none;" aria-hidden="true">
+  {% for group in roster_groups %}
+    {% for row in group.rows %}
+      {% if row.kind == 'a' %}
+      <form id="assign-row-{{ row.obj.id }}" method="POST" data-autosave="true"
+            action="{{ url_for('show_crew.edit_assignment', show_id=show.id, aid=row.obj.id) }}"></form>
+      {% else %}
+      <form id="slot-row-{{ row.obj.id }}" method="POST" data-autosave="true"
+            action="{{ url_for('show_crew.edit_slot', show_id=show.id, sid=row.obj.id) }}"></form>
+      <form id="slot-del-{{ row.obj.id }}" method="POST"
+            action="{{ url_for('show_crew.delete_slot', show_id=show.id, sid=row.obj.id) }}"></form>
+      {% endif %}
+    {% endfor %}
+  {% endfor %}
+</div>
 
 <!-- ── CREW DATABASE section (#29 Phase 2) ── -->
 <div class="d-flex align-items-center gap-2"
