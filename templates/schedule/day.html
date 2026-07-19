@@ -365,6 +365,11 @@
           {% if day.phase %}
           <div style="font-size:.78rem;color:rgba(255,255,255,.5);">{{ day.phase }}</div>
           {% endif %}
+          {% if day.phase_labels %}
+          <div style="font-size:.72rem;color:rgba(255,255,255,.7);" title="Overlapping production phases (#32)">
+            {{ day.phase_labels | join(' · ') }}
+          </div>
+          {% endif %}
           <div id="hours-on-clock" class="hours-badge ms-auto"></div>
         </div>
       </div>

@@ -229,6 +229,18 @@ class ScheduleDay(db.Model):
         return "Date TBD"
 
     @property
+    def phase_labels(self):
+        """#32 — per-phase day labels for this date, e.g.
+        ['Lighting Prep D2', 'Video Prep D1'], ordered by phase start date."""
+        from datetime import date as _d
+        dps = sorted(
+            self.day_phases,
+            key=lambda x: ((x.phase.start_date or _d.max) if x.phase else _d.max,
+                           x.day_index or 0),
+        )
+        return [dp.label for dp in dps if dp.label]
+
+    @property
     def time_window(self):
         start = self.sod or self.call_time
         end   = self.eod or self.wrap_time
@@ -382,6 +394,28 @@ class ProductionPhase(db.Model):
 
     def __repr__(self):
         return f"<ProductionPhase {self.name}>"
+
+
+class DayPhase(db.Model):
+    """#32 — a day's membership in a production phase, with a per-phase day
+    index, so a single day can belong to several overlapping phases at once
+    (e.g. 'Lighting Prep Day 2' AND 'Video Prep Day 1' on the same date)."""
+    __tablename__ = "day_phases"
+    id        = db.Column(db.Integer, primary_key=True)
+    day_id    = db.Column(db.Integer, db.ForeignKey("schedule_days.id"), nullable=False)
+    phase_id  = db.Column(db.Integer, db.ForeignKey("production_phases.id"), nullable=False)
+    day_index = db.Column(db.Integer, default=1)   # 1-based day number within the phase
+
+    day   = db.relationship("ScheduleDay",
+                            backref=db.backref("day_phases",
+                                               cascade="all, delete-orphan"))
+    phase = db.relationship("ProductionPhase",
+                            backref=db.backref("day_phases",
+                                               cascade="all, delete-orphan"))
+
+    @property
+    def label(self):
+        return f"{self.phase.name} D{self.day_index}" if self.phase else ""
 
 
 # ── Day Templates ────────────────────────────────────────────────────────────

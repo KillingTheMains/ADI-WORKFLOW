@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block top_actions %}
-  {% if show.load_in_date and show.strike_date %}
+  {% if (show.load_in_date and show.strike_date) or show.phases %}
   <form method="POST" action="{{ url_for('schedule.generate_days', show_id=show.id) }}"
         style="display:inline;" id="gen-days-form">
     <div class="d-inline-flex align-items-center gap-2">
@@ -20,7 +20,7 @@
         </label>
       </div>
       <button type="submit" class="btn btn-sm btn-outline-secondary"
-              onclick="return confirm('Auto-generate all days between Load-In and Strike?');">
+              onclick="return confirm('Auto-generate a day for every date in the show\'s phase ranges?');">
         ⚡ Auto-Generate Days
       </button>
     </div>
@@ -149,6 +149,12 @@
     {% endif %}
     {% if day.phase %}
     <div class="phase-pill">{{ day.phase }}</div>
+    {% endif %}
+    {% if day.phase_labels %}
+    <div style="font-size:.68rem;color:var(--adi-muted);margin-top:2px;line-height:1.3;"
+         title="Overlapping production phases on this date (#32)">
+      {{ day.phase_labels | join(' · ') }}
+    </div>
     {% endif %}
     {% if day.oss_entries %}
     <a href="{{ url_for('oss.oss_hub', show_id=show.id) }}"

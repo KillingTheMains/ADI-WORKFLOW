@@ -3,7 +3,7 @@ from extensions import db
 from crew_ordering import crew_order_by, crew_sort_key
 from models import Show, ScheduleDay, ScheduleActivity, CrewRow, Position, CrewMember, \
                    PHASES, CREW_TYPES, DayTemplate, PHASE_TYPES, ShowCrewAssignment, Company, \
-                   SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break
+                   SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break, DayPhase
 from datetime import date, timedelta
 import re, json
 
@@ -111,44 +111,50 @@ def add_day(show_id):
 
 @schedule_bp.route("/<int:show_id>/schedule/generate-days", methods=["POST"])
 def generate_days(show_id):
-    """Auto-generate a skeleton day for every date between load_in and strike."""
+    """#32 — auto-generate a skeleton day for every date spanned by the show's
+    production phases (falling back to Load-In..Strike), and attach a DayPhase
+    membership for every phase covering each date, so overlapping phases both
+    show (e.g. 'Lighting Prep D2' + 'Video Prep D1'). Non-destructive: adds
+    missing days + missing memberships only — never wipes or duplicates."""
     show = Show.query.get_or_404(show_id)
-    if not (show.load_in_date and show.strike_date):
-        flash("Set Load-In and Strike dates on the show first.", "warning")
-        return redirect(url_for("schedule.overview", show_id=show_id))
 
-    existing_dates = {d.date for d in show.days}
+    dated_phases = [p for p in show.phases if p.start_date and p.end_date]
+
+    # Full span = union of every phase range + any Load-In / Strike.
+    starts = [p.start_date for p in dated_phases]
+    ends   = [p.end_date for p in dated_phases]
+    if show.load_in_date:
+        starts.append(show.load_in_date)
+    if show.strike_date:
+        ends.append(show.strike_date)
+    if not starts or not ends:
+        flash("Set production-phase date ranges (or Load-In and Strike) first.", "warning")
+        return redirect(url_for("schedule.overview", show_id=show_id))
+    span_start, span_end = min(starts), max(ends)
+
+    existing = {d.date: d for d in show.days}
     with_templates = request.form.get("with_templates") == "1"
 
-    # Build a date→phase_type lookup from ProductionPhase table
+    PHASE_LABEL_MAP = {"Prep": "Setup", "Load In": "Load In", "Show": "Show Day",
+                       "Strike": "Strike", "Custom": "Setup"}
+    # date → phase_type for the single-string backward-compat `phase` label
     phase_lookup = {}
-    for phase in show.phases:
-        if phase.start_date and phase.end_date:
-            cur = phase.start_date
-            while cur <= phase.end_date:
-                phase_lookup[cur] = phase.phase_type
-                cur += timedelta(days=1)
+    for p in dated_phases:
+        cur = p.start_date
+        while cur <= p.end_date:
+            phase_lookup.setdefault(cur, p.phase_type)
+            cur += timedelta(days=1)
 
-    # Map ProductionPhase types → schedule phase label
-    PHASE_LABEL_MAP = {
-        "Prep":    "Setup",
-        "Load In": "Load In",
-        "Show":    "Show Day",
-        "Strike":  "Strike",
-        "Custom":  "Setup",
-    }
-
-    current = show.load_in_date
     added = 0
-    while current <= show.strike_date:
-        if current not in existing_dates:
+    current = span_start
+    while current <= span_end:
+        if current not in existing:
             raw = phase_lookup.get(current)
             if raw and raw in PHASE_LABEL_MAP:
-                phase_label = PHASE_LABEL_MAP[raw]
-                phase_type  = raw
-            elif current == show.load_in_date:
+                phase_label, phase_type = PHASE_LABEL_MAP[raw], raw
+            elif show.load_in_date and current == show.load_in_date:
                 phase_label, phase_type = "Load In", "Load In"
-            elif current == show.strike_date:
+            elif show.strike_date and current == show.strike_date:
                 phase_label, phase_type = "Strike", "Strike"
             elif show.show_start and show.show_end and show.show_start <= current <= show.show_end:
                 phase_label, phase_type = "Show Day", "Show"
@@ -158,6 +164,7 @@ def generate_days(show_id):
             day = ScheduleDay(show_id=show_id, date=current, phase=phase_label)
             db.session.add(day)
             db.session.flush()
+            existing[current] = day
 
             if with_templates:
                 tpl = _get_template_by_phase(phase_type)
@@ -166,12 +173,32 @@ def generate_days(show_id):
                         db.session.add(ScheduleActivity(
                             day_id=day.id, time=t, description=desc,
                             sort_order=(i + 1) * 10))
-
             added += 1
         current += timedelta(days=1)
 
+    db.session.flush()
+
+    # #32 — attach DayPhase memberships for every phase covering each date,
+    # numbering each phase's own days from 1 (so a date can be Lighting Prep
+    # Day 2 AND Video Prep Day 1 at once). Skips memberships already present.
+    memberships = 0
+    for p in dated_phases:
+        idx = 0
+        cur = p.start_date
+        while cur <= p.end_date:
+            idx += 1
+            day = existing.get(cur)
+            if day is not None and not DayPhase.query.filter_by(
+                    day_id=day.id, phase_id=p.id).first():
+                db.session.add(DayPhase(day_id=day.id, phase_id=p.id, day_index=idx))
+                memberships += 1
+            cur += timedelta(days=1)
+
     db.session.commit()
-    flash(f"{added} days generated.", "success")
+    msg = f"{added} day(s) generated."
+    if memberships:
+        msg += f" {memberships} phase membership(s) attached."
+    flash(msg, "success")
     return redirect(url_for("schedule.overview", show_id=show_id))
 
 
