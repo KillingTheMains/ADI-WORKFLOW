@@ -16,6 +16,7 @@ URL space (registered with url_prefix="/shows"):
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from extensions import db
+from crew_ordering import crew_order_by
 from models import (
     Show, ScheduleDay, ScheduleActivity, SubScheduleEntry,
     SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break,
@@ -309,7 +310,7 @@ def _build_coms_assignments(show):
         db.session.query(CrewMember, ShowCrewAssignment)
         .join(ShowCrewAssignment, ShowCrewAssignment.crew_member_id == CrewMember.id)
         .filter(ShowCrewAssignment.show_id == show.id)
-        .order_by(CrewMember.last_name, CrewMember.first_name)
+        .order_by(*crew_order_by())
         .all()
     )
     # Existing comm assignments for this show, keyed by crew_member_id

@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from extensions import db
+from crew_ordering import crew_order_by, crew_sort_key
 from models import Show, ScheduleDay, ScheduleActivity, CrewRow, Position, CrewMember, \
                    PHASES, CREW_TYPES, DayTemplate, PHASE_TYPES, ShowCrewAssignment, Company, \
                    SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break
@@ -189,7 +190,7 @@ def day_detail(show_id, day_id):
             db.session.query(CrewMember)
             .filter(CrewMember.id.in_(assigned_ids), CrewMember.active == True)
             .outerjoin(Position, CrewMember.position_id == Position.id)
-            .order_by(Position.department, CrewMember.last_name)
+            .order_by(*crew_order_by())
             .all()
         )
     else:
@@ -197,7 +198,7 @@ def day_detail(show_id, day_id):
         crew_members = (
             db.session.query(CrewMember).filter_by(active=True)
             .outerjoin(Position, CrewMember.position_id == Position.id)
-            .order_by(Position.department, CrewMember.last_name)
+            .order_by(*crew_order_by())
             .all()
         )
 

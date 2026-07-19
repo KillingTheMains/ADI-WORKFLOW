@@ -8,6 +8,7 @@ from extensions import db
 from models import Show, CrewMember, ShowCrewAssignment, Company, Position, \
     ScheduleActivity, CrewRow, ShowOpenSlot
 from datetime import date as date_cls
+from crew_ordering import crew_order_by, crew_sort_key
 
 show_crew_bp = Blueprint("show_crew", __name__)
 
@@ -26,7 +27,7 @@ def show_crew(show_id):
         db.session.query(CrewMember)
         .filter_by(active=True)
         .outerjoin(Position, CrewMember.position_id == Position.id)
-        .order_by(CrewMember.company_id, Position.department, CrewMember.last_name)
+        .order_by(*crew_order_by())
         .all()
     )
 
@@ -200,7 +201,7 @@ def add_company_crew_to_activity(show_id, day_id, act_id):
             CrewMember.active == True,
         )
         .outerjoin(Position, CrewMember.position_id == Position.id)
-        .order_by(Position.department, CrewMember.last_name)
+        .order_by(*crew_order_by())
         .all()
     )
 
@@ -258,7 +259,7 @@ def contact_sheet(show_id):
         .join(CrewMember, ShowCrewAssignment.crew_member_id == CrewMember.id)
         .outerjoin(Position, CrewMember.position_id == Position.id)
         .filter(ShowCrewAssignment.show_id == show_id, CrewMember.active == True)
-        .order_by(CrewMember.company_id, Position.department, CrewMember.last_name)
+        .order_by(*crew_order_by())
         .all()
     )
 
@@ -335,10 +336,10 @@ def hours_report(show_id):
                         "activity": act.description,
                     })
 
-    # Sort named crew: by company, then dept, then name
+    # Sort named crew: by company, then the canonical Crew Database order (#29)
     sorted_crew = sorted(
         crew_data.values(),
-        key=lambda x: (x["company"], x["dept"], x["member"].last_name)
+        key=lambda x: (x["company"], crew_sort_key(x["member"]))
     )
 
     # Day totals (sum of all named crew hours per day)
@@ -549,9 +550,12 @@ def _travel_assignments_sorted(show_id, sort_by="check_in"):
     def _position(a):
         cm = a.crew_member
         return (cm.position.title or "").lower() if cm and cm.position else "zzz"
+    def _order(a):   # canonical Crew Database order (#29)
+        cm = a.crew_member
+        return cm.sort_order if (cm and cm.sort_order is not None) else 10**9
 
     if sort_by == "company":
-        items.sort(key=lambda a: (_company(a), _name(a)))
+        items.sort(key=lambda a: (_company(a), _order(a), _name(a)))
     elif sort_by == "name":
         items.sort(key=_name)
     elif sort_by == "position":
@@ -731,7 +735,7 @@ def contact_sheet_xlsx(show_id):
         .join(CrewMember, ShowCrewAssignment.crew_member_id == CrewMember.id)
         .outerjoin(Position, CrewMember.position_id == Position.id)
         .filter(ShowCrewAssignment.show_id == show_id, CrewMember.active == True)
-        .order_by(CrewMember.company_id, Position.department, CrewMember.last_name)
+        .order_by(*crew_order_by())
         .all()
     )
     # Group by company (same as the HTML view)
