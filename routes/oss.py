@@ -159,6 +159,7 @@ def oss_hub(show_id):
         return "%02d:%02d" % divmod(m, 60) if m is not None else "99:99"
 
     for d in show.days:
+        crew_by_time = {}   # #47 — collect crew sharing a call time into one row
         for a in d.activities:
             master_items.append({
                 "day_id": d.id, "day": d,
@@ -170,24 +171,33 @@ def oss_hub(show_id):
                 "count": None, "duration_hrs": None,
                 "notes": a.notes or "",
             })
-            # Crew on a Crew Start -> each crew member's call time is this time.
+            # Crew on a Crew Start -> everyone shares this event's call time.
             if "CREW START" in (a.description or "").upper():
+                t = a.time or ""
+                names = crew_by_time.setdefault(t, [])
                 for row in a.crew_rows:
                     if row.is_group_header or not row.crew_member_id:
                         continue
                     cm = row.crew_member
                     who = cm.full_name if cm else (row.name_override or "TBD")
-                    pos = row.position or (cm.position.title if cm and cm.position else "")
-                    master_items.append({
-                        "day_id": d.id, "day": d,
-                        "sort_time": _hhmm(a.time),
-                        "time": a.time or "",
-                        "icon": "👤",
-                        "dept": "Crew",
-                        "activity": who + (" · " + pos if pos else ""),
-                        "count": None, "duration_hrs": None,
-                        "notes": "",
-                    })
+                    if who not in names:
+                        names.append(who)
+
+        # #47 — one grouped Crew row per distinct call time (names listed together),
+        # instead of a separate row per person.
+        for t, names in crew_by_time.items():
+            if not names:
+                continue
+            master_items.append({
+                "day_id": d.id, "day": d,
+                "sort_time": _hhmm(t),
+                "time": t or "",
+                "icon": "👤",
+                "dept": "Crew",
+                "activity": ", ".join(names),
+                "count": len(names), "duration_hrs": None,
+                "notes": "",
+            })
 
     # ── #37 Phase 2b: surface dept-tagged hard-coded events on their OSS tab
     # and in the master. Same computed virtual event (overlay_for_day) shown in
