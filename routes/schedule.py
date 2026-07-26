@@ -3,7 +3,8 @@ from extensions import db
 from crew_ordering import crew_order_by, crew_sort_key
 from models import Show, ScheduleDay, ScheduleActivity, CrewRow, Position, CrewMember, \
                    PHASES, CREW_TYPES, DayTemplate, PHASE_TYPES, ShowCrewAssignment, Company, \
-                   SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break, DayPhase
+                   SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break, DayPhase, \
+                   MealService, MealServiceLocation
 from datetime import date, timedelta
 import re, json
 
@@ -396,6 +397,7 @@ def clone_day(show_id, day_id):
     )
     db.session.add(new_day)
     db.session.flush()
+    act_map = {}   # #45 — src activity id -> cloned activity id, to re-link OSS/meals
     for act in src.activities:
         new_act = ScheduleActivity(
             day_id=new_day.id, time=act.time,
@@ -404,6 +406,7 @@ def clone_day(show_id, day_id):
         )
         db.session.add(new_act)
         db.session.flush()
+        act_map[act.id] = new_act.id
         for row in act.crew_rows:
             db.session.add(CrewRow(
                 activity_id=new_act.id, sort_order=row.sort_order,
@@ -413,6 +416,33 @@ def clone_day(show_id, day_id):
                 name_override=row.name_override, crew_type=row.crew_type,
                 notes=row.notes,
             ))
+
+    # #45 — also clone the day's OSS department entries (Dock, F&B, venue lights,
+    # etc.) and meal services, re-linking any activity reference to the clone.
+    for e in SubScheduleEntry.query.filter_by(schedule_day_id=src.id).all():
+        db.session.add(SubScheduleEntry(
+            show_id=show_id, schedule_day_id=new_day.id,
+            activity_id=act_map.get(e.activity_id),
+            type=e.type, time=e.time, activity=e.activity,
+            duration_hrs=e.duration_hrs, count=e.count,
+            notes=e.notes, sort_order=e.sort_order,
+        ))
+    for ms in MealService.query.filter_by(schedule_day_id=src.id).all():
+        new_ms = MealService(
+            show_id=show_id, schedule_day_id=new_day.id,
+            activity_id=act_map.get(ms.activity_id),
+            name=ms.name, kind=ms.kind, is_recurring=ms.is_recurring,
+            notes=ms.notes, sort_order=ms.sort_order,
+        )
+        db.session.add(new_ms)
+        db.session.flush()
+        for loc in ms.locations:
+            db.session.add(MealServiceLocation(
+                meal_service_id=new_ms.id, location_name=loc.location_name,
+                start_time=loc.start_time, end_time=loc.end_time,
+                headcount=loc.headcount, notes=loc.notes, sort_order=loc.sort_order,
+            ))
+
     db.session.commit()
     flash(f"Day cloned to {new_day.day_header}.", "success")
     return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=new_day.id))
