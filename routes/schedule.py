@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, make_response
 from extensions import db
 from crew_ordering import crew_order_by, crew_sort_key
 from models import Show, ScheduleDay, ScheduleActivity, CrewRow, Position, CrewMember, \
@@ -1034,12 +1034,19 @@ def call_sheet(show_id, day_id):
 
     total_crew = sum(l["qty"] for l in crew_lines)
 
-    return render_template("schedule/call_sheet.html",
+    # #46 — names render live (row.display_name -> crew_member.full_name), but the
+    # sheet opens in a new tab / is printed, so a cached copy showed stale names
+    # after an edit. Force a fresh fetch every time so name changes always show.
+    resp = make_response(render_template("schedule/call_sheet.html",
                            show=show, day=day,
                            crew_lines=crew_lines,
                            by_dept=dict(sorted(by_dept.items())),
                            total_crew=total_crew,
-                           conflicts=len(conflicts) > 0)
+                           conflicts=len(conflicts) > 0))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 
 # ── Day Template Management ───────────────────────────────────────────────────
