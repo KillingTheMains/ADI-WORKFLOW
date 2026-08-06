@@ -1,0 +1,11 @@
+{# #48 — show artwork header, shown on all generated paperwork.
+   Include near the top of each print/export template. Renders nothing when the
+   show has no artwork set, so it's safe to include everywhere. Requires `show`
+   in the template context. #}
+{% if show and show.artwork_filename %}
+<div class="paperwork-artwork" style="text-align:center;margin:0 0 14px;page-break-inside:avoid;">
+  <img src="{{ url_for('shows.artwork', show_id=show.id) }}"
+       alt="{{ show.name }} artwork"
+       style="max-width:100%;max-height:120px;object-fit:contain;">
+</div>
+{% endif %}

@@ -1,10 +1,84 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, abort
 from extensions import db
 from models import (Show, Client, Venue, ProductionPhase, SHOW_STATUS, PHASE_TYPES,
                     ScheduleDay, ScheduleActivity, CrewRow)
 from datetime import date, timedelta
+from werkzeug.utils import secure_filename
+import os
 
 shows_bp = Blueprint("shows", __name__)
+
+# ── #48 show artwork: upload/serve show key-art used as a paperwork header ──
+ART_ROOT = os.path.expanduser("~/adi_workflow_uploads/show_artwork")
+ART_MAX_BYTES = 5 * 1024 * 1024
+ART_EXT_TO_MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                   ".gif": "image/gif", ".webp": "image/webp"}
+
+
+def _art_path(show):
+    if not show.artwork_filename:
+        return None
+    return os.path.join(ART_ROOT, str(show.id), show.artwork_filename)
+
+
+@shows_bp.route("/<int:show_id>/artwork/upload", methods=["POST"])
+def artwork_upload(show_id):
+    show = Show.query.get_or_404(show_id)
+    f = request.files.get("artwork")
+    if not f or not f.filename:
+        flash("Choose an image file to upload.", "warning")
+        return redirect(url_for("shows.detail", show_id=show_id))
+    ext = os.path.splitext(f.filename)[1].lower()
+    if ext not in ART_EXT_TO_MIME:
+        flash("Artwork must be a PNG, JPG, GIF, or WEBP image.", "danger")
+        return redirect(url_for("shows.detail", show_id=show_id))
+    f.seek(0, os.SEEK_END)
+    if f.tell() > ART_MAX_BYTES:
+        flash("Artwork must be under 5 MB.", "danger")
+        return redirect(url_for("shows.detail", show_id=show_id))
+    f.seek(0)
+    d = os.path.join(ART_ROOT, str(show_id))
+    os.makedirs(d, exist_ok=True)
+    # clear any previous file so we don't leave orphans
+    if show.artwork_filename:
+        old = os.path.join(d, show.artwork_filename)
+        if os.path.exists(old):
+            try: os.remove(old)
+            except OSError: pass
+    name = (secure_filename(f.filename) or "artwork")[:300]
+    if os.path.splitext(name)[1].lower() not in ART_EXT_TO_MIME:
+        name += ext
+    f.save(os.path.join(d, name))
+    show.artwork_filename = name
+    db.session.commit()
+    flash("Show artwork updated — it now appears on all generated paperwork.", "success")
+    return redirect(url_for("shows.detail", show_id=show_id))
+
+
+@shows_bp.route("/<int:show_id>/artwork/delete", methods=["POST"])
+def artwork_delete(show_id):
+    show = Show.query.get_or_404(show_id)
+    p = _art_path(show)
+    if p and os.path.exists(p):
+        try: os.remove(p)
+        except OSError: pass
+    show.artwork_filename = None
+    db.session.commit()
+    flash("Show artwork removed.", "success")
+    return redirect(url_for("shows.detail", show_id=show_id))
+
+
+@shows_bp.route("/<int:show_id>/artwork")
+def artwork(show_id):
+    show = Show.query.get_or_404(show_id)
+    p = _art_path(show)
+    if not p or not os.path.exists(p):
+        abort(404)
+    # Re-derive mimetype from extension (never trust stored content-type) and
+    # serve inline so it can render in an <img> on the paperwork header.
+    ext = os.path.splitext(show.artwork_filename)[1].lower()
+    return send_file(p, mimetype=ART_EXT_TO_MIME.get(ext, "application/octet-stream"))
+
 
 
 def _parse_date(val):

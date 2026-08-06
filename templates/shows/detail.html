@@ -30,6 +30,34 @@
 {% endblock %}
 
 {% block content %}
+<!-- #48 Show artwork (header on all generated paperwork) -->
+<div class="card mb-3">
+  <div class="card-header gold d-flex justify-content-between align-items-center">
+    <span>🎨 Show Artwork</span>
+    <span style="font-size:.72rem;font-weight:400;color:rgba(255,255,255,.7);">appears as a header on all generated paperwork (call sheet, contact sheet, OSS book, travel, hours)</span>
+  </div>
+  <div class="card-body p-3 d-flex align-items-center gap-3" style="flex-wrap:wrap;">
+    {% if show.artwork_filename %}
+      <img src="{{ url_for('shows.artwork', show_id=show.id) }}" alt="show artwork"
+           style="max-height:80px;max-width:240px;object-fit:contain;border:1px solid var(--adi-border);border-radius:6px;background:#fff;padding:4px;">
+    {% else %}
+      <span class="text-muted" style="font-size:.85rem;">No artwork set yet.</span>
+    {% endif %}
+    <form method="POST" action="{{ url_for('shows.artwork_upload', show_id=show.id) }}"
+          enctype="multipart/form-data" class="d-flex align-items-center gap-2" style="margin:0;">
+      <input type="file" name="artwork" accept=".png,.jpg,.jpeg,.gif,.webp"
+             class="form-control form-control-sm" style="max-width:230px;" required>
+      <button type="submit" class="btn btn-sm btn-adi">{{ 'Replace' if show.artwork_filename else 'Upload' }}</button>
+    </form>
+    {% if show.artwork_filename %}
+    <form method="POST" action="{{ url_for('shows.artwork_delete', show_id=show.id) }}"
+          onsubmit="return confirm('Remove the show artwork?');" style="margin:0;">
+      <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
 <div class="row g-3">
 
   <!-- Show info card -->

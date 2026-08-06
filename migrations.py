@@ -78,6 +78,8 @@ MIGRATIONS = [
     # 2026-07-18 — #31 designated travel window on the show
     ("shows", "travel_window_start", "DATE"),
     ("shows", "travel_window_end", "DATE"),
+    # 2026-08-02 — #48 show artwork (header image on generated paperwork)
+    ("shows", "artwork_filename", "VARCHAR(300)"),
 ]
 
 

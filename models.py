@@ -125,6 +125,8 @@ class Show(db.Model):
     # when assigned to the show. Set via markers on the Schedule Overview.
     travel_window_start = db.Column(db.Date)
     travel_window_end   = db.Column(db.Date)
+    # #48 — show key-art; used as a header image on all generated paperwork.
+    artwork_filename    = db.Column(db.String(300))
     version       = db.Column(db.Integer, default=1)
     status        = db.Column(db.String(30), default="Planning")
     notes         = db.Column(db.Text)
