@@ -44,3 +44,39 @@ def test_fb_convert_noop_when_nothing_legacy(app, client, db):
     assert r.status_code == 200
     body = client.get("/shows/%d/oss?tab=F%%26B" % show.id).get_data(as_text=True)
     assert "in the old format" not in body
+
+
+def test_add_entry_rejects_fb_type(app, client, db):
+    """The generic OSS entry-add must never create a legacy F&B entry."""
+    from models import Show, ScheduleDay, SubScheduleEntry
+    import datetime as dt
+    show = Show(name="Guard1", code="G1")
+    db.session.add(show); db.session.flush()
+    day = ScheduleDay(show_id=show.id, date=dt.date(2026, 8, 5))
+    db.session.add(day); db.session.commit()
+    client.post("/shows/%d/oss/add" % show.id,
+                data={"type": "F&B", "activity": "Sneaky Lunch",
+                      "schedule_day_id": day.id},
+                follow_redirects=True)
+    assert SubScheduleEntry.query.filter_by(show_id=show.id, type="F&B").count() == 0
+
+
+def test_clone_day_skips_legacy_fb(app, client, db):
+    """Cloning a day must not propagate legacy F&B entries (real meals clone via
+    the meal-service path)."""
+    from models import Show, ScheduleDay, SubScheduleEntry
+    import datetime as dt
+    show = Show(name="Guard2", code="G2")
+    db.session.add(show); db.session.flush()
+    day = ScheduleDay(show_id=show.id, date=dt.date(2026, 8, 6))
+    db.session.add(day); db.session.flush()
+    db.session.add(SubScheduleEntry(show_id=show.id, schedule_day_id=day.id,
+                                    type="F&B", activity="Old Lunch"))
+    db.session.add(SubScheduleEntry(show_id=show.id, schedule_day_id=day.id,
+                                    type="Dock", activity="Truck 1"))
+    db.session.commit()
+    client.post("/shows/%d/schedule/%d/clone" % (show.id, day.id))
+    new_day = (ScheduleDay.query.filter_by(show_id=show.id)
+               .order_by(ScheduleDay.id.desc()).first())
+    entries = SubScheduleEntry.query.filter_by(schedule_day_id=new_day.id).all()
+    assert {e.type for e in entries} == {"Dock"}   # Dock cloned, F&B skipped

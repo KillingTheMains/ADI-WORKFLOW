@@ -462,6 +462,12 @@ def add_entry(show_id):
         flash(err, "danger")
         return _redirect_after_change(show_id, entry_type=request.form.get("type"))
 
+    # F&B is modelled as meal services (v2), not generic entries. Never create a
+    # legacy F&B SubScheduleEntry here — it would be invisible on the F&B tab.
+    if entry.type == "F&B":
+        flash("Add Food & Beverage items on the F&B tab as meal services.", "warning")
+        return redirect(url_for("oss.oss_hub", show_id=show_id, tab="F&B"))
+
     # default sort_order = current count for that type
     entry.sort_order = SubScheduleEntry.query.filter_by(
         show_id=show_id, type=entry.type).count() * 10

@@ -420,6 +420,8 @@ def clone_day(show_id, day_id):
     # #45 — also clone the day's OSS department entries (Dock, F&B, venue lights,
     # etc.) and meal services, re-linking any activity reference to the clone.
     for e in SubScheduleEntry.query.filter_by(schedule_day_id=src.id).all():
+        if e.type == "F&B":
+            continue   # legacy F&B lives as meal services now — don't propagate
         db.session.add(SubScheduleEntry(
             show_id=show_id, schedule_day_id=new_day.id,
             activity_id=act_map.get(e.activity_id),
