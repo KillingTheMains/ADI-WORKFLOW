@@ -26,6 +26,7 @@ from models import (
     MealService, MealServiceLocation, ShowDietaryNote, MEAL_KINDS,
 )
 from time_utils import sort_minutes, hhmm_or_blank
+from oss_export import build_master_items
 from datetime import date as _date_cls
 
 oss_bp = Blueprint("oss", __name__)
@@ -156,111 +157,11 @@ def oss_hub(show_id):
     # v2 data-migration never reached this database.
     stray_fb = SubScheduleEntry.query.filter_by(show_id=show_id, type="F&B").count()
 
-    # ── Build a unified "master view" list combining SubScheduleEntries
-    # (all non-F&B departments) + MealService/Location rows. Each item is a
-    # dict with the same shape so the template can iterate one list.
-    master_items = []
-    for e in all_entries:
-        master_items.append({
-            "day_id":   e.schedule_day_id,
-            "day":      e.schedule_day,
-            "sort_time": sort_minutes(e.effective_time),
-            "time":     e.effective_time or "",
-            "icon":     e.meta.get("icon", "•"),
-            "dept":     e.meta.get("label", e.type),
-            "activity": e.activity or "",
-            "count":    e.count,
-            "duration_hrs": e.duration_hrs,
-            "notes":    e.notes or "",
-        })
-    for svc in meal_services:
-        # A meal service without locations still shows as one row.
-        locs = svc.locations_ordered or [None]
-        for loc in locs:
-            master_items.append({
-                "day_id":   svc.schedule_day_id,
-                "day":      svc.schedule_day,
-                "sort_time": sort_minutes(loc.start_time if loc else svc.earliest_time),
-                "time":     (loc.start_time if loc else svc.earliest_time) or "",
-                "icon":     "🍽",
-                "dept":     "F&B",
-                "activity": svc.name + (f" · {loc.location_name}" if loc and loc.location_name else ""),
-                "count":    loc.headcount if loc else None,
-                "duration_hrs": None,
-                "notes":    (loc.notes if loc else None) or svc.notes or "",
-            })
-    # ── #39: roll up ALL day activities + crew call times into the master ──
-    # so the Master tab is a genuinely complete per-show timeline, not just OSS
-    # department entries + meals. Same dict shape -> renders in the same table.
-    # Every branch below uses sort_minutes so activities, crew, meals, OSS
-    # entries and hard-coded events all land on ONE comparable scale.
-    for d in show.days:
-        crew_by_time = {}   # #47 — collect crew sharing a call time into one row
-        for a in d.activities:
-            master_items.append({
-                "day_id": d.id, "day": d,
-                "sort_time": sort_minutes(a.time),
-                "time": a.time or "",
-                "icon": "🗓",
-                "dept": "Schedule",
-                "activity": a.description or "",
-                "count": None, "duration_hrs": None,
-                "notes": a.notes or "",
-            })
-            # Crew on a Crew Start -> everyone shares this event's call time.
-            if "CREW START" in (a.description or "").upper():
-                t = a.time or ""
-                names = crew_by_time.setdefault(t, [])
-                for row in a.crew_rows:
-                    if row.is_group_header or not row.crew_member_id:
-                        continue
-                    cm = row.crew_member
-                    who = cm.full_name if cm else (row.name_override or "TBD")
-                    if who not in names:
-                        names.append(who)
-
-        # #47 — one grouped Crew row per distinct call time (names listed together),
-        # instead of a separate row per person.
-        for t, names in crew_by_time.items():
-            if not names:
-                continue
-            master_items.append({
-                "day_id": d.id, "day": d,
-                "sort_time": sort_minutes(t),
-                "time": t or "",
-                "icon": "👤",
-                "dept": "Crew",
-                "activity": ", ".join(names),
-                "count": len(names), "duration_hrs": None,
-                "notes": "",
-            })
-
-    # ── #37 Phase 2b: surface dept-tagged hard-coded events on their OSS tab
-    # and in the master. Same computed virtual event (overlay_for_day) shown in
-    # both places — nothing stored, no copy. Grouped by department for the tabs.
-    from hardcoded_service import overlay_for_day
-    hardcoded_by_dept = {t: [] for t in SUB_SCHEDULE_TYPES}
-    for d in show.days:
-        ov, _missing = overlay_for_day(d)
-        for ev in ov:
-            master_items.append({
-                "day_id": d.id, "day": d,
-                "sort_time": sort_minutes(ev.get("time")),
-                "time": ev.get("time") or "",
-                "icon": "📌",
-                "dept": ev.get("department") or "Hard-Coded",
-                "activity": ev.get("name") or "",
-                "count": None, "duration_hrs": None, "notes": "",
-            })
-            dept = ev.get("department")
-            if dept:
-                hardcoded_by_dept.setdefault(dept, []).append(dict(ev, day=d))
-
-    # Sort by day date (None → last) then by time within each day.
-    def _mi_sort(item):
-        d = item["day"].date if item["day"] else _DATE_MAX
-        return (d, item["sort_time"])
-    master_items.sort(key=_mi_sort)
+    # ── The unified master timeline. Built in oss_export so the Master tab,
+    # the XLSX and the client PDF all render from ONE assembly — rebuilt
+    # copies drift, which is how the master and the F&B tab came to disagree.
+    master_items, hardcoded_by_dept = build_master_items(
+        show, all_entries, meal_services)
     dietary_notes = (ShowDietaryNote.query
                      .filter_by(show_id=show_id)
                      .order_by(ShowDietaryNote.sort_order, ShowDietaryNote.id)
