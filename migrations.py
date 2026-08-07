@@ -199,6 +199,10 @@ DATA_MIGRATIONS = [
     ("2026-07-02-add-prompter-position", _seed_position_prompter),
     ("2026-07-04-backfill-travel-dates-from-hotel", _backfill_travel_dates_from_hotel),
     ("2026-07-13-backfill-sod-eod-from-call-wrap", _backfill_sod_eod_from_call_wrap),
+    # 2026-08-02 — sweep up any legacy F&B entries created AFTER the original
+    # v2 conversion (before add_entry/clone were guarded). Same conversion, new
+    # key so it runs once more across every show. Safe no-op if none remain.
+    ("2026-08-02-fb-v2-reconvert-stragglers", _migrate_fb_entries_to_meal_services),
 ]
 
 
