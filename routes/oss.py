@@ -112,9 +112,27 @@ def oss_hub(show_id):
                      .order_by(MealService.sort_order, MealService.id)
                      .all())
     # Group by schedule_day_id for the tab UI
+    # Group by EFFECTIVE day for the tab so no meal ever disappears: use the
+    # meal's schedule_day_id, or fall back to its linked activity's day when the
+    # day link is missing. Anything with no derivable day (or a day not on this
+    # show) is surfaced in an "unscheduled" bucket rather than silently dropped.
+    day_ids = {d.id for d in show.days}
     meals_by_day = {}
+    unscheduled_meals = []
     for svc in meal_services:
-        meals_by_day.setdefault(svc.schedule_day_id, []).append(svc)
+        did = svc.schedule_day_id
+        if did not in day_ids and svc.linked_activity is not None:
+            did = svc.linked_activity.day_id
+        if did in day_ids:
+            meals_by_day.setdefault(did, []).append(svc)
+        else:
+            unscheduled_meals.append(svc)
+
+    # Old-format F&B entries (pre-v2 SubScheduleEntry type='F&B') are invisible
+    # on this tab because it only reads meal services. Surface a count so they
+    # can be converted in one click (fb_convert_legacy) — covers shows whose
+    # v2 data-migration never reached this database.
+    stray_fb = SubScheduleEntry.query.filter_by(show_id=show_id, type="F&B").count()
 
     # ── Build a unified "master view" list combining SubScheduleEntries
     # (all non-F&B departments) + MealService/Location rows. Each item is a
@@ -280,6 +298,8 @@ def oss_hub(show_id):
         hardcoded_by_dept     = hardcoded_by_dept,
         all_entries           = all_entries,
         days                  = show.days,
+        unscheduled_meals     = unscheduled_meals,
+        stray_fb              = stray_fb,
         activities_by_day     = activities_by_day,
         missing_fb            = missing_fb,
         wristband_grand_total = wristband_grand_total,
@@ -643,6 +663,50 @@ def _int_or_none(v):
 
 
 def _back_to_fb(show_id):
+    return redirect(url_for("oss.oss_hub", show_id=show_id, tab="F&B"))
+
+
+@oss_bp.route("/<int:show_id>/oss/fb/convert-legacy", methods=["POST"])
+def fb_convert_legacy(show_id):
+    """Convert this show's old-format F&B entries (SubScheduleEntry type='F&B')
+    into MealService + MealServiceLocation — the same conversion the v2 data
+    migration does — so they appear on the F&B tab. Safe to run repeatedly;
+    it only acts on entries that still exist."""
+    Show.query.get_or_404(show_id)
+
+    def _guess_kind(name):
+        n = (name or "").upper()
+        if "BREAKFAST" in n: return "breakfast"
+        if "LUNCH" in n:     return "lunch"
+        if "DINNER" in n:    return "dinner"
+        if "BEVERAGE" in n or "COFFEE" in n: return "beverages"
+        if "SNACK" in n:     return "snack"
+        return "other"
+
+    strays = SubScheduleEntry.query.filter_by(show_id=show_id, type="F&B").all()
+    n = 0
+    for e in strays:
+        eff_time = None
+        if e.activity_id:
+            act = ScheduleActivity.query.get(e.activity_id)
+            if act:
+                eff_time = act.time
+        eff_time = eff_time or e.time
+        svc = MealService(
+            show_id=e.show_id, schedule_day_id=e.schedule_day_id,
+            activity_id=e.activity_id, name=(e.activity or "Meal service"),
+            kind=_guess_kind(e.activity), is_recurring=False,
+            notes=e.notes, sort_order=e.sort_order or 0,
+        )
+        db.session.add(svc); db.session.flush()
+        db.session.add(MealServiceLocation(
+            meal_service_id=svc.id, location_name="",
+            start_time=eff_time, headcount=e.count, sort_order=0))
+        db.session.delete(e)
+        n += 1
+    db.session.commit()
+    flash(f"Converted {n} legacy F&B entr{'y' if n == 1 else 'ies'} to meal services.",
+          "success" if n else "info")
     return redirect(url_for("oss.oss_hub", show_id=show_id, tab="F&B"))
 
 

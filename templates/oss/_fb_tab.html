@@ -46,6 +46,18 @@
   dietary preferences at the bottom.
 </div>
 
+{% if stray_fb %}
+<div class="alert alert-warning py-2 px-3 d-flex align-items-center justify-content-between" style="font-size:.82rem;gap:12px;">
+  <div>
+    <strong>⚠ {{ stray_fb }} F&amp;B item{{ '' if stray_fb == 1 else 's' }} in the old format</strong>
+    — they exist on the schedule but don't show as meal services here yet. Convert them to bring them onto this tab.
+  </div>
+  <form method="POST" action="{{ url_for('oss.fb_convert_legacy', show_id=show.id) }}" style="margin:0;flex-shrink:0;">
+    <button type="submit" class="btn btn-sm btn-adi">Convert to meal services</button>
+  </form>
+</div>
+{% endif %}
+
 {% if t == 'F&B' and missing_fb %}
 <div class="alert alert-warning py-2 px-3" style="font-size:.82rem;">
   <strong>⚠ {{ missing_fb|length }} meal break{% if missing_fb|length != 1 %}s{% endif %}
@@ -227,6 +239,46 @@
 </form>
 
 {% endfor %}
+
+{# ── Meal services not tied to a show day (surfaced so they're never lost) ── #}
+{% if unscheduled_meals %}
+<div class="day-header" style="background:#7A2E2E;color:#FCD9D9;">
+  <span>⚠ Unscheduled meal services (not tied to a show day)</span>
+  <span style="font-weight:400;font-size:.74rem;">{{ unscheduled_meals|length }}</span>
+</div>
+{% for svc in unscheduled_meals %}
+<div class="meal-card">
+  <div class="head">
+    <span class="kind">{{ svc.kind }}</span>
+    <span class="name">{{ svc.name }}</span>
+    <span class="total">Total: {{ svc.total_headcount }}</span>
+    <form method="POST" style="margin:0;"
+          action="{{ url_for('oss.fb_service_delete', show_id=show.id, svc_id=svc.id) }}"
+          onsubmit="return confirm('Delete this meal service and all its locations?');">
+      <button type="submit" class="btn btn-sm p-0" style="color:#fff;background:none;border:none;font-size:.84rem;" title="Delete service">✕</button>
+    </form>
+  </div>
+  <div class="body">
+    {% if svc.locations %}
+    <table class="loc-table"><tbody>
+      {% for loc in svc.locations %}
+      <tr>
+        <td>{{ loc.location_name or '—' }}</td>
+        <td>{{ loc.start_time or '' }}</td>
+        <td>{{ loc.end_time or '' }}</td>
+        <td>{{ loc.headcount if loc.headcount is not none else '' }}</td>
+        <td>{{ loc.notes or '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody></table>
+    {% else %}<span class="text-muted" style="font-size:.76rem;">No locations.</span>{% endif %}
+    <div class="text-muted mt-2" style="font-size:.72rem;font-style:italic;">
+      Not linked to a show day{% if svc.activity_id %} — its linked activity has no date{% endif %}.
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
 
 {# ── Per-show dietary preferences ────────────────────────────────────── #}
 <div class="day-header" style="background:#1C2333;color:#C9A84C;">
