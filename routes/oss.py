@@ -25,8 +25,13 @@ from models import (
     RadioChannel, COM_PACK_BRAND_LIMITS, COM_PACK_HARD_CAP, RADIO_CHANNEL_SLOTS,
     MealService, MealServiceLocation, ShowDietaryNote, MEAL_KINDS,
 )
+from time_utils import sort_minutes
+from datetime import date as _date_cls
 
 oss_bp = Blueprint("oss", __name__)
+
+# Undated rows sort after every real day rather than jumping to the top.
+_DATE_MAX = _date_cls.max
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -59,9 +64,14 @@ def _tab_safe(tab_key):
 def _entries_by_type(show_id):
     """
     Return ({type: [entries]}, [entries_in_master_order]).
-    Sorted by day date, then effective_time (which respects linked activities),
-    then sort_order. The effective_time sort is done in Python because it's a
-    @property that can come from either entry.time or entry.linked_activity.time.
+    Sorted by day date, then chronologically by effective_time (which respects
+    linked activities), then sort_order as a tiebreak only. The time sort is
+    done in Python because effective_time is a @property that can come from
+    either entry.time or entry.linked_activity.time.
+
+    Times are compared as minutes-since-midnight, NOT as strings: the stored
+    format is 12-hour display text, so a string compare puts "1:00 PM" after
+    "18:00" and sinks afternoon rows to the bottom of the day.
     """
     entries = (
         SubScheduleEntry.query
@@ -69,11 +79,10 @@ def _entries_by_type(show_id):
         .join(ScheduleDay, SubScheduleEntry.schedule_day_id == ScheduleDay.id)
         .all()
     )
-    # Python sort: empty/missing times sort last within their day.
+    # Python sort: empty/unreadable times sort last within their day.
     def _sort_key(e):
-        date_key = e.schedule_day.date if e.schedule_day else None
-        t        = e.effective_time or "99:99"
-        return (date_key, t, e.sort_order or 0)
+        date_key = e.schedule_day.date if e.schedule_day else _DATE_MAX
+        return (date_key, sort_minutes(e.effective_time), e.sort_order or 0)
     entries.sort(key=_sort_key)
 
     grouped = {t: [] for t in SUB_SCHEDULE_TYPES}
@@ -128,6 +137,15 @@ def oss_hub(show_id):
         else:
             unscheduled_meals.append(svc)
 
+    # Chronological within each day. The query above orders by sort_order,
+    # which is assigned at creation — so without this a meal added later sat
+    # at the bottom of its day no matter what time it was set to.
+    def _meal_key(svc):
+        return (sort_minutes(svc.earliest_time), svc.sort_order or 0, svc.id or 0)
+    for _day_id in meals_by_day:
+        meals_by_day[_day_id].sort(key=_meal_key)
+    unscheduled_meals.sort(key=_meal_key)
+
     # Old-format F&B entries (pre-v2 SubScheduleEntry type='F&B') are invisible
     # on this tab because it only reads meal services. Surface a count so they
     # can be converted in one click (fb_convert_legacy) — covers shows whose
@@ -142,7 +160,7 @@ def oss_hub(show_id):
         master_items.append({
             "day_id":   e.schedule_day_id,
             "day":      e.schedule_day,
-            "sort_time": e.effective_time or "99:99",
+            "sort_time": sort_minutes(e.effective_time),
             "time":     e.effective_time or "",
             "icon":     e.meta.get("icon", "•"),
             "dept":     e.meta.get("label", e.type),
@@ -153,12 +171,12 @@ def oss_hub(show_id):
         })
     for svc in meal_services:
         # A meal service without locations still shows as one row.
-        locs = svc.locations or [None]
+        locs = svc.locations_ordered or [None]
         for loc in locs:
             master_items.append({
                 "day_id":   svc.schedule_day_id,
                 "day":      svc.schedule_day,
-                "sort_time": (loc.start_time if loc else svc.earliest_time) or "99:99",
+                "sort_time": sort_minutes(loc.start_time if loc else svc.earliest_time),
                 "time":     (loc.start_time if loc else svc.earliest_time) or "",
                 "icon":     "🍽",
                 "dept":     "F&B",
@@ -170,18 +188,14 @@ def oss_hub(show_id):
     # ── #39: roll up ALL day activities + crew call times into the master ──
     # so the Master tab is a genuinely complete per-show timeline, not just OSS
     # department entries + meals. Same dict shape -> renders in the same table.
-    from hardcoded_service import _parse as _parse_time
-
-    def _hhmm(t):
-        m = _parse_time(t)
-        return "%02d:%02d" % divmod(m, 60) if m is not None else "99:99"
-
+    # Every branch below uses sort_minutes so activities, crew, meals, OSS
+    # entries and hard-coded events all land on ONE comparable scale.
     for d in show.days:
         crew_by_time = {}   # #47 — collect crew sharing a call time into one row
         for a in d.activities:
             master_items.append({
                 "day_id": d.id, "day": d,
-                "sort_time": _hhmm(a.time),
+                "sort_time": sort_minutes(a.time),
                 "time": a.time or "",
                 "icon": "🗓",
                 "dept": "Schedule",
@@ -208,7 +222,7 @@ def oss_hub(show_id):
                 continue
             master_items.append({
                 "day_id": d.id, "day": d,
-                "sort_time": _hhmm(t),
+                "sort_time": sort_minutes(t),
                 "time": t or "",
                 "icon": "👤",
                 "dept": "Crew",
@@ -227,7 +241,7 @@ def oss_hub(show_id):
         for ev in ov:
             master_items.append({
                 "day_id": d.id, "day": d,
-                "sort_time": _hhmm(ev.get("time")),
+                "sort_time": sort_minutes(ev.get("time")),
                 "time": ev.get("time") or "",
                 "icon": "📌",
                 "dept": ev.get("department") or "Hard-Coded",
@@ -239,9 +253,8 @@ def oss_hub(show_id):
                 hardcoded_by_dept.setdefault(dept, []).append(dict(ev, day=d))
 
     # Sort by day date (None → last) then by time within each day.
-    from datetime import date as _date_cls
     def _mi_sort(item):
-        d = item["day"].date if item["day"] else _date_cls.max
+        d = item["day"].date if item["day"] else _DATE_MAX
         return (d, item["sort_time"])
     master_items.sort(key=_mi_sort)
     dietary_notes = (ShowDietaryNote.query

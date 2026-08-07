@@ -2,6 +2,8 @@ from extensions import db
 from datetime import datetime
 import json
 
+import time_utils
+
 
 # ── Lookup / reference tables ────────────────────────────────────────────────
 
@@ -966,10 +968,24 @@ class MealService(db.Model):
         return sum((loc.headcount or 0) for loc in self.locations)
 
     @property
+    def locations_ordered(self):
+        """Locations in clock order. The `locations` relationship is ordered by
+        sort_order (assigned at creation), so a location added later sat at the
+        bottom regardless of its start_time."""
+        return sorted(
+            self.locations,
+            key=lambda loc: (time_utils.sort_minutes(loc.start_time),
+                             loc.sort_order or 0, loc.id or 0),
+        )
+
+    @property
     def earliest_time(self):
-        """Earliest start_time across locations (for sorting/display)."""
-        times = [loc.start_time for loc in self.locations if loc.start_time]
-        return min(times) if times else None
+        """Earliest start_time across locations (for sorting/display).
+
+        Compared as minutes, not as text: '9:00 AM' loses a string compare to
+        '10:00 AM' even though it is earlier."""
+        return time_utils.earliest(
+            [loc.start_time for loc in self.locations if loc.start_time])
 
     @property
     def is_linked(self):

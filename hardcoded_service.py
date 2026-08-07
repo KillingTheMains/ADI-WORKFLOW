@@ -9,23 +9,17 @@ recomputes with no drift and nothing to migrate.
 Per-show scope: an event applies to a show unless ShowHardCodedEvent says
 enabled=False for it (default on).
 """
-import re
 from models import HardCodedEvent, ShowHardCodedEvent
+from time_utils import parse_minutes
 
 
 def _parse(t_str):
-    """'8:00 AM' / '19:00' / '7:30 PM' -> minutes since midnight; None on failure."""
-    if not t_str or not str(t_str).strip():
-        return None
-    m = re.match(r'(\d{1,2}):(\d{2})\s*(AM|PM)?', str(t_str).strip().upper())
-    if not m:
-        return None
-    h, mn, ampm = int(m.group(1)), int(m.group(2)), m.group(3)
-    if ampm == 'PM' and h != 12:
-        h += 12
-    elif ampm == 'AM' and h == 12:
-        h = 0
-    return h * 60 + mn
+    """'8:00 AM' / '19:00' / '7:30 PM' -> minutes since midnight; None on failure.
+
+    Thin alias for time_utils.parse_minutes so the whole app shares one
+    definition of how a time string is read.
+    """
+    return parse_minutes(t_str)
 
 
 def _fmt(mins):

@@ -6,6 +6,7 @@ from models import Show, ScheduleDay, ScheduleActivity, CrewRow, Position, CrewM
                    SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break, DayPhase, \
                    MealService, MealServiceLocation
 from datetime import date, timedelta
+from time_utils import sort_minutes, parse_minutes
 import re, json
 
 schedule_bp = Blueprint("schedule", __name__)
@@ -14,19 +15,12 @@ schedule_bp = Blueprint("schedule", __name__)
 # ── Time helpers ─────────────────────────────────────────────────────────────
 
 def _parse_time_to_minutes(t_str):
-    """Parse '8:00 AM', '19:00', '7:30 PM' → minutes since midnight. Returns None on failure."""
-    if not t_str or not t_str.strip():
-        return None
-    t = t_str.strip().upper()
-    m = re.match(r'(\d{1,2}):(\d{2})\s*(AM|PM)?', t)
-    if not m:
-        return None
-    h, mn, ampm = int(m.group(1)), int(m.group(2)), m.group(3)
-    if ampm == 'PM' and h != 12:
-        h += 12
-    elif ampm == 'AM' and h == 12:
-        h = 0
-    return h * 60 + mn
+    """Parse '8:00 AM', '19:00', '7:30 PM' → minutes since midnight. None on failure.
+
+    Thin alias for time_utils.parse_minutes — kept so existing callers and
+    tests keep working, but there is now ONE parser behind every time compare.
+    """
+    return parse_minutes(t_str)
 
 
 def _minutes_to_time_str(mins):
@@ -258,8 +252,10 @@ def day_detail(show_id, day_id):
             oss_by_activity.setdefault(e.activity_id, []).append(e)
         else:
             oss_unlinked.append(e)
-    # Sort unlinked by effective_time (string compare on HH:MM works fine)
-    oss_unlinked.sort(key=lambda e: (e.effective_time or "99:99", e.sort_order or 0))
+    # Sort unlinked chronologically. NOT a string compare: times are free-form
+    # display text, so "1:00 PM" would sort after "18:00".
+    oss_unlinked.sort(key=lambda e: (sort_minutes(e.effective_time),
+                                     e.sort_order or 0))
 
     # Ordered tab keys for the per-activity "+ OSS" department picker
     ordered_oss_types = sorted(

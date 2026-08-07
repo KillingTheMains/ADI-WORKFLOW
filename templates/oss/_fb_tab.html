@@ -133,7 +133,7 @@
       </thead>
       <tbody>
         {% if svc.locations %}
-          {% for loc in svc.locations %}
+          {% for loc in svc.locations_ordered %}
           <tr>
             <form method="POST" data-autosave="true" style="display:contents;"
                   action="{{ url_for('oss.fb_location_edit', show_id=show.id, loc_id=loc.id) }}">
