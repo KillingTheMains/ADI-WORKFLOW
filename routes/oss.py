@@ -25,7 +25,7 @@ from models import (
     RadioChannel, COM_PACK_BRAND_LIMITS, COM_PACK_HARD_CAP, RADIO_CHANNEL_SLOTS,
     MealService, MealServiceLocation, ShowDietaryNote, MEAL_KINDS,
 )
-from time_utils import sort_minutes
+from time_utils import sort_minutes, hhmm_or_blank
 from datetime import date as _date_cls
 
 oss_bp = Blueprint("oss", __name__)
@@ -108,6 +108,10 @@ def oss_hub(show_id):
             {
                 "id":          a.id,
                 "time":        a.time or "",
+                # 24-hour form for <input type="time">, which silently blanks
+                # anything else. Activity times are mixed-format: day templates
+                # and the break builder write "1:00 PM", the time picker "13:00".
+                "time24":      hhmm_or_blank(a.time),
                 "description": a.description or "",
                 # The label shown in the dropdown
                 "label":       (f"{a.time}  ·  " if a.time else "") + (a.description or ""),
@@ -720,7 +724,8 @@ def fb_convert_legacy(show_id):
         db.session.add(svc); db.session.flush()
         db.session.add(MealServiceLocation(
             meal_service_id=svc.id, location_name="",
-            start_time=eff_time, headcount=e.count, sort_order=0))
+            start_time=hhmm_or_blank(eff_time) or None,
+            headcount=e.count, sort_order=0))
         db.session.delete(e)
         n += 1
     db.session.commit()
@@ -764,8 +769,8 @@ def fb_service_add(show_id):
     db.session.add(MealServiceLocation(
         meal_service_id = svc.id,
         location_name   = (request.form.get("location_name") or "").strip() or None,
-        start_time      = (request.form.get("start_time") or "").strip() or None,
-        end_time        = (request.form.get("end_time") or "").strip() or None,
+        start_time      = hhmm_or_blank(request.form.get("start_time")) or None,
+        end_time        = hhmm_or_blank(request.form.get("end_time")) or None,
         headcount       = _int_or_none(request.form.get("headcount")),
     ))
     db.session.commit()
@@ -813,8 +818,8 @@ def fb_location_add(show_id, svc_id):
     db.session.add(MealServiceLocation(
         meal_service_id = svc.id,
         location_name   = (request.form.get("location_name") or "").strip() or None,
-        start_time      = (request.form.get("start_time") or "").strip() or None,
-        end_time        = (request.form.get("end_time") or "").strip() or None,
+        start_time      = hhmm_or_blank(request.form.get("start_time")) or None,
+        end_time        = hhmm_or_blank(request.form.get("end_time")) or None,
         headcount       = _int_or_none(request.form.get("headcount")),
         sort_order      = last_sort + 10,
     ))
@@ -830,8 +835,8 @@ def fb_location_edit(show_id, loc_id):
         flash("Location doesn't belong to this show.", "danger")
         return _back_to_fb(show_id)
     loc.location_name = (request.form.get("location_name") or "").strip() or None
-    loc.start_time    = (request.form.get("start_time") or "").strip() or None
-    loc.end_time      = (request.form.get("end_time") or "").strip() or None
+    loc.start_time    = hhmm_or_blank(request.form.get("start_time")) or None
+    loc.end_time      = hhmm_or_blank(request.form.get("end_time")) or None
     loc.headcount     = _int_or_none(request.form.get("headcount"))
     loc.notes         = (request.form.get("notes") or "").strip() or None
     db.session.commit()

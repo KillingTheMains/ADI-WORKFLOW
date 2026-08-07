@@ -243,7 +243,7 @@
                       data-type="{{ e.type }}"
                       data-day="{{ e.schedule_day_id }}"
                       data-activity-id="{{ e.activity_id or '' }}"
-                      data-time="{{ e.time or '' }}"
+                      data-time="{{ e.time|to_24hr }}"
                       data-activity="{{ e.activity or '' }}"
                       data-count="{{ e.count if e.count is not none else '' }}"
                       data-hrs="{{ e.duration_hrs if e.duration_hrs is not none else '' }}"
@@ -445,7 +445,9 @@
     const acts = ACTIVITIES_BY_DAY[dayId] || [];
     const act  = acts.find(a => String(a.id) === String(actId));
     if (act && act.time) {
-      timeInput.value = act.time;
+      // act.time24 is normalised server-side; an <input type="time">
+      // silently blanks anything that is not 24-hour HH:MM.
+      timeInput.value = act.time24 || act.time;
     }
     timeInput.readOnly = true;
     timeInput.style.background = '#f1ecdb';

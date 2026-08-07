@@ -73,6 +73,17 @@ def hhmm(value):
     return "99:99" if minutes is None else "%02d:%02d" % divmod(minutes, 60)
 
 
+def hhmm_or_blank(value):
+    """Normalise to 24-hour 'HH:MM' for storage and for <input type="time">.
+
+    Returns "" when the value is missing or unreadable — an HTML time input
+    accepts ONLY 24-hour HH:MM and silently renders anything else as an empty
+    box, which then posts back as blank and destroys the stored time.
+    """
+    minutes = parse_minutes(value)
+    return "" if minutes is None else "%02d:%02d" % divmod(minutes, 60)
+
+
 def earliest(values):
     """The chronologically earliest of several time strings (None if none parse)."""
     readable = [(parse_minutes(v), v) for v in values]

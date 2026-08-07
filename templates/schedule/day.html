@@ -147,13 +147,13 @@
               <label class="form-label">Start of Day</label>
               <input type="time" name="sod" id="sod_input"
                      class="form-control form-control-sm"
-                     value="{{ day.sod or '' }}">
+                     value="{{ day.sod|to_24hr }}">
             </div>
             <div class="col-6">
               <label class="form-label">End of Day</label>
               <input type="time" name="eod" id="eod_input"
                      class="form-control form-control-sm"
-                     value="{{ day.eod or '' }}">
+                     value="{{ day.eod|to_24hr }}">
             </div>
           </div>
           <div class="mb-2">
@@ -271,12 +271,12 @@
             <div class="col-6">
               <label class="form-label" style="font-size:.72rem;">Depart Time</label>
               <input type="time" name="travel_depart_time" class="form-control form-control-sm"
-                     value="{{ day.travel_depart_time or '' }}">
+                     value="{{ day.travel_depart_time|to_24hr }}">
             </div>
             <div class="col-6">
               <label class="form-label" style="font-size:.72rem;">Arrive Time</label>
               <input type="time" name="travel_arrive_time" class="form-control form-control-sm"
-                     value="{{ day.travel_arrive_time or '' }}">
+                     value="{{ day.travel_arrive_time|to_24hr }}">
             </div>
           </div>
           <div class="mb-2">
@@ -536,7 +536,7 @@
               <div class="col-md-2">
                 <label class="form-label" style="font-size:.75rem;">Time</label>
                 <input type="time" name="time" class="form-control form-control-sm"
-                       value="{{ act.time or '' }}">
+                       value="{{ act.time|to_24hr }}">
               </div>
               <div class="col-md-7">
                 <label class="form-label" style="font-size:.75rem;">Description</label>

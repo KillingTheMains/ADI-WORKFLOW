@@ -77,8 +77,10 @@ def test_edit_day_sets_sod_eod_and_preserves_call_time(app, client, db):
     assert r.status_code in (200, 302)
 
     day = ScheduleDay.query.get(day_id)
-    assert day.sod == "7:00 AM"
-    assert day.eod == "11:00 PM"
+    # Stored canonically as 24-hour HH:MM whatever format was posted, so the
+    # <input type="time"> on Day Settings can render it back.
+    assert day.sod == "07:00"
+    assert day.eod == "23:00"
     # Legacy call_time must survive -- Smart Breaks still reads it.
     assert day.call_time == "6:00 AM"
 

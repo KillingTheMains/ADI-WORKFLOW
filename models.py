@@ -440,10 +440,24 @@ class DayTemplate(db.Model):
 
     @property
     def activities(self):
+        """[[time, description], ...] with times normalised to 24-hour HH:MM.
+
+        The seeded payloads store 12-hour text (["1:00 PM", "AFTERNOON
+        SESSION"]). Applied verbatim, every template-created activity got a
+        time that rendered as a BLANK <input type="time"> on the day page and
+        sorted lexically below every 24-hour time. Normalising here fixes both
+        template-application paths at once (generate-days and apply-template).
+        """
         try:
-            return json.loads(self.activities_json or "[]")
+            raw = json.loads(self.activities_json or "[]")
         except Exception:
             return []
+        out = []
+        for pair in raw:
+            if not isinstance(pair, (list, tuple)) or len(pair) < 2:
+                continue
+            out.append([time_utils.hhmm_or_blank(pair[0]), pair[1]])
+        return out
 
     @activities.setter
     def activities(self, val):

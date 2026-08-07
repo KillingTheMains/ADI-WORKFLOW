@@ -194,6 +194,68 @@ def _backfill_sod_eod_from_call_wrap(session):
     session.commit()
 
 
+def _normalise_stored_times_to_24h(session):
+    """Rewrite every stored time as zero-padded 24-hour 'HH:MM'.
+
+    The app accumulated two formats: <input type="time"> wrote "13:00", while
+    the seeded day templates and the break builder wrote "1:00 PM". That
+    mixture caused two live bugs:
+      * an <input type="time"> silently renders a BLANK box for a 12-hour
+        value — and on the autosaving F&B rows that blank posted straight back
+        and wiped the stored time;
+      * string-compared sort keys put "1:00 PM" after "18:00", sinking
+        afternoon items to the bottom of the day.
+    Values that don't parse are left exactly as they are rather than guessed.
+    """
+    from models import (ScheduleActivity, ScheduleDay, SubScheduleEntry,
+                        MealServiceLocation, DayTemplate)
+    import json as _json
+    from time_utils import hhmm_or_blank
+
+    def _fix(obj, field):
+        current = getattr(obj, field, None)
+        if not current:
+            return 0
+        canonical = hhmm_or_blank(current)
+        if canonical and canonical != current:
+            setattr(obj, field, canonical)
+            return 1
+        return 0
+
+    changed = 0
+    for act in ScheduleActivity.query.all():
+        changed += _fix(act, "time")
+    for e in SubScheduleEntry.query.all():
+        changed += _fix(e, "time")
+    for loc in MealServiceLocation.query.all():
+        changed += _fix(loc, "start_time") + _fix(loc, "end_time")
+    for d in ScheduleDay.query.all():
+        changed += (_fix(d, "sod") + _fix(d, "eod")
+                    + _fix(d, "call_time") + _fix(d, "wrap_time"))
+
+    # Templates are the ongoing SOURCE of 12-hour data — rewrite the payloads
+    # so freshly generated days stop reintroducing it.
+    for tpl in DayTemplate.query.all():
+        try:
+            raw = _json.loads(tpl.activities_json or "[]")
+        except Exception:
+            continue
+        fixed, dirty = [], False
+        for pair in raw:
+            if not isinstance(pair, (list, tuple)) or len(pair) < 2:
+                fixed.append(pair)
+                continue
+            canonical = hhmm_or_blank(pair[0]) or pair[0]
+            dirty = dirty or canonical != pair[0]
+            fixed.append([canonical, pair[1]])
+        if dirty:
+            tpl.activities_json = _json.dumps(fixed)
+            changed += 1
+
+    session.commit()
+    print(f"[migration] normalised {changed} time value(s) to 24-hour HH:MM")
+
+
 DATA_MIGRATIONS = [
     ("2026-06-30-fb-v2-migrate-entries", _migrate_fb_entries_to_meal_services),
     ("2026-07-02-add-prompter-position", _seed_position_prompter),
@@ -203,6 +265,11 @@ DATA_MIGRATIONS = [
     # v2 conversion (before add_entry/clone were guarded). Same conversion, new
     # key so it runs once more across every show. Safe no-op if none remain.
     ("2026-08-02-fb-v2-reconvert-stragglers", _migrate_fb_entries_to_meal_services),
+    # 2026-08-07 — one canonical time format. Run the F&B sweep once more
+    # FIRST (any legacy entry still present is invisible on the F&B tab),
+    # then normalise every stored time to 24-hour HH:MM.
+    ("2026-08-07-fb-v2-reconvert-stragglers-2", _migrate_fb_entries_to_meal_services),
+    ("2026-08-07-normalise-times-to-24h", _normalise_stored_times_to_24h),
 ]
 
 

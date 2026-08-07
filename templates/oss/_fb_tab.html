@@ -139,8 +139,8 @@
                   action="{{ url_for('oss.fb_location_edit', show_id=show.id, loc_id=loc.id) }}">
               <td><input type="text" name="location_name" value="{{ loc.location_name or '' }}"
                          placeholder="e.g. Backstage / FOH / Local Labor"></td>
-              <td><input type="time" name="start_time" value="{{ loc.start_time or '' }}" class="time"></td>
-              <td><input type="time" name="end_time"   value="{{ loc.end_time or '' }}" class="time"></td>
+              <td><input type="time" name="start_time" value="{{ loc.start_time|to_24hr }}" class="time"></td>
+              <td><input type="time" name="end_time"   value="{{ loc.end_time|to_24hr }}" class="time"></td>
               <td><input type="number" name="headcount" value="{{ loc.headcount if loc.headcount is not none else '' }}"
                          min="0" step="1" class="count"></td>
               <td><input type="text" name="notes" value="{{ loc.notes or '' }}"></td>

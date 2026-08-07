@@ -127,6 +127,20 @@ def create_app():
         display_h = h % 12 or 12
         return f"{display_h}:{m:02d} {ampm}"
 
+    @app.template_filter("to_24hr")
+    def to_24hr_filter(v):
+        """
+        Render a time as zero-padded 24-hour 'HH:MM' for <input type="time">.
+
+        An HTML time input ONLY accepts that format — hand it "1:00 PM" and
+        the browser silently shows an EMPTY box. On autosaving forms (the F&B
+        location rows) that empty box then posts back and wipes the stored
+        time. Anything unreadable returns "" so the field is honestly blank
+        rather than showing a bogus value.
+        """
+        from time_utils import hhmm_or_blank
+        return hhmm_or_blank(v)
+
     # ── Security response headers ────────────────────────────────────────────
     # Fable 5 review: the live site returned no X-Frame-Options,
     # X-Content-Type-Options, Referrer-Policy, or HSTS. Cheap defense-in-depth,

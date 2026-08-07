@@ -6,7 +6,7 @@ from models import Show, ScheduleDay, ScheduleActivity, CrewRow, Position, CrewM
                    SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break, DayPhase, \
                    MealService, MealServiceLocation
 from datetime import date, timedelta
-from time_utils import sort_minutes, parse_minutes
+from time_utils import sort_minutes, parse_minutes, hhmm_or_blank
 import re, json
 
 schedule_bp = Blueprint("schedule", __name__)
@@ -24,7 +24,19 @@ def _parse_time_to_minutes(t_str):
 
 
 def _minutes_to_time_str(mins):
-    """Convert minutes since midnight → '8:00 AM' format."""
+    """Convert minutes since midnight → 24-hour 'HH:MM'.
+
+    Was '8:00 AM'. Every generated activity written in that format rendered
+    as a BLANK <input type="time"> on the day page, and sorted lexically
+    below every 24-hour time. Display still shows 12-hour via |to_12hr.
+    """
+    return "%02d:%02d" % divmod(int(mins) % (24 * 60), 60)
+
+
+def _display_time(mins):
+    """Minutes since midnight → human-readable 12-hour text, e.g. '8:00 AM'.
+
+    For labels shown to people. Storage is always 24-hour HH:MM."""
     mins = int(mins) % (24 * 60)
     h, mn = divmod(mins, 60)
     ampm = 'AM' if h < 12 else 'PM'
@@ -336,9 +348,9 @@ def edit_day(show_id, day_id):
     # autosaves without SOD/EOD inputs, so only write them when the submitting
     # form actually carries them — never wipe on an unrelated partial save.
     if "sod" in f:
-        day.sod = f.get("sod", "")
+        day.sod = hhmm_or_blank(f.get("sod", ""))
     if "eod" in f:
-        day.eod = f.get("eod", "")
+        day.eod = hhmm_or_blank(f.get("eod", ""))
     day.phase      = f.get("phase", "")
     day.milestones = f.get("milestones", "")
     day.notes      = f.get("notes", "")
@@ -504,7 +516,10 @@ def build_day_schedule(show_id, day_id):
         if "CREW START" in (act.description or "").upper():
             m = _parse_time_to_minutes(act.time or "")
             if m is not None:
-                crew_starts.append((m, (act.time or "").strip()))
+                # Label from the parsed minutes, not the raw stored string,
+                # so break names read "8:00 AM CREW" whatever format the crew
+                # start happens to be stored in.
+                crew_starts.append((m, _display_time(m)))
 
     if not crew_starts:
         flash("Add a Crew Start with a time to this day first, then build breaks.",

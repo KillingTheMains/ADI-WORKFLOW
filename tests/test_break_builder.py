@@ -53,8 +53,9 @@ def test_build_breaks_off_single_crew_start(app, client, db):
     assert r.status_code in (200, 302)
 
     acts = _acts(day_id)
-    assert acts["COFFEE BREAK " + DASH + " 8:00 AM CREW"] == "10:30 AM"
-    assert acts["LUNCH BREAK " + DASH + " 8:00 AM CREW"] == "1:00 PM"
+    # Label stays human-readable 12-hour; the stored time is canonical 24h.
+    assert acts["COFFEE BREAK " + DASH + " 8:00 AM CREW"] == "10:30"
+    assert acts["LUNCH BREAK " + DASH + " 8:00 AM CREW"] == "13:00"
     assert "AFTERNOON BREAK " + DASH + " 8:00 AM CREW" in acts
     # Crew start preserved; no EOD WRAP generated
     assert "CREW START" in acts
@@ -69,10 +70,11 @@ def test_build_breaks_per_crew_start_are_offset(app, client, db):
     client.post(_build_url(app, show_id, day_id), data={})
 
     acts = _acts(day_id)
-    assert acts["COFFEE BREAK " + DASH + " 8:00 AM CREW"] == "10:30 AM"
-    assert acts["COFFEE BREAK " + DASH + " 9:00 AM CREW"] == "11:30 AM"  # one hour later
-    assert acts["LUNCH BREAK " + DASH + " 8:00 AM CREW"] == "1:00 PM"
-    assert acts["LUNCH BREAK " + DASH + " 9:00 AM CREW"] == "2:00 PM"
+    # Label stays human-readable 12-hour; the stored time is canonical 24h.
+    assert acts["COFFEE BREAK " + DASH + " 8:00 AM CREW"] == "10:30"
+    assert acts["COFFEE BREAK " + DASH + " 9:00 AM CREW"] == "11:30"  # one hour later
+    assert acts["LUNCH BREAK " + DASH + " 8:00 AM CREW"] == "13:00"
+    assert acts["LUNCH BREAK " + DASH + " 9:00 AM CREW"] == "14:00"
 
 
 def test_build_breaks_no_crew_start_adds_nothing(app, client, db):
