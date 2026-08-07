@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Agency Branding{% endblock %}
+{% block content %}
+<h1 style="margin-bottom:4px;">Agency Branding</h1>
+<p class="text-muted" style="font-size:.85rem;max-width:56rem;">
+  Your own mark, used on generated paperwork and on the Master OSS exports.
+  This is separate from a show's key art — that's the client's artwork, set
+  per show. Uploads are trimmed automatically, so padding around the mark
+  won't leave it floating in a corner of the page.
+</p>
+
+<div class="row g-4" style="margin-top:8px;">
+  <div class="col-md-5">
+    <div class="card"><div class="card-body">
+      <h2 style="font-size:1rem;margin-bottom:10px;">Logo</h2>
+
+      {% if has_logo %}
+        <div style="background:{{ setting.primary_hex }};border-radius:6px;
+                    padding:22px;text-align:center;margin-bottom:6px;">
+          <img src="{{ url_for('agency.logo') }}" alt="{{ setting.name }}"
+               style="max-width:100%;max-height:110px;object-fit:contain;">
+        </div>
+        <div class="text-muted" style="font-size:.72rem;margin-bottom:12px;">
+          Shown on the brand colour, which is how it appears on export covers.
+        </div>
+        <form method="POST" action="{{ url_for('agency.logo_delete') }}"
+              onsubmit="return confirm('Remove the agency logo?');">
+          <button class="btn btn-sm btn-outline-danger">Remove logo</button>
+        </form>
+        <hr>
+      {% else %}
+        <p class="text-muted" style="font-size:.85rem;">No logo uploaded yet.</p>
+      {% endif %}
+
+      <form method="POST" action="{{ url_for('agency.logo_upload') }}"
+            enctype="multipart/form-data">
+        <label class="form-label" style="font-size:.78rem;">
+          {{ 'Replace logo' if has_logo else 'Upload logo' }}
+        </label>
+        <input type="file" name="logo" accept="image/*"
+               class="form-control form-control-sm" required>
+        <div class="text-muted" style="font-size:.72rem;margin:6px 0 10px;">
+          PNG, JPG, GIF, WEBP or SVG · under 5 MB. A reversed (white) mark
+          works best — export covers use the brand colour behind it.
+        </div>
+        <button class="btn btn-sm btn-dark">Save logo</button>
+      </form>
+    </div></div>
+  </div>
+
+  <div class="col-md-5">
+    <div class="card"><div class="card-body">
+      <h2 style="font-size:1rem;margin-bottom:10px;">Details</h2>
+      <form method="POST" action="{{ url_for('agency.agency_save') }}">
+        <label class="form-label" style="font-size:.78rem;">Agency name</label>
+        <input type="text" name="name" value="{{ setting.name or '' }}"
+               class="form-control form-control-sm" maxlength="200">
+
+        <label class="form-label" style="font-size:.78rem;margin-top:12px;">
+          Brand colour
+        </label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="color" name="primary_hex"
+                 value="{{ setting.primary_hex or '#071B34' }}"
+                 class="form-control form-control-sm" style="width:56px;padding:2px;">
+          <code style="font-size:.78rem;">{{ setting.primary_hex }}</code>
+        </div>
+        <div class="text-muted" style="font-size:.72rem;margin:6px 0 10px;">
+          Used for cover panels and section headers on the exports.
+        </div>
+        <button class="btn btn-sm btn-dark">Save details</button>
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

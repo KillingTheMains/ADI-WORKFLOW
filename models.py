@@ -1157,3 +1157,36 @@ class RequestAttachment(db.Model):
 
     def __repr__(self):
         return f"<RequestAttachment #{self.id} req#{self.request_id} {self.filename}>"
+
+
+
+class AgencySetting(db.Model):
+    """Singleton row holding the agency's own branding.
+
+    Separate from per-show artwork (#48): the show artwork is the client's
+    key art, this is ADI Productions' own mark. Both appear on generated
+    paperwork and on the Master OSS exports. Stored as a row rather than a
+    constant so the logo can be swapped without a deploy — and so board #49
+    (agency artwork on RFPs) has something to read from.
+    """
+    __tablename__ = "agency_settings"
+    id            = db.Column(db.Integer, primary_key=True)
+    name          = db.Column(db.String(200), default="ADI Productions")
+    logo_filename = db.Column(db.String(300))
+    # Brand navy taken from the supplied logo; also already in the app CSS.
+    primary_hex   = db.Column(db.String(7), default="#071B34")
+    updated_at    = db.Column(db.DateTime, default=datetime.utcnow,
+                              onupdate=datetime.utcnow)
+
+    @classmethod
+    def get(cls):
+        """The one row, created on first access."""
+        row = cls.query.order_by(cls.id).first()
+        if row is None:
+            row = cls()
+            db.session.add(row)
+            db.session.commit()
+        return row
+
+    def __repr__(self):
+        return f"<AgencySetting {self.name} logo={self.logo_filename}>"

@@ -105,6 +105,11 @@
       <span class="nav-icon">📦</span> Equipment
     </a>
 
+    <a href="/agency"
+       class="{% if request.endpoint and request.endpoint.startswith('agency.') %}active{% endif %}">
+      <span class="nav-icon">🎨</span> Agency Branding
+    </a>
+
     <div class="nav-section">Coming Soon</div>
     <a href="#" class="disabled" style="opacity:0.4; cursor:not-allowed;">
       <span class="nav-icon">📋</span> RFQ Builder
