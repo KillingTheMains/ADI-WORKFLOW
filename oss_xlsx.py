@@ -64,6 +64,20 @@ def _detail(item):
     return " · ".join(bits)
 
 
+def _master_label(item):
+    """What the client-facing timeline shows for a row.
+
+    Crew rows collapse to a headcount: a real show puts 40+ names in one
+    cell (533 characters on the export that prompted this), which is
+    unreadable in a spreadsheet and would wreck the PDF's pagination. The
+    full named list is on the Crew sheet.
+    """
+    if item.get("source") == "crew" and item.get("count"):
+        n = item["count"]
+        return f"{n} crew called" if n != 1 else "1 crew called"
+    return item["activity"]
+
+
 def _display_time(value):
     """12-hour for people. Storage is 24-hour HH:MM; this is presentation."""
     from time_utils import parse_minutes
@@ -203,12 +217,13 @@ def _master(wb, show, agency, master_items):
         for n, item in enumerate(items):
             style = department_style(item["dept"])
             values = [_display_time(item["time"]), item["dept"],
-                      item["activity"], _detail(item), item["notes"]]
+                      _master_label(item), _detail(item), item["notes"]]
             for col, value in enumerate(values, start=1):
                 c = ws.cell(row=row, column=col, value=value)
                 c.font = Font(name=FONT, size=10)
                 c.border = BORDER
-                c.alignment = Alignment(vertical="top", wrap_text=(col == 5))
+                c.alignment = Alignment(vertical="top",
+                                        wrap_text=(col in (3, 5)))
                 if n % 2:
                     c.fill = PatternFill("solid", fgColor=BAND)
             ws.cell(row=row, column=1).font = Font(name=FONT, size=10, bold=True)
@@ -264,11 +279,14 @@ def _department_sheets(wb, show, agency, master_items):
         row = 3
         for n, item in enumerate(items):
             day = item["day"]
+            # The Crew sheet is where the names live — the Master shows a count.
+            names = item.get("crew_names")
+            label = (", ".join(names) if names else item["activity"])
             values = [
                 day.date.strftime("%a %-d %b") if day and day.date else "Unscheduled",
                 day.date.isoformat() if day and day.date else "",
                 _display_time(item["time"]),
-                item["activity"],
+                label,
                 (f"{item['count']} pax" if item["dept"] in ("F&B", "Crew")
                  and item.get("count") is not None else ""),
                 item.get("count"),
@@ -279,7 +297,8 @@ def _department_sheets(wb, show, agency, master_items):
                 c = ws.cell(row=row, column=col, value=value)
                 c.font = Font(name=FONT, size=10)
                 c.border = BORDER
-                c.alignment = Alignment(vertical="top", wrap_text=(col == 8))
+                c.alignment = Alignment(vertical="top",
+                                        wrap_text=(col in (4, 8)))
                 if n % 2:
                     c.fill = PatternFill("solid", fgColor=BAND)
             row += 1

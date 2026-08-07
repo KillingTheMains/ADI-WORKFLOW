@@ -28,6 +28,7 @@ from models import (
 from time_utils import sort_minutes, hhmm_or_blank
 from oss_export import build_master_items
 from datetime import date as _date_cls, datetime
+import re
 
 oss_bp = Blueprint("oss", __name__)
 
@@ -455,7 +456,12 @@ def master_xlsx(show_id):
     wb.save(buf)
     buf.seek(0)
     stamp = datetime.now().strftime("%Y%m%d")
-    name = f"{(show.code or 'show').replace(' ', '_')}_Master_Schedule_{stamp}.xlsx"
+    # Fall back to the show NAME before the generic word: plenty of shows carry
+    # their identifier in the name and leave `code` empty, which produced
+    # files literally called "show_Master_Schedule_...".
+    slug = re.sub(r"[^A-Za-z0-9]+", "_",
+                  (show.code or show.name or "show")).strip("_") or "show"
+    name = f"{slug}_Master_Schedule_{stamp}.xlsx"
     return _send_file(
         buf, as_attachment=True, download_name=name,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

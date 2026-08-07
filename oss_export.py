@@ -13,9 +13,10 @@ without knowing about the ORM:
     day_id, day, sort_time (int minutes), time (display str),
     icon, dept, activity, count, duration_hrs, notes, source
 """
+import re
 from datetime import date as _date_cls
 
-from time_utils import sort_minutes
+from time_utils import sort_minutes, UNKNOWN as UNKNOWN_GUARD
 
 # Undated rows sort after every real day rather than jumping to the top.
 DATE_MAX = _date_cls.max
@@ -95,52 +96,144 @@ def _sort_key(item):
     return (day.date if day and day.date else DATE_MAX, item["sort_time"])
 
 
+CREW_BREAK_RE = re.compile(
+    r'^(?P<base>.+?)\s*[—–-]\s*(?P<call>\d{1,2}:\d{2}\s*(?:[AP]\.?M\.?)?)\s+CREW\s*$',
+    re.I)
+
+
+def _merge_text(*candidates):
+    """The most informative of several descriptions — the longest non-empty.
+
+    A linked pair usually says the same thing at different lengths, e.g.
+    "CL Truss/LX Truck 1&2 - 53' Semi" against "CL Truss/LX Truck 1&2 at Dock
+    00 - Two (2) 53' Semi". The longer text is the one worth keeping.
+    """
+    texts = [str(c).strip() for c in candidates if c and str(c).strip()]
+    return max(texts, key=len) if texts else ""
+
+
+def _merge_notes(*candidates):
+    """Union of several note fields, order-preserving, no repeats."""
+    out = []
+    for c in candidates:
+        text = (c or "").strip()
+        if text and text not in out:
+            out.append(text)
+    return " · ".join(out)
+
+
+def _collapse_crew_breaks(items):
+    """One row per break period instead of one per crew start.
+
+    The break builder emits a separate activity per crew start — "COFFEE BREAK
+    — 07:00 CREW" at 09:30 and "COFFEE BREAK — 08:00 CREW" at 10:30. On an
+    11-day show that quadrupled every break period. These collapse to a single
+    row at the earliest time, carrying every call time in the notes so the
+    staggering is still legible.
+
+    Deliberately narrow: only activities matching the generated
+    "<name> — <time> CREW" pattern are touched. Anything hand-written is left
+    exactly as it is.
+    """
+    keep, groups = [], {}
+    for item in items:
+        match = (CREW_BREAK_RE.match(item["activity"] or "")
+                 if item["source"] == SOURCE_ACTIVITY else None)
+        if not match:
+            keep.append(item)
+            continue
+        key = (item["day_id"], match.group("base").strip().upper())
+        groups.setdefault(key, []).append((item, match.group("call").strip()))
+
+    for (_day_id, base), members in groups.items():
+        members.sort(key=lambda pair: pair[0]["sort_time"])
+        first = dict(members[0][0])
+        first["activity"] = members[0][0]["activity"].split("—")[0].split("–")[0].strip() \
+            or base.title()
+        detail = ", ".join(f"{call} crew {_fmt_12h(m['time'])}" for m, call in members)
+        first["notes"] = _merge_notes(first["notes"], detail) if len(members) > 1 \
+            else first["notes"]
+        first["collapsed_calls"] = [call for _m, call in members]
+        keep.append(first)
+    return keep
+
+
+def _fmt_12h(value):
+    """'13:00' -> '1:00 PM'. Presentation only; storage stays 24-hour."""
+    mins = sort_minutes(value)
+    if mins >= UNKNOWN_GUARD:
+        return value or ""
+    h, m = divmod(mins, 60)
+    return "%d:%02d %s" % (h % 12 or 12, m, "AM" if h < 12 else "PM")
+
+
 def build_master_items(show, entries, meal_services):
     """Assemble the full per-show master timeline.
 
     Returns (master_items, hardcoded_by_dept). `entries` are the show's
     SubScheduleEntry rows and `meal_services` its MealService rows — passed in
     so the caller controls querying and we don't hit the DB twice per page.
+
+    An OSS entry or meal linked to an activity IS that activity with
+    departmental detail attached, so the two are merged into a single row
+    rather than both being listed. Before this, 18% of rows on a real 11-day
+    show were the same event printed twice — 33 of them character-identical.
     """
     from models import SUB_SCHEDULE_TYPES
     from hardcoded_service import overlay_for_day
 
     items = []
+    # activity_id -> the department rows that claim that activity
+    claimed = {}
+    for e in entries:
+        if e.activity_id:
+            claimed.setdefault(e.activity_id, []).append(("entry", e))
+    for svc in meal_services:
+        if svc.activity_id:
+            claimed.setdefault(svc.activity_id, []).append(("meal", svc))
+
 
     # ── Department OSS entries ──────────────────────────────────────────
     for e in entries:
         meta = e.meta
+        act = e.linked_activity if e.activity_id else None
         items.append(_item(
             e.schedule_day, e.effective_time,
-            meta.get("label", e.type), e.activity,
+            meta.get("label", e.type),
+            _merge_text(e.activity, act.description if act else None),
             icon=meta.get("icon", "•"), count=e.count,
-            duration_hrs=e.duration_hrs, notes=e.notes,
+            duration_hrs=e.duration_hrs,
+            notes=_merge_notes(e.notes, act.notes if act else None),
             source=SOURCE_OSS, day_id=e.schedule_day_id,
         ))
 
     # ── F&B v2: one row per location, or one row if a service has none ──
     for svc in meal_services:
+        act = svc.linked_activity if svc.activity_id else None
         for loc in (svc.locations_ordered or [None]):
             label = svc.name + (f" · {loc.location_name}"
                                 if loc and loc.location_name else "")
             items.append(_item(
                 svc.schedule_day,
                 (loc.start_time if loc else svc.earliest_time),
-                "F&B", label, icon="🍽",
+                "F&B", _merge_text(label, act.description if act else None),
+                icon="🍽",
                 count=(loc.headcount if loc else None),
-                notes=(loc.notes if loc else None) or svc.notes,
+                notes=_merge_notes((loc.notes if loc else None), svc.notes,
+                                   act.notes if act else None),
                 source=SOURCE_MEAL, day_id=svc.schedule_day_id,
             ))
 
 
-    # ── #39: every day activity + crew call time, so the master is a
-    # genuinely complete timeline rather than just OSS departments + meals.
+    # ── #39: day activities + crew call times. An activity already carried
+    # by a linked department row is skipped — it was merged in above.
     for d in show.days:
         crew_by_time = {}
         for a in d.activities:
-            items.append(_item(d, a.time, "Schedule", a.description,
-                               icon="🗓", notes=a.notes,
-                               source=SOURCE_ACTIVITY))
+            if a.id not in claimed:
+                items.append(_item(d, a.time, "Schedule", a.description,
+                                   icon="🗓", notes=a.notes,
+                                   source=SOURCE_ACTIVITY))
             # Crew on a Crew Start all share that event's call time.
             if "CREW START" in (a.description or "").upper():
                 names = crew_by_time.setdefault(a.time or "", [])
@@ -156,9 +249,12 @@ def build_master_items(show, entries, meal_services):
         for t, names in crew_by_time.items():
             if not names:
                 continue
-            items.append(_item(d, t, "Crew", ", ".join(names),
-                               icon="👤", count=len(names),
-                               source=SOURCE_CREW))
+            item = _item(d, t, "Crew", ", ".join(names),
+                         icon="👤", count=len(names), source=SOURCE_CREW)
+            # Exports show the count and put the names on the Crew sheet —
+            # 40 names in one cell is unreadable and wrecks PDF pagination.
+            item["crew_names"] = list(names)
+            items.append(item)
 
 
     # ── #37 Phase 2b: dept-tagged hard-coded events, computed per day from
@@ -178,10 +274,9 @@ def build_master_items(show, entries, meal_services):
             if dept:
                 hardcoded_by_dept.setdefault(dept, []).append(dict(ev, day=d))
 
+    items = _collapse_crew_breaks(items)
     items.sort(key=_sort_key)
     return items, hardcoded_by_dept
-
-
 def group_by_day(master_items):
     """[(day, [items]), ...] in schedule order, undated last.
 
