@@ -52,7 +52,22 @@ DEFAULT_STYLE = {"hex": "334155", "short": ""}
 
 def department_style(dept):
     """Colour + short label for a department, with a safe fallback."""
-    return DEPARTMENT_STYLE.get(dept, DEFAULT_STYLE)
+    return DEPARTMENT_STYLE.get(dept_label(dept), DEFAULT_STYLE)
+
+
+def dept_label(value):
+    """Display label for a department, given either its stored type key or an
+    already-resolved label.
+
+    Three departments store a type that differs from what users see —
+    Hazer/Haze, House LX/House Lights, HVAC/HVAC / AC. OSS entries surface the
+    LABEL while hard-coded events store the TYPE, so without normalising here
+    the same department shows up twice on the master and would produce two
+    separate sheets in the export.
+    """
+    from models import SUB_SCHEDULE_META
+    meta = SUB_SCHEDULE_META.get(value)
+    return meta.get("label", value) if meta else value
 
 
 def _item(day, time_value, dept, activity, *, icon="•", count=None,
@@ -154,8 +169,11 @@ def build_master_items(show, entries, meal_services):
         overlay, _missing = overlay_for_day(d)
         for ev in overlay:
             dept = ev.get("department")
+            # Normalise: hard-coded events store the TYPE, OSS entries the
+            # LABEL. Unnormalised, one department renders as two.
             items.append(_item(d, ev.get("time"),
-                               dept or "Hard-Coded", ev.get("name"),
+                               dept_label(dept) if dept else "Hard-Coded",
+                               ev.get("name"),
                                icon="📌", source=SOURCE_HARDCODED))
             if dept:
                 hardcoded_by_dept.setdefault(dept, []).append(dict(ev, day=d))

@@ -97,8 +97,17 @@
   <!-- ── Master Schedule (read-only merged view) ─────────────────────── -->
   <div class="tab-pane oss-tab-pane {% if active_tab == 'master' %}show active{% endif %}"
        id="tab-master" role="tabpanel">
-    <div class="oss-section-help">
-      All OSS entries across every department, grouped by show day and sorted by time.
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+      <div class="oss-section-help">
+        All OSS entries across every department, grouped by show day and sorted by time.
+      </div>
+      {% if master_items %}
+      <a href="{{ url_for('oss.master_xlsx', show_id=show.id) }}"
+         class="btn btn-sm btn-dark" style="white-space:nowrap;"
+         title="Formatted workbook — cover, day-by-day timeline, a sheet per department">
+        ⬇ Export XLSX
+      </a>
+      {% endif %}
     </div>
     {% if master_items %}
     <table class="table table-sm oss-table">

@@ -8,6 +8,9 @@ Flask-WTF==1.2.1
 WTForms==3.1.2
 python-dateutil==2.9.0
 openpyxl==3.1.5
+# Pillow: agency-logo auto-trim on upload, and image embedding in the XLSX
+# export. Pure wheel, no native deps — unlike WeasyPrint below.
+Pillow>=9.0.0
 # WeasyPrint was removed July 3 — PA can't install its Pango/GObject native
 # deps. Replaced with browser Print-to-PDF via @media print CSS. Do not
 # re-add the WeasyPrint pin; a fresh venv rebuild will fail to install it.

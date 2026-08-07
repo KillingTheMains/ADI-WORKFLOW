@@ -27,7 +27,7 @@ from models import (
 )
 from time_utils import sort_minutes, hhmm_or_blank
 from oss_export import build_master_items
-from datetime import date as _date_cls
+from datetime import date as _date_cls, datetime
 
 oss_bp = Blueprint("oss", __name__)
 
@@ -428,6 +428,38 @@ def delete_entry(show_id, entry_id):
 
 
 # ── Show Book (printable) ────────────────────────────────────────────────────
+
+@oss_bp.route("/<int:show_id>/oss/master.xlsx")
+def master_xlsx(show_id):
+    """Master OSS as a formatted workbook — cover, day-banded timeline, a
+    sheet per department, summary. Built from the same oss_export assembly the
+    Master tab renders, so the two can't disagree."""
+    import io
+    from flask import send_file as _send_file
+    from models import AgencySetting
+    from oss_xlsx import build_workbook
+
+    show = Show.query.get_or_404(show_id)
+    entries = SubScheduleEntry.query.filter_by(show_id=show_id).all()
+    meals = MealService.query.filter_by(show_id=show_id).all()
+
+    agency = AgencySetting.get()
+    try:
+        from routes.agency import logo_path
+        logo_file = logo_path(agency)
+    except Exception:
+        logo_file = None
+
+    wb = build_workbook(show, entries, meals, agency=agency, logo_file=logo_file)
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    stamp = datetime.now().strftime("%Y%m%d")
+    name = f"{(show.code or 'show').replace(' ', '_')}_Master_Schedule_{stamp}.xlsx"
+    return _send_file(
+        buf, as_attachment=True, download_name=name,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
 
 @oss_bp.route("/<int:show_id>/oss/show-book")
 def show_book(show_id):
