@@ -80,19 +80,16 @@ def _master_label(item):
 
 
 def _display_time(value):
-    """12-hour for people. Storage is 24-hour HH:MM; this is presentation."""
-    from time_utils import parse_minutes
-    mins = parse_minutes(value)
-    if mins is None:
-        return value or ""
-    h, m = divmod(mins, 60)
-    return "%d:%02d %s" % (h % 12 or 12, m, "AM" if h < 12 else "PM")
+    """24-hour on generated documents (Larry, 2026-08-09). The on-screen app
+    still shows 12-hour — that is deliberate, screens and client documents
+    have different readers."""
+    return brand.fmt_time(value)
 
 
 def _day_label(day):
     if day is None or not day.date:
         return "Unscheduled"
-    label = day.date.strftime("%A %-d %B %Y")
+    label = brand.fmt_date(day.date, "full")
     if getattr(day, "phase_labels", None):
         labels = day.phase_labels
         if labels:
@@ -155,8 +152,8 @@ def _cover(wb, show, agency, master_items, logo_file):
     span = ""
     if days:
         first, last = days[0].date, days[-1].date
-        span = (first.strftime("%-d %b %Y") if first == last else
-                f"{first.strftime('%-d %b')} – {last.strftime('%-d %b %Y')}")
+        span = (brand.fmt_date(first, "full") if first == last else
+                f"{brand.fmt_date(first)} – {brand.fmt_date(last, 'full')}")
 
     _fact(13, "CLIENT", show.client.name if show.client else None)
     _fact(14, "VENUE", show.venue.name if show.venue else None)
@@ -165,7 +162,7 @@ def _cover(wb, show, agency, master_items, logo_file):
     _fact(17, "SCHEDULE DAYS", str(len(days)) if days else "0")
     _fact(18, "TOTAL ITEMS", str(len(master_items)))
     _fact(19, "PREPARED BY", getattr(agency, "name", None) or "ADI Productions")
-    _fact(20, "GENERATED", datetime.now().strftime("%-d %b %Y, %H:%M"))
+    _fact(20, "GENERATED", datetime.now().strftime("%-d %b %Y, %H:%M"))  # 24h
 
     key = ws.cell(row=23, column=2, value="DEPARTMENT KEY")
     key.font = Font(name=FONT, size=9, bold=True, color="6B7280")
@@ -284,7 +281,7 @@ def _department_sheets(wb, show, agency, master_items):
             names = item.get("crew_names")
             label = (", ".join(names) if names else item["activity"])
             values = [
-                day.date.strftime("%a %-d %b") if day and day.date else "Unscheduled",
+                brand.fmt_date(day.date) if day and day.date else "Unscheduled",
                 day.date.isoformat() if day and day.date else "",
                 _display_time(item["time"]),
                 label,

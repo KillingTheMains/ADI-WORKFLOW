@@ -467,6 +467,36 @@ def master_xlsx(show_id):
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
+@oss_bp.route("/<int:show_id>/oss/master.pdf")
+def master_pdf(show_id):
+    """Master OSS as a client-facing PDF. Same oss_export assembly as the
+    Master tab and the XLSX."""
+    import io
+    from flask import send_file as _send_file
+    from models import AgencySetting
+    from oss_pdf import build_pdf
+
+    show = Show.query.get_or_404(show_id)
+    entries = SubScheduleEntry.query.filter_by(show_id=show_id).all()
+    meals = MealService.query.filter_by(show_id=show_id).all()
+
+    agency = AgencySetting.get()
+    try:
+        from routes.agency import logo_path
+        logo_file = logo_path(agency)
+    except Exception:
+        logo_file = None
+
+    buf = io.BytesIO()
+    build_pdf(buf, show, entries, meals, agency=agency, logo_file=logo_file)
+    buf.seek(0)
+    stamp = datetime.now().strftime("%Y%m%d")
+    slug = re.sub(r"[^A-Za-z0-9]+", "_",
+                  (show.code or show.name or "show")).strip("_") or "show"
+    return _send_file(buf, as_attachment=True, mimetype="application/pdf",
+                      download_name=f"{slug}_Master_Schedule_{stamp}.pdf")
+
+
 @oss_bp.route("/<int:show_id>/oss/show-book")
 def show_book(show_id):
     show = Show.query.get_or_404(show_id)

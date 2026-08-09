@@ -102,10 +102,15 @@
         All OSS entries across every department, grouped by show day and sorted by time.
       </div>
       {% if master_items %}
-      <a href="{{ url_for('oss.master_xlsx', show_id=show.id) }}"
+      <a href="{{ url_for('oss.master_pdf', show_id=show.id) }}"
          class="btn btn-sm btn-dark" style="white-space:nowrap;"
-         title="Formatted workbook — cover, day-by-day timeline, a sheet per department">
-        ⬇ Export XLSX
+         title="Client-facing PDF — cover, at-a-glance, day-by-day, by department">
+        ⬇ PDF
+      </a>
+      <a href="{{ url_for('oss.master_xlsx', show_id=show.id) }}"
+         class="btn btn-sm btn-outline-dark" style="white-space:nowrap;"
+         title="Working spreadsheet — a sheet per department, filterable">
+        ⬇ XLSX
       </a>
       {% endif %}
     </div>

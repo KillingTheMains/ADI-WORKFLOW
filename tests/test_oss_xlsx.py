@@ -76,11 +76,11 @@ def test_master_is_banded_by_day_and_breaks_on_day_boundaries(app, db):
     show = _show(db)
     ws = _workbook(db, show)["Master Schedule"]
 
+    # Day banners use the house date format — "Tue 1 Dec 2026" (Larry, 9 Aug).
     banners = [(r, ws.cell(row=r, column=1).value)
                for r in range(3, ws.max_row + 1)
                if str(ws.cell(row=r, column=1).value or "").startswith(
-                   ("Monday", "Tuesday", "Wednesday", "Thursday",
-                    "Friday", "Saturday", "Sunday"))]
+                   ("Mon ", "Tue ", "Wed ", "Thu ", "Fri ", "Sat ", "Sun "))]
     assert len(banners) == 2, f"expected one banner per day, got {banners}"
 
     # A page break immediately before every day after the first, so a day

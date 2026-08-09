@@ -11,6 +11,9 @@ openpyxl==3.1.5
 # Pillow: agency-logo auto-trim on upload, and image embedding in the XLSX
 # export. Pure wheel, no native deps — unlike WeasyPrint below.
 Pillow>=9.0.0
+# reportlab: native PDF generation. Pure-Python wheel, no native deps —
+# unlike WeasyPrint below, which PA cannot build. Verified on PA 2026-08-07.
+reportlab>=4.0.0
 # WeasyPrint was removed July 3 — PA can't install its Pango/GObject native
 # deps. Replaced with browser Print-to-PDF via @media print CSS. Do not
 # re-add the WeasyPrint pin; a fresh venv rebuild will fail to install it.

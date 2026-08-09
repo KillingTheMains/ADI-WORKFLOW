@@ -12,3 +12,6 @@
 -r requirements.txt
 
 pytest==8.3.3
+# pypdf: reads the generated PDF back so the pagination tests can assert on
+# what actually landed on each page. Test-only — never needed on PA.
+pypdf>=4.0.0

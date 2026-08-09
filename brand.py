@@ -81,6 +81,42 @@ PT_EYEBROW = 9                  # bold, MINERAL, above the title
 PT_FOOTER = 9                   # right-aligned, pipe-delimited, page number
 
 
+# ── Document conventions (Larry, 2026-08-09) ────────────────────────────────
+# Answers to the three questions the Drive folders could not settle. These
+# govern GENERATED DOCUMENTS (PDF, XLSX). The on-screen app still displays
+# 12-hour via the |to_12hr filter — that is deliberate and separate.
+
+TIME_24_HOUR = True             # "13:00", not "1:00 PM"
+
+# strftime patterns. "%-d"/"%-m" (no zero padding) are GNU/BSD extensions —
+# fine on macOS and on PythonAnywhere, would need "%d"/"%m" on Windows.
+DATE_FORMAT_LONG = "%a %-d %b"      # "Mon 19 Jan" — day headers, cover page
+DATE_FORMAT_SHORT = "%-m/%-d"       # "1/19" — tight columns
+DATE_FORMAT_FULL = "%a %-d %b %Y"   # "Mon 19 Jan 2026"
+
+PAGE_ORIENTATION = "portrait"   # Letter portrait, per ADI house standard
+
+
+def fmt_date(value, style="long"):
+    """Format a date for a generated document. Empty string when absent."""
+    if value is None:
+        return ""
+    return value.strftime({
+        "long": DATE_FORMAT_LONG,
+        "short": DATE_FORMAT_SHORT,
+        "full": DATE_FORMAT_FULL,
+    }.get(style, DATE_FORMAT_LONG))
+
+
+def fmt_time(value):
+    """Format a time for a generated document — 24-hour HH:MM."""
+    from time_utils import parse_minutes
+    minutes = parse_minutes(value)
+    if minutes is None:
+        return value or ""
+    return "%02d:%02d" % divmod(minutes, 60)
+
+
 # ── House rules worth encoding, not just documenting ────────────────────────
 # "Every substantive block is a table with a shaded header row. There are no
 # bullet lists in any ADI document." Generated output should follow suit.
