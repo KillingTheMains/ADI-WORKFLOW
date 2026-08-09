@@ -256,6 +256,29 @@ def _normalise_stored_times_to_24h(session):
     print(f"[migration] normalised {changed} time value(s) to 24-hour HH:MM")
 
 
+def _correct_agency_primary_colour(session):
+    """Move the agency primary colour onto the real brand navy.
+
+    The old default (#071B34) was sampled out of a logo PNG before Larry's
+    brand package was available. The authoritative value is Midnight #0B2545,
+    stated identically in three places including a machine-readable token file.
+
+    Only rewrites a value that is still one of the known-wrong colours — if
+    anyone has deliberately picked something, it is left alone.
+    """
+    import brand
+    from models import AgencySetting
+
+    changed = 0
+    for row in AgencySetting.query.all():
+        current = (row.primary_hex or "").upper()
+        if not current or current in {h.upper() for h in brand.LEGACY_HEXES}:
+            row.primary_hex = brand.PRIMARY
+            changed += 1
+    session.commit()
+    print(f"[migration] agency primary colour corrected on {changed} row(s)")
+
+
 DATA_MIGRATIONS = [
     ("2026-06-30-fb-v2-migrate-entries", _migrate_fb_entries_to_meal_services),
     ("2026-07-02-add-prompter-position", _seed_position_prompter),
@@ -270,6 +293,8 @@ DATA_MIGRATIONS = [
     # then normalise every stored time to 24-hour HH:MM.
     ("2026-08-07-fb-v2-reconvert-stragglers-2", _migrate_fb_entries_to_meal_services),
     ("2026-08-07-normalise-times-to-24h", _normalise_stored_times_to_24h),
+    # 2026-08-09 — the real ADI brand navy, from Larry's brand token file.
+    ("2026-08-09-agency-primary-midnight", _correct_agency_primary_colour),
 ]
 
 

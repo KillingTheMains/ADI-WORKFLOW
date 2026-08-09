@@ -30,7 +30,7 @@ def test_setting_is_a_singleton(app, db):
     again = AgencySetting.get()
     assert first.id == again.id
     assert AgencySetting.query.count() == 1
-    assert first.primary_hex == "#071B34"      # brand navy from the logo
+    assert first.primary_hex == "#0B2545"      # Midnight, the ADI primary
 
 
 def test_upload_stores_serves_and_trims(app, client, db, tmp_path, monkeypatch):
@@ -109,6 +109,6 @@ def test_save_details_validates_hex(app, client, db):
                                       "primary_hex": "not-a-colour"})
     setting = AgencySetting.get()
     assert setting.name == "ADI Productions"
-    assert setting.primary_hex == "#071B34"     # rejected, default retained
+    assert setting.primary_hex == "#0B2545"     # rejected, default retained
     client.post("/agency/save", data={"name": "ADI", "primary_hex": "#123ABC"})
     assert AgencySetting.get().primary_hex == "#123ABC"

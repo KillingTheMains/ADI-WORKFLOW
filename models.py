@@ -2,6 +2,7 @@ from extensions import db
 from datetime import datetime
 import json
 
+import brand
 import time_utils
 
 
@@ -1173,8 +1174,9 @@ class AgencySetting(db.Model):
     id            = db.Column(db.Integer, primary_key=True)
     name          = db.Column(db.String(200), default="ADI Productions")
     logo_filename = db.Column(db.String(300))
-    # Brand navy taken from the supplied logo; also already in the app CSS.
-    primary_hex   = db.Column(db.String(7), default="#071B34")
+    # Midnight, the ADI primary. See brand.py — sourced from Larry's brand
+    # token file, not sampled from artwork as the previous default was.
+    primary_hex   = db.Column(db.String(7), default=brand.PRIMARY)
     updated_at    = db.Column(db.DateTime, default=datetime.utcnow,
                               onupdate=datetime.utcnow)
 

@@ -23,14 +23,15 @@ except ImportError:        # older releases called it Brk
     from openpyxl.worksheet.pagebreak import Brk as RowBreak
 from openpyxl.worksheet.properties import PageSetupProperties
 
+import brand
 from oss_export import (build_master_items, department_style, group_by_day,
                         group_by_department)
 
-FONT = "Arial"
+FONT = brand.FONT_FALLBACK_XLSX
 WHITE = "FFFFFF"
 RULE = "D9DEE7"
 BAND = "F4F6F9"
-DEFAULT_NAVY = "071B34"
+DEFAULT_NAVY = brand.as_openpyxl(brand.PRIMARY)
 
 
 MASTER_HEADERS = ["Time", "Department", "Item", "Detail", "Notes"]
