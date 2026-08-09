@@ -279,6 +279,38 @@ def _correct_agency_primary_colour(session):
     print(f"[migration] agency primary colour corrected on {changed} row(s)")
 
 
+def _tidy_crew_name_whitespace(session):
+    """Strip and collapse whitespace in stored crew names.
+
+    A trailing space is not cosmetic here: it rendered one crew member as
+    "First  Last" with a double gap, and made two otherwise-identical
+    placeholder records look like two different people. The model now
+    normalises on write; this cleans up what is already stored.
+
+    Reports any record that looks like a placeholder rather than a person —
+    those inflate call headcounts on schedules and client exports — but does
+    NOT delete or rename them. That is a judgement call, not a migration.
+    """
+    from models import CrewMember
+
+    changed, flagged = 0, []
+    for member in CrewMember.query.all():
+        for field in ("first_name", "last_name"):
+            current = getattr(member, field, None)
+            if isinstance(current, str):
+                tidy = " ".join(current.split())
+                if tidy != current:
+                    setattr(member, field, tidy)
+                    changed += 1
+        if member.looks_like_placeholder:
+            flagged.append(f"#{member.id} {member.full_name!r}")
+    session.commit()
+    print(f"[migration] tidied whitespace in {changed} crew name field(s)")
+    if flagged:
+        print("[migration] placeholder-looking crew (left alone, review "
+              "manually): " + ", ".join(flagged))
+
+
 DATA_MIGRATIONS = [
     ("2026-06-30-fb-v2-migrate-entries", _migrate_fb_entries_to_meal_services),
     ("2026-07-02-add-prompter-position", _seed_position_prompter),
@@ -295,6 +327,9 @@ DATA_MIGRATIONS = [
     ("2026-08-07-normalise-times-to-24h", _normalise_stored_times_to_24h),
     # 2026-08-09 — the real ADI brand navy, from Larry's brand token file.
     ("2026-08-09-agency-primary-midnight", _correct_agency_primary_colour),
+    # 2026-08-09 — tidy stored crew-name whitespace and report any
+    # placeholder-looking records for manual review.
+    ("2026-08-09-tidy-crew-name-whitespace", _tidy_crew_name_whitespace),
 ]
 
 

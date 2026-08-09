@@ -240,6 +240,12 @@ def add():
         db.session.add(member)
         db.session.commit()
         flash(f"{member.full_name} added to roster.", "success")
+        if member.looks_like_placeholder:
+            flash(f"Heads up — \u201c{member.full_name}\u201d looks like a "
+                  "placeholder rather than a person. Placeholder crew are "
+                  "counted in call headcounts on schedules and client "
+                  "exports. Rename them once you know who is filling the slot.",
+                  "warning")
         return redirect(url_for("crew.index"))
 
     return render_template("crew/add.html", companies=companies, positions=positions)
@@ -268,6 +274,12 @@ def edit(member_id):
         member.notes         = f.get("notes", "")
         db.session.commit()
         flash(f"{member.full_name} updated.", "success")
+        if member.looks_like_placeholder:
+            flash(f"Heads up — \u201c{member.full_name}\u201d looks like a "
+                  "placeholder rather than a person. Placeholder crew are "
+                  "counted in call headcounts on schedules and client "
+                  "exports. Rename them once you know who is filling the slot.",
+                  "warning")
         return redirect(url_for("crew.index"))
 
     return render_template("crew/edit.html", member=member,

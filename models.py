@@ -1,4 +1,5 @@
 from extensions import db
+from sqlalchemy.orm import validates
 from datetime import datetime
 import json
 
@@ -99,6 +100,33 @@ class CrewMember(db.Model):
     sort_order     = db.Column(db.Integer)
     company        = db.relationship("Company", back_populates="crew")
     position       = db.relationship("Position")
+
+    # Names arrive from four different write paths (add, edit, bulk edit, the
+    # XLSX importer). Normalising on the model catches all of them, including
+    # any added later. A stray trailing space is not cosmetic: it produced a
+    # crew member rendering as "First  Last" with a double gap, and made two
+    # otherwise-identical placeholder records look like distinct people.
+    @validates("first_name", "last_name")
+    def _tidy_name(self, key, value):
+        return " ".join(value.split()) if isinstance(value, str) else value
+
+    #: Names that almost certainly mean "we haven't been told who yet".
+    PLACEHOLDER_NAMES = {"first", "last", "first last", "firstname",
+                         "lastname", "test", "tbd", "tba", "xxx", "name",
+                         "first name", "last name", "unknown", "n/a"}
+
+    @property
+    def looks_like_placeholder(self):
+        """True when this record reads as a stand-in rather than a person.
+
+        These inflate crew headcounts on schedules and exports, so they are
+        worth flagging at the point someone saves one.
+        """
+        first = (self.first_name or "").strip().lower()
+        last = (self.last_name or "").strip().lower()
+        return (first in self.PLACEHOLDER_NAMES
+                or last in self.PLACEHOLDER_NAMES
+                or f"{first} {last}".strip() in self.PLACEHOLDER_NAMES)
 
     @property
     def full_name(self):
