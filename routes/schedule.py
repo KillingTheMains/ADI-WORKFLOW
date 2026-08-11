@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, make_response
 from extensions import db
-from crew_ordering import crew_order_by, crew_sort_key
+from crew_ordering import crew_order_by, crew_sort_key, roster_index
 from models import Show, ScheduleDay, ScheduleActivity, CrewRow, Position, CrewMember, \
                    PHASES, CREW_TYPES, DayTemplate, PHASE_TYPES, ShowCrewAssignment, Company, \
                    SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break, DayPhase, \
@@ -227,6 +227,10 @@ def day_detail(show_id, day_id):
             .order_by(*crew_order_by())
             .all()
         )
+        # The dropdown lists people in ROSTER order, same as the crew calls
+        # themselves — two different orders for the same show reads as a bug.
+        _idx = roster_index(show.id)
+        crew_members.sort(key=lambda cm: _idx.get(cm.id, 10 ** 9))
     else:
         # No assignments yet — show everyone so the day editor still works
         crew_members = (
@@ -297,8 +301,18 @@ def day_detail(show_id, day_id):
     from hardcoded_service import overlay_for_day
     hc_overlay, hc_missing_anchor = overlay_for_day(day)
 
+    # Note 4: people in the Crew Database who are NOT yet on this show, offered
+    # in the add-to-roster modal so the common case is one click, not retyping
+    # someone who already exists.
+    off_roster_crew = (db.session.query(CrewMember)
+                       .filter(CrewMember.active == True,
+                               ~CrewMember.id.in_(assigned_ids or [-1]))
+                       .order_by(*crew_order_by()).all())
+
     return render_template("schedule/day.html", show=show, day=day,
                            positions=positions, crew_members=crew_members,
+                           off_roster_crew=off_roster_crew,
+                           all_companies=Company.query.order_by(Company.name).all(),
                            show_companies=show_companies,
                            phases=PHASES, crew_types=CREW_TYPES,
                            day_templates=_get_templates_dict(),

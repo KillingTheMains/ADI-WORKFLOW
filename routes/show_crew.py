@@ -915,3 +915,65 @@ def travel_print(show_id):
         sort_by=sort_by,
         print_mode=True,
     )
+
+
+# ── Note 4: add someone to the roster without leaving the day editor ─────────
+
+@show_crew_bp.route("/<int:show_id>/crew/quick-add", methods=["POST"])
+def quick_add(show_id):
+    """Put a person on this show's roster and hand back their new option.
+
+    The crew-call dropdown is roster-only, so there has to be a way to add a
+    missing person from inside the day editor. Navigating to the roster page
+    and back would lose the user's place mid-edit on an autosaving form —
+    which is the same shape as the blank-time data-loss bug — so this returns
+    JSON and the page splices the option in.
+
+    Accepts either an existing ``crew_member_id`` or a new ``first_name`` /
+    ``last_name`` (+ optional company and position).
+    """
+    show = Show.query.get_or_404(show_id)
+    f = request.form
+
+    cm = None
+    if f.get("crew_member_id"):
+        cm = CrewMember.query.get(int(f["crew_member_id"]))
+        if cm is None:
+            return jsonify(ok=False, error="That crew member no longer exists."), 404
+    else:
+        first = (f.get("first_name") or "").strip()
+        last = (f.get("last_name") or "").strip()
+        # No name at all is allowed ONLY when company or position says what the
+        # slot is for — that is an unfilled slot ("SPARKS Lead Rigger"), not a
+        # typo. A blank record with nothing on it would render as bare "TBD"
+        # and tell a reader nothing, so that is still rejected.
+        if not first and not last and not (f.get("company_id")
+                                           or f.get("position_id")):
+            return jsonify(
+                ok=False,
+                error="Give a name, or a company/position for an unfilled slot."
+            ), 400
+        cm = CrewMember(
+            first_name=first or "TBD",
+            last_name=last or "TBD",
+            company_id=int(f["company_id"]) if f.get("company_id") else None,
+            position_id=int(f["position_id"]) if f.get("position_id") else None,
+            active=True,
+        )
+        db.session.add(cm)
+        db.session.flush()
+
+    existing = ShowCrewAssignment.query.filter_by(
+        show_id=show.id, crew_member_id=cm.id).first()
+    if existing is None:
+        # sort_order stays NULL so the new person slots into the Crew Database
+        # position rather than landing at the bottom — Jason's call, 2026-08-11.
+        db.session.add(ShowCrewAssignment(show_id=show.id, crew_member_id=cm.id))
+    db.session.commit()
+
+    label = cm.display_label
+    if cm.position:
+        label = f"{label} — {cm.position.title}"
+    return jsonify(ok=True, id=cm.id, label=label,
+                   position=cm.position.title if cm.position else "",
+                   already_on_roster=existing is not None)

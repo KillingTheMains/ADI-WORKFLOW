@@ -823,10 +823,11 @@
                         </option>
                       {% endfor %}
                       {% if dg.dept %}</optgroup>{% endif %}
+                      <option value="__add__">＋ Add crew member to roster…</option>
                     </select>
-                    <input type="text" name="name_override" id="tbd-name-{{ act.id }}"
-                           class="form-control form-control-sm mt-1"
-                           placeholder="Name (if TBD/Local)">
+                    {# Note 4: no free-text name box. Every name on a schedule
+                       is a linked roster record, which is what keeps ordering,
+                       headcounts and name-change propagation correct. #}
                   </div>
                   <div class="col-md-2">
                     <label style="font-size:.72rem;" class="form-label">Type</label>
@@ -1190,6 +1191,74 @@
 </div>
 
 <!-- ══ MODALS ════════════════════════════════════════════════════════════════ -->
+
+<!-- ── Add crew member to roster (note 4) ───────────────────────────────────── -->
+<div class="modal fade" id="addToRosterModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">＋ Add crew member to roster</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="atr-error" class="alert alert-danger py-1 px-2"
+             style="display:none;font-size:.8rem;"></div>
+
+        <label class="form-label" style="font-size:.75rem;">
+          Already in the Crew Database
+        </label>
+        <select id="atr-existing" class="form-select form-select-sm mb-3">
+          <option value="">— add someone new instead —</option>
+          {% for cm in off_roster_crew %}
+            <option value="{{ cm.id }}">
+              {{ cm.display_label }}{% if cm.company %} · {{ cm.company.name }}{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+
+        <hr style="margin:.6rem 0;">
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label" style="font-size:.75rem;">First name</label>
+            <input type="text" id="atr-first" class="form-control form-control-sm">
+          </div>
+          <div class="col-6">
+            <label class="form-label" style="font-size:.75rem;">Last name</label>
+            <input type="text" id="atr-last" class="form-control form-control-sm">
+          </div>
+          <div class="col-6">
+            <label class="form-label" style="font-size:.75rem;">Company</label>
+            <select id="atr-company" class="form-select form-select-sm">
+              <option value="">—</option>
+              {% for co in all_companies %}
+                <option value="{{ co.id }}">{{ co.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" style="font-size:.75rem;">Position</label>
+            <select id="atr-position" class="form-select form-select-sm">
+              <option value="">—</option>
+              {% for p in positions %}
+                <option value="{{ p.id }}">{{ p.title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div style="font-size:.72rem;color:#6b7280;margin-top:.5rem;">
+          Leave the name blank and they are added as an unfilled slot —
+          the schedule will show company and position until someone is booked.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-sm btn-secondary"
+                data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-sm btn-adi"
+                onclick="submitAddToRoster()">Add to roster</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ── Bulk Assign Crew modal (#38) ─────────────────────────────────────────── -->
 <div class="modal fade" id="bulkAssignCrewModal" tabindex="-1">
@@ -1717,12 +1786,71 @@ function onCrewSelect(sel, actId) {
   // Auto-fill position field if a roster member is chosen and position is blank
   const posInput = document.getElementById('pos-input-' + actId);
   if (posInput && pos && !posInput.value) posInput.value = pos;
-  // Toggle TBD name field visibility
-  const tbdInput = document.getElementById('tbd-name-' + actId);
-  if (tbdInput) {
-    tbdInput.style.display = sel.value ? 'none' : '';
-    if (sel.value) tbdInput.value = '';  // clear when roster member selected
+  // Note 4: the last option opens the roster modal instead of selecting.
+  // Navigating away to the roster page would lose the user's place on an
+  // autosaving form, so the person is added in place and spliced in here.
+  if (sel.value === '__add__') {
+    sel.value = '';
+    openAddToRoster(sel);
   }
+}
+
+// ── Note 4: add a crew member to the roster without leaving the day ──────────
+let _addToRosterTarget = null;
+
+function openAddToRoster(sel) {
+  _addToRosterTarget = sel;
+  const m = document.getElementById('addToRosterModal');
+  if (!m) return;
+  m.querySelectorAll('input[type=text]').forEach(function (i) { i.value = ''; });
+  const err = document.getElementById('atr-error');
+  if (err) { err.textContent = ''; err.style.display = 'none'; }
+  new bootstrap.Modal(m).show();
+}
+
+function submitAddToRoster() {
+  const m = document.getElementById('addToRosterModal');
+  const err = document.getElementById('atr-error');
+  const body = new FormData();
+  const existing = document.getElementById('atr-existing').value;
+  if (existing) {
+    body.append('crew_member_id', existing);
+  } else {
+    body.append('first_name', document.getElementById('atr-first').value);
+    body.append('last_name', document.getElementById('atr-last').value);
+    body.append('company_id', document.getElementById('atr-company').value);
+    body.append('position_id', document.getElementById('atr-position').value);
+  }
+  fetch('{{ url_for("show_crew.quick_add", show_id=show.id) }}',
+        {method: 'POST', body: body})
+    .then(function (r) { return r.json().then(function (d) { return [r.ok, d]; }); })
+    .then(function (pair) {
+      const ok = pair[0], d = pair[1];
+      if (!ok || !d.ok) {
+        err.textContent = (d && d.error) || 'Could not add that person.';
+        err.style.display = '';
+        return;
+      }
+      // Splice the new person into EVERY crew select on the page, so the
+      // other activities on this day see them too without a reload.
+      document.querySelectorAll('select[name="crew_member_id"]').forEach(function (s) {
+        if (s.querySelector('option[value="' + d.id + '"]')) return;
+        const o = document.createElement('option');
+        o.value = d.id;
+        o.textContent = d.label;
+        o.dataset.position = d.position || '';
+        s.insertBefore(o, s.querySelector('option[value="__add__"]'));
+      });
+      if (_addToRosterTarget) {
+        _addToRosterTarget.value = d.id;
+        _addToRosterTarget.dispatchEvent(new Event('change'));
+      }
+      bootstrap.Modal.getInstance(m).hide();
+    })
+    .catch(function () {
+      err.textContent = 'Network error — the person was not added.';
+      err.style.display = '';
+    });
 }
 
 // ── Activity drag-to-reorder ──────────────────────────────────────────────────
