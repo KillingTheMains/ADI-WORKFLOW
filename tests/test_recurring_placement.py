@@ -53,10 +53,21 @@ def test_several_events_keep_chronological_order_within_a_slot():
 
 
 def test_activities_with_unreadable_times_do_not_capture_events():
+    """sort_minutes returns a 1,000,000 sentinel rather than None, so an
+    untimed activity tests as later than every event and would swallow the
+    lot. Order the untimed one FIRST so the guard is what saves us, not luck.
+    """
     day = _Day([_Act(1, ""), _Act(2, "09:00")])
     before, after = _place_recurring(day, [_item("Sweep", 8 * 60)])
     assert list(before) == [2]
     assert after == []
+
+
+def test_a_single_untimed_activity_does_not_swallow_the_day():
+    day = _Day([_Act(1, None)])
+    before, after = _place_recurring(day, [_item("Sweep", 8 * 60)])
+    assert before == {}
+    assert [i["name"] for i in after] == ["Sweep"]
 
 
 def test_no_activities_means_everything_falls_to_the_end():

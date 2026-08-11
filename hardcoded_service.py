@@ -136,17 +136,20 @@ def place_in_day(day, overlay):
     Anything later than the last activity, or with no resolvable time, falls
     to the end rather than being dropped silently.
     """
-    from time_utils import sort_minutes
+    # parse_minutes, not sort_minutes — the latter returns a sentinel
+    # rather than None, so an untimed activity would test as >= every
+    # event and swallow the whole day's recurring events.
+    from time_utils import parse_minutes
     before, after = {}, []
     if not overlay or day is None:
         return before, after
     acts = sorted(day.activities,
-                  key=lambda a: (sort_minutes(a.time) is None,
-                                 sort_minutes(a.time) or 0))
+                  key=lambda a: (parse_minutes(a.time) is None,
+                                 parse_minutes(a.time) or 0))
     for item in sorted(overlay, key=lambda i: i.get("sort_min") or 0):
         target = None
         for a in acts:
-            mins = sort_minutes(a.time)
+            mins = parse_minutes(a.time)
             if mins is not None and mins >= (item.get("sort_min") or 0):
                 target = a
                 break

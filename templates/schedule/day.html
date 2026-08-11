@@ -511,6 +511,78 @@
     {% if day.activities %}
     {% for act in day.activities %}
     {% for hc in hc_before.get(act.id, []) %}{{ recurring_row(hc) }}{% endfor %}
+    {% set brk = breaks_by_activity.get(act.id) %}
+    {% if brk %}
+    {# A break is a LINE ITEM, not a full activity card — it is the crew
+       stopping, not work being done. Tinted in Midnight so it reads as part
+       of the paperwork rather than as an alert, and the tint survives the
+       black-and-white printing every ADI document gets. #}
+    <div class="mb-2 px-2 py-1"
+         style="background:rgba(11,37,69,.08);border-left:3px solid #0B2545;
+                border-radius:3px;">
+      <form method="POST" class="row g-1 align-items-center"
+            action="{{ url_for('break_edit.edit_break', show_id=show.id, day_id=day.id, break_id=brk.id) }}">
+        <div class="col-auto" style="font-size:.72rem;color:#0B2545;font-weight:700;">
+          ☕ BREAK
+        </div>
+        <div class="col-auto">
+          <input type="time" name="time" value="{{ act.time|to_24hr }}"
+                 class="form-control form-control-sm"
+                 style="font-size:.72rem;width:96px;">
+        </div>
+        <div class="col-auto">
+          <input type="text" name="label" value="{{ brk.label or '' }}"
+                 class="form-control form-control-sm" placeholder="Label"
+                 style="font-size:.72rem;width:150px;">
+        </div>
+        <div class="col-auto">
+          <select name="duration_minutes" class="form-select form-select-sm"
+                  style="font-size:.72rem;width:84px;" title="Duration">
+            {% for m in [15, 30, 60] %}
+            <option value="{{ m }}" {% if brk.duration_minutes == m %}selected{% endif %}>{{ m }} min</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-auto">
+          <select name="catered" class="form-select form-select-sm"
+                  style="font-size:.72rem;width:150px;"
+                  title="Does F&amp;B provide anything at this break?">
+            <option value="unconfirmed" {% if brk.catered == 'unconfirmed' %}selected{% endif %}>— unconfirmed —</option>
+            <option value="yes" {% if brk.catered == 'yes' %}selected{% endif %}>Provided</option>
+            <option value="no" {% if brk.catered == 'no' %}selected{% endif %}>Not provided</option>
+          </select>
+        </div>
+        <div class="col-auto">
+          <select name="meal_service_id" class="form-select form-select-sm"
+                  style="font-size:.72rem;width:190px;"
+                  title="Meal service F&amp;B sees for this break">
+            <option value="">No meal service</option>
+            {% for ms in day_meal_services %}
+            <option value="{{ ms.id }}" {% if brk.meal_service_id == ms.id %}selected{% endif %}>{{ ms.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-sm btn-adi" style="font-size:.72rem;">Save</button>
+        </div>
+        <div class="col-auto" style="font-size:.7rem;color:var(--adi-muted);">
+          {% if brk.crew_call %}off {{ brk.crew_call.time }} crew
+            {%- if brk.offset_minutes is not none %} +{{ brk.offset_minutes }}m{% endif %}
+          {% else %}<span style="color:#9F1239;">no crew call anchor</span>{% endif %}
+          {% if brk.catered == 'unconfirmed' %}
+          · <span style="color:#B45309;">F&amp;B still sees this</span>
+          {% endif %}
+        </div>
+      </form>
+      <form method="POST" style="display:inline;"
+            action="{{ url_for('break_edit.delete_break', show_id=show.id, day_id=day.id, break_id=brk.id) }}"
+            onsubmit="return confirm('Remove this break from the schedule?');">
+        <button type="submit"
+                style="border:none;background:none;font-size:.68rem;opacity:.5;padding:0 2px;"
+                title="Remove this break">✕ remove</button>
+      </form>
+    </div>
+    {% else %}
     <div class="card mb-2 act-card" id="act-{{ act.id }}" data-act-id="{{ act.id }}" data-act-time="{{ act.time or '' }}">
       <div class="card-body p-0">
 
@@ -521,6 +593,30 @@
           <span style="min-width:74px;font-weight:700;color:var(--adi-blue);font-size:.85rem;">
             {{ act.time|to_12hr if act.time else '—' }}
           </span>
+          {% if show.uses_new_breaks and 'CREW START' in (act.description or '')|upper %}
+          {# Breaks are added on the crew call, because the offset only means
+             something relative to a specific crew start. #}
+          <form method="POST" class="d-flex align-items-center gap-1 me-2"
+                action="{{ url_for('break_edit.add_break', show_id=show.id, day_id=day.id, act_id=act.id) }}">
+            <input type="text" name="label" placeholder="BREAK"
+                   class="form-control form-control-sm"
+                   style="font-size:.68rem;width:104px;padding:1px 4px;">
+            <select name="offset_minutes" class="form-select form-select-sm"
+                    style="font-size:.68rem;width:96px;padding:1px 4px;" title="After crew start">
+              <option value="150">+2:30</option>
+              <option value="300" selected>+5:00</option>
+              <option value="510">+8:30</option>
+            </select>
+            <select name="duration_minutes" class="form-select form-select-sm"
+                    style="font-size:.68rem;width:78px;padding:1px 4px;">
+              <option value="15">15 min</option>
+              <option value="30" selected>30 min</option>
+              <option value="60">60 min</option>
+            </select>
+            <button class="btn btn-sm btn-outline-secondary"
+                    style="font-size:.68rem;padding:1px 6px;">+ Break</button>
+          </form>
+          {% endif %}
           <span style="font-weight:600;font-size:.9rem;flex:1;">
             {{ act.description }}
             {% if act.id in meal_breaks_missing_fb %}
@@ -960,6 +1056,7 @@
 
       </div>
     </div>
+    {% endif %}{# break line item vs activity card #}
     {% endfor %}
     {# Anything later than the last activity, or with no placeable time —
        shown rather than silently dropped. #}

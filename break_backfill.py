@@ -18,7 +18,9 @@ import re
 from extensions import db
 from models import (CATERED_NO, CATERED_UNCONFIRMED, CATERED_YES, CrewBreak,
                     MealService)
-from time_utils import sort_minutes
+# parse_minutes returns None for an unreadable time; sort_minutes returns
+# a 1,000,000 sentinel, so `is None` checks against it never fire.
+from time_utils import parse_minutes
 
 # Anything that reads as a break in the wild, including the builder's output.
 BREAK_KEYWORDS = ("BREAK", "LUNCH", "DINNER", "BREAKFAST", "MEAL")
@@ -63,7 +65,7 @@ def recover_duration(day, activity):
     Returns None when there is no matching marker, and the caller falls back
     to the house default rather than inventing a number.
     """
-    start = sort_minutes(activity.time)
+    start = parse_minutes(activity.time)
     if start is None:
         return None
     want = _base_label(activity.description)
@@ -76,7 +78,7 @@ def recover_duration(day, activity):
             continue
         if _base_label(m.group(1)) != want and want not in (m.group(1) or "").upper():
             continue
-        end = sort_minutes(other.time)
+        end = parse_minutes(other.time)
         if end is None or end <= start:
             continue
         if best is None or end < best:
@@ -89,7 +91,7 @@ def crew_starts_for_day(day):
     out = []
     for a in day.activities:
         if "CREW START" in (a.description or "").upper():
-            m = sort_minutes(a.time)
+            m = parse_minutes(a.time)
             if m is not None:
                 out.append((m, a))
     return sorted(out, key=lambda p: p[0])
@@ -106,11 +108,11 @@ def infer_crew_call(day, activity):
     starts = crew_starts_for_day(day)
     if not starts:
         return (None, None)
-    break_m = sort_minutes(activity.time)
+    break_m = parse_minutes(activity.time)
 
     match = _CREW_SUFFIX.search(activity.description or "")
     if match:
-        labelled = sort_minutes(match.group(1))
+        labelled = parse_minutes(match.group(1))
         if labelled is not None:
             for m, act in starts:
                 if m == labelled:

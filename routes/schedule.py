@@ -310,6 +310,18 @@ def day_detail(show_id, day_id):
     hc_hidden = hidden_for_day(day)
     hc_before, hc_after = _place_recurring(day, hc_overlay)
 
+    # Breaks overhaul: only read for shows switched over, so every other show
+    # renders exactly as it did before.
+    breaks_by_activity, day_meal_services = {}, []
+    if show.uses_new_breaks:
+        from models import CrewBreak
+        for cb in CrewBreak.query.filter_by(show_id=show.id).all():
+            breaks_by_activity[cb.activity_id] = cb
+        day_meal_services = (MealService.query
+                             .filter_by(show_id=show.id, schedule_day_id=day.id)
+                             .order_by(MealService.sort_order, MealService.id)
+                             .all())
+
     # Note 4: people in the Crew Database who are NOT yet on this show, offered
     # in the add-to-roster modal so the common case is one click, not retyping
     # someone who already exists.
@@ -333,6 +345,8 @@ def day_detail(show_id, day_id):
                            hardcoded_missing_anchor=hc_missing_anchor,
                            hardcoded_hidden=hc_hidden,
                            hc_before=hc_before, hc_after=hc_after,
+                           breaks_by_activity=breaks_by_activity,
+                           day_meal_services=day_meal_services,
                            crew_by_company=crew_by_company,
                            meal_breaks_missing_fb=meal_breaks_missing_fb)
 
