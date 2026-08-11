@@ -380,6 +380,23 @@ class ScheduleActivity(db.Model):
                                   order_by="CrewRow.sort_order",
                                   cascade="all, delete-orphan")
 
+    @property
+    def ordered_crew_rows(self):
+        """Crew rows in ROSTER order, section structure preserved.
+
+        Everything that renders a crew call must use this rather than
+        ``crew_rows``. ``CrewRow.sort_order`` is insertion order, and a stored
+        per-call copy of the order is precisely what drifts away from the
+        roster — deriving here is what makes a roster reorder show up on every
+        crew call immediately.
+        """
+        from crew_ordering import order_crew_rows, roster_index
+        show_id = self.day.show_id if self.day else None
+        rows = list(self.crew_rows)
+        if not show_id:
+            return rows
+        return order_crew_rows(rows, roster_index(show_id))
+
     def __repr__(self):
         return f"<Activity {self.time} {self.description[:40]}>"
 

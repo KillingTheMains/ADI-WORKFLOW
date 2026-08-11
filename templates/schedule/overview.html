@@ -195,9 +195,9 @@
         {{ act.time|to_12hr if act.time else '—' }}
       </span>
       <span>{{ act.description }}</span>
-      {% if act.crew_rows %}
+      {% if act.ordered_crew_rows %}
       <span class="text-muted" style="font-size:.72rem;margin-left:auto;">
-        {{ act.crew_rows|length }} crew
+        {{ act.ordered_crew_rows|length }} crew
       </span>
       {% endif %}
     </div>
@@ -368,7 +368,7 @@
         <tbody>
           {% for day in show.days %}
           {% set crew_total = namespace(n=0) %}
-          {% for act in day.activities %}{% for row in act.crew_rows %}{% if not row.is_group_header %}{% set crew_total.n = crew_total.n + (row.qty or 1) %}{% endif %}{% endfor %}{% endfor %}
+          {% for act in day.activities %}{% for row in act.ordered_crew_rows %}{% if not row.is_group_header %}{% set crew_total.n = crew_total.n + (row.qty or 1) %}{% endif %}{% endfor %}{% endfor %}
           <tr>
             <td>
               <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=day.id) }}"

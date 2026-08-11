@@ -251,7 +251,7 @@ def build_master_items(show, entries, meal_services):
             # Crew on a Crew Start all share that event's call time.
             if "CREW START" in (a.description or "").upper():
                 names = crew_by_time.setdefault(a.time or "", [])
-                for row in a.crew_rows:
+                for row in a.ordered_crew_rows:
                     if row.is_group_header or not row.crew_member_id:
                         continue
                     cm = row.crew_member

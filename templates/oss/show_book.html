@@ -203,7 +203,7 @@
       <div class="activity-notes">{{ act.notes }}</div>
       {% endif %}
 
-      {% if act.crew_rows %}
+      {% if act.ordered_crew_rows %}
       <table class="crew-tbl">
         <thead>
           <tr>
@@ -215,7 +215,7 @@
           </tr>
         </thead>
         <tbody>
-          {% for row in act.crew_rows %}
+          {% for row in act.ordered_crew_rows %}
           {% if row.is_group_header %}
           <tr class="group-hdr"><td colspan="5">{{ row.group_label }}</td></tr>
           {% else %}
