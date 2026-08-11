@@ -199,22 +199,21 @@ def _period(label, sittings):
     }
 
 
-def break_export_text(label, duration_minutes, crew_call_time):
-    """How a break reads on a document. ONE definition.
+def break_export_text(label, duration_minutes):
+    """How a break reads on a document. ONE definition, matching the screen.
 
-    ``LUNCH (60 min) — 07:00 CREW``. The trailing "<time> CREW" is not
-    decoration: ``oss_export.CREW_BREAK_RE`` matches on it to collapse a
-    period's sittings into one printed row, and the export strips it back off
-    before printing. Change the shape here and that collapse stops firing.
+    ``LUNCH — 60 Minutes``.
 
-    The old text was the break builder's internal label, ``LUNCH BREAK —
-    7:00 AM CREW``, which is a machine talking to itself on a document that
-    goes to a client.
+    It used to carry a trailing ``— 07:00 CREW`` stamp, because the master
+    export's only way to tell two sittings of the same break apart was to
+    regex it back out of the description. That made a presentation string
+    load-bearing, and it printed the break builder talking to itself on a
+    document that goes to a client. Break items now carry ``break_label`` and
+    ``break_call_id`` instead, so the text can just be the text.
     """
     name = (label or "BREAK").strip() or "BREAK"
-    if duration_minutes:
-        name = f"{name} ({int(duration_minutes)} min)"
-    return f"{name} — {crew_call_time} CREW" if crew_call_time else name
+    suffix = duration_text(duration_minutes)
+    return f"{name} — {suffix}" if suffix else name
 
 
 def is_crew_start(description):

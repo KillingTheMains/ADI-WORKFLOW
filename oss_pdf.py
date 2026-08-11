@@ -31,7 +31,8 @@ from reportlab.platypus import (BaseDocTemplate, Frame, KeepTogether,
 
 import brand
 from oss_export import (build_master_items, count_label, department_style,
-                        group_by_day, group_by_department, master_label)
+                        group_by_day, group_by_department, master_label,
+                        time_range_text)
 
 
 MIDNIGHT = colors.HexColor(brand.MIDNIGHT)
@@ -338,7 +339,7 @@ def _day_rows(day, items, st):
     for n, item in enumerate(items):
         ds = department_style(item["dept"])
         rows.append([
-            Paragraph(brand.fmt_time(item["time"]) or "—", st["cell"]),
+            Paragraph(time_range_text(item, brand.fmt_time) or "—", st["cell"]),
             Paragraph(f"<b>{ds['short'] or item['dept'][:5]}</b>", st["cell"]),
             Paragraph(master_label(item), st["cell"]),
             Paragraph(_detail(item), st["cell_dim"]),
@@ -416,7 +417,7 @@ def _department_sections(master_items, st):
             rows.append([
                 Paragraph(brand.fmt_date(day.date) if day and day.date
                           else "Unscheduled", st["cell"]),
-                Paragraph(brand.fmt_time(item["time"]) or "—", st["cell"]),
+                Paragraph(time_range_text(item, brand.fmt_time) or "—", st["cell"]),
                 Paragraph(escape(master_label(item)), st["cell"]),
                 Paragraph(_detail(item), st["cell_dim"]),
                 Paragraph(escape(item["notes"] or ""), st["cell_dim"]),

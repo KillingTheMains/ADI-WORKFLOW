@@ -25,7 +25,8 @@ from openpyxl.worksheet.properties import PageSetupProperties
 
 import brand
 from oss_export import (build_master_items, count_label, department_style,
-                        group_by_day, group_by_department, master_label)
+                        group_by_day, group_by_department, master_label,
+                        time_range_text)
 
 FONT = brand.FONT_FALLBACK_XLSX
 WHITE = "FFFFFF"
@@ -200,7 +201,7 @@ def _master(wb, show, agency, master_items):
 
         for n, item in enumerate(items):
             style = department_style(item["dept"])
-            values = [_display_time(item["time"]), item["dept"],
+            values = [time_range_text(item, _display_time), item["dept"],
                       master_label(item), _detail(item), item["notes"]]
             for col, value in enumerate(values, start=1):
                 c = ws.cell(row=row, column=col, value=value)
@@ -283,7 +284,7 @@ def _department_sheets(wb, show, agency, master_items):
             values = [
                 brand.fmt_date(day.date) if day and day.date else "Unscheduled",
                 day.date.isoformat() if day and day.date else "",
-                _display_time(item["time"]),
+                time_range_text(item, _display_time),
                 label,
                 count_label(item["dept"], item.get("count")),
                 item.get("count"),

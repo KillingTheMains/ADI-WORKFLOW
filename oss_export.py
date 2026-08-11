@@ -101,7 +101,9 @@ def dept_label(value):
 
 
 def _item(day, time_value, dept, activity, *, icon="•", count=None,
-          duration_hrs=None, notes="", source=SOURCE_OSS, day_id=None):
+          duration_hrs=None, notes="", source=SOURCE_OSS, day_id=None,
+          end_time=None, break_label=None, break_call_id=None,
+          break_call_time=None):
     """One master-timeline row. sort_time is minutes-since-midnight so every
     source lands on ONE comparable scale — string compares put '1:00 PM'
     after '18:00' and sink afternoon rows to the bottom of the day."""
@@ -110,6 +112,15 @@ def _item(day, time_value, dept, activity, *, icon="•", count=None,
         "day":          day,
         "sort_time":    sort_minutes(time_value),
         "time":         time_value or "",
+        # When the row ENDS, where that is known. `time` stays the start so
+        # sort_time still parses — a range in that field would sink the row to
+        # the bottom of its day.
+        "end_time":     end_time or None,
+        # Set on break rows so `_collapse_crew_breaks` can group sittings from
+        # the record rather than regexing them back out of a display string.
+        "break_label":     break_label,
+        "break_call_id":   break_call_id,
+        "break_call_time": break_call_time,
         "icon":         icon,
         "dept":         dept,
         "activity":     activity or "",
@@ -166,30 +177,65 @@ def _collapse_crew_breaks(items):
     """
     keep, groups = [], {}
     for item in items:
+        if item.get("break_label"):
+            # A real CrewBreak. Group from the record, and split when two
+            # sittings come off the same crew call — one crew taking two
+            # breaks of the same name is two periods, exactly as the day page
+            # reads it. `seq` is how many of this label that call already has.
+            bucket = [k for k in groups
+                      if k[0] == item["day_id"] and k[1] == item["break_label"]]
+            seq = sum(1 for k in bucket
+                      for m, _c, _b in groups[k]
+                      if m.get("break_call_id") == item.get("break_call_id")
+                      and item.get("break_call_id") is not None)
+            key = (item["day_id"], item["break_label"], seq)
+            groups.setdefault(key, []).append(
+                (item, item.get("break_call_time") or "", item["activity"]))
+            continue
         match = (CREW_BREAK_RE.match(item["activity"] or "")
                  if item["source"] == SOURCE_ACTIVITY else None)
         if not match:
             keep.append(item)
             continue
-        key = (item["day_id"], match.group("base").strip().upper())
-        groups.setdefault(key, []).append((item, match.group("call").strip()))
+        # Legacy path: a show not switched over has no records, so the only
+        # evidence of a sitting is the builder's "<name> — <time> CREW" stamp.
+        key = (item["day_id"], match.group("base").strip().upper(), 0)
+        groups.setdefault(key, []).append(
+            (item, match.group("call").strip(), match.group("base").strip()))
 
-    for (_day_id, base), members in groups.items():
+    for (_day_id, base, _seq), members in groups.items():
         members.sort(key=lambda pair: pair[0]["sort_time"])
         first = dict(members[0][0])
-        first["activity"] = members[0][0]["activity"].split("—")[0].split("–")[0].strip() \
-            or base.title()
-        detail = ", ".join(f"{call} crew {_fmt_12h(m['time'])}" for m, call in members)
-        first["notes"] = _merge_notes(first["notes"], detail) if len(members) > 1 \
-            else first["notes"]
-        first["collapsed_calls"] = [call for _m, call in members]
+        first["activity"] = members[0][2] or base.title()
+        detail = ", ".join(f"{call} crew {_fmt_12h(m['time'])}"
+                           for m, call, _b in members if call)
+        first["notes"] = _merge_notes(first["notes"], detail) \
+            if (len(members) > 1 and detail) else first["notes"]
+        first["collapsed_calls"] = [call for _m, call, _b in members]
         # The period feeds every sitting, not just the earliest one. Taking the
         # first member's count wholesale printed "11 crew" against a lunch that
         # stops 21.
-        counts = [m["count"] for m, _call in members if m.get("count") is not None]
+        counts = [m["count"] for m, _call, _b in members
+                  if m.get("count") is not None]
         first["count"] = sum(counts) if counts else first.get("count")
         keep.append(first)
     return keep
+
+
+def time_range_text(item, fmt=None):
+    """A row's time for a document: ``12:00 – 13:00`` when it has an end.
+
+    ONE definition, so the XLSX, the PDF and the Master tab cannot disagree
+    about a break's window the way they once disagreed about a crew row.
+    ``fmt`` formats a single time for that surface — 12-hour on screen, brand
+    formatting in the PDF — because only the caller knows which it wants.
+    """
+    f = fmt if fmt is not None else (lambda v: v or "")
+    start = f(item.get("time")) or ""
+    end = item.get("end_time")
+    if not end:
+        return start
+    return f"{start} – {f(end) or ''}".strip()
 
 
 def _fmt_12h(value):
@@ -276,14 +322,17 @@ def build_master_items(show, entries, meal_services):
             if a.id not in claimed:
                 cb = crew_breaks.get(a.id)
                 if cb is not None:
-                    # A break prints as what it is, not as the builder's
-                    # internal label. Same text rule as the day page.
-                    text = break_export_text(
-                        cb.label, cb.duration_minutes,
-                        cb.crew_call.time if cb.crew_call else None)
-                    items.append(_item(d, a.time, "Schedule", text, icon="☕",
-                                       count=cb.derived_headcount,
-                                       notes=a.notes, source=SOURCE_ACTIVITY))
+                    # A break prints as what it is, with the same text and the
+                    # same window the day page shows.
+                    items.append(_item(
+                        d, a.time, "Schedule",
+                        break_export_text(cb.label, cb.duration_minutes),
+                        icon="☕", count=cb.derived_headcount,
+                        end_time=cb.end_time or None,
+                        break_label=(cb.label or "BREAK").strip().upper(),
+                        break_call_id=cb.crew_call_id,
+                        break_call_time=(cb.crew_call.time if cb.crew_call else None),
+                        notes=a.notes, source=SOURCE_ACTIVITY))
                 else:
                     items.append(_item(d, a.time, "Schedule", a.description,
                                        icon="🗓", notes=a.notes,

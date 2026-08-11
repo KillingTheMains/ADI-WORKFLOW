@@ -245,7 +245,7 @@ def add_break(show_id, day_id, act_id):
     act = ScheduleActivity(
         day_id=day.id,
         time=from_minutes(at),
-        description=break_export_text(label, duration, call.time),
+        description=break_export_text(label, duration),
         sort_order=(call.sort_order or 0) + 1,
     )
     db.session.add(act)

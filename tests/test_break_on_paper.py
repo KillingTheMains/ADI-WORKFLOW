@@ -9,25 +9,21 @@ import datetime as dt
 from breaks import break_export_text
 
 
-def test_the_printed_text_says_what_it_is(app):
-    assert break_export_text("LUNCH", 60, "07:00") == "LUNCH (60 min) — 07:00 CREW"
-
-
-def test_the_trailing_crew_stamp_survives(app):
-    """oss_export.CREW_BREAK_RE matches on it to collapse the sittings. Lose
-    the shape and every sitting prints as its own row again."""
-    from oss_export import CREW_BREAK_RE
-    m = CREW_BREAK_RE.match(break_export_text("LUNCH", 60, "07:00"))
-    assert m is not None
-    assert m.group("base").strip() == "LUNCH (60 min)"
-
-
-def test_an_unanchored_break_still_gets_a_name(app):
-    assert break_export_text("LUNCH", 60, None) == "LUNCH (60 min)"
+def test_the_printed_text_matches_the_screen(app):
+    """Jason: paper should read the way the day page does."""
+    assert break_export_text("LUNCH", 60) == "LUNCH — 60 Minutes"
+    assert break_export_text("COFFEE", 15) == "COFFEE — 15 Minutes"
 
 
 def test_a_break_with_no_duration_is_just_its_name(app):
-    assert break_export_text("LUNCH", None, "07:00") == "LUNCH — 07:00 CREW"
+    assert break_export_text("LUNCH", None) == "LUNCH"
+
+
+def test_the_crew_stamp_is_gone_from_the_text(app):
+    """It was only ever there so the export could regex the sittings apart.
+    Break rows now carry break_label / break_call_id instead, so a display
+    string is no longer load-bearing."""
+    assert "CREW" not in break_export_text("LUNCH", 60)
 
 
 def _show_with_two_sittings(db, code):
@@ -44,7 +40,7 @@ def _show_with_two_sittings(db, code):
         db.session.add(CrewRow(activity_id=call.id, qty=qty, hours=10.0))
         act = ScheduleActivity(
             day_id=day.id, time=lunch,
-            description=break_export_text("LUNCH", 60, time))
+            description=break_export_text("LUNCH", 60))
         db.session.add(act); db.session.flush()
         db.session.add(CrewBreak(show_id=show.id, activity_id=act.id,
                                  crew_call_id=call.id, label="LUNCH",
@@ -64,7 +60,7 @@ def test_the_sittings_collapse_to_one_printed_row(app, db):
     show, day = _show_with_two_sittings(db, "PP01")
     rows = _lunch_rows(show)
     assert len(rows) == 1
-    assert rows[0]["activity"] == "LUNCH (60 min)"
+    assert rows[0]["activity"] == "LUNCH — 60 Minutes"
     assert rows[0]["time"] == "12:00"
 
 
@@ -102,4 +98,46 @@ def test_adding_a_break_writes_the_printable_text(app, client, db):
                 data={"label": "LUNCH", "offset_minutes": "300",
                       "duration_minutes": "60"})
     cb = CrewBreak.query.filter_by(show_id=show.id).one()
-    assert cb.activity.description == "LUNCH (60 min) — 07:00 CREW"
+    assert cb.activity.description == "LUNCH — 60 Minutes"
+
+
+def test_the_printed_row_carries_the_window(app, db):
+    """Paper matches the screen: start, end, and the duration in words."""
+    from oss_export import time_range_text
+    show, day = _show_with_two_sittings(db, "PP06")
+    row = _lunch_rows(show)[0]
+    assert row["time"] == "12:00"
+    assert row["end_time"] == "13:00"
+    assert time_range_text(row) == "12:00 – 13:00"
+    assert row["activity"] == "LUNCH — 60 Minutes"
+
+
+def test_the_time_column_still_sorts_by_the_start(app, db):
+    """A range in `time` would fail sort_minutes and sink the row."""
+    show, day = _show_with_two_sittings(db, "PP07")
+    row = _lunch_rows(show)[0]
+    assert row["sort_time"] == 12 * 60
+
+
+def test_a_row_with_no_end_prints_just_its_start(app):
+    from oss_export import time_range_text
+    assert time_range_text({"time": "09:00", "end_time": None}) == "09:00"
+
+
+def test_sittings_split_when_one_crew_takes_two_of_the_same_name(app, db):
+    """Same rule the day page uses, so screen and paper agree."""
+    from models import ScheduleActivity, CrewBreak
+    from oss_export import build_master_items
+    show, day = _show_with_two_sittings(db, "PP08")
+    call = ScheduleActivity.query.filter_by(day_id=day.id,
+                                            description="CREW START").first()
+    act = ScheduleActivity(day_id=day.id, time="17:00",
+                           description=break_export_text("LUNCH", 60))
+    db.session.add(act); db.session.flush()
+    db.session.add(CrewBreak(show_id=show.id, activity_id=act.id,
+                             crew_call_id=call.id, label="LUNCH",
+                             duration_minutes=60))
+    db.session.commit()
+    items, _hc = build_master_items(show, [], [])
+    lunches = [i for i in items if "LUNCH" in (i["activity"] or "")]
+    assert len(lunches) == 2          # the 12:00 pair, and the second sitting

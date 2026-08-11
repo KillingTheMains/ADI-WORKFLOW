@@ -140,7 +140,10 @@
           {% set ns.prev_day = item.day_id %}
           {% endif %}
           <tr>
-            <td>{{ item.time|to_12hr if item.time else '—' }}</td>
+            <td style="white-space:nowrap;">
+              {%- if item.time %}{{ item.time|to_12hr }}{% if item.end_time %} – {{ item.end_time|to_12hr }}{% endif %}
+              {%- else %}—{% endif %}
+            </td>
             <td><span class="oss-pill">{{ item.icon }} {{ item.dept }}</span></td>
             <td>{{ master_label(item) }}</td>
             <td>{{ item.count if item.count is not none else '—' }}</td>
