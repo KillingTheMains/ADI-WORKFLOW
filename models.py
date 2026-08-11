@@ -1256,6 +1256,12 @@ class MealService(db.Model):
     # House defaults confirmed by Jason: 30 before, 1 hour service, 30 after.
     setup_minutes     = db.Column(db.Integer, default=30)
     holdover_minutes  = db.Column(db.Integer, default=30)
+    # Standing beverage service only (2026-08-11). Set up relative to the
+    # day's SOD by an amount chosen when the service is created — NOT off the
+    # first crew call, which was the earlier guess — and refreshed on its own
+    # interval. Negative offset means "before SOD".
+    beverage_offset_minutes   = db.Column(db.Integer, default=-30)
+    beverage_interval_minutes = db.Column(db.Integer, default=150)
 
     show            = db.relationship("Show")
     schedule_day    = db.relationship("ScheduleDay")

@@ -16,7 +16,8 @@ URL space (registered with url_prefix="/shows"):
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from extensions import db
-from breaks import guess_meal_kind
+from breaks import (BEVERAGE_REFRESH_INTERVAL, BEVERAGE_SETUP_BEFORE_SOD,
+                    guess_meal_kind)
 from crew_ordering import crew_order_by
 from models import (
     Show, ScheduleDay, ScheduleActivity, SubScheduleEntry,
@@ -790,10 +791,18 @@ def fb_standing_add(show_id):
               "warning")
         return _back_to_fb(show_id)
 
+    # Chosen at creation (Jason, 2026-08-11): where the service is set
+    # relative to SOD, and how often it is refreshed. Both are stored on the
+    # service; the touchpoints themselves are always computed from them.
+    offset = _int_or_none(request.form.get("beverage_offset_minutes"))
+    interval = _int_or_none(request.form.get("beverage_interval_minutes"))
     svc = MealService(
         show_id=show_id, schedule_day_id=day_id,
         name=(request.form.get("name") or "All Day Beverages").strip(),
         kind="beverages", is_recurring=True,
+        beverage_offset_minutes=(offset if offset is not None
+                                 else BEVERAGE_SETUP_BEFORE_SOD),
+        beverage_interval_minutes=(interval if interval else BEVERAGE_REFRESH_INTERVAL),
         sort_order=MealService.query.filter_by(schedule_day_id=day_id).count() * 10,
     )
     db.session.add(svc)
@@ -804,8 +813,8 @@ def fb_standing_add(show_id):
         sort_order=0,
     ))
     db.session.commit()
-    flash(f"Added '{svc.name}'. Setup and refreshes follow the day's first "
-          f"crew call and EOD.", "success")
+    flash(f"Added '{svc.name}'. Set and refreshes are worked out from the "
+          f"day's SOD and EOD, and move whenever they do.", "success")
     return _back_to_fb(show_id)
 
 

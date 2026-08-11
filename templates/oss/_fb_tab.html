@@ -256,10 +256,13 @@
        they move whenever either does. #}
     <div class="mt-2" style="border-top:1px solid #E8E4D7;padding-top:6px;">
       <div style="font-size:.72rem;font-weight:700;color:#0B2545;">
-        ☕ Setup &amp; refreshes
+        🥤 Set &amp; refreshes
         <span style="font-weight:400;color:#59636E;">
-          — 30 min before the {{ plan.first_crew_call or '—' }} crew call, then every 2h30
-          {%- if plan.eod %}, stopping at EOD {{ plan.eod }}{% endif %}
+          — from SOD {{ plan.sod or '—' }}
+          {%- if svc.beverage_offset_minutes %} {{ '+' if svc.beverage_offset_minutes > 0 else '−' }}{{ svc.beverage_offset_minutes|abs }} min{% endif %},
+          every {{ (svc.beverage_interval_minutes or 150) // 60 }}h{{ '%02d'|format((svc.beverage_interval_minutes or 150) % 60) }}
+          {%- if plan.eod %}, none within one interval of EOD {{ plan.eod }}{% endif %}.
+          These appear on the daily schedule.
         </span>
       </div>
       {% if plan.reason %}
@@ -276,7 +279,7 @@
           {% for p in plan.points %}
           <tr>
             <td class="time" style="font-weight:600;">{{ p.time }}</td>
-            <td>{{ 'Set up' if p.kind == 'setup' else 'Refresh' }}</td>
+            <td>{{ p.label }}</td>
             <td class="count">{{ p.headcount }}</td>
             <td style="font-size:.68rem;color:#59636E;">
               {% if p.kind == 'setup' %}crew arriving before the first refresh{% endif %}
@@ -321,11 +324,32 @@
       <input type="text" name="location_name" placeholder="e.g. Backstage"
              class="form-control form-control-sm" style="font-size:.76rem;">
     </div>
+    <div class="col-md-2">
+      <label style="font-size:.66rem;font-weight:600;">Set relative to SOD</label>
+      <select name="beverage_offset_minutes" class="form-select form-select-sm"
+              style="font-size:.76rem;" title="Negative is before SOD.">
+        <option value="-60">1 hr before SOD</option>
+        <option value="-30" selected>30 min before SOD</option>
+        <option value="0">at SOD</option>
+        <option value="30">30 min after SOD</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label style="font-size:.66rem;font-weight:600;">Refresh every</label>
+      <select name="beverage_interval_minutes" class="form-select form-select-sm"
+              style="font-size:.76rem;">
+        <option value="90">1:30</option>
+        <option value="120">2:00</option>
+        <option value="150" selected>2:30</option>
+        <option value="180">3:00</option>
+        <option value="240">4:00</option>
+      </select>
+    </div>
     <div class="col-md-auto">
       <button type="submit" class="btn btn-sm btn-outline-secondary"
               style="font-size:.72rem;"
-              title="All-day beverages. Setup and refresh times are worked out from this day's first crew call and EOD — there is nothing to type.">
-        ☕ Add standing beverages
+              title="All-day beverages. The set and every refresh are worked out from this day's SOD and EOD, and appear on the schedule as events.">
+        🥤 Add beverage service
       </button>
     </div>
   </div>

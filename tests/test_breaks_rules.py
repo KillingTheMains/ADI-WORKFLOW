@@ -47,9 +47,13 @@ def test_longer_setup_can_breach_on_its_own():
 
 # ── Beverage touchpoints ─────────────────────────────────────────────────────
 
-def test_setup_is_thirty_minutes_before_the_first_call():
-    points = beverage_touchpoints(_m(7), _m(22))
-    assert points[0] == _m(6, 30)
+def test_the_service_is_set_relative_to_sod():
+    """Anchored to SOD by an offset chosen when the service is created —
+    negative for before SOD. It used to be read off the first crew call;
+    Jason respecified it on 2026-08-11."""
+    assert beverage_touchpoints(_m(7), _m(22))[0] == _m(6, 30)
+    assert beverage_touchpoints(_m(7), _m(22), offset=0)[0] == _m(7)
+    assert beverage_touchpoints(_m(7), _m(22), offset=30)[0] == _m(7, 30)
 
 
 def test_refreshes_every_two_and_a_half_hours():
@@ -58,17 +62,23 @@ def test_refreshes_every_two_and_a_half_hours():
     assert set(gaps) == {BEVERAGE_REFRESH_INTERVAL}
 
 
-def test_refreshes_never_pass_eod():
-    """Jason: refreshes must not surpass the EOD listed on the day."""
+def test_no_refresh_within_one_interval_of_eod():
+    """Jason, 2026-08-11: a fresh service set out with less than a full
+    interval of day left would be cleared away almost immediately. Supersedes
+    the earlier rule, which only stopped AT the EOD."""
     eod = _m(18)
     points = beverage_touchpoints(_m(7), eod)
-    assert points[-1] <= eod
-    assert all(p <= eod for p in points)
+    assert points[-1] <= eod - BEVERAGE_REFRESH_INTERVAL
+    assert points[-1] == _m(14)        # 16:30 would be inside the last 2h30
 
 
-def test_a_refresh_landing_exactly_on_eod_is_kept():
-    # setup 06:30, refreshes 09:00, 11:30, 14:00 — EOD at 14:00 keeps it.
-    assert beverage_touchpoints(_m(7), _m(14))[-1] == _m(14)
+def test_a_refresh_exactly_one_interval_before_eod_is_kept():
+    assert beverage_touchpoints(_m(7), _m(16, 30))[-1] == _m(14)
+
+
+def test_the_set_itself_may_sit_inside_the_final_interval():
+    """It is the service starting, not a top-up nobody will drink."""
+    assert beverage_touchpoints(_m(7), _m(8), offset=0) == [_m(7)]
 
 
 def test_missing_eod_generates_nothing():
@@ -77,7 +87,7 @@ def test_missing_eod_generates_nothing():
     assert beverage_touchpoints(_m(7), None) == []
 
 
-def test_missing_first_call_generates_nothing():
+def test_missing_sod_generates_nothing():
     assert beverage_touchpoints(None, _m(22)) == []
 
 

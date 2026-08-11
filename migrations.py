@@ -92,6 +92,11 @@ MIGRATIONS = [
     ("shows", "uses_new_breaks", "INTEGER DEFAULT 0"),
     ("meal_services", "setup_minutes", "INTEGER DEFAULT 30"),
     ("meal_services", "holdover_minutes", "INTEGER DEFAULT 30"),
+    # 2026-08-11 — a standing beverage service is set up relative to the day's
+    # SOD, by an amount chosen when it is created, and refreshed on its own
+    # interval. Defaults reproduce the previous hard-coded behaviour.
+    ("meal_services", "beverage_offset_minutes", "INTEGER DEFAULT -30"),
+    ("meal_services", "beverage_interval_minutes", "INTEGER DEFAULT 150"),
 ]
 
 
@@ -323,6 +328,32 @@ def _tidy_crew_name_whitespace(session):
               "manually): " + ", ".join(flagged))
 
 
+def _unlink_breaks_from_standing_services(session):
+    """A crew break is never fed BY a standing beverage service.
+
+    The backfill classified a break linked to a beverage service as Not
+    Provided — correctly, since a beverage table feeds nobody AT a break — but
+    still wrote that service into `meal_service_id`. On MCDC26 that pointed
+    thirty breaks at one service, which breaks the 1:1 the model relies on:
+    `MealService.crew_break` is uselist=False, so SQLAlchemy returned an
+    arbitrary one of the thirty and the service derived its headcount from
+    whichever it picked. It also left breaks marked Not Provided carrying a
+    service pointer, which contradicts itself.
+
+    Clears the pointer only. No break, service, activity or headcount is
+    touched, and a break genuinely fed by a MEAL service is left alone.
+    """
+    from models import CrewBreak, MealService
+    rows = (session.query(CrewBreak)
+            .join(MealService, CrewBreak.meal_service_id == MealService.id)
+            .filter(MealService.is_recurring == True)      # noqa: E712
+            .all())
+    for cb in rows:
+        cb.meal_service_id = None
+    print(f"[migration] unlinked {len(rows)} crew break(s) from standing "
+          "beverage services (a beverage table feeds nobody at a break)")
+
+
 DATA_MIGRATIONS = [
     ("2026-06-30-fb-v2-migrate-entries", _migrate_fb_entries_to_meal_services),
     ("2026-07-02-add-prompter-position", _seed_position_prompter),
@@ -342,6 +373,9 @@ DATA_MIGRATIONS = [
     # 2026-08-09 — tidy stored crew-name whitespace and report any
     # placeholder-looking records for manual review.
     ("2026-08-09-tidy-crew-name-whitespace", _tidy_crew_name_whitespace),
+    # 2026-08-11 — repair the backfill's over-eager linking. See the function.
+    ("2026-08-11-unlink-breaks-from-standing-services",
+     _unlink_breaks_from_standing_services),
 ]
 
 

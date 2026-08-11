@@ -229,7 +229,13 @@ def apply(show):
             duration_minutes=row["duration"],
             label=(row["activity"].description or "")[:120],
             catered=row["catered"],
-            meal_service_id=row["meal_service"].id if row["meal_service"] else None,
+            # ONLY when the verdict is that food is provided. A beverage
+            # service is evidence the break is NOT catered, so writing it in
+            # here pointed every such break at one service and broke the 1:1
+            # the model relies on.
+            meal_service_id=(row["meal_service"].id
+                             if row["meal_service"] and row["catered"] == CATERED_YES
+                             else None),
         ))
         made += 1
     db.session.commit()

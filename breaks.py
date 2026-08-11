@@ -58,10 +58,15 @@ def window_end(start_minute, duration_minutes):
     return int(start_minute) + int(duration_minutes or 0)
 
 
-# Standing beverage service.
-BEVERAGE_SETUP_BEFORE_FIRST_CALL = 30
+# Standing beverage service. The offset is from the day's SOD and is NEGATIVE
+# for "before SOD" — it is a per-service setting, and these are only the values
+# the create form opens with.
+BEVERAGE_SETUP_BEFORE_SOD = -30
 BEVERAGE_REFRESH_INTERVAL = 150      # 2h30. Longer than the food-out cap on
                                      # purpose — beverages are not hot food.
+# What the generated refresh events are called on the schedule.
+BEVERAGE_SETUP_LABEL = "Beverage Service Set"
+BEVERAGE_REFRESH_LABEL = "Beverage Service Refresh"
 
 
 def service_window(break_start, duration=DEFAULT_SERVICE_MINUTES,
@@ -96,31 +101,39 @@ def breaches_food_out_rule(duration=DEFAULT_SERVICE_MINUTES,
     return food_out_minutes(duration, setup, holdover) > limit
 
 
-def beverage_touchpoints(first_crew_call, eod,
-                         setup_before=BEVERAGE_SETUP_BEFORE_FIRST_CALL,
+def beverage_touchpoints(sod, eod, offset=BEVERAGE_SETUP_BEFORE_SOD,
                          interval=BEVERAGE_REFRESH_INTERVAL):
     """Standing beverage service: ``[setup_minute, refresh, refresh, ...]``.
 
-    Jason's spec: set up 30 minutes before the first crew call, then refresh
-    every 2h30 — and **never past the day's EOD**. A refresh landing exactly on
-    EOD is fine; past it is not.
+    Jason's spec, 2026-08-11:
+
+    * set up at **SOD plus an offset chosen when the service is created** —
+      negative for "before SOD";
+    * refresh every ``interval`` after that;
+    * **no refresh within one interval of EOD.** Setting out a fresh service
+      when there is less than a full interval of day left is waste — it would
+      be cleared away almost immediately. So the last refresh lands at or
+      before ``eod - interval``.
 
     Returns ``[]`` when either anchor is missing. A day with no EOD cannot have
     refreshes generated, and guessing an end to the day would put F&B on site
     for a shift nobody scheduled — the caller must surface the reason instead,
     the way overlay_for_day reports a missing anchor.
     """
-    if first_crew_call is None or eod is None:
+    if sod is None or eod is None:
         return []
-    setup_at = int(first_crew_call) - int(setup_before or 0)
+    setup_at = int(sod) + int(offset or 0)
     if setup_at > int(eod):
         return []
     points = [setup_at]
     step = int(interval or 0)
     if step <= 0:
         return points
+    # The setup itself is allowed to sit inside the final interval — it is the
+    # service starting, not a top-up nobody will drink.
+    last_allowed = int(eod) - step
     t = setup_at + step
-    while t <= int(eod):
+    while t <= last_allowed:
         points.append(t)
         t += step
     return points

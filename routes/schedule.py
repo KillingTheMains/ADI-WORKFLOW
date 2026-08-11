@@ -347,14 +347,22 @@ def day_detail(show_id, day_id):
                        for svc in break_linking.candidates_for_break(cb)]
             if choices:
                 break_link_choices[cb.id] = choices
-        day_meal_services = (MealService.query
-                             .filter_by(show_id=show.id, schedule_day_id=day.id)
-                             .order_by(MealService.sort_order, MealService.id)
-                             .all())
+    # Outside the switch: a standing beverage service only reads a day and
+    # computes, changes no stored value, and belongs on every show's schedule.
+    day_meal_services = (MealService.query
+                         .filter_by(show_id=show.id, schedule_day_id=day.id)
+                         .order_by(MealService.sort_order, MealService.id)
+                         .all())
 
     # A break activity is drawn inside its period row, so it is not a timeline
     # row of its own — and not an anchor for anything either.
     visible_acts = [a for a in day.activities if a.id not in breaks_by_activity]
+    # Standing beverage touchpoints are real events on the schedule and are
+    # computed on every read, so they follow SOD and EOD instead of going
+    # stale. Placed the same way recurring events are.
+    from beverage_service import overlay_for_day as _beverage_overlay
+    bev_overlay = _beverage_overlay(day, day_meal_services)
+    bev_before, bev_after = _place_recurring(day, bev_overlay, visible_acts)
     hc_before, hc_after = _place_recurring(day, hc_overlay, visible_acts)
     brk_before, brk_after = _place_recurring(
         day, [dict(p, sort_min=p["minute"] or 0) for p in break_periods],
@@ -384,6 +392,7 @@ def day_detail(show_id, day_id):
                            hardcoded_hidden=hc_hidden,
                            hc_before=hc_before, hc_after=hc_after,
                            brk_before=brk_before, brk_after=brk_after,
+                           bev_before=bev_before, bev_after=bev_after,
                            breaks_by_activity=breaks_by_activity,
                            breaks_by_crew_call=breaks_by_crew_call,
                            break_periods=break_periods,

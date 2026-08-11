@@ -525,6 +525,30 @@
     {% endif %}
     {% endmacro %}
 
+    {% macro beverage_row(b) %}
+    {# A standing beverage touchpoint. A real event on the schedule, computed
+       on every read from the day's SOD and EOD — so it moves when they do
+       instead of going stale the way a generated row would. The crew never
+       stops for it, which is why it is not a break. #}
+    <div class="mb-2 px-3 py-1 d-flex align-items-center gap-2"
+         style="font-size:.82rem;border-left:3px solid #35C4D8;background:#F4FCFD;
+                border-radius:3px;">
+      <span title="Standing beverage service" style="opacity:.7;">🥤</span>
+      <span style="min-width:74px;font-weight:700;color:#0B2545;
+                   font-variant-numeric:tabular-nums;">{{ b.time|to_12hr }}</span>
+      <span style="flex:1;">
+        {{ b.label }}
+        <span class="text-muted" style="font-size:.75rem;">· {{ b.service.name }}</span>
+      </span>
+      {% if b.headcount is not none %}
+      <span class="text-muted" style="font-size:.75rem;"
+            title="{% if b.estimated %}An estimate — some crew have no Hrs set, so nobody is counted as having left.{% else %}Crew on site at this moment.{% endif %}">
+        {{ b.headcount }} on site{% if b.estimated %} (est){% endif %}
+      </span>
+      {% endif %}
+    </div>
+    {% endmacro %}
+
     {% macro break_period_row(p) %}
     {# ONE row per break period, sittings underneath — the day reads as
        "LUNCH, three sittings", not as three lunches. Read-only on purpose:
@@ -585,6 +609,7 @@
     {% if day.activities %}
     {% for act in day.activities %}
     {% for hc in hc_before.get(act.id, []) %}{{ recurring_row(hc) }}{% endfor %}
+    {% for b in bev_before.get(act.id, []) %}{{ beverage_row(b) }}{% endfor %}
     {% for p in brk_before.get(act.id, []) %}{{ break_period_row(p) }}{% endfor %}
     {% set brk = breaks_by_activity.get(act.id) %}
     {% if brk %}
@@ -1167,6 +1192,7 @@
     {# Anything later than the last activity, or with no placeable time —
        shown rather than silently dropped. #}
     {% for hc in hc_after %}{{ recurring_row(hc) }}{% endfor %}
+    {% for b in bev_after %}{{ beverage_row(b) }}{% endfor %}
     {% for p in brk_after %}{{ break_period_row(p) }}{% endfor %}
 
     {% else %}
