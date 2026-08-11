@@ -25,7 +25,7 @@ from openpyxl.worksheet.properties import PageSetupProperties
 
 import brand
 from oss_export import (build_master_items, count_label, department_style,
-                        group_by_day, group_by_department)
+                        group_by_day, group_by_department, master_label)
 
 FONT = brand.FONT_FALLBACK_XLSX
 WHITE = "FFFFFF"
@@ -63,20 +63,6 @@ def _detail(item):
     if item.get("duration_hrs") is not None:
         bits.append(f"{item['duration_hrs']:g} hr")
     return " · ".join(bits)
-
-
-def _master_label(item):
-    """What the client-facing timeline shows for a row.
-
-    Crew rows collapse to a headcount: a real show puts 40+ names in one
-    cell (533 characters on the export that prompted this), which is
-    unreadable in a spreadsheet and would wreck the PDF's pagination. The
-    full named list is on the Crew sheet.
-    """
-    if item.get("source") == "crew" and item.get("count"):
-        n = item["count"]
-        return f"{n} crew called" if n != 1 else "1 crew called"
-    return item["activity"]
 
 
 def _display_time(value):
@@ -215,7 +201,7 @@ def _master(wb, show, agency, master_items):
         for n, item in enumerate(items):
             style = department_style(item["dept"])
             values = [_display_time(item["time"]), item["dept"],
-                      _master_label(item), _detail(item), item["notes"]]
+                      master_label(item), _detail(item), item["notes"]]
             for col, value in enumerate(values, start=1):
                 c = ws.cell(row=row, column=col, value=value)
                 c.font = Font(name=FONT, size=10)
@@ -230,6 +216,20 @@ def _master(wb, show, agency, master_items):
             ws.cell(row=row, column=2).font = Font(name=FONT, size=10,
                                                    bold=True, color=style["hex"])
             row += 1
+
+            # Note 5 — Larry wants a tall list, one name per row, matching the
+            # show book's call sheet. The headcount above stays: it is how the
+            # count is read at a glance, and it is load-bearing in the workflow.
+            for who in item.get("crew_names") or []:
+                c = ws.cell(row=row, column=3, value=who)
+                c.font = Font(name=FONT, size=10)
+                c.alignment = Alignment(vertical="top", indent=2)
+                for col in range(1, 6):
+                    cell = ws.cell(row=row, column=col)
+                    cell.border = BORDER
+                    if n % 2:
+                        cell.fill = PatternFill("solid", fgColor=BAND)
+                row += 1
 
     last = row - 1
     # Deliberately NO autofilter here: the day banners are merged across the

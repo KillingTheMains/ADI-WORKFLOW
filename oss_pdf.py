@@ -29,7 +29,7 @@ from reportlab.platypus import (BaseDocTemplate, Frame, KeepTogether,
 
 import brand
 from oss_export import (build_master_items, count_label, department_style,
-                        group_by_day, group_by_department)
+                        group_by_day, group_by_department, master_label)
 
 
 MIDNIGHT = colors.HexColor(brand.MIDNIGHT)
@@ -321,18 +321,34 @@ def _day_rows(day, items, st):
         ("LEFTPADDING", (0, 0), (-1, -1), 4),
         ("LINEBELOW", (0, 2), (-1, -1), 0.4, HAIRLINE),
     ]
-    for i, item in enumerate(items, start=2):
+    i = 2
+    for n, item in enumerate(items):
         ds = department_style(item["dept"])
         rows.append([
             Paragraph(brand.fmt_time(item["time"]) or "—", st["cell"]),
             Paragraph(f"<b>{ds['short'] or item['dept'][:5]}</b>", st["cell"]),
-            Paragraph(item["activity"] or "—", st["cell"]),
+            Paragraph(master_label(item), st["cell"]),
             Paragraph(_detail(item), st["cell_dim"]),
             Paragraph(item["notes"] or "", st["cell_dim"]),
         ])
         style.append(("TEXTCOLOR", (1, i), (1, i), colors.HexColor("#" + ds["hex"])))
         if i % 2:
             style.append(("BACKGROUND", (0, i), (-1, i), ZEBRA))
+        i += 1
+
+        # Note 5 — one name per row beneath the headcount, matching the show
+        # book's call sheet. Before this the PDF printed a comma list while the
+        # XLSX printed a headcount: the two exports disagreed about the same
+        # event, which is the drift oss_export exists to prevent.
+        for who in item.get("crew_names") or []:
+            rows.append([
+                "", "",
+                Paragraph(f'<para leftIndent="8">{who}</para>', st["cell"]),
+                "", "",
+            ])
+            if i % 2:
+                style.append(("BACKGROUND", (0, i), (-1, i), ZEBRA))
+            i += 1
     return rows, style
 
 

@@ -142,11 +142,20 @@
           <tr>
             <td>{{ item.time|to_12hr if item.time else '—' }}</td>
             <td><span class="oss-pill">{{ item.icon }} {{ item.dept }}</span></td>
-            <td>{{ item.activity or '—' }}</td>
+            <td>{{ master_label(item) }}</td>
             <td>{{ item.count if item.count is not none else '—' }}</td>
             <td>{{ item.duration_hrs if item.duration_hrs is not none else '—' }}</td>
             <td class="text-muted" style="font-size:.78rem;">{{ item.notes or '' }}</td>
           </tr>
+          {# Note 5 — names one per row under the headcount, same as the show
+             book and both exports. #}
+          {% for who in item.crew_names or [] %}
+          <tr class="oss-master-name-row">
+            <td></td><td></td>
+            <td style="padding-left:22px;font-size:.82rem;">{{ who }}</td>
+            <td></td><td></td><td></td>
+          </tr>
+          {% endfor %}
         {% endfor %}
       </tbody>
     </table>

@@ -1,4 +1,10 @@
-"""#47 — crew sharing a call time are grouped into ONE master row, not separate ones."""
+"""#47 — crew sharing a call time are grouped into ONE master crew call.
+
+Updated 2026-08-11 (note 5): the grouping is unchanged — one crew call per
+distinct call time — but it now renders as a headcount row with the names
+listed one per row beneath it, instead of one comma-joined cell. Larry asked
+for the show book's tall list everywhere.
+"""
 import datetime as dt
 
 
@@ -18,6 +24,9 @@ def test_master_groups_same_call_time_crew(app, client, db):
     db.session.commit()
 
     body = client.get("/shows/%d/oss?tab=master" % show.id).get_data(as_text=True)
-    # both names appear together in one grouped Crew row (comma-joined),
-    # rather than as two separate rows
-    assert "Ann Lee, Bob Kim" in body
+    # ONE crew call for the shared 7:00 call time, shown as a headcount...
+    assert "2 crew called" in body
+    # ...with each person on their own row beneath it (note 5).
+    assert "Ann Lee" in body and "Bob Kim" in body
+    assert "Ann Lee, Bob Kim" not in body
+    assert body.count("oss-master-name-row") == 2

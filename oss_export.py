@@ -43,6 +43,20 @@ def count_label(dept, count):
     return f"{count} {noun}"
 
 
+def master_label(item):
+    """What the timeline shows on the row itself.
+
+    A crew call reads as a headcount; the names follow underneath, one per row
+    (note 5). Lives here rather than in one exporter because the XLSX and the
+    PDF used to disagree about this exact row — the XLSX printed a headcount
+    while the PDF printed a comma-joined list of every name.
+    """
+    if item.get("source") == SOURCE_CREW and item.get("count"):
+        n = item["count"]
+        return "1 crew called" if n == 1 else f"{n} crew called"
+    return item.get("activity") or "—"
+
+
 # Department accent colours, shared by the XLSX and the PDF so the two read as
 # one system. Every entry pairs a colour with a short TEXT label: these get
 # printed in black and white constantly, and hue alone doesn't survive that.

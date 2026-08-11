@@ -142,6 +142,12 @@ def create_app():
         from time_utils import hhmm_or_blank
         return hhmm_or_blank(v)
 
+    # The Master tab, the XLSX and the PDF must all label a crew row the same
+    # way (note 5), so the label comes from oss_export rather than being
+    # re-implemented in the template.
+    from oss_export import master_label as _master_label
+    app.jinja_env.globals["master_label"] = _master_label
+
     # ── Security response headers ────────────────────────────────────────────
     # Fable 5 review: the live site returned no X-Frame-Options,
     # X-Content-Type-Options, Referrer-Policy, or HSTS. Cheap defense-in-depth,
