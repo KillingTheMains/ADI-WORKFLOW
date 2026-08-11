@@ -121,3 +121,37 @@ def hidden_for_day(day):
     return (HardCodedEvent.query
             .filter(HardCodedEvent.id.in_(removed))
             .order_by(HardCodedEvent.sort_order, HardCodedEvent.id).all())
+
+
+def place_in_day(day, overlay):
+    """Slot recurring events into a day's timeline by time (note 6).
+
+    Returns ``({activity_id: [items before it]}, [items after the last])``.
+
+    Lives here, not in a route, because BOTH the day editor and the show book
+    have to place them identically — the show book rendered day.activities
+    directly and so never showed recurring events at all. Two copies of this
+    would drift the same way the master and F&B tabs once did.
+
+    Anything later than the last activity, or with no resolvable time, falls
+    to the end rather than being dropped silently.
+    """
+    from time_utils import sort_minutes
+    before, after = {}, []
+    if not overlay or day is None:
+        return before, after
+    acts = sorted(day.activities,
+                  key=lambda a: (sort_minutes(a.time) is None,
+                                 sort_minutes(a.time) or 0))
+    for item in sorted(overlay, key=lambda i: i.get("sort_min") or 0):
+        target = None
+        for a in acts:
+            mins = sort_minutes(a.time)
+            if mins is not None and mins >= (item.get("sort_min") or 0):
+                target = a
+                break
+        if target is None:
+            after.append(item)
+        else:
+            before.setdefault(target.id, []).append(item)
+    return before, after

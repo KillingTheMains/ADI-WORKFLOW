@@ -82,6 +82,11 @@
        it is a normal state, just one Larry wants to be able to scan for. */
     .crew-tbl td.unfilled { font-style: italic; color: #6b7280; }
 
+    /* A recurring event sits in the timeline like any other item, marked just
+       enough that a reader can tell it came from the standing list. */
+    .activity-block.recurring-line { border-left: 2pt solid #C9A45C; }
+    .activity-block.recurring-line .activity-desc { font-weight: 500; }
+
     /* Milestones */
     .milestones { margin-top: 10pt; border-top: .5pt dashed #ccc; padding-top: 6pt; }
     .milestones .ml-title { font-size: 7.5pt; font-weight: 700; text-transform: uppercase;
@@ -194,8 +199,19 @@
     {% endif %}
   </div>
 
+  {# Recurring events belong in the printed timeline too — the show book used
+     to render activities only, so they never appeared here at all. #}
+  {% set rec = recurring.get(day.id, ({}, [])) if recurring else ({}, []) %}
+  {% macro recurring_line(hc) %}
+  <div class="activity-block recurring-line">
+    <div class="activity-time">{{ hc.time }}{% if hc.end_time %} – {{ hc.end_time }}{% endif %}</div>
+    <div class="activity-desc">{{ hc.name }}</div>
+  </div>
+  {% endmacro %}
+
   {% if day.activities %}
     {% for act in day.activities %}
+    {% for hc in rec[0].get(act.id, []) %}{{ recurring_line(hc) }}{% endfor %}
     <div class="activity-block">
       <div class="activity-time">{{ act.time or '' }}</div>
       <div class="activity-desc">{{ act.description }}</div>
@@ -233,10 +249,14 @@
       {% endif %}
     </div>
     {% endfor %}
+    {% for hc in rec[1] %}{{ recurring_line(hc) }}{% endfor %}
   {% else %}
-  <div style="font-size:8.5pt;color:#999;font-style:italic;padding-left:10pt;">
-    No activities scheduled for this day.
-  </div>
+    {% for hc in rec[1] %}{{ recurring_line(hc) }}{% endfor %}
+    {% if not rec[1] %}
+    <div style="font-size:8.5pt;color:#999;font-style:italic;padding-left:10pt;">
+      No activities scheduled for this day.
+    </div>
+    {% endif %}
   {% endif %}
 
   {% if day.milestone_list %}

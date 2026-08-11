@@ -500,7 +500,16 @@ def master_pdf(show_id):
 @oss_bp.route("/<int:show_id>/oss/show-book")
 def show_book(show_id):
     show = Show.query.get_or_404(show_id)
-    return render_template("oss/show_book.html", show=show)
+    # The show book rendered day.activities directly, so recurring events never
+    # appeared in it at all — they only existed on the day editor and in the
+    # master exports. Placed here with the same helper the day editor uses.
+    from hardcoded_service import overlay_for_day, place_in_day
+    recurring = {}
+    for day in show.days:
+        overlay, _missing = overlay_for_day(day)
+        recurring[day.id] = place_in_day(day, overlay)
+    return render_template("oss/show_book.html", show=show,
+                           recurring=recurring)
 
 
 

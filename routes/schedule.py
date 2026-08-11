@@ -14,35 +14,9 @@ import re, json
 schedule_bp = Blueprint("schedule", __name__)
 
 
-def _place_recurring(day, overlay):
-    """Slot recurring events into the day's timeline by time (note 6).
-
-    They used to sit in a block of their own at the top, which reads as a
-    separate list rather than as part of the day. Returns
-    ``({activity_id: [items before it]}, [items after the last activity])``
-    so the template can emit each one where it actually happens.
-
-    Anything the day cannot place — an event with no resolvable time — falls
-    to the end rather than being dropped silently.
-    """
-    before, after = {}, []
-    if not overlay:
-        return before, after
-    acts = sorted(day.activities,
-                  key=lambda a: (sort_minutes(a.time) is None,
-                                 sort_minutes(a.time) or 0))
-    for item in sorted(overlay, key=lambda i: i.get("sort_min") or 0):
-        target = None
-        for a in acts:
-            mins = sort_minutes(a.time)
-            if mins is not None and mins >= (item.get("sort_min") or 0):
-                target = a
-                break
-        if target is None:
-            after.append(item)
-        else:
-            before.setdefault(target.id, []).append(item)
-    return before, after
+# Placement lives in hardcoded_service so the day editor and the show book
+# cannot drift apart on where a recurring event belongs.
+from hardcoded_service import place_in_day as _place_recurring
 
 
 # ── Time helpers ─────────────────────────────────────────────────────────────

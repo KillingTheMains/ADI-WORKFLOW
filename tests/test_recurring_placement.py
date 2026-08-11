@@ -6,7 +6,7 @@ their own at the top."
 """
 import datetime as dt
 
-from routes.schedule import _place_recurring
+from hardcoded_service import place_in_day as _place_recurring
 
 
 class _Act:
