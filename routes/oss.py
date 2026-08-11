@@ -164,6 +164,28 @@ def oss_hub(show_id):
     # in time is MARKED — never pre-selected. A wrong auto-link sends a
     # caterer the wrong headcount, which is the failure this overhaul exists
     # to remove.
+    # The service window, DERIVED. F&B is set up before the crew stops and
+    # holds for latecomers after, so a catered meal is one event with two
+    # times — and the F&B tab should show the one it works to rather than ask
+    # for it. Carries the food-out breach, which warns and never blocks.
+    from breaks import (breaches_food_out_rule, food_out_minutes,
+                        service_window)
+    from time_utils import from_minutes
+    fb_windows = {}
+    for svc in meal_services:
+        cb = getattr(svc, "crew_break", None)
+        if cb is None or cb.start_minute is None:
+            continue
+        setup = svc.setup_minutes or 0
+        hold = svc.holdover_minutes or 0
+        dur = cb.duration_minutes or 0
+        set_at, teardown = service_window(cb.start_minute, dur, setup, hold)
+        fb_windows[svc.id] = {
+            "start": from_minutes(set_at), "end": from_minutes(teardown),
+            "food_out": food_out_minutes(dur, setup, hold),
+            "breach": breaches_food_out_rule(dur, setup, hold),
+        }
+
     import break_linking
     fb_link_choices = {}
     for svc in meal_services:
@@ -236,6 +258,7 @@ def oss_hub(show_id):
         unscheduled_meals     = unscheduled_meals,
         stray_fb              = stray_fb,
         fb_link_choices       = fb_link_choices,
+        fb_windows            = fb_windows,
         activities_by_day     = activities_by_day,
         missing_fb            = missing_fb,
         wristband_grand_total = wristband_grand_total,
@@ -832,6 +855,56 @@ def fb_service_edit(show_id, svc_id):
     svc.notes       = (request.form.get("notes") or "").strip() or None
     db.session.commit()
     flash("Meal service updated.", "success")
+    return _back_to_fb(show_id)
+
+
+@oss_bp.route("/<int:show_id>/oss/fb/service/<int:svc_id>/save", methods=["POST"])
+def fb_service_save(show_id, svc_id):
+    """Save a service AND all its locations in one submit.
+
+    The tab used to autosave the name, save each location row on its own
+    button, and mount every one of those forms permanently. Editing a service
+    with two locations meant three saves and thirteen boxes on screen at all
+    times. One panel, one Save — the same shape the crew-call break editor
+    took, and for the same reason: a per-row save loses the rows you did not
+    press.
+    """
+    svc = MealService.query.get_or_404(svc_id)
+    if svc.show_id != show_id:
+        flash("Service doesn't belong to this show.", "danger")
+        return _back_to_fb(show_id)
+    f = request.form
+
+    svc.name = (f.get("name") or svc.name).strip()
+    kind = (f.get("kind") or svc.kind or "other").strip()
+    svc.kind = kind if kind in MEAL_KINDS else "other"
+    svc.notes = (f.get("notes") or "").strip() or None
+    for field in ("setup_minutes", "holdover_minutes"):
+        value = _int_or_none(f.get(field))
+        if value is not None and value >= 0:
+            setattr(svc, field, value)
+    if svc.is_standing:
+        for field in ("beverage_offset_minutes", "beverage_interval_minutes"):
+            value = _int_or_none(f.get(field))
+            if value is not None:
+                setattr(svc, field, value)
+
+    for loc in svc.locations:
+        p = f"loc_{loc.id}_"
+        if (p + "location_name") in f:
+            loc.location_name = (f.get(p + "location_name") or "").strip() or None
+        if (p + "start_time") in f:
+            loc.start_time = hhmm_or_blank(f.get(p + "start_time")) or None
+        if (p + "end_time") in f:
+            loc.end_time = hhmm_or_blank(f.get(p + "end_time")) or None
+        if (p + "headcount") in f:
+            # Blank means "follow the crew" — the raw column is the OVERRIDE.
+            loc.headcount = _int_or_none(f.get(p + "headcount"))
+        if (p + "notes") in f:
+            loc.notes = (f.get(p + "notes") or "").strip() or None
+
+    db.session.commit()
+    flash(f"Saved '{svc.name}'.", "success")
     return _back_to_fb(show_id)
 
 

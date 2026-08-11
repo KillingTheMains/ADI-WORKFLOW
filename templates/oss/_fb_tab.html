@@ -101,103 +101,213 @@
 </div>
 
 {% for svc in day_meals %}
+{% set win = fb_windows.get(svc.id) %}
+{% set fed = svc.crew_break %}
+{% set plan = svc.beverage_plan %}
 <div class="meal-card">
+
+  {# ── The line you read. No inputs until you ask for them. ──────────── #}
   <div class="head">
-    <span class="kind">{{ svc.kind }}</span>
-    {# Editable name in the head #}
-    <form method="POST" data-autosave="true" style="flex:1;margin:0;"
-          action="{{ url_for('oss.fb_service_edit', show_id=show.id, svc_id=svc.id) }}">
-      <input type="text" name="name" value="{{ svc.name }}"
-             class="form-control form-control-sm"
-             style="background:transparent;color:#C9A84C;border:none;font-weight:700;
-                    font-size:.86rem;padding:2px 4px;">
-      <input type="hidden" name="kind" value="{{ svc.kind }}">
-      <input type="hidden" name="is_recurring" value="{{ '1' if svc.is_recurring else '' }}">
-      <input type="hidden" name="activity_id" value="{{ svc.activity_id or '' }}">
-    </form>
-    <span class="total"
-          title="{% if svc.headcount_is_derived %}Read from the crew call this meal feeds. It changes when the crew changes.{% else %}From the figures typed against each location.{% endif %}">
-      Total: {{ svc.total_headcount }}{% if svc.headcount_is_derived %} · from crew{% endif %}
+    <span class="kind">{{ '🥤' if svc.is_standing else svc.kind }}</span>
+    <span style="min-width:118px;font-variant-numeric:tabular-nums;font-weight:700;">
+      {%- if win %}{{ win.start|to_12hr }} – {{ win.end|to_12hr }}
+      {%- elif svc.earliest_time %}{{ svc.earliest_time|to_12hr }}
+      {%- else %}—{% endif %}
     </span>
-    {% if not svc.headcount_is_derived and svc.derived_headcount is not none
-          and svc.derived_headcount != svc.total_headcount %}
-    {# The one thing worth interrupting for: a figure somebody typed, and a
-       crew call that has since moved away from it. #}
-    <span style="font-size:.68rem;color:#FFD9A0;white-space:nowrap;"
-          title="These counts were typed by hand. The crew call this meal feeds now says something different. Clear a count to follow the crew again.">
-      ⚠ crew call says {{ svc.derived_headcount }}
+    <span class="name">{{ svc.name }}</span>
+    <span style="font-weight:400;font-size:.76rem;opacity:.85;">
+      {%- set places = svc.locations_ordered | map(attribute='location_name') | select | list %}
+      {%- if places %}{{ places | join(' · ') }}{% endif %}
+    </span>
+    <span class="total"
+          title="{% if svc.headcount_is_derived %}Read from the crew call this meal feeds — it changes when the crew changes.{% else %}From the figures typed against each location.{% endif %}">
+      {{ svc.total_headcount }} to feed{% if svc.headcount_is_derived %} · from crew{% endif %}
+    </span>
+    {% if win and win.breach %}
+    <span style="font-size:.66rem;color:#FFD9A0;white-space:nowrap;"
+          title="Food would be out for {{ win.food_out }} minutes. The house maximum is 120. Saveable — real shows break this knowingly — but somebody should see it.">
+      ⚠ food out {{ win.food_out }}m
     </span>
     {% endif %}
+    {% if not svc.headcount_is_derived and svc.derived_headcount is not none
+          and svc.derived_headcount != svc.total_headcount %}
+    <span style="font-size:.66rem;color:#FFD9A0;white-space:nowrap;"
+          title="These counts were typed by hand. The crew call now says something different. Clear a Count to follow the crew again.">
+      ⚠ crew says {{ svc.derived_headcount }}
+    </span>
+    {% endif %}
+    <button class="btn btn-sm" type="button"
+            data-bs-toggle="collapse" data-bs-target="#svc-{{ svc.id }}"
+            style="font-size:.68rem;padding:0 8px;background:rgba(255,255,255,.15);
+                   color:#fff;border:1px solid rgba(255,255,255,.3);white-space:nowrap;">
+      edit
+    </button>
     <form method="POST" style="margin:0;"
           action="{{ url_for('oss.fb_service_delete', show_id=show.id, svc_id=svc.id) }}"
-          onsubmit="return confirm('Delete this meal service and all its locations?');">
+          onsubmit="return confirm('Delete this service and all its locations?');">
       <button type="submit" class="btn btn-sm p-0"
-              style="color:#fff;background:none;border:none;font-size:.84rem;" title="Delete service">✕</button>
+              style="color:#fff;background:none;border:none;font-size:.84rem;"
+              title="Delete service">✕</button>
     </form>
   </div>
-  <div class="body">
-    {# Locations table — one row per location, inline editable #}
-    <table class="loc-table">
-      <thead>
-        <tr>
-          <th style="width:40%;">Location</th>
-          <th class="time" style="width:70px;">Start</th>
-          <th class="time" style="width:70px;">End</th>
-          <th class="count" style="width:60px;">Count</th>
-          <th>Notes</th>
-          <th style="width:30px;"></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% if svc.locations %}
-          {% for loc in svc.locations_ordered %}
-          <tr>
-            <form method="POST" data-autosave="true" style="display:contents;"
-                  action="{{ url_for('oss.fb_location_edit', show_id=show.id, loc_id=loc.id) }}">
-              <td><input type="text" name="location_name" value="{{ loc.location_name or '' }}"
-                         placeholder="e.g. Backstage / FOH / Local Labor"></td>
-              <td><input type="time" name="start_time" value="{{ loc.start_time|to_24hr }}" class="time"></td>
-              <td><input type="time" name="end_time"   value="{{ loc.end_time|to_24hr }}" class="time"></td>
-              {# value = the TYPED figure only. Blank has to mean "not
-                 overridden", because clearing the box is how you hand the
-                 number back to the crew call. The greyed placeholder is what
-                 the crew call says. #}
-              <td><input type="number" name="headcount"
-                         value="{{ loc.headcount if loc.headcount is not none else '' }}"
-                         placeholder="{{ loc.derived_headcount if loc.derived_headcount is not none else '—' }}"
-                         min="0" step="1" class="count"
-                         title="{% if loc.is_overridden %}Typed by hand. Clear the box to follow the crew call again.{% elif loc.derived_headcount is not none %}Following the crew call — changes when the crew changes.{% else %}No crew call to derive from. Type a number.{% endif %}">
-              </td>
-              <td><input type="text" name="notes" value="{{ loc.notes or '' }}"></td>
-              <td style="text-align:center;">
-                <button type="submit" class="btn btn-sm p-0 text-success" title="Save row" style="font-size:.9rem;">💾</button>
-            </form>
-                <form method="POST" style="display:inline;"
-                      action="{{ url_for('oss.fb_location_delete', show_id=show.id, loc_id=loc.id) }}"
-                      onsubmit="return confirm('Remove this location?');">
-                  <button type="submit" class="btn btn-sm p-0 text-danger" title="Delete" style="font-size:.8rem;">✕</button>
-                </form>
-              </td>
-            </tr>
-          {% endfor %}
+
+  {# ── The panel you edit. One Save for the service AND its locations. ─ #}
+  <div class="collapse" id="svc-{{ svc.id }}">
+    <div class="body" style="background:#FFFDF7;">
+      <form method="POST"
+            action="{{ url_for('oss.fb_service_save', show_id=show.id, svc_id=svc.id) }}">
+        <div class="row g-2 align-items-end mb-2">
+          <div class="col-md-3">
+            <label style="font-size:.66rem;font-weight:600;">Service</label>
+            <input type="text" name="name" value="{{ svc.name }}"
+                   class="form-control form-control-sm" style="font-size:.78rem;">
+          </div>
+          <div class="col-md-2">
+            <label style="font-size:.66rem;font-weight:600;">Kind</label>
+            <select name="kind" class="form-select form-select-sm" style="font-size:.78rem;">
+              {% for k in meal_kinds %}
+              <option value="{{ k }}" {% if svc.kind == k %}selected{% endif %}>{{ k }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% if svc.is_standing %}
+          <div class="col-md-2">
+            <label style="font-size:.66rem;font-weight:600;">Set vs SOD</label>
+            <select name="beverage_offset_minutes" class="form-select form-select-sm" style="font-size:.78rem;">
+              {% for v, t in [(-60,'1 hr before'), (-30,'30 min before'), (0,'at SOD'), (30,'30 min after')] %}
+              <option value="{{ v }}" {% if svc.beverage_offset_minutes == v %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label style="font-size:.66rem;font-weight:600;">Refresh every</label>
+            <select name="beverage_interval_minutes" class="form-select form-select-sm" style="font-size:.78rem;">
+              {% for v, t in [(90,'1:30'), (120,'2:00'), (150,'2:30'), (180,'3:00'), (240,'4:00')] %}
+              <option value="{{ v }}" {% if svc.beverage_interval_minutes == v %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% else %}
+          <div class="col-md-2">
+            <label style="font-size:.66rem;font-weight:600;"
+                   title="F&amp;B is set up before the crew stops.">Set up (min)</label>
+            <input type="number" name="setup_minutes" min="0" step="5"
+                   value="{{ svc.setup_minutes if svc.setup_minutes is not none else 30 }}"
+                   class="form-control form-control-sm" style="font-size:.78rem;">
+          </div>
+          <div class="col-md-2">
+            <label style="font-size:.66rem;font-weight:600;"
+                   title="Held for latecomers after the crew is back.">Holdover (min)</label>
+            <input type="number" name="holdover_minutes" min="0" step="5"
+                   value="{{ svc.holdover_minutes if svc.holdover_minutes is not none else 30 }}"
+                   class="form-control form-control-sm" style="font-size:.78rem;">
+          </div>
+          {% endif %}
+          <div class="col-md-3">
+            <label style="font-size:.66rem;font-weight:600;">Notes</label>
+            <input type="text" name="notes" value="{{ svc.notes or '' }}"
+                   class="form-control form-control-sm" style="font-size:.78rem;">
+          </div>
+        </div>
+
+        {% if win %}
+        <div class="text-muted mb-2" style="font-size:.72rem;">
+          Food out <strong>{{ win.start|to_12hr }} – {{ win.end|to_12hr }}</strong>
+          ({{ win.food_out }} minutes) — worked out from the break, not typed.
+          {% if win.breach %}<span style="color:#B45309;">Over the 120-minute house maximum.</span>{% endif %}
+        </div>
         {% endif %}
 
-        {# Add-location row #}
-        <tr style="background:#FFF8EC;">
-          <form method="POST" style="display:contents;"
-                action="{{ url_for('oss.fb_location_add', show_id=show.id, svc_id=svc.id) }}">
-            <td><input type="text" name="location_name" placeholder="+ location name"></td>
-            <td><input type="time" name="start_time" class="time"></td>
-            <td><input type="time" name="end_time"   class="time"></td>
-            <td><input type="number" name="headcount" placeholder="0" min="0" step="1" class="count"></td>
-            <td></td>
-            <td style="text-align:center;">
-              <button type="submit" class="btn btn-sm btn-adi p-0 px-2" style="font-size:.7rem;">+ Add</button>
-            </td>
-          </form>
-        </tr>
-      </tbody>
-    </table>
+        {# One location is the common case, and a table for one row is noise. #}
+        {% if svc.locations | length <= 1 %}
+        {% for loc in svc.locations_ordered %}
+        <div class="row g-2 align-items-end">
+          <div class="col-md-4">
+            <label style="font-size:.66rem;font-weight:600;">Where</label>
+            <input type="text" name="loc_{{ loc.id }}_location_name"
+                   value="{{ loc.location_name or '' }}" placeholder="e.g. Backstage"
+                   class="form-control form-control-sm" style="font-size:.78rem;">
+          </div>
+          {% if not svc.is_standing %}
+          <div class="col-md-2">
+            <label style="font-size:.66rem;font-weight:600;">Start</label>
+            <input type="time" name="loc_{{ loc.id }}_start_time"
+                   value="{{ loc.start_time|to_24hr }}"
+                   class="form-control form-control-sm" style="font-size:.78rem;">
+          </div>
+          <div class="col-md-2">
+            <label style="font-size:.66rem;font-weight:600;">End</label>
+            <input type="time" name="loc_{{ loc.id }}_end_time"
+                   value="{{ loc.end_time|to_24hr }}"
+                   class="form-control form-control-sm" style="font-size:.78rem;">
+          </div>
+          {% endif %}
+          <div class="col-md-2">
+            <label style="font-size:.66rem;font-weight:600;">Count</label>
+            <input type="number" name="loc_{{ loc.id }}_headcount" min="0" step="1"
+                   value="{{ loc.headcount if loc.headcount is not none else '' }}"
+                   placeholder="{{ loc.derived_headcount if loc.derived_headcount is not none else '—' }}"
+                   class="form-control form-control-sm" style="font-size:.78rem;"
+                   title="{% if loc.is_overridden %}Typed by hand. Clear it to follow the crew call again.{% elif loc.derived_headcount is not none %}Following the crew call.{% else %}No crew call to derive from.{% endif %}">
+          </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <table class="loc-table">
+          <thead><tr>
+            <th style="width:34%;">Location</th>
+            <th class="time" style="width:70px;">Start</th>
+            <th class="time" style="width:70px;">End</th>
+            <th class="count" style="width:60px;">Count</th>
+            <th>Notes</th>
+            <th style="width:26px;"></th>
+          </tr></thead>
+          <tbody>
+            {% for loc in svc.locations_ordered %}
+            <tr>
+              <td><input type="text" name="loc_{{ loc.id }}_location_name"
+                         value="{{ loc.location_name or '' }}"></td>
+              <td><input type="time" name="loc_{{ loc.id }}_start_time"
+                         value="{{ loc.start_time|to_24hr }}" class="time"></td>
+              <td><input type="time" name="loc_{{ loc.id }}_end_time"
+                         value="{{ loc.end_time|to_24hr }}" class="time"></td>
+              <td><input type="number" name="loc_{{ loc.id }}_headcount" min="0" step="1"
+                         value="{{ loc.headcount if loc.headcount is not none else '' }}"
+                         placeholder="{{ loc.derived_headcount if loc.derived_headcount is not none else '—' }}"
+                         class="count"></td>
+              <td><input type="text" name="loc_{{ loc.id }}_notes" value="{{ loc.notes or '' }}"></td>
+              <td style="text-align:center;">
+                <button type="submit" form="del-loc-{{ loc.id }}" class="btn btn-sm p-0 text-danger"
+                        style="font-size:.78rem;" title="Remove this location">✕</button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+
+        <button class="btn btn-sm btn-adi mt-2" style="font-size:.74rem;">Save {{ svc.name }}</button>
+      </form>
+
+      {# Outside the save form — a form cannot nest in a form. #}
+      {% for loc in svc.locations %}
+      <form method="POST" id="del-loc-{{ loc.id }}"
+            action="{{ url_for('oss.fb_location_delete', show_id=show.id, loc_id=loc.id) }}"
+            onsubmit="return confirm('Remove this location?');"></form>
+      {% endfor %}
+
+      <form method="POST" class="d-flex align-items-end gap-2 mt-2 pt-2"
+            style="border-top:1px solid #E8E4D7;"
+            action="{{ url_for('oss.fb_location_add', show_id=show.id, svc_id=svc.id) }}">
+        <div>
+          <label style="font-size:.66rem;font-weight:600;">Another location</label>
+          <input type="text" name="location_name" placeholder="e.g. FOH"
+                 class="form-control form-control-sm" style="font-size:.78rem;width:190px;">
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;">+ Add</button>
+      </form>
+    </div>
+  </div>
 
     {# ── Feeds: which crew break this service is for ──────────────────── #}
     {% if not svc.is_standing %}
@@ -298,16 +408,16 @@
       {% endif %}
     </div>
     {% endif %}
-
-    {% if svc.notes %}
-    <div class="text-muted mt-2" style="font-size:.72rem;font-style:italic;">
-      {{ svc.notes }}
-    </div>
-    {% endif %}
-  </div>
 </div>
 {% endfor %}
 
+{# Both add forms behind ONE button. Eleven days of permanently mounted
+   create forms was a dozen controls per day for something used once. #}
+<div class="mb-3">
+  <button class="btn btn-sm btn-outline-secondary" type="button"
+          data-bs-toggle="collapse" data-bs-target="#add-svc-{{ d.id }}"
+          style="font-size:.74rem;">+ Add a service to this day</button>
+  <div class="collapse mt-1" id="add-svc-{{ d.id }}">
 {# + Standing beverage service — one per day, times computed not typed #}
 {% if not day_meals | selectattr('is_standing') | list %}
 <form method="POST" action="{{ url_for('oss.fb_standing_add', show_id=show.id) }}"
@@ -410,6 +520,8 @@
     </div>
   </div>
 </form>
+  </div>
+</div>
 
 {% endfor %}
 

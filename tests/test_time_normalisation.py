@@ -45,7 +45,14 @@ def test_fb_tab_time_input_is_24h_for_12h_data(app, client, db):
     db.session.commit()
 
     body = client.get("/shows/%d/oss?tab=F%%26B" % show.id).get_data(as_text=True)
-    assert 'name="start_time" value="13:00"' in body.replace("\n", " "), \
+    # The F&B tab reframe (2026-08-11) namespaces location fields by id so a
+    # whole service saves in one submit. The rule this guards is unchanged:
+    # an <input type="time"> renders EMPTY for anything but 24-hour HH:MM, and
+    # that blank posts back and wipes the stored time.
+    import re
+    flat = re.sub(r"\s+", " ", body)      # attributes may wrap across lines
+    loc = svc.locations[0]
+    assert 'name="loc_%d_start_time" value="13:00"' % loc.id in flat, \
         "12-hour meal time did not render into the time input"
 
 
