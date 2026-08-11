@@ -356,17 +356,28 @@ def day_detail(show_id, day_id):
 
     # A break activity is drawn inside its period row, so it is not a timeline
     # row of its own — and not an anchor for anything either.
-    visible_acts = [a for a in day.activities if a.id not in breaks_by_activity]
+    visible_acts = [a for a in day.ordered_activities
+                    if a.id not in breaks_by_activity]
     # Standing beverage touchpoints are real events on the schedule and are
     # computed on every read, so they follow SOD and EOD instead of going
     # stale. Placed the same way recurring events are.
     from beverage_service import overlay_for_day as _beverage_overlay
     bev_overlay = _beverage_overlay(day, day_meal_services)
-    bev_before, bev_after = _place_recurring(day, bev_overlay, visible_acts)
-    hc_before, hc_after = _place_recurring(day, hc_overlay, visible_acts)
-    brk_before, brk_after = _place_recurring(
-        day, [dict(p, sort_min=p["minute"] or 0) for p in break_periods],
-        visible_acts)
+
+    # ONE stream, placed once. Recurring events, beverage touchpoints and
+    # break periods used to be placed and rendered as three separate lists, so
+    # everything landing in the same gap came out grouped by TYPE — a 12:00
+    # lunch drawing after a 15:00 beverage refresh, because breaks came after
+    # beverages in the markup. A day is one timeline; it sorts by the clock.
+    timeline = (
+        [{"kind": "recurring", "sort_min": hc.get("sort_min") or 0, "item": hc}
+         for hc in hc_overlay]
+        + [{"kind": "beverage", "sort_min": b["sort_min"], "item": b}
+           for b in bev_overlay]
+        + [{"kind": "break", "sort_min": p["minute"] or 0, "item": p}
+           for p in break_periods]
+    )
+    extras_before, extras_after = _place_recurring(day, timeline, visible_acts)
 
     # Note 4: people in the Crew Database who are NOT yet on this show, offered
     # in the add-to-roster modal so the common case is one click, not retyping
@@ -390,9 +401,7 @@ def day_detail(show_id, day_id):
                            hardcoded_overlay=hc_overlay,
                            hardcoded_missing_anchor=hc_missing_anchor,
                            hardcoded_hidden=hc_hidden,
-                           hc_before=hc_before, hc_after=hc_after,
-                           brk_before=brk_before, brk_after=brk_after,
-                           bev_before=bev_before, bev_after=bev_after,
+                           extras_before=extras_before, extras_after=extras_after,
                            breaks_by_activity=breaks_by_activity,
                            breaks_by_crew_call=breaks_by_crew_call,
                            break_periods=break_periods,

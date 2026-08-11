@@ -64,6 +64,11 @@ def window_end(start_minute, duration_minutes):
 BEVERAGE_SETUP_BEFORE_SOD = -30
 BEVERAGE_REFRESH_INTERVAL = 150      # 2h30. Longer than the food-out cap on
                                      # purpose — beverages are not hot food.
+# How close to EOD a refresh may fall. Jason, 2026-08-11: 1h30, and NOT tied
+# to the refresh interval — a shop that tops up every four hours should not
+# stop four hours early. It is about how long the last pot is worth drinking,
+# which does not change with how often you make one.
+BEVERAGE_EOD_THRESHOLD = 90
 # What the generated refresh events are called on the schedule.
 BEVERAGE_SETUP_LABEL = "Beverage Service Set"
 BEVERAGE_REFRESH_LABEL = "Beverage Service Refresh"
@@ -102,7 +107,8 @@ def breaches_food_out_rule(duration=DEFAULT_SERVICE_MINUTES,
 
 
 def beverage_touchpoints(sod, eod, offset=BEVERAGE_SETUP_BEFORE_SOD,
-                         interval=BEVERAGE_REFRESH_INTERVAL):
+                         interval=BEVERAGE_REFRESH_INTERVAL,
+                         eod_threshold=BEVERAGE_EOD_THRESHOLD):
     """Standing beverage service: ``[setup_minute, refresh, refresh, ...]``.
 
     Jason's spec, 2026-08-11:
@@ -110,10 +116,15 @@ def beverage_touchpoints(sod, eod, offset=BEVERAGE_SETUP_BEFORE_SOD,
     * set up at **SOD plus an offset chosen when the service is created** —
       negative for "before SOD";
     * refresh every ``interval`` after that;
-    * **no refresh within one interval of EOD.** Setting out a fresh service
-      when there is less than a full interval of day left is waste — it would
-      be cleared away almost immediately. So the last refresh lands at or
-      before ``eod - interval``.
+    * **no refresh within ``eod_threshold`` of EOD** — 1h30 by default.
+      Setting out a fresh service shortly before wrap is waste; it would be
+      cleared away almost immediately. So the last refresh lands at or before
+      ``eod - eod_threshold``.
+
+    The threshold is deliberately NOT the refresh interval (it was, briefly):
+    a service topped up every four hours should not stop four hours early.
+    How long the last pot is worth drinking does not change with how often
+    you make one.
 
     Returns ``[]`` when either anchor is missing. A day with no EOD cannot have
     refreshes generated, and guessing an end to the day would put F&B on site
@@ -129,9 +140,9 @@ def beverage_touchpoints(sod, eod, offset=BEVERAGE_SETUP_BEFORE_SOD,
     step = int(interval or 0)
     if step <= 0:
         return points
-    # The setup itself is allowed to sit inside the final interval — it is the
+    # The setup itself is allowed to sit inside the final window — it is the
     # service starting, not a top-up nobody will drink.
-    last_allowed = int(eod) - step
+    last_allowed = int(eod) - int(eod_threshold or 0)
     t = setup_at + step
     while t <= last_allowed:
         points.append(t)

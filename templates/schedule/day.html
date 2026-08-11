@@ -531,6 +531,7 @@
        instead of going stale the way a generated row would. The crew never
        stops for it, which is why it is not a break. #}
     <div class="mb-2 px-3 py-1 d-flex align-items-center gap-2"
+         data-row-time="{{ b.time }}"
          style="font-size:.82rem;border-left:3px solid #35C4D8;background:#F4FCFD;
                 border-radius:3px;">
       <span title="Standing beverage service" style="opacity:.7;">🥤</span>
@@ -554,7 +555,7 @@
        "LUNCH, three sittings", not as three lunches. Read-only on purpose:
        a break is edited on the crew call it hangs off, because that is the
        only place its offset means anything. #}
-    <div class="mb-2 px-3 py-1"
+    <div class="mb-2 px-3 py-1" data-row-time="{{ p.time }}"
          style="font-size:.82rem;border-left:3px solid #0B2545;background:#F7F9FB;
                 border-radius:3px;">
       <div class="d-flex align-items-center gap-2">
@@ -606,11 +607,19 @@
     </div>
     {% endmacro %}
 
+    {% macro timeline_row(r) %}
+    {# A day is ONE timeline. These used to be three lists rendered one after
+       another, so everything in the same gap came out grouped by type — a
+       12:00 lunch drawing after a 15:00 beverage refresh. They are placed as
+       one stream now and dispatched here, so the page reads by the clock. #}
+    {%- if r.kind == 'recurring' %}{{ recurring_row(r.item) }}
+    {%- elif r.kind == 'beverage' %}{{ beverage_row(r.item) }}
+    {%- else %}{{ break_period_row(r.item) }}{% endif %}
+    {% endmacro %}
+
     {% if day.activities %}
-    {% for act in day.activities %}
-    {% for hc in hc_before.get(act.id, []) %}{{ recurring_row(hc) }}{% endfor %}
-    {% for b in bev_before.get(act.id, []) %}{{ beverage_row(b) }}{% endfor %}
-    {% for p in brk_before.get(act.id, []) %}{{ break_period_row(p) }}{% endfor %}
+    {% for act in day.ordered_activities %}
+    {% for r in extras_before.get(act.id, []) %}{{ timeline_row(r) }}{% endfor %}
     {% set brk = breaks_by_activity.get(act.id) %}
     {% if brk %}
     {# Drawn inside its period row above, not here. A break is one crew group
@@ -1191,13 +1200,11 @@
     {% endfor %}
     {# Anything later than the last activity, or with no placeable time —
        shown rather than silently dropped. #}
-    {% for hc in hc_after %}{{ recurring_row(hc) }}{% endfor %}
-    {% for b in bev_after %}{{ beverage_row(b) }}{% endfor %}
-    {% for p in brk_after %}{{ break_period_row(p) }}{% endfor %}
+    {% for r in extras_after %}{{ timeline_row(r) }}{% endfor %}
 
     {% else %}
-    {% for hc in hc_after %}{{ recurring_row(hc) }}{% endfor %}
-    {% if not hc_after %}
+    {% for r in extras_after %}{{ timeline_row(r) }}{% endfor %}
+    {% if not extras_after %}
     <div class="empty-state py-4">
       <div class="empty-icon">⏰</div>
       <div style="font-size:.9rem;font-weight:600;margin-bottom:6px;">No activities yet</div>

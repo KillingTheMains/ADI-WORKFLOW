@@ -62,18 +62,26 @@ def test_refreshes_every_two_and_a_half_hours():
     assert set(gaps) == {BEVERAGE_REFRESH_INTERVAL}
 
 
-def test_no_refresh_within_one_interval_of_eod():
-    """Jason, 2026-08-11: a fresh service set out with less than a full
-    interval of day left would be cleared away almost immediately. Supersedes
-    the earlier rule, which only stopped AT the EOD."""
+def test_no_refresh_within_the_eod_threshold():
+    """Jason, 2026-08-11: nothing set out within 1h30 of the end of the day —
+    it would be cleared away almost immediately."""
+    from breaks import BEVERAGE_EOD_THRESHOLD
     eod = _m(18)
     points = beverage_touchpoints(_m(7), eod)
-    assert points[-1] <= eod - BEVERAGE_REFRESH_INTERVAL
-    assert points[-1] == _m(14)        # 16:30 would be inside the last 2h30
+    assert points[-1] <= eod - BEVERAGE_EOD_THRESHOLD
+    assert points[-1] == _m(16, 30)    # 16:30 clears 18:00 by 1h30
 
 
-def test_a_refresh_exactly_one_interval_before_eod_is_kept():
-    assert beverage_touchpoints(_m(7), _m(16, 30))[-1] == _m(14)
+def test_a_refresh_exactly_on_the_threshold_is_kept():
+    # Set 06:30, refreshes 09:00 / 11:30 / 14:00. EOD 15:30 puts that last one
+    # exactly 1h30 out, which is allowed — the rule is "within", not "at".
+    assert beverage_touchpoints(_m(7), _m(15, 30))[-1] == _m(14)
+
+
+def test_the_threshold_is_not_the_refresh_interval():
+    """A service topped up every four hours must not stop four hours early."""
+    long_gap = beverage_touchpoints(_m(7), _m(20), offset=0, interval=240)
+    assert long_gap == [_m(7), _m(11), _m(15)]   # 19:00 is inside the last 1h30
 
 
 def test_the_set_itself_may_sit_inside_the_final_interval():

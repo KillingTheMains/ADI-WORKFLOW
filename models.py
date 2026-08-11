@@ -303,6 +303,32 @@ class ScheduleDay(db.Model):
                                   cascade="all, delete-orphan")
 
     @property
+    def ordered_activities(self):
+        """The day's activities BY THE CLOCK. Everything that renders a day's
+        timeline must use this rather than ``activities``.
+
+        Jason, 2026-08-11: "all schedule events need to be chronologically
+        displayed." The relationship is ordered by ``sort_order``, which is
+        insertion-or-drag order and drifts from the clock the moment anything
+        is added out of sequence — and `place_in_day` anchors overlays against
+        TIME, so the two disagreeing scattered recurring events, break periods
+        and beverage touchpoints through the page.
+
+        ``sort_order`` remains the tie-break, so two things at 08:00 keep the
+        order somebody dragged them into. An activity with no readable time
+        sorts last rather than pretending to be at midnight.
+
+        Same pattern, and the same reason, as ``ScheduleActivity
+        .ordered_crew_rows``.
+        """
+        return sorted(
+            self.activities,
+            key=lambda a: (time_utils.parse_minutes(a.time) is None,
+                           time_utils.parse_minutes(a.time) or 0,
+                           a.sort_order or 0, a.id or 0),
+        )
+
+    @property
     def day_header(self):
         if self.date:
             return self.date.strftime("%A, %B %-d, %Y")
