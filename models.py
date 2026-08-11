@@ -418,6 +418,16 @@ class CrewRow(db.Model):
     # If True this row is a section header label, not a crew line
     is_group_header = db.Column(db.Boolean, default=False)
     group_label     = db.Column(db.String(100))      # e.g. "LEAD CREW"
+    # Tiered sections (note 1, 2026-08-11). Larry's real headers nest: ENCORE
+    # at level 1 with RIGGING, RUN CREW, LOCAL CREW beneath it. 1 = top level,
+    # 2 = sub-header. Every pre-existing header is level 1, so nothing moves
+    # until someone deliberately nests it.
+    header_level    = db.Column(db.Integer, default=1)
+    # What the section is FOR. A level-1 header bound to a company is what
+    # lets a newly added person find their own section automatically; the
+    # label stays free text so Larry can title it whatever he likes.
+    company_id      = db.Column(db.Integer, db.ForeignKey("companies.id"),
+                                nullable=True)
 
     # Crew line fields
     qty             = db.Column(db.Integer, default=1)

@@ -570,12 +570,67 @@
                 <th style="width:30px;"></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody class="crew-tbody" data-act="{{ act.id }}"
+                   data-reorder-url="{{ url_for('schedule.reorder_crew_rows', show_id=show.id, day_id=day.id, act_id=act.id) }}">
               {% for row in act.ordered_crew_rows %}
               {% if row.is_group_header %}
-              <tr class="group-header"><td colspan="6">{{ row.group_label }}</td></tr>
+              {# Note 1: tiered, collapsible, editable section header. #}
+              <tr class="group-header crew-drag-row"
+                  data-row="{{ row.id }}" data-header="1"
+                  data-level="{{ row.header_level or 1 }}" draggable="true">
+                <td colspan="6"
+                    style="{% if (row.header_level or 1) > 1 %}padding-left:26px;font-size:7.6pt;opacity:.85;{% endif %}">
+                  <span class="crew-drag-handle" title="Drag to move this section"
+                        style="cursor:grab;opacity:.45;margin-right:4px;">⠿</span>
+                  <span class="sect-toggle" title="Collapse / expand"
+                        onclick="toggleSection(this)"
+                        style="cursor:pointer;display:inline-block;width:12px;">▾</span>
+                  <span class="sect-label">{{ row.group_label }}</span>
+                  <span style="float:right;">
+                    <a href="#" onclick="openHeaderEdit({{ row.id }});return false;"
+                       style="font-size:.68rem;opacity:.6;text-decoration:none;"
+                       title="Edit this section">✎</a>
+                    <form method="POST" style="display:inline;"
+                          action="{{ url_for('schedule.delete_crew_row', show_id=show.id, day_id=day.id, row_id=row.id) }}"
+                          onsubmit="return confirm('Remove the section “{{ row.group_label|e }}”? The crew rows under it stay on the call.');">
+                      <button type="submit"
+                              style="border:none;background:none;font-size:.68rem;opacity:.6;padding:0 2px;"
+                              title="Remove this section">✕</button>
+                    </form>
+                  </span>
+                </td>
+              </tr>
+              <tr class="header-edit-row" id="hdr-edit-{{ row.id }}" style="display:none;">
+                <td colspan="6" style="background:#FAFAFA;">
+                  <form method="POST" class="row g-1 align-items-end"
+                        action="{{ url_for('schedule.edit_crew_row', show_id=show.id, day_id=day.id, row_id=row.id) }}">
+                    <div class="col-md-4">
+                      <input type="text" name="group_label" value="{{ row.group_label or '' }}"
+                             class="form-control form-control-sm" placeholder="Section name">
+                    </div>
+                    <div class="col-md-3">
+                      <select name="header_level" class="form-select form-select-sm">
+                        <option value="1" {% if (row.header_level or 1) == 1 %}selected{% endif %}>Main section</option>
+                        <option value="2" {% if (row.header_level or 1) == 2 %}selected{% endif %}>Sub-section</option>
+                      </select>
+                    </div>
+                    <div class="col-md-3">
+                      <select name="header_company_id" class="form-select form-select-sm"
+                              title="Binding a company lets new crew find this section automatically">
+                        <option value="">No company</option>
+                        {% for co in all_companies %}
+                          <option value="{{ co.id }}" {% if row.company_id == co.id %}selected{% endif %}>{{ co.name }}</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                    <div class="col-md-2">
+                      <button class="btn btn-sm btn-adi w-100">Save</button>
+                    </div>
+                  </form>
+                </td>
+              </tr>
               {% else %}
-              <tr>
+              <tr class="crew-drag-row" data-row="{{ row.id }}" draggable="true">
                 <form method="POST" data-autosave="true" style="display:contents;"
                       action="{{ url_for('schedule.edit_crew_row', show_id=show.id, day_id=day.id, row_id=row.id) }}">
                   <td><input type="number" name="qty" value="{{ row.qty }}" min="1" step="1"
@@ -769,9 +824,24 @@
               </div>
               <div id="header-form-{{ act.id }}" style="display:none;">
                 <div class="row g-2 align-items-end">
-                  <div class="col-md-5">
+                  <div class="col-md-4">
                     <input type="text" name="group_label" class="form-control form-control-sm"
                            placeholder="e.g. LEAD CREW">
+                  </div>
+                  <div class="col-md-3">
+                    <select name="header_level" class="form-select form-select-sm">
+                      <option value="1">Main section</option>
+                      <option value="2">Sub-section</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <select name="header_company_id" class="form-select form-select-sm"
+                            title="Bind a company and new crew from it land here automatically">
+                      <option value="">No company</option>
+                      {% for co in all_companies %}
+                        <option value="{{ co.id }}">{{ co.name }}</option>
+                      {% endfor %}
+                    </select>
                   </div>
                   <div class="col-auto">
                     <button type="submit" class="btn btn-sm btn-adi">Add Header</button>
@@ -1852,6 +1922,98 @@ function submitAddToRoster() {
       err.style.display = '';
     });
 }
+
+// ── Note 1: collapsible sections ─────────────────────────────────────────────
+// A collapsed section hides its rows AND its sub-sections, so folding ENCORE
+// takes all ten Encore sub-sections with it. That is the whole point — Larry
+// wanted the page to take up less room.
+function toggleSection(el) {
+  const hdr = el.closest('tr');
+  const level = parseInt(hdr.dataset.level || '1', 10);
+  const open = el.textContent.trim() === '▾';
+  el.textContent = open ? '▸' : '▾';
+
+  let r = hdr.nextElementSibling;
+  while (r) {
+    if (r.dataset.header === '1') {
+      // Stop at the next header of the same or higher rank.
+      if (parseInt(r.dataset.level || '1', 10) <= level) break;
+      const sub = r.querySelector('.sect-toggle');
+      if (sub) sub.textContent = open ? '▸' : '▾';
+    }
+    if (!r.classList.contains('header-edit-row')) {
+      r.style.display = open ? 'none' : '';
+    }
+    r = r.nextElementSibling;
+  }
+}
+
+function openHeaderEdit(rowId) {
+  const el = document.getElementById('hdr-edit-' + rowId);
+  if (el) el.style.display = (el.style.display === 'none') ? '' : 'none';
+}
+
+// ── Note 1: drag crew rows and whole sections ────────────────────────────────
+// Dragging a NAME rewrites the show roster (Jason's decision, 2026-08-11), so
+// every other crew call in the show follows. Dragging a HEADER takes its rows
+// and sub-sections with it.
+let _dragRow = null;
+
+function _blockOf(tr) {
+  const block = [tr];
+  if (tr.dataset.header !== '1') {
+    const edit = tr.nextElementSibling;
+    if (edit && edit.classList.contains('header-edit-row')) block.push(edit);
+    return block;
+  }
+  const level = parseInt(tr.dataset.level || '1', 10);
+  let r = tr.nextElementSibling;
+  while (r) {
+    if (r.dataset.header === '1' &&
+        parseInt(r.dataset.level || '1', 10) <= level) break;
+    block.push(r);
+    r = r.nextElementSibling;
+  }
+  return block;
+}
+
+document.addEventListener('dragstart', function (e) {
+  const tr = e.target.closest && e.target.closest('.crew-drag-row');
+  if (!tr) return;
+  _dragRow = tr;
+  e.dataTransfer.effectAllowed = 'move';
+});
+
+document.addEventListener('dragover', function (e) {
+  if (!_dragRow) return;
+  const tr = e.target.closest && e.target.closest('.crew-drag-row');
+  if (!tr || tr === _dragRow) return;
+  if (tr.closest('tbody') !== _dragRow.closest('tbody')) return;
+  e.preventDefault();
+  const box = tr.getBoundingClientRect();
+  const after = (e.clientY - box.top) > box.height / 2;
+  const block = _blockOf(_dragRow);
+  const anchor = after ? _blockOf(tr)[_blockOf(tr).length - 1].nextElementSibling : tr;
+  const body = tr.closest('tbody');
+  block.forEach(function (n) { body.insertBefore(n, anchor); });
+});
+
+document.addEventListener('dragend', function () {
+  if (!_dragRow) return;
+  const body = _dragRow.closest('tbody');
+  _dragRow = null;
+  if (!body) return;
+  const ids = Array.from(body.querySelectorAll('tr.crew-drag-row'))
+                   .map(function (n) { return parseInt(n.dataset.row, 10); });
+  fetch(body.dataset.reorderUrl, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ids: ids})
+  }).then(function (r) {
+    // The roster changed, so every other call on the page is now stale.
+    if (r.ok) location.reload();
+  });
+});
 
 // ── Activity drag-to-reorder ──────────────────────────────────────────────────
 let _dragCard = null;

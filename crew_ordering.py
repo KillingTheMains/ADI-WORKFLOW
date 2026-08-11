@@ -130,3 +130,38 @@ def order_crew_rows(rows, index):
             section.append(row)
     flush()
     return out
+
+
+def apply_partial_order(show_id, member_ids):
+    """Rewrite the roster so ``member_ids`` sit in the given relative order.
+
+    Jason's call, 2026-08-11: dragging a name inside a crew call reorders the
+    SHOW ROSTER, so every crew call follows. One order, nothing to desync.
+
+    A crew call only ever holds a subset of the roster, so this must not
+    flatten the rest. It keeps the slots those members already occupy in the
+    roster and refills them in the dragged order — everyone not involved keeps
+    their position exactly.
+    """
+    from models import ShowCrewAssignment
+
+    assignments = (ShowCrewAssignment.query.filter_by(show_id=show_id).all())
+    if not assignments:
+        return
+    ordered = sorted(
+        assignments,
+        key=lambda a: ((a.sort_order if a.sort_order is not None else _UNSET,)
+                       + (crew_sort_key(a.crew_member) if a.crew_member
+                          else (_UNSET,))),
+    )
+    by_member = {a.crew_member_id: a for a in ordered}
+    moving = [m for m in member_ids if m in by_member]
+    if len(moving) < 2:
+        return
+
+    slots = [i for i, a in enumerate(ordered) if a.crew_member_id in set(moving)]
+    for slot, member_id in zip(slots, moving):
+        ordered[slot] = by_member[member_id]
+
+    for i, a in enumerate(ordered):
+        a.sort_order = (i + 1) * 10

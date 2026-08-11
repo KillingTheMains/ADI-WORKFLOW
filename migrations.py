@@ -80,6 +80,11 @@ MIGRATIONS = [
     ("shows", "travel_window_end", "DATE"),
     # 2026-08-02 — #48 show artwork (header image on generated paperwork)
     ("shows", "artwork_filename", "VARCHAR(300)"),
+    # 2026-08-11 — note 1: tiered section headers on crew calls.
+    # header_level defaults to 1, so every one of the 133 headers already in
+    # production stays exactly where it is and nothing moves on deploy.
+    ("crew_rows", "header_level", "INTEGER DEFAULT 1"),
+    ("crew_rows", "company_id", "INTEGER REFERENCES companies(id)"),
 ]
 
 

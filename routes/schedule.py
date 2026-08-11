@@ -1,6 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, make_response
 from extensions import db
-from crew_ordering import crew_order_by, crew_sort_key, roster_index
+from crew_ordering import (apply_partial_order, crew_order_by, crew_sort_key,
+                           roster_index)
+from crew_sections import insert_index_for, renumber
 from models import Show, ScheduleDay, ScheduleActivity, CrewRow, Position, CrewMember, \
                    PHASES, CREW_TYPES, DayTemplate, PHASE_TYPES, ShowCrewAssignment, Company, \
                    SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break, DayPhase, \
@@ -842,10 +844,13 @@ def add_crew_row(show_id, day_id, act_id):
                     "warning"
                 )
 
-    db.session.add(CrewRow(
+    row = CrewRow(
         activity_id=act_id, sort_order=last + 10,
         is_group_header=is_header,
         group_label=f.get("group_label", "") if is_header else "",
+        header_level=int(f.get("header_level") or 1) if is_header else 1,
+        company_id=int(f["header_company_id"]) if (is_header and
+                                                   f.get("header_company_id")) else None,
         qty=int(f.get("qty", 1)) if not is_header else 0,
         hours=float(f.get("hours", 0)) if not is_header and f.get("hours") else None,
         position=f.get("position", "") if not is_header else "",
@@ -854,7 +859,20 @@ def add_crew_row(show_id, day_id, act_id):
         name_override=f.get("name_override", "") if not is_header else "",
         crew_type=f.get("crew_type", "Lead Crew") if not is_header else "",
         notes=f.get("notes", ""),
-    ))
+    )
+    db.session.add(row)
+    db.session.flush()
+
+    # Note 3: a new person goes into the section that matches their company
+    # (and department), not under whatever header happened to be last. Headers
+    # themselves are always appended — the user placed them deliberately.
+    if not is_header and crew_member_id:
+        act = ScheduleActivity.query.get(act_id)
+        others = [r for r in act.crew_rows if r.id != row.id]
+        idx = insert_index_for(others, row.crew_member)
+        others.insert(idx, row)
+        renumber(others)
+
     db.session.commit()
     return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
 
@@ -984,6 +1002,18 @@ def edit_crew_row(show_id, day_id, row_id):
         v = (f.get("crew_type") or "").strip()
         if v in CREW_TYPES:
             row.crew_type = v
+    # Note 1 — section headers are editable: rename, nest, or bind to a company.
+    if row.is_group_header:
+        if "group_label" in f:
+            row.group_label = (f.get("group_label") or "").strip() or None
+        if "header_level" in f:
+            try:
+                row.header_level = 2 if int(f["header_level"]) == 2 else 1
+            except (TypeError, ValueError):
+                pass
+        if "header_company_id" in f:
+            v = (f.get("header_company_id") or "").strip()
+            row.company_id = int(v) if v else None
     db.session.commit()
     return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
 
@@ -995,6 +1025,38 @@ def delete_crew_row(show_id, day_id, row_id):
     db.session.delete(row)
     db.session.commit()
     return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
+
+
+@schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/activities/"
+                   "<int:act_id>/crew/reorder", methods=["POST"])
+def reorder_crew_rows(show_id, day_id, act_id):
+    """Body: ``{"ids": [row_id, ...]}`` in the new display order.
+
+    Two things happen, and the second is the important one.
+
+    The row order is stored so section MEMBERSHIP sticks — which header a row
+    sits under is still a function of sort_order.
+
+    Then, per Jason's decision on 2026-08-11, the sequence of PEOPLE is pushed
+    back into the show roster. Dragging a name in one crew call reorders the
+    roster, so every other crew call in the show follows. That is what keeps a
+    single order in the system instead of one per call, which is what drifted
+    before.
+    """
+    ids = (request.get_json(silent=True) or {}).get("ids") or []
+    rows = {r.id: r for r in CrewRow.query.filter_by(activity_id=act_id).all()}
+    ordered = [rows[i] for i in ids if i in rows]
+    if len(ordered) != len(rows):
+        return jsonify(ok=False, error="Row list did not match the activity."), 400
+
+    renumber(ordered)
+
+    member_ids = [r.crew_member_id for r in ordered
+                  if not r.is_group_header and r.crew_member_id]
+    apply_partial_order(show_id, member_ids)
+
+    db.session.commit()
+    return jsonify(ok=True, reordered=len(member_ids))
 
 
 # ── Reorder activities (AJAX) ─────────────────────────────────────────────────
