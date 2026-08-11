@@ -91,6 +91,28 @@ def beverage_touchpoints(first_crew_call, eod,
     return points
 
 
+def guess_meal_kind(name):
+    """Best guess at a MEAL_KINDS value from a label. ONE definition.
+
+    Nothing here is authoritative — it only picks the opening value for a
+    dropdown the user can change. It lives in one place because a label and
+    the kind derived from it disagreeing across two copies is precisely how
+    the XLSX and the PDF ended up describing the same row differently.
+    """
+    n = (name or "").upper()
+    if "BREAKFAST" in n:
+        return "breakfast"
+    if "LUNCH" in n:
+        return "lunch"
+    if "DINNER" in n:
+        return "dinner"
+    if "BEVERAGE" in n or "COFFEE" in n:
+        return "beverages"
+    if "SNACK" in n:
+        return "snack"
+    return "other"
+
+
 def on_site_at(crew_windows, minute):
     """How many crew are on site at ``minute``.
 

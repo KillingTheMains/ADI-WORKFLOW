@@ -402,6 +402,31 @@ class ScheduleActivity(db.Model):
             return rows
         return order_crew_rows(rows, roster_index(show_id))
 
+    @property
+    def crew_headcount(self):
+        """How many people this one call brings in.
+
+        Same rule as ``ScheduleDay.computed_crew_count``, scoped to a single
+        activity: a named person counts once however many rows they hold, an
+        unnamed row counts its ``qty`` because each is a distinct slot that
+        still has to be fed. Unfilled slots ARE counted — somebody will be
+        standing in that spot at lunchtime.
+
+        This is what a catered break derives its headcount from, so it must
+        never be cached: the whole point is that changing the crew changes
+        what F&B is told.
+        """
+        named_ids = set()
+        unnamed_total = 0
+        for row in self.crew_rows:
+            if row.is_group_header:
+                continue
+            if row.crew_member_id:
+                named_ids.add(row.crew_member_id)
+            else:
+                unnamed_total += (row.qty or 1)
+        return len(named_ids) + unnamed_total
+
     def __repr__(self):
         return f"<Activity {self.time} {self.description[:40]}>"
 
@@ -654,7 +679,12 @@ class CrewBreak(db.Model):
 
     activity     = db.relationship("ScheduleActivity", foreign_keys=[activity_id])
     crew_call    = db.relationship("ScheduleActivity", foreign_keys=[crew_call_id])
-    meal_service = db.relationship("MealService")
+    # uselist=False because MealService <-> CrewBreak is 1:1 by design: one
+    # service per crew group, always. Two crew groups lunching an hour apart
+    # get two services, because one covering service would put food out for
+    # three hours and break the 2-hour rule.
+    meal_service = db.relationship(
+        "MealService", backref=db.backref("crew_break", uselist=False))
 
     __table_args__ = (db.UniqueConstraint("activity_id", name="uq_crew_break_activity"),)
 
@@ -672,6 +702,20 @@ class CrewBreak(db.Model):
         """F&B sees catered breaks, and unconfirmed ones so they can be
         resolved. Never a break confirmed as uncatered."""
         return self.catered in (CATERED_YES, CATERED_UNCONFIRMED)
+
+    @property
+    def derived_headcount(self):
+        """How many crew this break stops — read from the crew call it hangs
+        off, live.
+
+        ``None`` when there is no crew-call anchor. That is not zero: a legacy
+        break with no anchor has an UNKNOWN headcount, and telling a caterer
+        zero is how a crew goes unfed. Callers must show it as unknown and ask
+        for a number.
+        """
+        if self.crew_call is None:
+            return None
+        return self.crew_call.crew_headcount
 
     def __repr__(self):
         return f"<CrewBreak {self.label!r} catered={self.catered}>"
@@ -1197,8 +1241,31 @@ class MealService(db.Model):
                                       cascade="all, delete-orphan")
 
     @property
+    def derived_headcount(self):
+        """The crew this service feeds, read live off the break's crew call.
+
+        ``None`` when the service is not anchored to a break — a standalone
+        service has nothing to derive from and must be given a number.
+        """
+        cb = getattr(self, "crew_break", None)
+        return cb.derived_headcount if cb is not None else None
+
+    @property
     def total_headcount(self):
-        return sum((loc.headcount or 0) for loc in self.locations)
+        """What F&B is being asked to feed.
+
+        Reads EFFECTIVE figures, so a service nobody has typed numbers into
+        still reports the crew it feeds, and keeps reporting the right one
+        after the crew changes.
+        """
+        return sum((loc.effective_headcount or 0) for loc in self.locations)
+
+    @property
+    def headcount_is_derived(self):
+        """True when no location carries a hand-typed figure, i.e. the total
+        is following the crew."""
+        return (self.derived_headcount is not None
+                and all(loc.headcount is None for loc in self.locations))
 
     @property
     def locations_ordered(self):
@@ -1235,11 +1302,65 @@ class MealServiceLocation(db.Model):
     location_name   = db.Column(db.String(200))   # "Backstage", "FOH MainStage", ...
     start_time      = db.Column(db.String(20))    # "HH:MM"
     end_time        = db.Column(db.String(20))
+    # The HAND-TYPED figure, and nothing else. NULL means "follow the crew".
+    #
+    # Read `effective_headcount` to display or export a number; read this one
+    # only to fill an input's value=, where blank has to mean "not overridden"
+    # so that clearing the box reverts to the derived figure. Every value in
+    # here before 2026-08-11 was typed by hand, which is exactly what an
+    # override is, so no data had to move.
     headcount       = db.Column(db.Integer)
     notes           = db.Column(db.Text)
     sort_order      = db.Column(db.Integer, default=0)
 
     meal_service    = db.relationship("MealService", back_populates="locations")
+
+    @property
+    def is_overridden(self):
+        return self.headcount is not None
+
+    @property
+    def derived_headcount(self):
+        """This location's share of the crew, when nobody has typed a figure.
+
+        A service with ONE location feeds it the whole crew — the ordinary
+        case, and unambiguous.
+
+        With several, the app will not invent a split it cannot know. What the
+        typed locations have claimed comes off the top and the balance goes to
+        the FIRST location without a typed figure; any further untyped
+        location reads 0. So two locations, crew of 20, one typed as 12 — the
+        other shows 8, and both move when the crew call changes.
+
+        ``None`` when there is nothing to derive from.
+        """
+        svc = self.meal_service
+        if svc is None:
+            return None
+        total = svc.derived_headcount
+        if total is None:
+            return None
+        siblings = list(svc.locations)
+        if len(siblings) <= 1:
+            return total
+        # Self is excluded from `claimed` so this answers the same question
+        # whether or not a figure has been typed here: what the crew call
+        # gives THIS location.
+        claimed = sum(loc.headcount or 0 for loc in siblings
+                      if loc.is_overridden and loc is not self)
+        candidates = [loc for loc in siblings
+                      if loc is self or not loc.is_overridden]
+        if candidates and candidates[0] is not self:
+            return 0
+        return max(0, total - claimed)
+
+    @property
+    def effective_headcount(self):
+        """The number to show and to export. Typed figure wins; otherwise the
+        crew is followed."""
+        if self.headcount is not None:
+            return self.headcount
+        return self.derived_headcount
 
     def __repr__(self):
         return f"<MealServiceLocation {self.location_name} service={self.meal_service_id}>"

@@ -558,7 +558,9 @@
                   title="Meal service F&amp;B sees for this break">
             <option value="">No meal service</option>
             {% for ms in day_meal_services %}
-            <option value="{{ ms.id }}" {% if brk.meal_service_id == ms.id %}selected{% endif %}>{{ ms.name }}</option>
+            {% set taken = service_taken_by.get(ms.id) not in (none, brk.id) %}
+            <option value="{{ ms.id }}" {% if brk.meal_service_id == ms.id %}selected{% endif %}
+                    {% if taken %}disabled{% endif %}>{{ ms.name }}{% if taken %} — already fed to another break{% endif %}</option>
             {% endfor %}
           </select>
         </div>
@@ -569,8 +571,17 @@
           {% if brk.crew_call %}off {{ brk.crew_call.time }} crew
             {%- if brk.offset_minutes is not none %} +{{ brk.offset_minutes }}m{% endif %}
           {% else %}<span style="color:#9F1239;">no crew call anchor</span>{% endif %}
+          {% if brk.derived_headcount is not none %}
+          {# The number F&B gets. Shown here because this is where someone
+             decides a meal is provided, and it is the one figure they would
+             otherwise have to go to another tab to check. #}
+          · <span title="Read off the crew call, live. Changing the crew changes what F&amp;B is told.">{{ brk.derived_headcount }} crew</span>
+          {% endif %}
           {% if brk.catered == 'unconfirmed' %}
           · <span style="color:#B45309;">F&amp;B still sees this</span>
+          {% endif %}
+          {% if brk.meal_service %}
+          · <span style="color:#166534;" title="This break has a meal service on the F&amp;B tab.">🍽 {{ brk.meal_service.name }} ({{ brk.meal_service.total_headcount }})</span>
           {% endif %}
         </div>
       </form>

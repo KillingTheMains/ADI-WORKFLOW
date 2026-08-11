@@ -44,6 +44,11 @@
   can have <strong>multiple locations</strong> (Backstage, FOH, Local Labor…) with
   their own times and headcounts. Totals roll up automatically. Add per-show
   dietary preferences at the bottom.
+  <br>
+  <strong>Counts follow the crew.</strong> A service created from a break reads
+  its headcount off that crew call and keeps reading it, so changing the crew
+  changes what F&amp;B is told. A greyed figure is the crew call; type over it
+  to fix a number by hand, and clear the box to hand it back.
 </div>
 
 {% if stray_fb %}
@@ -110,7 +115,19 @@
       <input type="hidden" name="is_recurring" value="{{ '1' if svc.is_recurring else '' }}">
       <input type="hidden" name="activity_id" value="{{ svc.activity_id or '' }}">
     </form>
-    <span class="total">Total: {{ svc.total_headcount }}</span>
+    <span class="total"
+          title="{% if svc.headcount_is_derived %}Read from the crew call this meal feeds. It changes when the crew changes.{% else %}From the figures typed against each location.{% endif %}">
+      Total: {{ svc.total_headcount }}{% if svc.headcount_is_derived %} · from crew{% endif %}
+    </span>
+    {% if not svc.headcount_is_derived and svc.derived_headcount is not none
+          and svc.derived_headcount != svc.total_headcount %}
+    {# The one thing worth interrupting for: a figure somebody typed, and a
+       crew call that has since moved away from it. #}
+    <span style="font-size:.68rem;color:#FFD9A0;white-space:nowrap;"
+          title="These counts were typed by hand. The crew call this meal feeds now says something different. Clear a count to follow the crew again.">
+      ⚠ crew call says {{ svc.derived_headcount }}
+    </span>
+    {% endif %}
     <form method="POST" style="margin:0;"
           action="{{ url_for('oss.fb_service_delete', show_id=show.id, svc_id=svc.id) }}"
           onsubmit="return confirm('Delete this meal service and all its locations?');">
@@ -141,8 +158,16 @@
                          placeholder="e.g. Backstage / FOH / Local Labor"></td>
               <td><input type="time" name="start_time" value="{{ loc.start_time|to_24hr }}" class="time"></td>
               <td><input type="time" name="end_time"   value="{{ loc.end_time|to_24hr }}" class="time"></td>
-              <td><input type="number" name="headcount" value="{{ loc.headcount if loc.headcount is not none else '' }}"
-                         min="0" step="1" class="count"></td>
+              {# value = the TYPED figure only. Blank has to mean "not
+                 overridden", because clearing the box is how you hand the
+                 number back to the crew call. The greyed placeholder is what
+                 the crew call says. #}
+              <td><input type="number" name="headcount"
+                         value="{{ loc.headcount if loc.headcount is not none else '' }}"
+                         placeholder="{{ loc.derived_headcount if loc.derived_headcount is not none else '—' }}"
+                         min="0" step="1" class="count"
+                         title="{% if loc.is_overridden %}Typed by hand. Clear the box to follow the crew call again.{% elif loc.derived_headcount is not none %}Following the crew call — changes when the crew changes.{% else %}No crew call to derive from. Type a number.{% endif %}">
+              </td>
               <td><input type="text" name="notes" value="{{ loc.notes or '' }}"></td>
               <td style="text-align:center;">
                 <button type="submit" class="btn btn-sm p-0 text-success" title="Save row" style="font-size:.9rem;">💾</button>
@@ -266,7 +291,7 @@
         <td>{{ loc.location_name or '—' }}</td>
         <td>{{ loc.start_time or '' }}</td>
         <td>{{ loc.end_time or '' }}</td>
-        <td>{{ loc.headcount if loc.headcount is not none else '' }}</td>
+        <td>{{ loc.effective_headcount if loc.effective_headcount is not none else '' }}</td>
         <td>{{ loc.notes or '' }}</td>
       </tr>
       {% endfor %}

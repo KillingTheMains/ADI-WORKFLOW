@@ -246,7 +246,10 @@ def build_master_items(show, entries, meal_services):
                 (loc.start_time if loc else svc.earliest_time),
                 "F&B", _merge_text(label, act.description if act else None),
                 icon="🍽",
-                count=(loc.headcount if loc else None),
+                # effective_headcount, not headcount: an export must carry the
+                # number F&B is actually working to, which is the crew call
+                # unless somebody has deliberately typed over it.
+                count=(loc.effective_headcount if loc else svc.total_headcount or None),
                 notes=_merge_notes((loc.notes if loc else None), svc.notes,
                                    act.notes if act else None),
                 source=SOURCE_MEAL, day_id=svc.schedule_day_id,

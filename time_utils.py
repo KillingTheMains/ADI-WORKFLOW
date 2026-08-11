@@ -84,6 +84,18 @@ def hhmm_or_blank(value):
     return "" if minutes is None else "%02d:%02d" % divmod(minutes, 60)
 
 
+def from_minutes(minutes):
+    """Minutes since midnight -> canonical 'HH:MM'. The inverse of parse_minutes.
+
+    Anything that works out a time by arithmetic — a break offset off a crew
+    call, a service window, a beverage refresh — comes back through here, so
+    nothing ever invents a '25:30' that then renders as an empty time input.
+    """
+    if minutes is None:
+        return ""
+    return "%02d:%02d" % divmod(int(minutes) % (24 * 60), 60)
+
+
 def earliest(values):
     """The chronologically earliest of several time strings (None if none parse)."""
     readable = [(parse_minutes(v), v) for v in values]

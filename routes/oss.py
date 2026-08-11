@@ -16,6 +16,7 @@ URL space (registered with url_prefix="/shows"):
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from extensions import db
+from breaks import guess_meal_kind
 from crew_ordering import crew_order_by
 from models import (
     Show, ScheduleDay, ScheduleActivity, SubScheduleEntry,
@@ -675,14 +676,9 @@ def fb_convert_legacy(show_id):
     it only acts on entries that still exist."""
     Show.query.get_or_404(show_id)
 
-    def _guess_kind(name):
-        n = (name or "").upper()
-        if "BREAKFAST" in n: return "breakfast"
-        if "LUNCH" in n:     return "lunch"
-        if "DINNER" in n:    return "dinner"
-        if "BEVERAGE" in n or "COFFEE" in n: return "beverages"
-        if "SNACK" in n:     return "snack"
-        return "other"
+    # guess_meal_kind lives in breaks.py — one definition, so a label and the
+    # kind derived from it cannot disagree between here and the break editor.
+    _guess_kind = guess_meal_kind
 
     strays = SubScheduleEntry.query.filter_by(show_id=show_id, type="F&B").all()
     n = 0
