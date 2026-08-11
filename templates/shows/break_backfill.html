@@ -52,6 +52,15 @@
       Create {{ rows|length }} break record{{ '' if rows|length == 1 else 's' }}
     </button>
   </form>
+  {% if counts.already_done %}
+  <form method="POST"
+        action="{{ url_for('breaks.backfill_reset', show_id=show.id) }}"
+        onsubmit="return confirm('Clear {{ counts.already_done }} break records so the backfill can be re-run?\n\nThe break activities themselves are untouched — only the break metadata is removed.');">
+    <button class="btn btn-sm btn-outline-secondary">
+      Clear {{ counts.already_done }} record{{ '' if counts.already_done == 1 else 's' }} and start over
+    </button>
+  </form>
+  {% endif %}
   <form method="POST"
         action="{{ url_for('breaks.toggle_new_breaks', show_id=show.id) }}">
     <button class="btn btn-sm btn-outline-secondary">

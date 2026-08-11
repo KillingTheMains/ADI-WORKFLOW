@@ -25,9 +25,34 @@ def backfill_apply(show_id):
     flash(
         f"Created {counts['created']} crew break record"
         f"{'' if counts['created'] == 1 else 's'} — "
-        f"{counts['catered']} catered, {counts['unconfirmed']} unconfirmed. "
+        f"{counts['provided']} provided, {counts['not_provided']} not "
+        f"provided, {counts['unconfirmed']} unconfirmed. "
         "Nothing was deleted or edited; the activities are untouched.",
         "success")
+    return redirect(url_for("breaks.backfill_preview", show_id=show.id))
+
+
+@breaks_bp.route("/<int:show_id>/breaks/reset", methods=["POST"])
+def backfill_reset(show_id):
+    """Delete this show's break records so the backfill can be re-run.
+
+    Idempotent is not the same as repeatable: `apply` skips activities that
+    already have a record, which protects against double-running but also
+    means a verdict decided by an OLD rule can never be corrected by re-
+    running. The classification has already changed once after meeting real
+    data, so a clean re-run has to be possible.
+
+    Safe in a way that deleting activities would not be: a CrewBreak is
+    additive metadata that nothing else points at. The break activities, their
+    crew rows, their OSS entries and their meal services are untouched.
+    """
+    show = Show.query.get_or_404(show_id)
+    n = CrewBreak.query.filter_by(show_id=show.id).delete()
+    db.session.commit()
+    flash(
+        f"Cleared {n} break record{'' if n == 1 else 's'} for {show.name}. "
+        "The break activities themselves are untouched — re-run the backfill "
+        "when you are ready.", "success")
     return redirect(url_for("breaks.backfill_preview", show_id=show.id))
 
 
