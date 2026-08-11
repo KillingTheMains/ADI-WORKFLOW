@@ -90,7 +90,7 @@ def test_a_standing_service_cannot_feed_a_break(app, db):
                                         recurring=True)
     ok, msg = break_linking.link(cb, svc)
     assert ok is False
-    assert "standing service" in msg
+    assert "standing beverage service" in msg
 
 
 def test_a_service_cannot_feed_a_break_on_another_day(app, db):

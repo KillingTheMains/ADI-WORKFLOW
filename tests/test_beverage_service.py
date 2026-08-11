@@ -255,4 +255,4 @@ def test_a_beverage_service_can_never_be_linked_to_a_break(app, db):
     db.session.add(cb); db.session.commit()
     ok, msg = break_linking.link(cb, svc)
     assert ok is False
-    assert "standing service" in msg
+    assert "standing beverage service" in msg

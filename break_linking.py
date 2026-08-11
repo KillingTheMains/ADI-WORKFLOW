@@ -19,6 +19,7 @@ Nothing here infers a link. Callers rank suggestions and a human clicks. A
 wrong auto-link sends a caterer the wrong headcount, which is the exact failure
 this whole overhaul exists to remove.
 """
+from breaks import is_beverage_service
 from time_utils import parse_minutes, sort_minutes
 
 # How close a service has to start to a break before it is worth suggesting.
@@ -33,10 +34,10 @@ def can_link(cb, svc):
     """``(True, None)`` or ``(False, why not)``. The rules, in one place."""
     if cb is None or svc is None:
         return False, "That break or service no longer exists."
-    if svc.is_recurring:
-        return False, (f"'{svc.name}' is a standing service — it runs all day "
-                       "rather than feeding a crew at a break, so it cannot be "
-                       "linked to one.")
+    if is_beverage_service(svc):
+        return False, (f"'{svc.name}' is a standing beverage service — it runs "
+                       "all day rather than feeding a crew at a break, so it "
+                       "cannot be linked to one.")
     taken = getattr(svc, "crew_break", None)
     if taken is not None and taken.id != cb.id:
         return False, (f"'{svc.name}' already feeds the "
@@ -130,7 +131,7 @@ def candidates_for_break(cb):
     if day_id is None:
         return []
     out = [svc for svc in MealService.query.filter_by(schedule_day_id=day_id).all()
-           if not svc.is_recurring
+           if not is_beverage_service(svc)
            and getattr(svc, "crew_break", None) is None]
     return sorted(out, key=lambda s: _rank(cb.start_minute, cb.label, s))
 
@@ -138,7 +139,7 @@ def candidates_for_break(cb):
 def candidates_for_service(svc):
     """Breaks on this service's day that nothing else feeds, best guess first."""
     from models import CrewBreak, ScheduleActivity
-    if svc.is_recurring or svc.schedule_day_id is None:
+    if is_beverage_service(svc) or svc.schedule_day_id is None:
         return []
     rows = (CrewBreak.query
             .join(ScheduleActivity, CrewBreak.activity_id == ScheduleActivity.id)

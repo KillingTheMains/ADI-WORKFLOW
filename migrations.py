@@ -333,24 +333,30 @@ def _unlink_breaks_from_standing_services(session):
 
     The backfill classified a break linked to a beverage service as Not
     Provided — correctly, since a beverage table feeds nobody AT a break — but
-    still wrote that service into `meal_service_id`. On MCDC26 that pointed
-    thirty breaks at one service, which breaks the 1:1 the model relies on:
-    `MealService.crew_break` is uselist=False, so SQLAlchemy returned an
-    arbitrary one of the thirty and the service derived its headcount from
-    whichever it picked. It also left breaks marked Not Provided carrying a
-    service pointer, which contradicts itself.
+    still wrote that service into `meal_service_id`. That leaves a break saying
+    "Not Provided" while carrying a service pointer, which contradicts itself:
+    the service then shows a "Feeds" link to a break it does not feed, and
+    derives a headcount from it.
+
+    THE FIRST VERSION OF THIS TESTED `is_recurring` ALONE AND FOUND NOTHING.
+    Every beverage service on MCDC26 is a legacy row converted from the old
+    F&B model, so `is_recurring` is False and the only evidence is the kind or
+    the name. `classify()` had always read all three; this repair read one.
+    That is exactly the drift `breaks.is_beverage_service` now exists to
+    prevent, and it is why this runs again under a new key.
 
     Clears the pointer only. No break, service, activity or headcount is
     touched, and a break genuinely fed by a MEAL service is left alone.
     """
+    from breaks import is_beverage_service
     from models import CrewBreak, MealService
     rows = (session.query(CrewBreak)
             .join(MealService, CrewBreak.meal_service_id == MealService.id)
-            .filter(MealService.is_recurring == True)      # noqa: E712
             .all())
-    for cb in rows:
+    hit = [cb for cb in rows if is_beverage_service(cb.meal_service)]
+    for cb in hit:
         cb.meal_service_id = None
-    print(f"[migration] unlinked {len(rows)} crew break(s) from standing "
+    print(f"[migration] unlinked {len(hit)} crew break(s) from standing "
           "beverage services (a beverage table feeds nobody at a break)")
 
 
@@ -375,6 +381,12 @@ DATA_MIGRATIONS = [
     ("2026-08-09-tidy-crew-name-whitespace", _tidy_crew_name_whitespace),
     # 2026-08-11 — repair the backfill's over-eager linking. See the function.
     ("2026-08-11-unlink-breaks-from-standing-services",
+     _unlink_breaks_from_standing_services),
+    # 2026-08-11 — and again, because the first pass tested `is_recurring`
+    # alone and matched none of the legacy beverage services it was written
+    # for. New key so it re-runs; same function, now using the one shared
+    # predicate. A no-op wherever the first pass already did the job.
+    ("2026-08-11-unlink-breaks-from-beverage-services-v2",
      _unlink_breaks_from_standing_services),
 ]
 

@@ -229,6 +229,32 @@ def break_export_text(label, duration_minutes):
     return f"{name} — {suffix}" if suffix else name
 
 
+# A service is a standing beverage setup if ANY of these say so. The explicit
+# flag is the modern answer; the kind and the name catch the legacy services
+# Larry created before the model had anywhere to put a beverage table.
+BEVERAGE_WORDS = ("BEVERAGE", "REFRESH", "COFFEE", "WATER", "CREW BREAK")
+
+
+def is_beverage_service(service):
+    """Is this service a standing beverage setup rather than a meal?
+
+    ONE definition. The break backfill, the linking rules and the repair
+    migration all need it, and they did NOT agree: the repair tested only
+    `is_recurring` while the backfill also read the kind and the name, so it
+    silently missed every legacy service — which is all of them on MCDC26.
+
+    Duck-typed on ``is_recurring``, ``kind`` and ``name``.
+    """
+    if service is None:
+        return False
+    if getattr(service, "is_recurring", False):
+        return True
+    if (getattr(service, "kind", "") or "").lower() == "beverages":
+        return True
+    name = (getattr(service, "name", "") or "").upper()
+    return any(word in name for word in BEVERAGE_WORDS)
+
+
 def is_crew_start(description):
     """Is this activity the moment a crew group arrives? ONE definition.
 

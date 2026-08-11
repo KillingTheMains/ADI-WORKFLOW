@@ -15,7 +15,7 @@ applying it here would bake today's wrong answers into tomorrow's data.
 """
 import re
 
-from breaks import crew_starts_for_day, is_crew_start
+from breaks import crew_starts_for_day, is_beverage_service, is_crew_start
 from extensions import db
 from models import (CATERED_NO, CATERED_UNCONFIRMED, CATERED_YES, CrewBreak,
                     MealService)
@@ -143,8 +143,7 @@ def classify(meal_service):
         return (CATERED_UNCONFIRMED, "no meal service linked")
     name = (meal_service.name or "").upper()
     kind = (meal_service.kind or "").lower()
-    if kind == "beverages" or meal_service.is_recurring or \
-            any(w in name for w in _BEVERAGE_WORDS):
+    if is_beverage_service(meal_service):
         return (CATERED_NO,
                 f"linked to a standing/beverage service ({meal_service.name})")
     if kind in MEAL_KINDS_REAL:
