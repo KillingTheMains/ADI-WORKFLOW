@@ -12,10 +12,20 @@
 <div class="card mb-3">
   <div class="card-body py-2 px-3 d-flex align-items-center gap-3 flex-wrap">
     <span><strong>{{ counts.total }}</strong> break activities found</span>
-    <span style="color:#0F766E;"><strong>{{ counts.catered }}</strong> already
-      linked to a meal service → catered</span>
+    <span style="color:#0F766E;"><strong>{{ counts.provided }}</strong>
+      provided (linked to a real meal service)</span>
+    <span style="color:#59636E;"><strong>{{ counts.not_provided }}</strong>
+      not provided (standing/beverage service)</span>
     <span style="color:#B45309;"><strong>{{ counts.unconfirmed }}</strong>
       unconfirmed</span>
+    {% if counts.duration_recovered %}
+    <span style="color:#0B2545;"><strong>{{ counts.duration_recovered }}</strong>
+      durations recovered from RETURN FROM rows</span>
+    {% endif %}
+    {% if counts.return_markers %}
+    <span style="color:var(--adi-muted);"><strong>{{ counts.return_markers }}</strong>
+      RETURN FROM rows (not breaks)</span>
+    {% endif %}
     {% if counts.already_done %}
     <span style="color:var(--adi-muted);"><strong>{{ counts.already_done }}</strong>
       already backfilled</span>
@@ -56,7 +66,8 @@
   <thead>
     <tr>
       <th>Day</th><th>Time</th><th>Break</th>
-      <th>Anchored to</th><th>Offset</th><th>Catering</th>
+      <th>Anchored to</th><th>Offset</th><th>Duration</th>
+      <th>Provided?</th><th>Why</th>
     </tr>
   </thead>
   <tbody>
@@ -71,13 +82,21 @@
       </td>
       <td>{% if r.offset is not none %}+{{ r.offset }}m{% else %}—{% endif %}</td>
       <td>
+        {{ r.duration }}m
+        {% if not r.duration_known %}
+        <span style="color:var(--adi-muted);" title="No RETURN FROM row to read a duration from — house default">*</span>
+        {% endif %}
+      </td>
+      <td>
         {% if r.catered == 'yes' %}
-        <span style="color:#0F766E;font-weight:600;">catered</span>
-        <span style="color:var(--adi-muted);">· {{ r.meal_service.name }}</span>
+        <span style="color:#0F766E;font-weight:600;">provided</span>
+        {% elif r.catered == 'no' %}
+        <span style="color:#59636E;font-weight:600;">not provided</span>
         {% else %}
         <span style="color:#B45309;font-weight:600;">unconfirmed</span>
         {% endif %}
       </td>
+      <td style="color:var(--adi-muted);font-size:.76rem;">{{ r.reason }}</td>
     </tr>
     {% endfor %}
   </tbody>

@@ -16,8 +16,8 @@ applying it here would bake today's wrong answers into tomorrow's data.
 import re
 
 from extensions import db
-from models import (CATERED_UNCONFIRMED, CATERED_YES, CrewBreak, MealService,
-                    ScheduleActivity)
+from models import (CATERED_NO, CATERED_UNCONFIRMED, CATERED_YES, CrewBreak,
+                    MealService)
 from time_utils import sort_minutes
 
 # Anything that reads as a break in the wild, including the builder's output.
@@ -29,11 +29,59 @@ _CREW_SUFFIX = re.compile(r"[—-]\s*([0-9]{1,2}:[0-9]{2}\s*(?:AM|PM)?)\s*CREW\s
                           re.IGNORECASE)
 
 
+# "RETURN FROM LUNCH" is not a break — it is the break ENDING, which is how
+# the old schedules recorded a duration before breaks had one. It becomes the
+# break's duration rather than a break of its own.
+_RETURN = re.compile(r"^\s*RETURN\s+FROM\s+(.*)$", re.IGNORECASE)
+
+
+def is_return_marker(activity):
+    return bool(_RETURN.match(activity.description or ""))
+
+
 def looks_like_break(activity):
     desc = (activity.description or "").upper()
     if "CREW START" in desc:
         return False
+    if is_return_marker(activity):
+        return False
     return any(k in desc for k in BREAK_KEYWORDS)
+
+
+def _base_label(desc):
+    """'LUNCH BREAK — 7:00 AM CREW' -> 'LUNCH'. Used to pair a break with its
+    RETURN FROM marker."""
+    text = re.sub(r"[—-]\s*[0-9].*$", "", desc or "")
+    text = re.sub(r"\bBREAK\b", "", text, flags=re.IGNORECASE)
+    return " ".join(text.split()).upper()
+
+
+def recover_duration(day, activity):
+    """Minutes, read from a matching RETURN FROM marker later the same day.
+
+    The old data genuinely knows this; it is just written as a separate row.
+    Returns None when there is no matching marker, and the caller falls back
+    to the house default rather than inventing a number.
+    """
+    start = sort_minutes(activity.time)
+    if start is None:
+        return None
+    want = _base_label(activity.description)
+    if not want:
+        return None
+    best = None
+    for other in day.activities:
+        m = _RETURN.match(other.description or "")
+        if not m:
+            continue
+        if _base_label(m.group(1)) != want and want not in (m.group(1) or "").upper():
+            continue
+        end = sort_minutes(other.time)
+        if end is None or end <= start:
+            continue
+        if best is None or end < best:
+            best = end
+    return None if best is None else best - start
 
 
 def crew_starts_for_day(day):
@@ -79,6 +127,46 @@ def infer_crew_call(day, activity):
     return (candidate[1], break_m - candidate[0])
 
 
+MEAL_KINDS_REAL = ("breakfast", "lunch", "dinner", "snack")
+_BEVERAGE_WORDS = ("BEVERAGE", "REFRESH", "COFFEE", "WATER", "CREW BREAK")
+
+
+def classify(meal_service):
+    """``(catered, reason)`` for a break, given whatever service it links to.
+
+    A link to a MealService is NOT proof that food is provided at that break.
+    Rehearsing against MCDC26 showed 30 of 41 breaks linked to services named
+    "Crew Break - Refresh as Needed" or "Beverage Break" — Larry using meal
+    services to represent a standing beverage setup, because the old model gave
+    him nowhere else to put one. Reading those as catered meals would be the
+    same class of error as guessing from the description, just pointing the
+    other way.
+
+    So: a meal-kind service is evidence of a provided meal. A beverage or
+    recurring service is evidence of the OPPOSITE — the break itself is a plain
+    crew break, and that service belongs in the standing-service model. No
+    service at all is no evidence, and stays unconfirmed.
+    """
+    if meal_service is None:
+        return (CATERED_UNCONFIRMED, "no meal service linked")
+    name = (meal_service.name or "").upper()
+    kind = (meal_service.kind or "").lower()
+    if kind == "beverages" or meal_service.is_recurring or \
+            any(w in name for w in _BEVERAGE_WORDS):
+        return (CATERED_NO,
+                f"linked to a standing/beverage service ({meal_service.name})")
+    if kind in MEAL_KINDS_REAL:
+        return (CATERED_YES, f"{kind} service ({meal_service.name})")
+    # The name is evidence in BOTH directions, or in neither. MCDC26's real
+    # meal services are named "LUNCH BREAK — 08:00 CREW" and carry no useful
+    # kind, so refusing to read the name here would classify every genuine
+    # meal on the show as unconfirmed.
+    if any(w in name for w in ("LUNCH", "DINNER", "BREAKFAST", "MEAL")):
+        return (CATERED_YES, f"meal service by name ({meal_service.name})")
+    return (CATERED_UNCONFIRMED,
+            f"service of unclear kind ({meal_service.name})")
+
+
 def plan(show):
     """What a backfill WOULD do. Reads only — nothing is written.
 
@@ -92,12 +180,18 @@ def plan(show):
               MealService.query.filter_by(show_id=show.id).all()
               if ms.activity_id}
 
+    from breaks import DEFAULT_SERVICE_MINUTES
+
     rows = []
-    counts = {"total": 0, "catered": 0, "unconfirmed": 0,
-              "already_done": 0, "no_anchor": 0}
+    counts = {"total": 0, "provided": 0, "not_provided": 0, "unconfirmed": 0,
+              "already_done": 0, "no_anchor": 0, "duration_recovered": 0,
+              "return_markers": 0}
 
     for day in show.days:
         for act in day.activities:
+            if is_return_marker(act):
+                counts["return_markers"] += 1
+                continue
             if not looks_like_break(act):
                 continue
             counts["total"] += 1
@@ -106,13 +200,21 @@ def plan(show):
                 continue
             crew_call, offset = infer_crew_call(day, act)
             ms = linked.get(act.id)
-            catered = CATERED_YES if ms else CATERED_UNCONFIRMED
+            catered, reason = classify(ms)
+            duration = recover_duration(day, act)
+            if duration is not None:
+                counts["duration_recovered"] += 1
             if crew_call is None:
                 counts["no_anchor"] += 1
-            counts["catered" if ms else "unconfirmed"] += 1
+            counts[{CATERED_YES: "provided", CATERED_NO: "not_provided",
+                    CATERED_UNCONFIRMED: "unconfirmed"}[catered]] += 1
             rows.append({
                 "day": day, "activity": act, "crew_call": crew_call,
                 "offset": offset, "catered": catered, "meal_service": ms,
+                "reason": reason,
+                "duration": duration if duration is not None
+                            else DEFAULT_SERVICE_MINUTES,
+                "duration_known": duration is not None,
             })
     return {"rows": rows, "counts": counts}
 
@@ -120,13 +222,10 @@ def plan(show):
 def apply(show):
     """Write the plan. Idempotent — re-running adds nothing.
 
-    Duration is NOT inferred from anything: existing break activities carry a
-    start time and no end, so any duration would be invented. Everything gets
-    the house default and Larry adjusts what is wrong, which is honest about
-    what the old data actually knew.
+    Duration comes from a matching RETURN FROM marker where one exists — the
+    old schedules recorded a break's end as a separate row, so that duration is
+    real data rather than a guess. Everything else takes the house default.
     """
-    from breaks import DEFAULT_SERVICE_MINUTES
-
     result = plan(show)
     made = 0
     for row in result["rows"]:
@@ -135,7 +234,7 @@ def apply(show):
             activity_id=row["activity"].id,
             crew_call_id=row["crew_call"].id if row["crew_call"] else None,
             offset_minutes=row["offset"],
-            duration_minutes=DEFAULT_SERVICE_MINUTES,
+            duration_minutes=row["duration"],
             label=(row["activity"].description or "")[:120],
             catered=row["catered"],
             meal_service_id=row["meal_service"].id if row["meal_service"] else None,
