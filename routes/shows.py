@@ -339,6 +339,15 @@ def duplicate(show_id):
         ))
 
     # 3. Days + activities + crew rows
+    #
+    # deep=1 also carries the roster, the crew LINKS, the OSS entries and the
+    # F&B services. The default (structure only, crew wiped to TBD) is right
+    # for "next year's version of this show"; deep is right for a working copy
+    # of a live show — testing a change against real crew, real headcounts and
+    # real meal services, which structure alone cannot exercise.
+    deep = form.get("deep") == "1"
+    day_map = {}
+    act_map = {}
     for day in src.days:
         new_day = ScheduleDay(
             show_id    = new_show.id,
@@ -363,6 +372,7 @@ def duplicate(show_id):
         )
         db.session.add(new_day)
         db.session.flush()
+        day_map[day.id] = new_day.id
 
         for act in day.activities:
             new_act = ScheduleActivity(
@@ -374,6 +384,7 @@ def duplicate(show_id):
             )
             db.session.add(new_act)
             db.session.flush()
+            act_map[act.id] = new_act.id
 
             for row in act.crew_rows:
                 db.session.add(CrewRow(
@@ -381,22 +392,39 @@ def duplicate(show_id):
                     sort_order      = row.sort_order,
                     is_group_header = row.is_group_header,
                     group_label     = row.group_label,
+                    header_level    = row.header_level,
+                    company_id      = row.company_id,
                     qty             = row.qty,
                     hours           = row.hours,          # estimated carries over
                     actual_hours    = None,               # actual doesn't
                     position        = row.position,
                     position_id     = row.position_id,
-                    crew_member_id  = None,               # WIPED — becomes TBD
-                    name_override   = None,               # so it renders as TBD
+                    # Structure-only wipes the person; deep keeps them, which
+                    # is the whole point of a working copy.
+                    crew_member_id  = row.crew_member_id if deep else None,
+                    name_override   = row.name_override if deep else None,
                     crew_type       = row.crew_type,
                     notes           = row.notes,
                 ))
 
+    if deep:
+        from routes._deep_clone import clone_show_crew_and_fnb
+        clone_show_crew_and_fnb(src, new_show, day_map, act_map, _shift)
+
     db.session.commit()
-    flash(
-        f"Show cloned. '{new_name}' has {len(src.days)} days and "
-        f"{sum(len(d.activities) for d in src.days)} activities. Crew slots "
-        "are TBD — assign them on the new show.",
-        "success",
-    )
+    if deep:
+        flash(
+            f"Show deep-cloned. '{new_name}' has {len(src.days)} days, "
+            f"{sum(len(d.activities) for d in src.days)} activities, and "
+            "carries the crew roster, OSS entries and F&B services. It is a "
+            "working copy of real data — check the name before Larry sees it.",
+            "success",
+        )
+    else:
+        flash(
+            f"Show cloned. '{new_name}' has {len(src.days)} days and "
+            f"{sum(len(d.activities) for d in src.days)} activities. Crew slots "
+            "are TBD — assign them on the new show.",
+            "success",
+        )
     return redirect(url_for("shows.detail", show_id=new_show.id))

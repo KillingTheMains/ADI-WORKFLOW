@@ -266,6 +266,25 @@
             COMS assignments, wristband settings, actual hours.
           </p>
 
+          {# A working copy of a live show, for testing a change against real
+             crew, headcounts and F&B — structure alone cannot exercise those. #}
+          <div class="form-check form-switch mb-3 p-2"
+               style="background:#FCFAF4;border:1px solid #E8DCA8;border-radius:4px;">
+            <input class="form-check-input" type="checkbox" name="deep"
+                   value="1" id="deep-clone">
+            <label class="form-check-label" for="deep-clone"
+                   style="font-size:.82rem;font-weight:600;">
+              Working copy — also bring the real crew and F&amp;B
+            </label>
+            <div style="font-size:.74rem;color:#6b7280;margin-top:2px;">
+              Keeps crew members on their slots and copies the roster, OSS
+              entries, meal services and COMS. Use this to try something
+              against real data. Actual hours are still left behind.
+              <strong>Name it clearly</strong> — it will look like a real show
+              in the shows list.
+            </div>
+          </div>
+
           <div class="mb-3">
             <label class="form-label" style="font-size:.82rem;font-weight:600;">
               New show name
