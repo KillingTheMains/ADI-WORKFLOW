@@ -18,6 +18,8 @@ Master tab or the XLSX.
 import os
 from datetime import datetime
 
+from xml.sax.saxutils import escape
+
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import letter
@@ -57,6 +59,10 @@ def _styles():
         "body": body,
         "cell": ParagraphStyle("cell", parent=body),
         "cell_dim": ParagraphStyle("cell_dim", parent=body, textColor=MINERAL),
+        # Indent lives in the STYLE, so a crew name is never interpolated into
+        # ReportLab markup. Names are user data and can contain & or < — the
+        # PDF is the only export that parses its cell contents as XML.
+        "cell_name": ParagraphStyle("cell_name", parent=body, leftIndent=8),
         "head": ParagraphStyle(
             "head", parent=body, fontName=brand.FONT_FALLBACK + "-Bold",
             fontSize=brand.PT_SMALL, textColor=colors.white),
@@ -113,6 +119,13 @@ class _DayTable(Table):
                 return []
         for part in parts[1:]:
             _mark_continued(part)
+            # A continuation part must never refuse a split of its own.
+            # Table.split() returns fresh objects, so without this each part
+            # gets its own refusal — and a part that refuses at the TOP of an
+            # empty frame has nowhere left to go, which ReportLab reports as
+            # LayoutError rather than falling back. That is how MCDC26 died on
+            # page 30. The orphan guard is a nicety; never let it hard-fail.
+            part._refused_split = True
         return parts
 
 
@@ -342,9 +355,7 @@ def _day_rows(day, items, st):
         # event, which is the drift oss_export exists to prevent.
         for who in item.get("crew_names") or []:
             rows.append([
-                "", "",
-                Paragraph(f'<para leftIndent="8">{who}</para>', st["cell"]),
-                "", "",
+                "", "", Paragraph(escape(who or ""), st["cell_name"]), "", "",
             ])
             if i % 2:
                 style.append(("BACKGROUND", (0, i), (-1, i), ZEBRA))
@@ -399,18 +410,32 @@ def _department_sections(master_items, st):
             ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
             ("LEFTPADDING", (0, 0), (-1, -1), 4),
             ("LINEBELOW", (0, 2), (-1, -1), 0.4, HAIRLINE)]
-        for i, item in enumerate(items, start=2):
+        i = 2
+        for item in items:
             day = item["day"]
             rows.append([
                 Paragraph(brand.fmt_date(day.date) if day and day.date
                           else "Unscheduled", st["cell"]),
                 Paragraph(brand.fmt_time(item["time"]) or "—", st["cell"]),
-                Paragraph(item["activity"] or "—", st["cell"]),
+                Paragraph(escape(master_label(item)), st["cell"]),
                 Paragraph(_detail(item), st["cell_dim"]),
-                Paragraph(item["notes"] or "", st["cell_dim"]),
+                Paragraph(escape(item["notes"] or ""), st["cell_dim"]),
             ])
             if i % 2:
                 style.append(("BACKGROUND", (0, i), (-1, i), ZEBRA))
+            i += 1
+            # This is what blew up on MCDC26. The Crew department's rows put
+            # every name for a call into ONE cell in a 2.55in column — 40 names
+            # is a single row 263 points tall, and a table of those cannot fit
+            # a 618-point frame however it is split. One name per row (note 5)
+            # is both what Larry asked for and what makes this paginate at all.
+            for who in item.get("crew_names") or []:
+                rows.append(["", "",
+                             Paragraph(escape(who or ""), st["cell_name"]),
+                             "", ""])
+                if i % 2:
+                    style.append(("BACKGROUND", (0, i), (-1, i), ZEBRA))
+                i += 1
         table = _DayTable(rows, colWidths=widths, repeatRows=2)
         table.setStyle(TableStyle(style))
         flow += [KeepTogether(table) if len(items) <= ORPHAN_GUARD_ROWS
