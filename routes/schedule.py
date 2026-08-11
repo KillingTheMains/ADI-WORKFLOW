@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, make_response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, make_response, abort
 from extensions import db
 from crew_ordering import (apply_partial_order, crew_order_by, crew_sort_key,
                            roster_index)
@@ -6,7 +6,7 @@ from crew_sections import insert_index_for, renumber
 from models import Show, ScheduleDay, ScheduleActivity, CrewRow, Position, CrewMember, \
                    PHASES, CREW_TYPES, DayTemplate, PHASE_TYPES, ShowCrewAssignment, Company, \
                    SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break, DayPhase, \
-                   MealService, MealServiceLocation
+                   MealService, MealServiceLocation, HardCodedEventDayOff
 from datetime import date, timedelta
 from time_utils import sort_minutes, parse_minutes, hhmm_or_blank
 import re, json
@@ -300,8 +300,9 @@ def day_detail(show_id, day_id):
         crew_by_company.setdefault(key, []).append(cm)
     crew_by_company = sorted(crew_by_company.items())
 
-    from hardcoded_service import overlay_for_day
+    from hardcoded_service import overlay_for_day, hidden_for_day
     hc_overlay, hc_missing_anchor = overlay_for_day(day)
+    hc_hidden = hidden_for_day(day)
 
     # Note 4: people in the Crew Database who are NOT yet on this show, offered
     # in the add-to-roster modal so the common case is one click, not retyping
@@ -324,6 +325,7 @@ def day_detail(show_id, day_id):
                            oss_meta=SUB_SCHEDULE_META,
                            hardcoded_overlay=hc_overlay,
                            hardcoded_missing_anchor=hc_missing_anchor,
+                           hardcoded_hidden=hc_hidden,
                            crew_by_company=crew_by_company,
                            meal_breaks_missing_fb=meal_breaks_missing_fb)
 
@@ -875,6 +877,45 @@ def add_crew_row(show_id, day_id, act_id):
 
     db.session.commit()
     return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
+
+
+@schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/recurring/"
+                   "<int:hce_id>/remove", methods=["POST"])
+def remove_recurring_from_day(show_id, day_id, hce_id):
+    """Hide one occurrence of a recurring event on one day of one show.
+
+    Nothing is deleted — the definition is a series and this is a
+    per-occurrence exception, so it can be restored. Keyed on the day's DATE
+    because #32 regenerates ScheduleDay rows and an id-keyed suppression would
+    evaporate or reattach to the wrong day.
+    """
+    day = ScheduleDay.query.get_or_404(day_id)
+    if day.show_id != show_id or not day.date:
+        abort(404)
+    exists = HardCodedEventDayOff.query.filter_by(
+        show_id=show_id, hce_id=hce_id, date=day.date).first()
+    if exists is None:
+        db.session.add(HardCodedEventDayOff(show_id=show_id, hce_id=hce_id,
+                                            date=day.date))
+        db.session.commit()
+    return redirect(url_for("schedule.day_detail", show_id=show_id,
+                            day_id=day_id))
+
+
+@schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/recurring/"
+                   "<int:hce_id>/restore", methods=["POST"])
+def restore_recurring_to_day(show_id, day_id, hce_id):
+    """Put a removed occurrence back on this day."""
+    day = ScheduleDay.query.get_or_404(day_id)
+    if day.show_id != show_id or not day.date:
+        abort(404)
+    row = HardCodedEventDayOff.query.filter_by(
+        show_id=show_id, hce_id=hce_id, date=day.date).first()
+    if row is not None:
+        db.session.delete(row)
+        db.session.commit()
+    return redirect(url_for("schedule.day_detail", show_id=show_id,
+                            day_id=day_id))
 
 
 @schedule_bp.route("/<int:show_id>/travel-window", methods=["POST"])

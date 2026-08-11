@@ -428,13 +428,13 @@
       </div>
     </div>
 
-    <!-- ── Hard-Coded Events (auto, read-only overlay) ─────────────────── -->
-    {% if hardcoded_overlay or hardcoded_missing_anchor %}
+    <!-- ── Recurring Events (auto overlay, per-occurrence removable) ────── -->
+    {% if hardcoded_overlay or hardcoded_missing_anchor or hardcoded_hidden %}
     <div class="card mb-2" style="border-left:3px solid var(--adi-gold);">
       <div class="card-body py-2 px-3">
         <div class="d-flex align-items-center justify-content-between mb-1">
           <span style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--adi-muted);">
-            📌 Hard-Coded Events <span style="text-transform:none;">· auto · timed off SOD/EOD</span>
+            🔁 Recurring Events <span style="text-transform:none;">· auto · timed off SOD/EOD</span>
           </span>
           <a href="/hard-coded-events" style="font-size:.72rem;">Manage</a>
         </div>
@@ -451,11 +451,39 @@
             {{ oss_meta[hc.department].icon }} {{ oss_meta[hc.department].label }}
           </span>
           {% endif %}
+          {# Removes this occurrence only. The series is untouched, and the
+             removal can be undone from the strip below. #}
+          <form method="POST" style="display:inline;"
+                action="{{ url_for('schedule.remove_recurring_from_day', show_id=show.id, day_id=day.id, hce_id=hc.id) }}"
+                onsubmit="return confirm('Remove “{{ hc.name|e }}” from this day only?\n\nOther days keep it, and you can put it back from “hidden on this day” below.');">
+            <button type="submit" title="Remove from this day"
+                    style="border:none;background:none;color:var(--adi-muted);
+                           font-size:.8rem;padding:0 2px;line-height:1;">✕</button>
+          </form>
         </div>
         {% endfor %}
         {% if hardcoded_missing_anchor %}
         <div style="font-size:.72rem;color:var(--adi-muted);margin-top:3px;">
-          Set this day's Start/End of Day to place the remaining hard-coded events.
+          Set this day's Start/End of Day to place the remaining recurring events.
+        </div>
+        {% endif %}
+        {% if hardcoded_hidden %}
+        {# A removal with no visible trace is a trap — the user needs to see
+           what they hid in order to undo it. #}
+        <div style="font-size:.72rem;color:var(--adi-muted);margin-top:5px;
+                    border-top:1px dashed var(--adi-border);padding-top:4px;">
+          {{ hardcoded_hidden|length }} hidden on this day:
+          {% for ev in hardcoded_hidden %}
+          <span style="white-space:nowrap;">
+            <span style="text-decoration:line-through;">{{ ev.name }}</span>
+            <form method="POST" style="display:inline;"
+                  action="{{ url_for('schedule.restore_recurring_to_day', show_id=show.id, day_id=day.id, hce_id=ev.id) }}">
+              <button type="submit" title="Put this back on this day"
+                      style="border:none;background:none;color:var(--adi-blue);
+                             font-size:.72rem;padding:0 2px;">restore</button>
+            </form>{% if not loop.last %} · {% endif %}
+          </span>
+          {% endfor %}
         </div>
         {% endif %}
       </div>

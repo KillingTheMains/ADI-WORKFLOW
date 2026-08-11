@@ -9,8 +9,16 @@ recomputes with no drift and nothing to migrate.
 Per-show scope: an event applies to a show unless ShowHardCodedEvent says
 enabled=False for it (default on).
 """
-from models import HardCodedEvent, ShowHardCodedEvent
+from models import HardCodedEvent, HardCodedEventDayOff, ShowHardCodedEvent
 from time_utils import parse_minutes
+
+
+def days_off_for(show_id, day_date):
+    """ids of recurring events the user removed from THIS day of THIS show."""
+    if not day_date:
+        return set()
+    return {r.hce_id for r in HardCodedEventDayOff.query
+            .filter_by(show_id=show_id, date=day_date).all()}
 
 
 def _parse(t_str):
@@ -61,6 +69,14 @@ def overlay_for_day(day):
     if not events:
         return [], False
 
+    # Per-occurrence exceptions. A removal is subtracted at render, so editing
+    # the definition still updates every occurrence that is still showing.
+    removed = days_off_for(day.show_id, getattr(day, "date", None))
+    if removed:
+        events = [e for e in events if e.id not in removed]
+        if not events:
+            return [], False
+
     sod_m = _parse(getattr(day, "sod", None))
     eod_m = _parse(getattr(day, "eod", None))
 
@@ -72,6 +88,7 @@ def overlay_for_day(day):
             continue
         start_m = base + (e.start_offset or 0)
         item = {
+            "id": e.id,
             "name": e.name,
             "department": e.department,
             "time": _fmt(start_m),
@@ -87,3 +104,20 @@ def overlay_for_day(day):
 
     items.sort(key=lambda x: x["sort_min"])
     return items, missing
+
+
+def hidden_for_day(day):
+    """Recurring events the user removed from this day, for the restore UI.
+
+    A removal with no visible trace is a trap — the user has no way to undo
+    something they cannot see. Returns the event objects so the day page can
+    offer them back.
+    """
+    if day is None or not getattr(day, "date", None):
+        return []
+    removed = days_off_for(day.show_id, day.date)
+    if not removed:
+        return []
+    return (HardCodedEvent.query
+            .filter(HardCodedEvent.id.in_(removed))
+            .order_by(HardCodedEvent.sort_order, HardCodedEvent.id).all())

@@ -20,7 +20,9 @@ def test_hardcoded_event_on_dept_tab_and_master(app, client, db):
     body = r.get_data(as_text=True)
     assert r.status_code == 200
     assert "Gate Sweep" in body
-    assert "Hard-Coded Events" in body
+    # Renamed to "Recurring Events" on 2026-08-11 (note 7) — the calendar-app
+    # wording matches the per-occurrence-exception behaviour.
+    assert "Recurring Events" in body
 
     rm = client.get("/shows/%d/oss?tab=master" % show.id)
     assert "Gate Sweep" in rm.get_data(as_text=True)

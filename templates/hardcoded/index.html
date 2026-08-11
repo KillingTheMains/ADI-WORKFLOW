@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Hard-Coded Events — ADI Workflow{% endblock %}
-{% block page_title %}Hard-Coded Events{% endblock %}
+{% block title %}Recurring Events — ADI Workflow{% endblock %}
+{% block page_title %}Recurring Events{% endblock %}
 {% block breadcrumb %}
-  <a href="{{ url_for('main.dashboard') }}">Home</a> / Hard-Coded Events
+  <a href="{{ url_for('main.dashboard') }}">Home</a> / Recurring Events
 {% endblock %}
 
 {% block content %}
@@ -112,13 +112,13 @@
           <button class="btn btn-sm btn-adi">Save</button>
         </form>
         <form method="POST" action="{{ url_for('hardcoded_bp.delete', ev_id=ev.id) }}"
-              onsubmit="return confirm('Delete this hard-coded event?');">
+              onsubmit="return confirm('Delete this recurring event?');">
           <button class="btn btn-sm btn-outline-danger" title="Delete">✕</button>
         </form>
       </div>
       {% endfor %}
     {% else %}
-      <p class="hce-muted mb-0">No hard-coded events yet — add one above.</p>
+      <p class="hce-muted mb-0">No recurring events yet — add one above.</p>
     {% endif %}
   </div>
 </div>

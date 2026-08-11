@@ -854,6 +854,29 @@ class HardCodedEvent(db.Model):
         return f"<HardCodedEvent {self.name} {self.start_label}>"
 
 
+class HardCodedEventDayOff(db.Model):
+    """One occurrence of a recurring event, removed from one day of one show.
+
+    The calendar-app model (notes 6+7, 2026-08-11): the definition is the
+    series and this is a per-occurrence exception. Editing the series updates
+    every occurrence still showing but does NOT resurrect hidden ones — the
+    alternative is that a typo fix silently puts back an event the user
+    deliberately removed from a dark day.
+
+    Keyed on the DATE, not on ScheduleDay.id. #32 regenerates day rows from
+    phase ranges, so a row id can vanish and be reissued; a suppression keyed
+    on it would evaporate, or worse, reattach to a different day.
+    """
+    __tablename__ = "hard_coded_event_days_off"
+    id      = db.Column(db.Integer, primary_key=True)
+    show_id = db.Column(db.Integer, db.ForeignKey("shows.id"), nullable=False)
+    hce_id  = db.Column(db.Integer, db.ForeignKey("hard_coded_events.id"),
+                        nullable=False)
+    date    = db.Column(db.Date, nullable=False)
+    __table_args__ = (db.UniqueConstraint("show_id", "hce_id", "date",
+                                          name="uq_hce_day_off"),)
+
+
 class ShowHardCodedEvent(db.Model):
     """Per-show on/off for a global HardCodedEvent (#37 Phase 2). A missing row
     means the event applies (default on); a row with enabled=False turns it off
