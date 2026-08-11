@@ -85,6 +85,13 @@ MIGRATIONS = [
     # production stays exactly where it is and nothing moves on deploy.
     ("crew_rows", "header_level", "INTEGER DEFAULT 1"),
     ("crew_rows", "company_id", "INTEGER REFERENCES companies(id)"),
+    # 2026-08-11 — breaks & meals overhaul. crew_breaks is a NEW TABLE and is
+    # created by db.create_all(); these are the columns on existing tables.
+    # Every show defaults to uses_new_breaks = 0, so nothing changes on deploy
+    # until a show is explicitly switched over.
+    ("shows", "uses_new_breaks", "INTEGER DEFAULT 0"),
+    ("meal_services", "setup_minutes", "INTEGER DEFAULT 30"),
+    ("meal_services", "holdover_minutes", "INTEGER DEFAULT 30"),
 ]
 
 

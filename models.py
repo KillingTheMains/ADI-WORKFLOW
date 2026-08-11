@@ -198,6 +198,11 @@ class Show(db.Model):
     # when assigned to the show. Set via markers on the Schedule Overview.
     travel_window_start = db.Column(db.Date)
     travel_window_end   = db.Column(db.Date)
+    # Rollout control for the breaks/meals overhaul (2026-08-11). Off means
+    # this show behaves exactly as before — the new code is not even read.
+    # Lets the overhaul go live one show at a time, and be backed out of a
+    # show instantly without touching data.
+    uses_new_breaks     = db.Column(db.Boolean, default=False)
     # #48 — show key-art; used as a header image on all generated paperwork.
     artwork_filename    = db.Column(db.String(300))
     version       = db.Column(db.Integer, default=1)
@@ -592,11 +597,84 @@ MEAL_KEYWORDS = ("LUNCH", "DINNER", "BREAKFAST", "MEAL")
 
 
 def is_meal_break(activity):
-    """Return True if a ScheduleActivity looks like a meal break."""
+    """Return True if a ScheduleActivity looks like a meal break.
+
+    LEGACY. Kept for shows that have not been switched to the new breaks model
+    (``Show.uses_new_breaks``). Guessing catering from a description is the bug
+    CrewBreak exists to fix — do not build anything new on this.
+    """
     if not activity or not activity.description:
         return False
     desc = activity.description.upper()
     return any(kw in desc for kw in MEAL_KEYWORDS)
+
+
+# ── Crew breaks (2026-08-11 overhaul) ────────────────────────────────────────
+#
+# Catering is DECLARED, not inferred from an activity's name. See the project
+# doc ADI_Breaks_And_Meals_Design.md.
+
+CATERED_YES = "yes"
+CATERED_NO = "no"
+CATERED_UNCONFIRMED = "unconfirmed"
+CATERED_STATES = [CATERED_YES, CATERED_NO, CATERED_UNCONFIRMED]
+
+
+class CrewBreak(db.Model):
+    """A break in a crew's shift, and whether F&B provides anything at it.
+
+    WRAPS an existing ScheduleActivity rather than replacing it. Three tables
+    point at schedule_activities — CrewRow (not-null), SubScheduleEntry and
+    MealService — so replacing a break activity would cascade-delete its crew
+    rows and orphan any OSS entry or meal service already linked to it. The
+    activity stays the thing that exists on the timeline; this adds the
+    anchoring and the catering declaration on top, and nothing is destroyed.
+
+    ``catered`` is three-state on purpose. ``unconfirmed`` means nobody has
+    said yet, and it must NEVER be read as "no" — that is how a meal quietly
+    stops reaching the F&B manager. Unconfirmed breaks show on F&B flagged,
+    because a missing meal on site is far worse than an extra line.
+    """
+    __tablename__ = "crew_breaks"
+    id           = db.Column(db.Integer, primary_key=True)
+    show_id      = db.Column(db.Integer, db.ForeignKey("shows.id"), nullable=False)
+    # The break event itself — preserved, never replaced.
+    activity_id  = db.Column(db.Integer, db.ForeignKey("schedule_activities.id"),
+                             nullable=False)
+    # The CREW START this break is timed from. Nullable because a legacy break
+    # may not be attributable to one crew start at migration time.
+    crew_call_id = db.Column(db.Integer, db.ForeignKey("schedule_activities.id"),
+                             nullable=True)
+    offset_minutes   = db.Column(db.Integer)
+    duration_minutes = db.Column(db.Integer, default=60)
+    label            = db.Column(db.String(120))
+    catered          = db.Column(db.String(12), default=CATERED_UNCONFIRMED)
+    meal_service_id  = db.Column(db.Integer, db.ForeignKey("meal_services.id"),
+                                 nullable=True)
+
+    activity     = db.relationship("ScheduleActivity", foreign_keys=[activity_id])
+    crew_call    = db.relationship("ScheduleActivity", foreign_keys=[crew_call_id])
+    meal_service = db.relationship("MealService")
+
+    __table_args__ = (db.UniqueConstraint("activity_id", name="uq_crew_break_activity"),)
+
+    @property
+    def is_catered(self):
+        """Strictly 'yes'. Unconfirmed is NOT catered and NOT uncatered."""
+        return self.catered == CATERED_YES
+
+    @property
+    def needs_confirmation(self):
+        return self.catered == CATERED_UNCONFIRMED
+
+    @property
+    def visible_to_fnb(self):
+        """F&B sees catered breaks, and unconfirmed ones so they can be
+        resolved. Never a break confirmed as uncatered."""
+        return self.catered in (CATERED_YES, CATERED_UNCONFIRMED)
+
+    def __repr__(self):
+        return f"<CrewBreak {self.label!r} catered={self.catered}>"
 
 
 # ── Sub-schedules / OSS (On-Site Schedule) ───────────────────────────────────
@@ -1103,6 +1181,12 @@ class MealService(db.Model):
     is_recurring    = db.Column(db.Boolean, default=False)        # True for All Day Beverages type
     notes           = db.Column(db.Text)
     sort_order      = db.Column(db.Integer, default=0)
+    # Service window (2026-08-11). F&B is set up before the crew breaks and
+    # holds for latecomers after, so a catered meal is ONE event with TWO
+    # times: crew surfaces show the break, F&B surfaces show the window.
+    # House defaults confirmed by Jason: 30 before, 1 hour service, 30 after.
+    setup_minutes     = db.Column(db.Integer, default=30)
+    holdover_minutes  = db.Column(db.Integer, default=30)
 
     show            = db.relationship("Show")
     schedule_day    = db.relationship("ScheduleDay")
