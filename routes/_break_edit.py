@@ -1,7 +1,7 @@
 """Editing a crew break: time, duration, provided, meal-service link."""
 from flask import Blueprint, flash, redirect, request, url_for
 
-from breaks import guess_meal_kind
+from breaks import break_export_text, guess_meal_kind
 from extensions import db
 from models import (CATERED_STATES, CATERED_UNCONFIRMED, CATERED_YES,
                     CrewBreak, MealService, MealServiceLocation,
@@ -199,7 +199,7 @@ def add_break(show_id, day_id, act_id):
     act = ScheduleActivity(
         day_id=day.id,
         time=from_minutes(at),
-        description=f"{label} — {call.time} CREW",
+        description=break_export_text(label, duration, call.time),
         sort_order=(call.sort_order or 0) + 1,
     )
     db.session.add(act)

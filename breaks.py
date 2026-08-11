@@ -163,6 +163,24 @@ def _period(label, sittings):
     }
 
 
+def break_export_text(label, duration_minutes, crew_call_time):
+    """How a break reads on a document. ONE definition.
+
+    ``LUNCH (60 min) — 07:00 CREW``. The trailing "<time> CREW" is not
+    decoration: ``oss_export.CREW_BREAK_RE`` matches on it to collapse a
+    period's sittings into one printed row, and the export strips it back off
+    before printing. Change the shape here and that collapse stops firing.
+
+    The old text was the break builder's internal label, ``LUNCH BREAK —
+    7:00 AM CREW``, which is a machine talking to itself on a document that
+    goes to a client.
+    """
+    name = (label or "BREAK").strip() or "BREAK"
+    if duration_minutes:
+        name = f"{name} ({int(duration_minutes)} min)"
+    return f"{name} — {crew_call_time} CREW" if crew_call_time else name
+
+
 def is_crew_start(description):
     """Is this activity the moment a crew group arrives? ONE definition.
 

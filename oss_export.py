@@ -16,7 +16,7 @@ without knowing about the ORM:
 import re
 from datetime import date as _date_cls
 
-from breaks import is_crew_start
+from breaks import break_export_text, is_crew_start
 from time_utils import sort_minutes, UNKNOWN as UNKNOWN_GUARD
 
 # Undated rows sort after every real day rather than jumping to the top.
@@ -183,6 +183,11 @@ def _collapse_crew_breaks(items):
         first["notes"] = _merge_notes(first["notes"], detail) if len(members) > 1 \
             else first["notes"]
         first["collapsed_calls"] = [call for _m, call in members]
+        # The period feeds every sitting, not just the earliest one. Taking the
+        # first member's count wholesale printed "11 crew" against a lunch that
+        # stops 21.
+        counts = [m["count"] for m, _call in members if m.get("count") is not None]
+        first["count"] = sum(counts) if counts else first.get("count")
         keep.append(first)
     return keep
 
@@ -208,8 +213,14 @@ def build_master_items(show, entries, meal_services):
     rather than both being listed. Before this, 18% of rows on a real 11-day
     show were the same event printed twice — 33 of them character-identical.
     """
-    from models import SUB_SCHEDULE_TYPES
+    from models import SUB_SCHEDULE_TYPES, CrewBreak
     from hardcoded_service import overlay_for_day
+
+    # Queried here rather than passed in: unlike entries and meal services,
+    # no caller already holds these, and it is one query for the whole export.
+    # Empty for any show not switched over, which then prints exactly as before.
+    crew_breaks = {cb.activity_id: cb
+                   for cb in CrewBreak.query.filter_by(show_id=show.id).all()}
 
     items = []
     # activity_id -> the department rows that claim that activity
@@ -263,9 +274,20 @@ def build_master_items(show, entries, meal_services):
         crew_by_time = {}
         for a in d.activities:
             if a.id not in claimed:
-                items.append(_item(d, a.time, "Schedule", a.description,
-                                   icon="🗓", notes=a.notes,
-                                   source=SOURCE_ACTIVITY))
+                cb = crew_breaks.get(a.id)
+                if cb is not None:
+                    # A break prints as what it is, not as the builder's
+                    # internal label. Same text rule as the day page.
+                    text = break_export_text(
+                        cb.label, cb.duration_minutes,
+                        cb.crew_call.time if cb.crew_call else None)
+                    items.append(_item(d, a.time, "Schedule", text, icon="☕",
+                                       count=cb.derived_headcount,
+                                       notes=a.notes, source=SOURCE_ACTIVITY))
+                else:
+                    items.append(_item(d, a.time, "Schedule", a.description,
+                                       icon="🗓", notes=a.notes,
+                                       source=SOURCE_ACTIVITY))
             # Crew on a Crew Start all share that event's call time.
             if is_crew_start(a.description):
                 names = crew_by_time.setdefault(a.time or "", [])
