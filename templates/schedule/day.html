@@ -597,8 +597,8 @@
                   <td>
                     {% if row.crew_member %}
                       <input type="text" name="name_override" value="{{ row.name_override or '' }}"
-                             placeholder="{{ row.crew_member.full_name }}"
-                             title="Override display name (leave blank to show {{ row.crew_member.full_name }})"
+                             placeholder="{{ row.crew_member.display_label }}"
+                             title="Override display name (leave blank to show {{ row.crew_member.display_label }})"
                              class="form-control form-control-sm"
                              style="font-size:.72rem;padding:1px 4px;">
                     {% else %}
@@ -819,7 +819,7 @@
                         {% endif %}
                         <option value="{{ cm.id }}"
                                 data-position="{{ cm.position.title if cm.position else '' }}">
-                          {{ cm.full_name }}{% if cm.position %} — {{ cm.position.title }}{% endif %}
+                          {{ cm.display_label }}{% if cm.position %} — {{ cm.position.title }}{% endif %}
                         </option>
                       {% endfor %}
                       {% if dg.dept %}</optgroup>{% endif %}
@@ -1058,7 +1058,7 @@
       {% for row in act.crew_rows %}
         {% if not row.is_group_header and row.hours %}
           {% set hrs = row.hours * (row.qty or 1) %}
-          {% set name = row.crew_member.full_name if row.crew_member else (row.name_override or 'TBD') %}
+          {% set name = row.crew_member.display_label if row.crew_member else (row.name_override or 'TBD') %}
           {% set pos  = row.position or '' %}
           {% set dept = (row.crew_member.position.department if row.crew_member and row.crew_member.position else '') or '' %}
           {% set found = namespace(idx=-1) %}
@@ -1232,7 +1232,7 @@
                 {% for cm in crew %}
                 <label style="font-size:.82rem;display:flex;align-items:center;gap:4px;min-width:155px;">
                   <input type="checkbox" class="bac-crew" name="crew_member_ids" value="{{ cm.id }}">
-                  {{ cm.full_name }}
+                  {{ cm.display_label }}
                   {% if cm.position %}<span style="color:var(--adi-muted);font-size:.72rem;">({{ cm.position.title }})</span>{% endif %}
                 </label>
                 {% endfor %}

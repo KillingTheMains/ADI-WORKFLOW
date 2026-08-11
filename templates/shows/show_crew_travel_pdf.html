@@ -68,7 +68,7 @@
     {% for a in assignments %}
     {% set cm = a.crew_member %}
     <tr>
-      <td class="col-name">{{ cm.full_name if cm else '—' }}</td>
+      <td class="col-name">{{ cm.display_label if cm else '—' }}</td>
       <td>{{ cm.company.name if cm and cm.company else '' }}</td>
       <td>{{ cm.position.title if cm and cm.position else '' }}
           {% if a.booking_task %}<br><span style="color:#888;">· {{ a.booking_task }}</span>{% endif %}</td>

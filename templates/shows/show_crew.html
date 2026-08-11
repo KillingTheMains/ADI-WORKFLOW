@@ -213,7 +213,7 @@
               <input type="checkbox" class="crew-select" value="{{ a.crew_member.id }}">
             </td>
               <td>
-                <div style="font-weight:600;">{{ a.crew_member.full_name }}</div>
+                <div style="font-weight:600;">{{ a.crew_member.display_label }}</div>
                 <input form="{{ fid }}" type="text" name="role_override" value="{{ a.role_override or '' }}"
                        placeholder="role on this show (optional)"
                        class="form-control form-control-sm mt-1">
@@ -309,7 +309,7 @@
                     {% for co in sorted_companies %}
                     <optgroup label="{{ co.name }}">
                       {% for cm in co.crew %}
-                      <option value="{{ cm.id }}">{{ cm.full_name }}{% if cm.position %} · {{ cm.position.title }}{% endif %}</option>
+                      <option value="{{ cm.id }}">{{ cm.display_label }}{% if cm.position %} · {{ cm.position.title }}{% endif %}</option>
                       {% endfor %}
                     </optgroup>
                     {% endfor %}
@@ -435,7 +435,7 @@
         <tr style="border-bottom:1px solid #F3F4F6;
                    {% if is_assigned %}background:#F0F9FF;{% endif %}">
           <td style="padding:8px 16px;font-weight:600;color:var(--adi-dark);">
-            {{ cm.full_name }}
+            {{ cm.display_label }}
           </td>
           <td style="padding:8px 16px;color:var(--adi-muted);">
             {% if cm.position %}

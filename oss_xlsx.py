@@ -24,8 +24,8 @@ except ImportError:        # older releases called it Brk
 from openpyxl.worksheet.properties import PageSetupProperties
 
 import brand
-from oss_export import (build_master_items, department_style, group_by_day,
-                        group_by_department)
+from oss_export import (build_master_items, count_label, department_style,
+                        group_by_day, group_by_department)
 
 FONT = brand.FONT_FALLBACK_XLSX
 WHITE = "FFFFFF"
@@ -58,8 +58,8 @@ def _detail(item):
     """
     bits = []
     if item.get("count") is not None:
-        bits.append(f"{item['count']} pax" if item["dept"] in ("F&B", "Crew")
-                    else f"×{item['count']}")
+        bits.append(count_label(item["dept"], item["count"])
+                    or f"×{item['count']}")
     if item.get("duration_hrs") is not None:
         bits.append(f"{item['duration_hrs']:g} hr")
     return " · ".join(bits)
@@ -285,8 +285,7 @@ def _department_sheets(wb, show, agency, master_items):
                 day.date.isoformat() if day and day.date else "",
                 _display_time(item["time"]),
                 label,
-                (f"{item['count']} pax" if item["dept"] in ("F&B", "Crew")
-                 and item.get("count") is not None else ""),
+                count_label(item["dept"], item.get("count")),
                 item.get("count"),
                 item.get("duration_hrs"),
                 item["notes"],

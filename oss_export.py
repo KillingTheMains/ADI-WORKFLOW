@@ -28,6 +28,20 @@ SOURCE_ACTIVITY = "activity"
 SOURCE_CREW = "crew"
 SOURCE_HARDCODED = "hardcoded"
 
+# Head-count wording. "pax" is a travel/hospitality term and reads wrong in AV
+# production, so it is gone. Kept in ONE place because the XLSX, the PDF and the
+# Master tab all print it and must agree — change the word here, not in three
+# files. F&B counts people being fed rather than people called, hence the split.
+COUNT_NOUNS = {"Crew": "crew", "F&B": "people"}
+
+
+def count_label(dept, count):
+    """'11 crew' / '18 people' for departments that carry a head count."""
+    noun = COUNT_NOUNS.get(dept)
+    if not noun or not count:
+        return ""
+    return f"{count} {noun}"
+
 
 # Department accent colours, shared by the XLSX and the PDF so the two read as
 # one system. Every entry pairs a colour with a short TEXT label: these get
@@ -241,7 +255,7 @@ def build_master_items(show, entries, meal_services):
                     if row.is_group_header or not row.crew_member_id:
                         continue
                     cm = row.crew_member
-                    who = cm.full_name if cm else (row.name_override or "TBD")
+                    who = cm.display_label if cm else (row.name_override or "TBD")
                     if who not in names:
                         names.append(who)
 

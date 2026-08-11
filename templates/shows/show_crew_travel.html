@@ -291,7 +291,7 @@
                    {% if sort_by == 'company' %}data-company="{{ co_name }}"{% endif %}>
           </td>
           <td class="name-cell">
-            <div style="font-weight:600;">{{ a.crew_member.full_name }}</div>
+            <div style="font-weight:600;">{{ a.crew_member.display_label }}</div>
             <div class="pos">
               {% if a.crew_member.position %}{{ a.crew_member.position.title }}{% endif %}
               {% if a.booking_task %} · {{ a.booking_task }}{% endif %}

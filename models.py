@@ -132,6 +132,48 @@ class CrewMember(db.Model):
     def full_name(self):
         return f"{self.first_name} {self.last_name}"
 
+    @property
+    def is_unnamed_slot(self):
+        """Stricter than ``looks_like_placeholder`` — and deliberately so.
+
+        ``looks_like_placeholder`` drives a save-time warning, where a false
+        positive costs the user a shrug. This drives NAME SUBSTITUTION, where a
+        false positive hides a real person from a call sheet. So it fires only
+        when the whole name is a stand-in, not when one half happens to match:
+        a real crew member surnamed "Name" or "Last" keeps their name.
+        """
+        first = (self.first_name or "").strip().lower()
+        last = (self.last_name or "").strip().lower()
+        both = f"{first} {last}".strip()
+        if both in self.PLACEHOLDER_NAMES:
+            return True
+        first_ph = (not first) or first in self.PLACEHOLDER_NAMES
+        last_ph = (not last) or last in self.PLACEHOLDER_NAMES
+        return first_ph and last_ph and bool(both)
+
+    @property
+    def display_label(self):
+        """What to render on schedules, call sheets and exports.
+
+        An unnamed slot is not a mistake — it is a called position nobody is
+        booked into yet, and "SPARKS Lead Rigger" tells a reader far more than
+        "First Last". Falls back through company-only and position-only to a
+        bare "TBD" so a thin record never renders as a fake person.
+        """
+        if not self.is_unnamed_slot:
+            return self.full_name
+        company = ""
+        if self.company:
+            company = (self.company.code or self.company.name or "").strip()
+        position = (self.position.title or "").strip() if self.position else ""
+        if company and position:
+            return f"{company} {position}"
+        if company:
+            return f"{company} — TBD"
+        if position:
+            return f"{position} — TBD"
+        return "TBD"
+
     def __repr__(self):
         return f"<CrewMember {self.full_name}>"
 
@@ -378,8 +420,22 @@ class CrewRow(db.Model):
     @property
     def display_name(self):
         if self.crew_member:
-            return self.crew_member.full_name
+            return self.crew_member.display_label
         return self.name_override or "TBD"
+
+    @property
+    def is_unfilled(self):
+        """True when this row is a called slot with nobody named in it yet.
+
+        Drives the quiet visual marker so Larry can scan a day and see what is
+        still open. Deliberately NOT excluded from headcounts — an unfilled
+        slot still has to be called, fed and scheduled.
+        """
+        if self.is_group_header:
+            return False
+        if self.crew_member:
+            return self.crew_member.is_unnamed_slot
+        return not (self.name_override or "").strip()
 
     def __repr__(self):
         return f"<CrewRow {self.qty}x {self.position}>"

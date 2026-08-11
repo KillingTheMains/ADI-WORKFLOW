@@ -78,6 +78,9 @@
       background: #E8E8E8; font-weight: 700; font-size: 7.5pt;
       text-transform: uppercase; letter-spacing: .06em; padding: 3pt 6pt;
     }
+    /* An unfilled slot renders as COMPANY + POSITION. Quiet, not alarming —
+       it is a normal state, just one Larry wants to be able to scan for. */
+    .crew-tbl td.unfilled { font-style: italic; color: #6b7280; }
 
     /* Milestones */
     .milestones { margin-top: 10pt; border-top: .5pt dashed #ccc; padding-top: 6pt; }
@@ -220,7 +223,7 @@
             <td>{{ row.qty }}</td>
             <td>{{ row.hours if row.hours else '—' }}</td>
             <td>{{ row.position or '—' }}</td>
-            <td>{{ row.display_name }}</td>
+            <td{% if row.is_unfilled %} class="unfilled"{% endif %}>{{ row.display_name }}</td>
             <td>{{ row.notes or '' }}</td>
           </tr>
           {% endif %}

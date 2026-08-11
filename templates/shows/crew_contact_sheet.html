@@ -174,7 +174,7 @@
     <tbody>
       {% for cm in co.crew %}
       <tr>
-        <td class="name-cell">{{ cm.full_name }}</td>
+        <td class="name-cell">{{ cm.display_label }}</td>
         <td class="pos-cell">{{ cm.position.title if cm.position else '—' }}</td>
         <td class="dept-cell">{{ cm.position.department if cm.position else '—' }}</td>
         <td class="contact-cell">

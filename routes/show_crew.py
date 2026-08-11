@@ -225,7 +225,7 @@ def add_company_crew_to_activity(show_id, day_id, act_id):
         added.append({
             "id": None,  # filled after commit
             "crew_member_id": cm.id,
-            "name": cm.full_name,
+            "name": cm.display_label,
             "position": cm.position.title if cm.position else "",
         })
 
@@ -425,7 +425,7 @@ def edit_assignment(show_id, aid):
     _set_if_present(a, "itinerary_link",     f, "itinerary_link")
 
     db.session.commit()
-    flash(f"Saved {a.crew_member.full_name}.", "success")
+    flash(f"Saved {a.crew_member.display_label}.", "success")
     # Respect a posted `next=` (Travel page submits it) so we land back
     # where the user came from.
     if next_url and next_url.startswith("/"):
@@ -776,7 +776,7 @@ def contact_sheet_xlsx(show_id):
         # Data
         for cm in co["crew"]:
             ws.append([
-                cm.full_name,
+                cm.display_label,
                 cm.position.title if cm.position else "",
                 cm.position.department if cm.position else "",
                 cm.phone or "",
@@ -853,7 +853,7 @@ def travel_xlsx(show_id):
                 bcell.fill = PatternFill("solid", fgColor="1A1A1A")
                 _write_header_row()
         ws.append([
-            cm.full_name if cm else "",
+            cm.display_label if cm else "",
             cm.company.name if cm and cm.company else "",
             cm.position.title if cm and cm.position else "",
             a.booking_task or "",

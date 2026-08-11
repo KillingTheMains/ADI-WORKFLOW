@@ -196,7 +196,7 @@
             </tr>
           {% endif %}
           <tr>
-            <td style="font-weight:600;">{{ entry.member.full_name }}</td>
+            <td style="font-weight:600;">{{ entry.member.display_label }}</td>
             <td style="color:var(--adi-blue);font-size:.72rem;">{{ entry.position or '—' }}</td>
             <td style="color:var(--adi-muted);font-size:.72rem;">{{ entry.company or '—' }}</td>
             <td style="font-size:.68rem;color:var(--adi-muted);">{{ entry.type or '—' }}</td>
@@ -347,7 +347,7 @@
             {% set top_crew = sorted_crew|sort(attribute='total', reverse=True) %}
             {% for entry in top_crew[:10] %}
             <tr>
-              <td style="font-weight:600;">{{ entry.member.full_name }}</td>
+              <td style="font-weight:600;">{{ entry.member.display_label }}</td>
               <td style="color:var(--adi-blue);font-size:.72rem;">{{ entry.position or '—' }}</td>
               <td>
                 <div style="display:flex;align-items:center;gap:6px;">

@@ -28,8 +28,8 @@ from reportlab.platypus import (BaseDocTemplate, Frame, KeepTogether,
                                 Paragraph, Spacer, Table, TableStyle)
 
 import brand
-from oss_export import (build_master_items, department_style, group_by_day,
-                        group_by_department)
+from oss_export import (build_master_items, count_label, department_style,
+                        group_by_day, group_by_department)
 
 
 MIDNIGHT = colors.HexColor(brand.MIDNIGHT)
@@ -339,8 +339,8 @@ def _day_rows(day, items, st):
 def _detail(item):
     bits = []
     if item.get("count") is not None:
-        bits.append(f"{item['count']} pax" if item["dept"] in ("F&B", "Crew")
-                    else f"×{item['count']}")
+        bits.append(count_label(item["dept"], item["count"])
+                    or f"×{item['count']}")
     if item.get("duration_hrs") is not None:
         bits.append(f"{item['duration_hrs']:g} hr")
     return " · ".join(bits)

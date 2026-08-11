@@ -150,7 +150,7 @@
       {% set a = row.assignment %}
       {% set cm = row.crew_member %}
       <tr data-aid="{{ a.id }}">
-        <td style="font-weight:600;">{{ cm.full_name }}</td>
+        <td style="font-weight:600;">{{ cm.display_label }}</td>
         <td class="text-muted" style="font-size:.78rem;">
           {{ cm.position.title if cm.position else '—' }}
         </td>
