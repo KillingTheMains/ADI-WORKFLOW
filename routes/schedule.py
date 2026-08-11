@@ -309,25 +309,43 @@ def day_detail(show_id, day_id):
     from hardcoded_service import overlay_for_day, hidden_for_day
     hc_overlay, hc_missing_anchor = overlay_for_day(day)
     hc_hidden = hidden_for_day(day)
-    hc_before, hc_after = _place_recurring(day, hc_overlay)
 
     # Breaks overhaul: only read for shows switched over, so every other show
     # renders exactly as it did before.
+    # Breaks are EDITED on their crew call and READ as one row per period
+    # (Jason, 2026-08-11), so the page needs both shapes:
+    #   breaks_by_crew_call — the editor, folded into the CREW START card
+    #   break_periods       — the timeline rows, grouped across crew groups
+    # breaks_by_activity stays only so a break's own activity can be skipped
+    # where it would otherwise render as an ordinary event.
     breaks_by_activity, day_meal_services = {}, []
-    # Which services are already spoken for. One service per crew group is a
-    # rule, not a preference: two crew groups sharing one service means food
-    # out for three hours, which breaks the 2-hour rule.
-    service_taken_by = {}
+    breaks_by_crew_call, break_periods = {}, []
     if show.uses_new_breaks:
         from models import CrewBreak
+        from breaks import group_breaks
+        day_act_ids = {a.id for a in day.activities}
+        on_this_day = []
         for cb in CrewBreak.query.filter_by(show_id=show.id).all():
             breaks_by_activity[cb.activity_id] = cb
-            if cb.meal_service_id:
-                service_taken_by[cb.meal_service_id] = cb.id
+            if cb.activity_id in day_act_ids:
+                on_this_day.append(cb)
+                breaks_by_crew_call.setdefault(cb.crew_call_id, []).append(cb)
+        for rows in breaks_by_crew_call.values():
+            rows.sort(key=lambda b: (b.start_minute if b.start_minute is not None
+                                     else 10 ** 6, b.id or 0))
+        break_periods = group_breaks(on_this_day)
         day_meal_services = (MealService.query
                              .filter_by(show_id=show.id, schedule_day_id=day.id)
                              .order_by(MealService.sort_order, MealService.id)
                              .all())
+
+    # A break activity is drawn inside its period row, so it is not a timeline
+    # row of its own — and not an anchor for anything either.
+    visible_acts = [a for a in day.activities if a.id not in breaks_by_activity]
+    hc_before, hc_after = _place_recurring(day, hc_overlay, visible_acts)
+    brk_before, brk_after = _place_recurring(
+        day, [dict(p, sort_min=p["minute"] or 0) for p in break_periods],
+        visible_acts)
 
     # Note 4: people in the Crew Database who are NOT yet on this show, offered
     # in the add-to-roster modal so the common case is one click, not retyping
@@ -352,9 +370,11 @@ def day_detail(show_id, day_id):
                            hardcoded_missing_anchor=hc_missing_anchor,
                            hardcoded_hidden=hc_hidden,
                            hc_before=hc_before, hc_after=hc_after,
+                           brk_before=brk_before, brk_after=brk_after,
                            breaks_by_activity=breaks_by_activity,
+                           breaks_by_crew_call=breaks_by_crew_call,
+                           break_periods=break_periods,
                            day_meal_services=day_meal_services,
-                           service_taken_by=service_taken_by,
                            crew_by_company=crew_by_company,
                            meal_breaks_missing_fb=meal_breaks_missing_fb)
 

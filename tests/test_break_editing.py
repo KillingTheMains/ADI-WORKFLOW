@@ -131,14 +131,17 @@ def test_break_row_renders_only_for_switched_over_shows(app, client, db):
     show, day, call, act, cb, ms = _setup(db, "BE36", new_breaks=False)
     html = client.get("/shows/%d/schedule/%d" % (show.id, day.id)) \
                  .get_data(as_text=True)
-    assert "☕ BREAK" not in html
     assert "+ Break" not in html
+    assert 'id="breaks-%d"' % call.id not in html
 
 
 def test_break_row_renders_when_switched_on(app, client, db):
+    """The editor lives on the crew call and the break reads as a period row
+    (2026-08-11). Neither is the old always-mounted strip."""
     show, day, call, act, cb, ms = _setup(db, "BE37", new_breaks=True)
     html = client.get("/shows/%d/schedule/%d" % (show.id, day.id)) \
                  .get_data(as_text=True)
-    assert "☕ BREAK" in html
+    assert 'id="breaks-%d"' % call.id in html       # the folded editor
     assert "+ Break" in html
-    assert "Not provided" in html
+    assert "Crew sort themselves" in html           # one catering control
+    assert "LUNCH" in html                          # the period row

@@ -508,91 +508,71 @@
     </div>
     {% endmacro %}
 
+    {% macro catered_pill(state) %}
+    {# One glyph for the one question: who is feeding this crew? #}
+    {% if state == 'yes' %}
+    <span class="badge" style="background:#DCFCE7;color:#166534;font-weight:600;font-size:.66rem;">🍽 F&amp;B</span>
+    {% elif state == 'no' %}
+    <span class="badge" style="background:#F1F5F9;color:var(--adi-muted);font-weight:600;font-size:.66rem;">crew sort themselves</span>
+    {% elif state == 'mixed' %}
+    <span class="badge" style="background:#FEF3C7;color:#92400E;font-weight:600;font-size:.66rem;"
+          title="The sittings disagree — one crew group is fed and another is not.">mixed</span>
+    {% else %}
+    <span class="badge" style="background:#FEF3C7;color:#92400E;font-weight:600;font-size:.66rem;"
+          title="Nobody has said whether F&amp;B provides this. It still shows on the F&amp;B tab until somebody does.">F&amp;B? not said</span>
+    {% endif %}
+    {% endmacro %}
+
+    {% macro break_period_row(p) %}
+    {# ONE row per break period, sittings underneath — the day reads as
+       "LUNCH, three sittings", not as three lunches. Read-only on purpose:
+       a break is edited on the crew call it hangs off, because that is the
+       only place its offset means anything. #}
+    <div class="mb-2 px-3 py-1"
+         style="font-size:.82rem;border-left:3px solid #0B2545;background:#F7F9FB;
+                border-radius:3px;">
+      <div class="d-flex align-items-center gap-2">
+        <span style="min-width:74px;font-weight:700;color:#0B2545;">
+          {{ p.time|to_12hr if p.time else '—' }}
+        </span>
+        <span style="font-weight:600;letter-spacing:.02em;">{{ p.label }}</span>
+        <span class="text-muted" style="font-size:.75rem;">
+          {{ p.duration_minutes or 0 }} min
+          {%- if p.sittings|length > 1 %} · {{ p.sittings|length }} sittings{% endif %}
+        </span>
+        <span style="flex:1;"></span>
+        {% if p.crew is not none %}
+        <span class="text-muted" style="font-size:.75rem;"
+              title="Read off the crew calls, live.">{{ p.crew }} crew{% if p.crew_partial %} +?{% endif %}</span>
+        {% endif %}
+        {{ catered_pill(p.catered) }}
+      </div>
+      {% if p.sittings|length > 1 %}
+      <div class="text-muted" style="font-size:.74rem;margin-left:74px;">
+        {% for b in p.sittings %}
+        <a href="#breaks-{{ b.crew_call_id }}" data-bs-toggle="collapse"
+           style="color:inherit;margin-right:14px;white-space:nowrap;text-decoration:none;
+                  border-bottom:1px dotted var(--adi-border);"
+           title="Edit on the {{ b.crew_call.time if b.crew_call else '' }} crew call">
+          {{ b.activity.time|to_12hr if b.activity else '—' }}
+          {%- if b.derived_headcount is not none %} · {{ b.derived_headcount }} crew{% endif %}
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endmacro %}
+
     {% if day.activities %}
     {% for act in day.activities %}
     {% for hc in hc_before.get(act.id, []) %}{{ recurring_row(hc) }}{% endfor %}
+    {% for p in brk_before.get(act.id, []) %}{{ break_period_row(p) }}{% endfor %}
     {% set brk = breaks_by_activity.get(act.id) %}
     {% if brk %}
-    {# A break is a LINE ITEM, not a full activity card — it is the crew
-       stopping, not work being done. Tinted in Midnight so it reads as part
-       of the paperwork rather than as an alert, and the tint survives the
-       black-and-white printing every ADI document gets. #}
-    <div class="mb-2 px-2 py-1"
-         style="background:rgba(11,37,69,.08);border-left:3px solid #0B2545;
-                border-radius:3px;">
-      <form method="POST" class="row g-1 align-items-center"
-            action="{{ url_for('break_edit.edit_break', show_id=show.id, day_id=day.id, break_id=brk.id) }}">
-        <div class="col-auto" style="font-size:.72rem;color:#0B2545;font-weight:700;">
-          ☕ BREAK
-        </div>
-        <div class="col-auto">
-          <input type="time" name="time" value="{{ act.time|to_24hr }}"
-                 class="form-control form-control-sm"
-                 style="font-size:.72rem;width:96px;">
-        </div>
-        <div class="col-auto">
-          <input type="text" name="label" value="{{ brk.label or '' }}"
-                 class="form-control form-control-sm" placeholder="Label"
-                 style="font-size:.72rem;width:150px;">
-        </div>
-        <div class="col-auto">
-          <select name="duration_minutes" class="form-select form-select-sm"
-                  style="font-size:.72rem;width:84px;" title="Duration">
-            {% for m in [15, 30, 60] %}
-            <option value="{{ m }}" {% if brk.duration_minutes == m %}selected{% endif %}>{{ m }} min</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-auto">
-          <select name="catered" class="form-select form-select-sm"
-                  style="font-size:.72rem;width:150px;"
-                  title="Does F&amp;B provide anything at this break?">
-            <option value="unconfirmed" {% if brk.catered == 'unconfirmed' %}selected{% endif %}>— unconfirmed —</option>
-            <option value="yes" {% if brk.catered == 'yes' %}selected{% endif %}>Provided</option>
-            <option value="no" {% if brk.catered == 'no' %}selected{% endif %}>Not provided</option>
-          </select>
-        </div>
-        <div class="col-auto">
-          <select name="meal_service_id" class="form-select form-select-sm"
-                  style="font-size:.72rem;width:190px;"
-                  title="Meal service F&amp;B sees for this break">
-            <option value="">No meal service</option>
-            {% for ms in day_meal_services %}
-            {% set taken = service_taken_by.get(ms.id) not in (none, brk.id) %}
-            <option value="{{ ms.id }}" {% if brk.meal_service_id == ms.id %}selected{% endif %}
-                    {% if taken %}disabled{% endif %}>{{ ms.name }}{% if taken %} — already fed to another break{% endif %}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-auto">
-          <button class="btn btn-sm btn-adi" style="font-size:.72rem;">Save</button>
-        </div>
-        <div class="col-auto" style="font-size:.7rem;color:var(--adi-muted);">
-          {% if brk.crew_call %}off {{ brk.crew_call.time }} crew
-            {%- if brk.offset_minutes is not none %} +{{ brk.offset_minutes }}m{% endif %}
-          {% else %}<span style="color:#9F1239;">no crew call anchor</span>{% endif %}
-          {% if brk.derived_headcount is not none %}
-          {# The number F&B gets. Shown here because this is where someone
-             decides a meal is provided, and it is the one figure they would
-             otherwise have to go to another tab to check. #}
-          · <span title="Read off the crew call, live. Changing the crew changes what F&amp;B is told.">{{ brk.derived_headcount }} crew</span>
-          {% endif %}
-          {% if brk.catered == 'unconfirmed' %}
-          · <span style="color:#B45309;">F&amp;B still sees this</span>
-          {% endif %}
-          {% if brk.meal_service %}
-          · <span style="color:#166534;" title="This break has a meal service on the F&amp;B tab.">🍽 {{ brk.meal_service.name }} ({{ brk.meal_service.total_headcount }})</span>
-          {% endif %}
-        </div>
-      </form>
-      <form method="POST" style="display:inline;"
-            action="{{ url_for('break_edit.delete_break', show_id=show.id, day_id=day.id, break_id=brk.id) }}"
-            onsubmit="return confirm('Remove this break from the schedule?');">
-        <button type="submit"
-                style="border:none;background:none;font-size:.68rem;opacity:.5;padding:0 2px;"
-                title="Remove this break">✕ remove</button>
-      </form>
-    </div>
+    {# Drawn inside its period row above, not here. A break is one crew group
+       stopping; the day reads better as "LUNCH, three sittings" than as three
+       lunches scattered through the timeline, and it is what the master
+       export has always printed. Editing lives on the crew call. #}
     {% else %}
     <div class="card mb-2 act-card" id="act-{{ act.id }}" data-act-id="{{ act.id }}" data-act-time="{{ act.time or '' }}">
       <div class="card-body p-0">
@@ -604,30 +584,6 @@
           <span style="min-width:74px;font-weight:700;color:var(--adi-blue);font-size:.85rem;">
             {{ act.time|to_12hr if act.time else '—' }}
           </span>
-          {% if show.uses_new_breaks and 'CREW START' in (act.description or '')|upper %}
-          {# Breaks are added on the crew call, because the offset only means
-             something relative to a specific crew start. #}
-          <form method="POST" class="d-flex align-items-center gap-1 me-2"
-                action="{{ url_for('break_edit.add_break', show_id=show.id, day_id=day.id, act_id=act.id) }}">
-            <input type="text" name="label" placeholder="BREAK"
-                   class="form-control form-control-sm"
-                   style="font-size:.68rem;width:104px;padding:1px 4px;">
-            <select name="offset_minutes" class="form-select form-select-sm"
-                    style="font-size:.68rem;width:96px;padding:1px 4px;" title="After crew start">
-              <option value="150">+2:30</option>
-              <option value="300" selected>+5:00</option>
-              <option value="510">+8:30</option>
-            </select>
-            <select name="duration_minutes" class="form-select form-select-sm"
-                    style="font-size:.68rem;width:78px;padding:1px 4px;">
-              <option value="15">15 min</option>
-              <option value="30" selected>30 min</option>
-              <option value="60">60 min</option>
-            </select>
-            <button class="btn btn-sm btn-outline-secondary"
-                    style="font-size:.68rem;padding:1px 6px;">+ Break</button>
-          </form>
-          {% endif %}
           <span style="font-weight:600;font-size:.9rem;flex:1;">
             {{ act.description }}
             {% if act.id in meal_breaks_missing_fb %}
@@ -641,6 +597,20 @@
           </span>
           {% if act.notes %}
           <span class="text-muted me-2" style="font-size:.75rem;">{{ act.notes }}</span>
+          {% endif %}
+
+          {% if show.uses_new_breaks and is_crew_start(act.description) %}
+          {# Breaks are managed HERE — the offset only means anything relative
+             to this crew start. Folded away by default: mounting the editor
+             on every crew call is what made this page a wall of form controls. #}
+          {% set my_breaks = breaks_by_crew_call.get(act.id, []) %}
+          <button class="btn btn-sm me-2" type="button"
+                  data-bs-toggle="collapse" data-bs-target="#breaks-{{ act.id }}"
+                  style="font-size:.7rem;padding:1px 8px;border:1px solid var(--adi-border);
+                         background:{{ '#F7F9FB' if my_breaks else '#fff' }};white-space:nowrap;"
+                  title="Breaks for this crew call">
+            ☕ {% if my_breaks %}{{ my_breaks|length }} break{{ '' if my_breaks|length == 1 else 's' }}{% else %}breaks{% endif %}
+          </button>
           {% endif %}
 
           <!-- Action buttons -->
@@ -668,6 +638,69 @@
             </form>
           </div>
         </div>
+
+        {% if show.uses_new_breaks and is_crew_start(act.description) %}
+        <!-- Breaks for this crew call (collapse) -->
+        <div class="collapse px-3 py-2" id="breaks-{{ act.id }}"
+             style="background:#F7F9FB;border-bottom:1px solid var(--adi-border);">
+          {% for b in breaks_by_crew_call.get(act.id, []) %}
+          <form method="POST" class="d-flex align-items-center gap-1 mb-1 flex-wrap"
+                action="{{ url_for('break_edit.edit_break', show_id=show.id, day_id=day.id, break_id=b.id) }}">
+            <input type="time" name="time" value="{{ b.activity.time|to_24hr if b.activity else '' }}"
+                   class="form-control form-control-sm" style="font-size:.72rem;width:96px;">
+            <input type="text" name="label" value="{{ b.label or '' }}"
+                   class="form-control form-control-sm" placeholder="LUNCH"
+                   style="font-size:.72rem;width:130px;">
+            <select name="duration_minutes" class="form-select form-select-sm"
+                    style="font-size:.72rem;width:84px;">
+              {% for m in [15, 30, 60] %}
+              <option value="{{ m }}" {% if b.duration_minutes == m %}selected{% endif %}>{{ m }} min</option>
+              {% endfor %}
+            </select>
+            {# ONE control for the one question. The meal service is a
+               consequence of answering it, not a second thing to pick. #}
+            <select name="catered" class="form-select form-select-sm"
+                    style="font-size:.72rem;width:186px;" title="Who feeds this crew?">
+              <option value="unconfirmed" {% if b.catered == 'unconfirmed' %}selected{% endif %}>— not decided —</option>
+              <option value="yes" {% if b.catered == 'yes' %}selected{% endif %}>F&amp;B provides</option>
+              <option value="no" {% if b.catered == 'no' %}selected{% endif %}>Crew sort themselves</option>
+            </select>
+            <button class="btn btn-sm btn-adi" style="font-size:.72rem;">Save</button>
+            <span class="text-muted" style="font-size:.7rem;">
+              {%- if b.offset_minutes is not none %}+{{ b.offset_minutes }}m{% endif %}
+              {%- if b.derived_headcount is not none %} · {{ b.derived_headcount }} crew{% endif %}
+              {%- if b.meal_service %} · 🍽 {{ b.meal_service.name }} ({{ b.meal_service.total_headcount }}){% endif %}
+            </span>
+          </form>
+          <form method="POST" class="d-inline"
+                action="{{ url_for('break_edit.delete_break', show_id=show.id, day_id=day.id, break_id=b.id) }}"
+                onsubmit="return confirm('Remove this break from the schedule?');">
+            <button type="submit" style="border:none;background:none;font-size:.68rem;opacity:.5;padding:0 0 6px 2px;"
+                    title="Remove this break">✕ remove</button>
+          </form>
+          {% endfor %}
+
+          <form method="POST" class="d-flex align-items-center gap-1 flex-wrap pt-1"
+                style="border-top:1px solid var(--adi-border);"
+                action="{{ url_for('break_edit.add_break', show_id=show.id, day_id=day.id, act_id=act.id) }}">
+            <input type="text" name="label" placeholder="BREAK"
+                   class="form-control form-control-sm" style="font-size:.72rem;width:130px;">
+            <select name="offset_minutes" class="form-select form-select-sm"
+                    style="font-size:.72rem;width:96px;" title="After this crew start">
+              <option value="150">+2:30</option>
+              <option value="300" selected>+5:00</option>
+              <option value="510">+8:30</option>
+            </select>
+            <select name="duration_minutes" class="form-select form-select-sm"
+                    style="font-size:.72rem;width:84px;">
+              <option value="15">15 min</option>
+              <option value="30" selected>30 min</option>
+              <option value="60">60 min</option>
+            </select>
+            <button class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;">+ Break</button>
+          </form>
+        </div>
+        {% endif %}
 
         <!-- Edit activity (collapse) -->
         <div class="collapse px-3 py-2" id="edit-act-{{ act.id }}"
@@ -1063,6 +1096,7 @@
     {# Anything later than the last activity, or with no placeable time —
        shown rather than silently dropped. #}
     {% for hc in hc_after %}{{ recurring_row(hc) }}{% endfor %}
+    {% for p in brk_after %}{{ break_period_row(p) }}{% endfor %}
 
     {% else %}
     {% for hc in hc_after %}{{ recurring_row(hc) }}{% endfor %}

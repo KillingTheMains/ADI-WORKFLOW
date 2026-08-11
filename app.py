@@ -150,6 +150,12 @@ def create_app():
     from oss_export import master_label as _master_label
     app.jinja_env.globals["master_label"] = _master_label
 
+    # Same reason: the day page decides where the break editor goes, and it has
+    # to agree with the break builder, the backfill and the export about what
+    # a crew call is. One definition, in breaks.py.
+    from breaks import is_crew_start as _is_crew_start
+    app.jinja_env.globals["is_crew_start"] = _is_crew_start
+
     # ── Security response headers ────────────────────────────────────────────
     # Fable 5 review: the live site returned no X-Frame-Options,
     # X-Content-Type-Options, Referrer-Policy, or HSTS. Cheap defense-in-depth,

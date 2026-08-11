@@ -704,6 +704,24 @@ class CrewBreak(db.Model):
         return self.catered in (CATERED_YES, CATERED_UNCONFIRMED)
 
     @property
+    def start_minute(self):
+        """When the crew actually stops, in minutes. None when unreadable.
+
+        parse_minutes, not sort_minutes: the sentinel would place a break at
+        minute 1,000,000 rather than admitting it has no time.
+        """
+        if self.activity is None:
+            return None
+        return time_utils.parse_minutes(self.activity.time)
+
+    @property
+    def fed_headcount(self):
+        """How many F&B is being asked to feed at this sitting, or None when
+        nobody is feeding it."""
+        svc = self.meal_service
+        return svc.total_headcount if svc is not None else None
+
+    @property
     def derived_headcount(self):
         """How many crew this break stops — read from the crew call it hangs
         off, live.

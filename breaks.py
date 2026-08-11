@@ -15,7 +15,7 @@ The central idea: a catered meal is ONE event with TWO times.
 
 Crew surfaces show the break window. F&B surfaces show the service window.
 """
-from time_utils import parse_minutes
+from time_utils import from_minutes, parse_minutes
 
 # House defaults, confirmed by Jason 2026-08-11.
 DEFAULT_SETUP_MINUTES = 30
@@ -92,6 +92,75 @@ def beverage_touchpoints(first_crew_call, eod,
         points.append(t)
         t += step
     return points
+
+
+def group_breaks(breaks):
+    """Breaks -> reading order: one period per meal, sittings underneath.
+
+    Jason, 2026-08-11: breaks are EDITED on the crew call they hang off, and
+    READ as one row per break period. So the day's timeline shows "LUNCH,
+    3 sittings, 12:00 / 13:00 / 14:00" rather than three separate lunches
+    interleaved with everything else.
+
+    This is a DISPLAY grouping and nothing else. Each break stays its own
+    record with its own service, because the 2-hour food-out rule means an
+    08:00 and an 09:00 crew genuinely cannot share one sitting. It is also
+    the same collapse ``oss_export._collapse_crew_breaks`` already does, so
+    the screen and the printout finally describe the day the same way.
+
+    Grouped by label, and a label group is SPLIT when two of its breaks come
+    off the SAME crew call — one crew taking a morning and an afternoon break
+    both typed "BREAK" is two periods, not one period the same crew attends
+    twice. Breaks with no crew-call anchor never conflict, since there is
+    nothing to tell them apart by.
+
+    Duck-typed on ``label``, ``crew_call_id``, ``start_minute`` and
+    ``duration_minutes``.
+    """
+    ordered = sorted(
+        breaks,
+        key=lambda b: (b.start_minute if b.start_minute is not None else 10 ** 6,
+                       b.id or 0),
+    )
+    buckets = {}
+    order = []
+    for b in ordered:
+        key = (b.label or "BREAK").strip().upper() or "BREAK"
+        if key not in buckets:
+            buckets[key] = []
+        home = None
+        for group in buckets[key]:
+            clash = (b.crew_call_id is not None
+                     and any(x.crew_call_id == b.crew_call_id for x in group))
+            if not clash:
+                home = group
+                break
+        if home is None:
+            home = []
+            buckets[key].append(home)
+            order.append((key, home))
+        home.append(b)
+    return [_period(key, group) for key, group in order]
+
+
+def _period(label, sittings):
+    """One grouped row. ``catered`` is 'mixed' when the sittings disagree —
+    never silently one of them, because 'the LX crew is fed and the riggers
+    are not' is exactly the thing somebody needs to see."""
+    states = {b.catered for b in sittings}
+    first = sittings[0]
+    counts = [b.derived_headcount for b in sittings]
+    known = [c for c in counts if c is not None]
+    return {
+        "label": label,
+        "minute": first.start_minute,
+        "time": from_minutes(first.start_minute),
+        "duration_minutes": first.duration_minutes,
+        "sittings": sittings,
+        "catered": states.pop() if len(states) == 1 else "mixed",
+        "crew": sum(known) if known else None,
+        "crew_partial": len(known) != len(counts),
+    }
 
 
 def is_crew_start(description):

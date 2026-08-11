@@ -314,7 +314,11 @@ def test_a_service_cannot_be_fed_to_two_breaks(app, client, db):
     assert first.meal_service_id == svc_id
 
 
-def test_the_taken_service_is_disabled_in_the_dropdown(app, client, db):
+def test_the_day_page_no_longer_offers_a_service_picker(app, client, db):
+    """The picker was retired on 2026-08-11 — one question, one control, and
+    the service follows from the answer. The 1:1 rule is now enforced only in
+    edit_break, which is what test_a_service_cannot_be_fed_to_two_breaks
+    covers. This test exists so that guard is never mistaken for dead code."""
     from models import ScheduleActivity
     show, day, call = _show_with_call(db, "DH22", crew=[(None, 8)])
     second_call = ScheduleActivity(day_id=day.id, time="09:00",
@@ -325,4 +329,4 @@ def test_the_taken_service_is_disabled_in_the_dropdown(app, client, db):
     _bare_break(db, show, day, second_call, label="LUNCH 2")
     html = client.get("/shows/%d/schedule/%d" % (show.id, day.id)) \
                  .get_data(as_text=True)
-    assert "already fed to another break" in html
+    assert 'name="meal_service_id"' not in html

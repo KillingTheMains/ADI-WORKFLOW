@@ -123,10 +123,15 @@ def hidden_for_day(day):
             .order_by(HardCodedEvent.sort_order, HardCodedEvent.id).all())
 
 
-def place_in_day(day, overlay):
-    """Slot recurring events into a day's timeline by time (note 6).
+def place_in_day(day, overlay, activities=None):
+    """Slot timed items into a day's timeline by time (note 6).
 
     Returns ``({activity_id: [items before it]}, [items after the last])``.
+
+    ``activities`` overrides which rows are candidate anchors. The day editor
+    passes the VISIBLE ones: a break activity is drawn as part of its grouped
+    period row rather than on its own, and anchoring to a row that never
+    renders would silently swallow whatever was placed against it.
 
     Lives here, not in a route, because BOTH the day editor and the show book
     have to place them identically — the show book rendered day.activities
@@ -143,7 +148,7 @@ def place_in_day(day, overlay):
     before, after = {}, []
     if not overlay or day is None:
         return before, after
-    acts = sorted(day.activities,
+    acts = sorted(day.activities if activities is None else activities,
                   key=lambda a: (parse_minutes(a.time) is None,
                                  parse_minutes(a.time) or 0))
     for item in sorted(overlay, key=lambda i: i.get("sort_min") or 0):
