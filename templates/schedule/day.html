@@ -577,7 +577,7 @@
               {# Note 1: tiered, collapsible, editable section header. #}
               <tr class="group-header crew-drag-row"
                   data-row="{{ row.id }}" data-header="1"
-                  data-level="{{ row.header_level or 1 }}" draggable="true">
+                  data-level="{{ row.header_level or 1 }}">
                 <td colspan="6"
                     style="{% if (row.header_level or 1) > 1 %}padding-left:26px;font-size:7.6pt;opacity:.85;{% endif %}">
                   <span class="crew-drag-handle" title="Drag to move this section"
@@ -630,12 +630,17 @@
                 </td>
               </tr>
               {% else %}
-              <tr class="crew-drag-row" data-row="{{ row.id }}" draggable="true">
+              <tr class="crew-drag-row" data-row="{{ row.id }}">
                 <form method="POST" data-autosave="true" style="display:contents;"
                       action="{{ url_for('schedule.edit_crew_row', show_id=show.id, day_id=day.id, row_id=row.id) }}">
-                  <td><input type="number" name="qty" value="{{ row.qty }}" min="1" step="1"
-                             class="form-control form-control-sm"
-                             style="font-size:.72rem;padding:1px 4px;width:44px;"></td>
+                  <td style="white-space:nowrap;">
+                    {# A crew row is full of inputs, so a drag can never start
+                       from the row itself — it needs its own grab handle. #}
+                    <span class="crew-drag-handle" title="Drag to reorder"
+                          style="cursor:grab;opacity:.35;margin-right:2px;">⠿</span>
+                    <input type="number" name="qty" value="{{ row.qty }}" min="1" step="1"
+                           class="form-control form-control-sm d-inline-block"
+                           style="font-size:.72rem;padding:1px 4px;width:44px;"></td>
                   <td><input type="number" name="hours" value="{{ row.hours if row.hours is not none else '' }}"
                              min="0" step="0.25" title="Estimated hours"
                              class="form-control form-control-sm"
@@ -1958,6 +1963,7 @@ function openHeaderEdit(rowId) {
 // every other crew call in the show follows. Dragging a HEADER takes its rows
 // and sub-sections with it.
 let _dragRow = null;
+let _dragWasHeader = false;
 
 function _blockOf(tr) {
   const block = [tr];
@@ -1977,10 +1983,26 @@ function _blockOf(tr) {
   return block;
 }
 
+// Rows are only draggable while a handle is held. Without this a crew row
+// cannot be dragged at all: it is full of inputs, and the browser gives the
+// drag to the input's own text selection instead of the row.
+document.addEventListener('mousedown', function (e) {
+  const h = e.target.closest && e.target.closest('.crew-drag-handle');
+  if (!h) return;
+  const tr = h.closest('.crew-drag-row');
+  if (tr) tr.draggable = true;
+});
+
+document.addEventListener('mouseup', function () {
+  document.querySelectorAll('tr.crew-drag-row[draggable="true"]')
+          .forEach(function (n) { n.draggable = false; });
+});
+
 document.addEventListener('dragstart', function (e) {
   const tr = e.target.closest && e.target.closest('.crew-drag-row');
-  if (!tr) return;
+  if (!tr || !tr.draggable) return;
   _dragRow = tr;
+  _dragWasHeader = tr.dataset.header === '1';
   e.dataTransfer.effectAllowed = 'move';
 });
 
@@ -2001,6 +2023,8 @@ document.addEventListener('dragover', function (e) {
 document.addEventListener('dragend', function () {
   if (!_dragRow) return;
   const body = _dragRow.closest('tbody');
+  const wasHeader = _dragWasHeader;
+  _dragRow.draggable = false;
   _dragRow = null;
   if (!body) return;
   const ids = Array.from(body.querySelectorAll('tr.crew-drag-row'))
@@ -2008,10 +2032,14 @@ document.addEventListener('dragend', function () {
   fetch(body.dataset.reorderUrl, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ids: ids})
+    // Moving a SECTION must not rewrite the show roster. Sections are
+    // per-activity; the roster is show-wide. Letting a section move write
+    // back scrambled the order on every other crew call in the show.
+    body: JSON.stringify({ids: ids, moved_header: wasHeader})
   }).then(function (r) {
-    // The roster changed, so every other call on the page is now stale.
-    if (r.ok) location.reload();
+    // Only a name drag changes the roster, so only then is the rest of the
+    // page stale enough to need a reload.
+    if (r.ok && !wasHeader) location.reload();
   });
 });
 

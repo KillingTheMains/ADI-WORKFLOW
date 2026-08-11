@@ -977,3 +977,24 @@ def quick_add(show_id):
     return jsonify(ok=True, id=cm.id, label=label,
                    position=cm.position.title if cm.position else "",
                    already_on_roster=existing is not None)
+
+
+@show_crew_bp.route("/<int:show_id>/crew/reset-order", methods=["POST"])
+def reset_roster_order(show_id):
+    """Drop every manual roster position and fall back to the Crew Database.
+
+    Recovery hatch. Roster order is a derived-ish thing — the Crew Database is
+    the seed — so a scrambled roster is always recoverable by clearing the
+    manual overrides rather than restoring a backup. Added after a header drag
+    wrote the roster on 2026-08-11 and reordered every crew call in the show.
+    """
+    show = Show.query.get_or_404(show_id)
+    n = 0
+    for a in ShowCrewAssignment.query.filter_by(show_id=show.id).all():
+        if a.sort_order is not None:
+            a.sort_order = None
+            n += 1
+    db.session.commit()
+    flash(f"Roster order reset to Crew Database order ({n} manual "
+          f"position{'s' if n != 1 else ''} cleared).", "success")
+    return redirect(url_for("show_crew.show_crew", show_id=show.id))

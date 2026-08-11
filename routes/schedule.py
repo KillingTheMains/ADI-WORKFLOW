@@ -1043,7 +1043,9 @@ def reorder_crew_rows(show_id, day_id, act_id):
     single order in the system instead of one per call, which is what drifted
     before.
     """
-    ids = (request.get_json(silent=True) or {}).get("ids") or []
+    payload = request.get_json(silent=True) or {}
+    ids = payload.get("ids") or []
+    moved_header = bool(payload.get("moved_header"))
     rows = {r.id: r for r in CrewRow.query.filter_by(activity_id=act_id).all()}
     ordered = [rows[i] for i in ids if i in rows]
     if len(ordered) != len(rows):
@@ -1051,12 +1053,19 @@ def reorder_crew_rows(show_id, day_id, act_id):
 
     renumber(ordered)
 
-    member_ids = [r.crew_member_id for r in ordered
-                  if not r.is_group_header and r.crew_member_id]
-    apply_partial_order(show_id, member_ids)
+    # A SECTION move is local to this crew call. Sections are per-activity;
+    # the roster is show-wide. Writing back on a header drag reordered the
+    # roster from the resulting flat sequence and scrambled the order on every
+    # other crew call in the show — reported live on 2026-08-11.
+    reordered = 0
+    if not moved_header:
+        member_ids = [r.crew_member_id for r in ordered
+                      if not r.is_group_header and r.crew_member_id]
+        apply_partial_order(show_id, member_ids)
+        reordered = len(member_ids)
 
     db.session.commit()
-    return jsonify(ok=True, reordered=len(member_ids))
+    return jsonify(ok=True, reordered=reordered, roster_written=not moved_header)
 
 
 # ── Reorder activities (AJAX) ─────────────────────────────────────────────────
