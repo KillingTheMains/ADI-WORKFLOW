@@ -345,6 +345,21 @@ def hours_report(show_id):
         for day_id, hrs in entry["days"].items():
             day_totals[day_id] = day_totals.get(day_id, 0.0) + hrs
 
+    # Larry's billable day: 10 hours, OT 1.5x for 11-12, DT 2.0x from 13.
+    # Split PER DAY — summing a person's show total and splitting that would
+    # invent overtime for eight short days and hide it on one long one.
+    # Hours only, no money: whether rate_standard is hourly or a 10-hour day
+    # rate is still an open question for Larry.
+    from billing import split_days, weighted_hours
+    for entry in sorted_crew:
+        st, ot, dt = split_days(entry["days"].values())
+        entry["st_hours"], entry["ot_hours"], entry["dt_hours"] = st, ot, dt
+        entry["weighted_hours"] = weighted_hours(st, ot, dt)
+
+    totals_st = sum(e["st_hours"] for e in sorted_crew)
+    totals_ot = sum(e["ot_hours"] for e in sorted_crew)
+    totals_dt = sum(e["dt_hours"] for e in sorted_crew)
+
     grand_total        = sum(e["total"] for e in sorted_crew)
     grand_total_actual = sum(e["total_actual"] for e in sorted_crew)
     any_actual_recorded = any(e.get("actual_recorded") for e in sorted_crew)
@@ -356,6 +371,7 @@ def hours_report(show_id):
         sorted_crew=sorted_crew,
         tbd_data=tbd_data,
         day_totals=day_totals,
+        totals_st=totals_st, totals_ot=totals_ot, totals_dt=totals_dt,
         grand_total=grand_total,
         grand_total_actual=grand_total_actual,
         any_actual_recorded=any_actual_recorded,

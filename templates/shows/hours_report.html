@@ -120,6 +120,26 @@
 {% set days_with_crew = namespace(n=0) %}
 {% for day in show_days %}{% if day_totals.get(day.id, 0) > 0 %}{% set days_with_crew.n = days_with_crew.n + 1 %}{% endif %}{% endfor %}
 
+{# Larry's billable day, split per day. Hours only — see billing.py for why
+   this stops short of money. #}
+{% if totals_ot or totals_dt %}
+<div class="alert mb-3" role="note"
+     style="background:#FCFAF4;border:1px solid #E8DCA8;font-size:.82rem;">
+  <strong>Billable split</strong> — 10-hour day, OT 1.5× for hours 11–12,
+  DT 2.0× from hour 13, applied to each day separately.
+  <span style="margin-left:6px;">
+    ST <strong>{{ "%.1f"|format(totals_st) }}</strong> ·
+    OT <strong>{{ "%.1f"|format(totals_ot) }}</strong> ·
+    DT <strong>{{ "%.1f"|format(totals_dt) }}</strong>
+  </span>
+  <div style="font-size:.74rem;color:#6b7280;margin-top:3px;">
+    Derived from Larry's rate cards and RFQ workbooks — not yet confirmed by
+    him, and no rates are applied. Estimated hours are used where actual hours
+    have not been entered.
+  </div>
+</div>
+{% endif %}
+
 <div class="row g-3 mb-4 no-print">
   <div class="col">
     <div class="stat-card">
@@ -127,6 +147,14 @@
       <div class="stat-label">Total Man-Hours</div>
     </div>
   </div>
+  {% if totals_ot or totals_dt %}
+  <div class="col">
+    <div class="stat-card">
+      <div class="stat-num">{{ "%.0f"|format(totals_ot + totals_dt) }}</div>
+      <div class="stat-label">OT + DT Hours</div>
+    </div>
+  </div>
+  {% endif %}
   <div class="col">
     <div class="stat-card">
       <div class="stat-num">{{ total_crew }}</div>
