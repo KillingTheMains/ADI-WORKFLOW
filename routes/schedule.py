@@ -14,6 +14,37 @@ import re, json
 schedule_bp = Blueprint("schedule", __name__)
 
 
+def _place_recurring(day, overlay):
+    """Slot recurring events into the day's timeline by time (note 6).
+
+    They used to sit in a block of their own at the top, which reads as a
+    separate list rather than as part of the day. Returns
+    ``({activity_id: [items before it]}, [items after the last activity])``
+    so the template can emit each one where it actually happens.
+
+    Anything the day cannot place — an event with no resolvable time — falls
+    to the end rather than being dropped silently.
+    """
+    before, after = {}, []
+    if not overlay:
+        return before, after
+    acts = sorted(day.activities,
+                  key=lambda a: (sort_minutes(a.time) is None,
+                                 sort_minutes(a.time) or 0))
+    for item in sorted(overlay, key=lambda i: i.get("sort_min") or 0):
+        target = None
+        for a in acts:
+            mins = sort_minutes(a.time)
+            if mins is not None and mins >= (item.get("sort_min") or 0):
+                target = a
+                break
+        if target is None:
+            after.append(item)
+        else:
+            before.setdefault(target.id, []).append(item)
+    return before, after
+
+
 # ── Time helpers ─────────────────────────────────────────────────────────────
 
 def _parse_time_to_minutes(t_str):
@@ -303,6 +334,7 @@ def day_detail(show_id, day_id):
     from hardcoded_service import overlay_for_day, hidden_for_day
     hc_overlay, hc_missing_anchor = overlay_for_day(day)
     hc_hidden = hidden_for_day(day)
+    hc_before, hc_after = _place_recurring(day, hc_overlay)
 
     # Note 4: people in the Crew Database who are NOT yet on this show, offered
     # in the add-to-roster modal so the common case is one click, not retyping
@@ -326,6 +358,7 @@ def day_detail(show_id, day_id):
                            hardcoded_overlay=hc_overlay,
                            hardcoded_missing_anchor=hc_missing_anchor,
                            hardcoded_hidden=hc_hidden,
+                           hc_before=hc_before, hc_after=hc_after,
                            crew_by_company=crew_by_company,
                            meal_breaks_missing_fb=meal_breaks_missing_fb)
 

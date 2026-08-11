@@ -438,30 +438,9 @@
           </span>
           <a href="/hard-coded-events" style="font-size:.72rem;">Manage</a>
         </div>
-        {% for hc in hardcoded_overlay %}
-        <div class="d-flex align-items-center gap-2 py-1"
-             style="font-size:.85rem;border-top:1px solid var(--adi-border);">
-          <span style="font-weight:700;color:var(--adi-blue);min-width:150px;">
-            {{ hc.time }}{% if hc.end_time %} – {{ hc.end_time }}{% endif %}
-          </span>
-          <span style="flex:1;">{{ hc.name }}</span>
-          {% if hc.department and hc.department in oss_meta %}
-          <span class="badge"
-                style="background:var(--adi-surface);color:var(--adi-muted);border:1px solid var(--adi-border);">
-            {{ oss_meta[hc.department].icon }} {{ oss_meta[hc.department].label }}
-          </span>
-          {% endif %}
-          {# Removes this occurrence only. The series is untouched, and the
-             removal can be undone from the strip below. #}
-          <form method="POST" style="display:inline;"
-                action="{{ url_for('schedule.remove_recurring_from_day', show_id=show.id, day_id=day.id, hce_id=hc.id) }}"
-                onsubmit="return confirm('Remove “{{ hc.name|e }}” from this day only?\n\nOther days keep it, and you can put it back from “hidden on this day” below.');">
-            <button type="submit" title="Remove from this day"
-                    style="border:none;background:none;color:var(--adi-muted);
-                           font-size:.8rem;padding:0 2px;line-height:1;">✕</button>
-          </form>
+        <div style="font-size:.72rem;color:var(--adi-muted);">
+          {{ hardcoded_overlay|length }} placed in the schedule below by time.
         </div>
-        {% endfor %}
         {% if hardcoded_missing_anchor %}
         <div style="font-size:.72rem;color:var(--adi-muted);margin-top:3px;">
           Set this day's Start/End of Day to place the remaining recurring events.
@@ -502,8 +481,36 @@
     </div>
 
     <!-- ── Activities List ───────────────────────────────────────────── -->
+    {# Note 6: a recurring event belongs IN the timeline at its own time, not
+       in a block of its own at the top. #}
+    {% macro recurring_row(hc) %}
+    <div class="mb-2 px-3 py-1 d-flex align-items-center gap-2"
+         style="font-size:.82rem;border-left:3px solid var(--adi-gold);
+                background:#FCFAF4;border-radius:3px;">
+      <span title="Recurring event" style="opacity:.6;">🔁</span>
+      <span style="min-width:74px;font-weight:700;color:var(--adi-blue);">
+        {{ hc.time }}{% if hc.end_time %} – {{ hc.end_time }}{% endif %}
+      </span>
+      <span style="flex:1;">{{ hc.name }}</span>
+      {% if hc.department and hc.department in oss_meta %}
+      <span class="badge"
+            style="background:var(--adi-surface);color:var(--adi-muted);border:1px solid var(--adi-border);">
+        {{ oss_meta[hc.department].icon }} {{ oss_meta[hc.department].label }}
+      </span>
+      {% endif %}
+      <form method="POST" style="display:inline;"
+            action="{{ url_for('schedule.remove_recurring_from_day', show_id=show.id, day_id=day.id, hce_id=hc.id) }}"
+            onsubmit="return confirm('Remove “{{ hc.name|e }}” from this day only?\n\nOther days keep it, and you can put it back from the Recurring Events panel above.');">
+        <button type="submit" title="Remove from this day"
+                style="border:none;background:none;color:var(--adi-muted);
+                       font-size:.8rem;padding:0 2px;line-height:1;">✕</button>
+      </form>
+    </div>
+    {% endmacro %}
+
     {% if day.activities %}
     {% for act in day.activities %}
+    {% for hc in hc_before.get(act.id, []) %}{{ recurring_row(hc) }}{% endfor %}
     <div class="card mb-2 act-card" id="act-{{ act.id }}" data-act-id="{{ act.id }}" data-act-time="{{ act.time or '' }}">
       <div class="card-body p-0">
 
@@ -954,8 +961,13 @@
       </div>
     </div>
     {% endfor %}
+    {# Anything later than the last activity, or with no placeable time —
+       shown rather than silently dropped. #}
+    {% for hc in hc_after %}{{ recurring_row(hc) }}{% endfor %}
 
     {% else %}
+    {% for hc in hc_after %}{{ recurring_row(hc) }}{% endfor %}
+    {% if not hc_after %}
     <div class="empty-state py-4">
       <div class="empty-icon">⏰</div>
       <div style="font-size:.9rem;font-weight:600;margin-bottom:6px;">No activities yet</div>
@@ -963,6 +975,7 @@
         Use the form above, click a quick-add pill, or apply a template from the sidebar.
       </p>
     </div>
+    {% endif %}
     {% endif %}
 
     <!-- ── Unlinked OSS items (not tied to any activity) ──────────────── -->
