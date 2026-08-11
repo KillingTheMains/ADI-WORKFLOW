@@ -159,6 +159,20 @@ def oss_hub(show_id):
     # v2 data-migration never reached this database.
     stray_fb = SubScheduleEntry.query.filter_by(show_id=show_id, type="F&B").count()
 
+    # Which breaks each unlinked service could feed. Ranked, and the closest
+    # in time is MARKED — never pre-selected. A wrong auto-link sends a
+    # caterer the wrong headcount, which is the failure this overhaul exists
+    # to remove.
+    import break_linking
+    fb_link_choices = {}
+    for svc in meal_services:
+        if svc.is_recurring or getattr(svc, "crew_break", None) is not None:
+            continue
+        choices = [{"cb": cb, "suggested": break_linking.is_suggested(cb, svc)}
+                   for cb in break_linking.candidates_for_service(svc)]
+        if choices:
+            fb_link_choices[svc.id] = choices
+
     # ── The unified master timeline. Built in oss_export so the Master tab,
     # the XLSX and the client PDF all render from ONE assembly — rebuilt
     # copies drift, which is how the master and the F&B tab came to disagree.
@@ -220,6 +234,7 @@ def oss_hub(show_id):
         days                  = show.days,
         unscheduled_meals     = unscheduled_meals,
         stray_fb              = stray_fb,
+        fb_link_choices       = fb_link_choices,
         activities_by_day     = activities_by_day,
         missing_fb            = missing_fb,
         wristband_grand_total = wristband_grand_total,

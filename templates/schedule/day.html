@@ -553,6 +553,18 @@
         {% endif %}
         {{ catered_pill(p.catered) }}
       </div>
+      {# Linked to F&B — said plainly, under the event, so you can see it
+         without opening another tab. #}
+      {% for b in p.sittings if b.meal_service %}
+      <div style="font-size:.74rem;margin-left:132px;color:#166534;">
+        🍽 This event is linked to the F&amp;B service
+        <a href="{{ url_for('oss.oss_hub', show_id=show.id, tab='F&B') }}"
+           style="color:inherit;font-weight:600;text-decoration:underline;"
+           >{{ b.meal_service.name }}</a>
+        — {{ b.meal_service.total_headcount }} to feed
+        {%- if p.sittings|length > 1 and b.activity %} at {{ b.activity.time|to_12hr }}{% endif %}
+      </div>
+      {% endfor %}
       {% if p.sittings|length > 1 %}
       <div class="text-muted" style="font-size:.74rem;margin-left:132px;">
         {% for b in p.sittings %}
@@ -696,6 +708,28 @@
                       style="border:none;background:none;font-size:.68rem;opacity:.5;padding:0 2px;"
                       title="Remove this break">✕</button>
             </div>
+            {# Only when there IS something to choose. A permanently mounted
+               service picker is what made this page unusable the first time;
+               the F&B-first workflow is the minority case. #}
+            {% set links = break_link_choices.get(b.id, []) %}
+            {% if links and not b.meal_service %}
+            <div class="mb-2" style="margin-left:100px;font-size:.7rem;">
+              <span class="text-muted">or link a service that already exists:</span>
+              <select name="service_id" form="link-break-{{ b.id }}"
+                      class="form-select form-select-sm d-inline-block"
+                      style="font-size:.7rem;width:230px;">
+                {% for c in links %}
+                <option value="{{ c.svc.id }}">{{ c.svc.name }}
+                  {%- if c.svc.earliest_time %} · {{ c.svc.earliest_time|to_12hr }}{% endif %}
+                  {%- if c.suggested %} — suggested{% endif %}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" form="link-break-{{ b.id }}"
+                      class="btn btn-sm btn-outline-secondary" style="font-size:.7rem;padding:1px 8px;">
+                Link
+              </button>
+            </div>
+            {% endif %}
             {% endfor %}
             {% if my_breaks %}
             <button class="btn btn-sm btn-adi" style="font-size:.72rem;">
@@ -709,6 +743,8 @@
           <form method="POST" id="del-break-{{ b.id }}"
                 action="{{ url_for('break_edit.delete_break', show_id=show.id, day_id=day.id, break_id=b.id) }}"
                 onsubmit="return confirm('Remove this break from the schedule?');"></form>
+          <form method="POST" id="link-break-{{ b.id }}"
+                action="{{ url_for('break_link.break_link', show_id=show.id, day_id=day.id, break_id=b.id) }}"></form>
           {% endfor %}
 
           <form method="POST" class="d-flex align-items-center gap-1 flex-wrap pt-2 mt-2"

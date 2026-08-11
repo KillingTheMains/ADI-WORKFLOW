@@ -320,6 +320,7 @@ def day_detail(show_id, day_id):
     # where it would otherwise render as an ordinary event.
     breaks_by_activity, day_meal_services = {}, []
     breaks_by_crew_call, break_periods = {}, []
+    break_link_choices = {}
     if show.uses_new_breaks:
         from models import CrewBreak
         from breaks import group_breaks
@@ -334,6 +335,18 @@ def day_detail(show_id, day_id):
             rows.sort(key=lambda b: (b.start_minute if b.start_minute is not None
                                      else 10 ** 6, b.id or 0))
         break_periods = group_breaks(on_this_day)
+        # Services on this day that nothing feeds yet. Offered ONLY where
+        # there is a choice — a permanently mounted service picker is what
+        # made this page unusable the first time round.
+        import break_linking
+        for cb in on_this_day:
+            if cb.meal_service_id:
+                continue
+            choices = [{"svc": svc,
+                        "suggested": break_linking.is_suggested(cb, svc)}
+                       for svc in break_linking.candidates_for_break(cb)]
+            if choices:
+                break_link_choices[cb.id] = choices
         day_meal_services = (MealService.query
                              .filter_by(show_id=show.id, schedule_day_id=day.id)
                              .order_by(MealService.sort_order, MealService.id)
@@ -374,6 +387,7 @@ def day_detail(show_id, day_id):
                            breaks_by_activity=breaks_by_activity,
                            breaks_by_crew_call=breaks_by_crew_call,
                            break_periods=break_periods,
+                           break_link_choices=break_link_choices,
                            day_meal_services=day_meal_services,
                            crew_by_company=crew_by_company,
                            meal_breaks_missing_fb=meal_breaks_missing_fb)
