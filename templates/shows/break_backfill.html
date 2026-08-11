@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Break backfill — {{ show.name }}{% endblock %}
+{% block page_title %}Break backfill — {{ show.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-3" style="font-size:.85rem;color:var(--adi-muted);">
+  Creates a crew-break record describing each existing break activity.
+  <strong>Nothing is deleted or edited</strong> — the activities and every link
+  they already have stay exactly as they are.
+</div>
+
+<div class="card mb-3">
+  <div class="card-body py-2 px-3 d-flex align-items-center gap-3 flex-wrap">
+    <span><strong>{{ counts.total }}</strong> break activities found</span>
+    <span style="color:#0F766E;"><strong>{{ counts.catered }}</strong> already
+      linked to a meal service → catered</span>
+    <span style="color:#B45309;"><strong>{{ counts.unconfirmed }}</strong>
+      unconfirmed</span>
+    {% if counts.already_done %}
+    <span style="color:var(--adi-muted);"><strong>{{ counts.already_done }}</strong>
+      already backfilled</span>
+    {% endif %}
+    {% if counts.no_anchor %}
+    <span style="color:#9F1239;"><strong>{{ counts.no_anchor }}</strong>
+      with no crew start to anchor to</span>
+    {% endif %}
+  </div>
+</div>
+
+<div class="alert" style="background:#FCFAF4;border:1px solid #E8DCA8;font-size:.82rem;">
+  <strong>Unconfirmed is not "uncatered".</strong> Nothing about a break's name
+  says whether food was ordered — guessing from the name is the bug this
+  replaces. Unconfirmed breaks stay visible to F&amp;B, flagged, until someone
+  says either way. A missing meal on site is far worse than an extra line.
+</div>
+
+<div class="d-flex gap-2 mb-3">
+  <form method="POST"
+        action="{{ url_for('breaks.backfill_apply', show_id=show.id) }}"
+        onsubmit="return confirm('Create {{ rows|length }} crew break records for {{ show.name }}?\n\nNothing is deleted or edited. Safe to re-run.');">
+    <button class="btn btn-sm btn-adi" {% if not rows %}disabled{% endif %}>
+      Create {{ rows|length }} break record{{ '' if rows|length == 1 else 's' }}
+    </button>
+  </form>
+  <form method="POST"
+        action="{{ url_for('breaks.toggle_new_breaks', show_id=show.id) }}">
+    <button class="btn btn-sm btn-outline-secondary">
+      New breaks model: <strong>{{ 'ON' if show.uses_new_breaks else 'OFF' }}</strong>
+      — turn {{ 'off' if show.uses_new_breaks else 'on' }}
+    </button>
+  </form>
+</div>
+
+{% if rows %}
+<table class="table table-sm" style="font-size:.82rem;">
+  <thead>
+    <tr>
+      <th>Day</th><th>Time</th><th>Break</th>
+      <th>Anchored to</th><th>Offset</th><th>Catering</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.day.date.strftime('%a %d %b') if r.day.date else '—' }}</td>
+      <td>{{ r.activity.time or '—' }}</td>
+      <td>{{ r.activity.description }}</td>
+      <td>
+        {% if r.crew_call %}{{ r.crew_call.time }} CREW
+        {% else %}<span style="color:#9F1239;">no crew start</span>{% endif %}
+      </td>
+      <td>{% if r.offset is not none %}+{{ r.offset }}m{% else %}—{% endif %}</td>
+      <td>
+        {% if r.catered == 'yes' %}
+        <span style="color:#0F766E;font-weight:600;">catered</span>
+        <span style="color:var(--adi-muted);">· {{ r.meal_service.name }}</span>
+        {% else %}
+        <span style="color:#B45309;font-weight:600;">unconfirmed</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state py-4">
+  <div style="font-size:.9rem;font-weight:600;">Nothing to backfill</div>
+  <p class="text-muted" style="font-size:.82rem;">
+    Either this show has no break activities, or they already have break
+    records. Re-running is always safe.
+  </p>
+</div>
+{% endif %}
+{% endblock %}

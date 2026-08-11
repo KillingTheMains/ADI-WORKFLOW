@@ -21,6 +21,7 @@ _BLUEPRINTS = [
     ("routes.requests_routes",  "requests_bp",     None),
     ("routes.hardcoded",        "hardcoded_bp",    None),
     ("routes.agency",           "agency_bp",       None),
+    ("routes._breaks_routes",   "breaks_bp",       "/shows"),
 ]
 
 
