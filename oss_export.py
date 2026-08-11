@@ -16,6 +16,7 @@ without knowing about the ORM:
 import re
 from datetime import date as _date_cls
 
+from breaks import is_crew_start
 from time_utils import sort_minutes, UNKNOWN as UNKNOWN_GUARD
 
 # Undated rows sort after every real day rather than jumping to the top.
@@ -266,7 +267,7 @@ def build_master_items(show, entries, meal_services):
                                    icon="🗓", notes=a.notes,
                                    source=SOURCE_ACTIVITY))
             # Crew on a Crew Start all share that event's call time.
-            if "CREW START" in (a.description or "").upper():
+            if is_crew_start(a.description):
                 names = crew_by_time.setdefault(a.time or "", [])
                 for row in a.ordered_crew_rows:
                     if row.is_group_header or not row.crew_member_id:

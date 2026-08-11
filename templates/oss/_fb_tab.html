@@ -199,6 +199,53 @@
       </tbody>
     </table>
 
+    {% set plan = svc.beverage_plan %}
+    {% if plan %}
+    {# Standing service. Setup and refreshes are COMPUTED from the day's first
+       crew call and its EOD every time this renders — never stored, because
+       they move whenever either does. #}
+    <div class="mt-2" style="border-top:1px solid #E8E4D7;padding-top:6px;">
+      <div style="font-size:.72rem;font-weight:700;color:#0B2545;">
+        ☕ Setup &amp; refreshes
+        <span style="font-weight:400;color:#59636E;">
+          — 30 min before the {{ plan.first_crew_call or '—' }} crew call, then every 2h30
+          {%- if plan.eod %}, stopping at EOD {{ plan.eod }}{% endif %}
+        </span>
+      </div>
+      {% if plan.reason %}
+      <div style="font-size:.72rem;color:#B45309;margin-top:3px;">⚠ {{ plan.reason }}</div>
+      {% else %}
+      <table class="loc-table mt-1">
+        <thead><tr>
+          <th class="time" style="width:70px;">Time</th>
+          <th style="width:110px;">Touchpoint</th>
+          <th class="count" style="width:60px;">On site</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+          {% for p in plan.points %}
+          <tr>
+            <td class="time" style="font-weight:600;">{{ p.time }}</td>
+            <td>{{ 'Set up' if p.kind == 'setup' else 'Refresh' }}</td>
+            <td class="count">{{ p.headcount }}</td>
+            <td style="font-size:.68rem;color:#59636E;">
+              {% if p.kind == 'setup' %}crew arriving before the first refresh{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if plan.estimated %}
+      <div style="font-size:.68rem;color:#B45309;margin-top:3px;"
+           title="Some crew rows have no Hrs set, so nobody can be counted off site. These figures are the maximum, not the exact number.">
+        ⚠ Estimate — some crew have no hours set, so nobody is counted as
+        having left. Set Hrs on the crew calls to sharpen these.
+      </div>
+      {% endif %}
+      {% endif %}
+    </div>
+    {% endif %}
+
     {% if svc.notes %}
     <div class="text-muted mt-2" style="font-size:.72rem;font-style:italic;">
       {{ svc.notes }}
@@ -207,6 +254,33 @@
   </div>
 </div>
 {% endfor %}
+
+{# + Standing beverage service — one per day, times computed not typed #}
+{% if not day_meals | selectattr('is_standing') | list %}
+<form method="POST" action="{{ url_for('oss.fb_standing_add', show_id=show.id) }}"
+      class="add-service-form" style="padding-bottom:0;">
+  <input type="hidden" name="schedule_day_id" value="{{ d.id }}">
+  <div class="row g-1 align-items-end">
+    <div class="col-md-2">
+      <label style="font-size:.66rem;font-weight:600;">Standing service</label>
+      <input type="text" name="name" value="All Day Beverages"
+             class="form-control form-control-sm" style="font-size:.76rem;">
+    </div>
+    <div class="col-md-2">
+      <label style="font-size:.66rem;font-weight:600;">Location</label>
+      <input type="text" name="location_name" placeholder="e.g. Backstage"
+             class="form-control form-control-sm" style="font-size:.76rem;">
+    </div>
+    <div class="col-md-auto">
+      <button type="submit" class="btn btn-sm btn-outline-secondary"
+              style="font-size:.72rem;"
+              title="All-day beverages. Setup and refresh times are worked out from this day's first crew call and EOD — there is nothing to type.">
+        ☕ Add standing beverages
+      </button>
+    </div>
+  </div>
+</form>
+{% endif %}
 
 {# + Add meal service for this day #}
 <form method="POST" action="{{ url_for('oss.fb_service_add', show_id=show.id) }}"

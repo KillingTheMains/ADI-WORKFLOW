@@ -17,6 +17,7 @@ schedule_bp = Blueprint("schedule", __name__)
 # Placement lives in hardcoded_service so the day editor and the show book
 # cannot drift apart on where a recurring event belongs.
 from hardcoded_service import place_in_day as _place_recurring
+from breaks import is_crew_start
 
 
 # ── Time helpers ─────────────────────────────────────────────────────────────
@@ -559,7 +560,7 @@ def build_day_schedule(show_id, day_id):
     # parseable time; skip any without a time set.
     crew_starts = []
     for act in day.activities:
-        if "CREW START" in (act.description or "").upper():
+        if is_crew_start(act.description):
             m = _parse_time_to_minutes(act.time or "")
             if m is not None:
                 # Label from the parsed minutes, not the raw stored string,

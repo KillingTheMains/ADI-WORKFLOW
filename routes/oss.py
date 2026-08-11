@@ -752,6 +752,48 @@ def fb_service_add(show_id):
     return _back_to_fb(show_id)
 
 
+@oss_bp.route("/<int:show_id>/oss/fb/standing/add", methods=["POST"])
+def fb_standing_add(show_id):
+    """Add a standing beverage service to a day.
+
+    One per day is the whole idea — it is "the beverage table", not a list of
+    them — so adding a second is refused rather than quietly duplicated. Its
+    times are NOT set here: setup and refreshes are computed from the day's
+    first crew call and EOD every time they are read.
+    """
+    Show.query.get_or_404(show_id)
+    day_id = _int_or_none(request.form.get("schedule_day_id"))
+    day = ScheduleDay.query.get(day_id) if day_id else None
+    if day is None or day.show_id != show_id:
+        flash("Pick a day for the standing service.", "danger")
+        return _back_to_fb(show_id)
+
+    already = MealService.query.filter_by(show_id=show_id, schedule_day_id=day_id,
+                                          is_recurring=True).first()
+    if already is not None:
+        flash(f"'{already.name}' is already the standing service on that day.",
+              "warning")
+        return _back_to_fb(show_id)
+
+    svc = MealService(
+        show_id=show_id, schedule_day_id=day_id,
+        name=(request.form.get("name") or "All Day Beverages").strip(),
+        kind="beverages", is_recurring=True,
+        sort_order=MealService.query.filter_by(schedule_day_id=day_id).count() * 10,
+    )
+    db.session.add(svc)
+    db.session.flush()
+    db.session.add(MealServiceLocation(
+        meal_service_id=svc.id,
+        location_name=(request.form.get("location_name") or "").strip() or None,
+        sort_order=0,
+    ))
+    db.session.commit()
+    flash(f"Added '{svc.name}'. Setup and refreshes follow the day's first "
+          f"crew call and EOD.", "success")
+    return _back_to_fb(show_id)
+
+
 @oss_bp.route("/<int:show_id>/oss/fb/service/<int:svc_id>/edit", methods=["POST"])
 def fb_service_edit(show_id, svc_id):
     svc = MealService.query.get_or_404(svc_id)

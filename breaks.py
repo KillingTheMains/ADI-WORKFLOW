@@ -2,7 +2,9 @@
 
 See the project doc ADI_Breaks_And_Meals_Design.md. Pure arithmetic — no ORM,
 no Flask — so the rules can be tested without a database and cannot drift
-between the day page, the F&B tab and the exports.
+between the day page, the F&B tab and the exports. The one import is
+time_utils, itself the single time parser; the two helpers that walk a day are
+duck-typed on attributes rather than reaching for a model.
 
 The central idea: a catered meal is ONE event with TWO times.
 
@@ -13,6 +15,7 @@ The central idea: a catered meal is ONE event with TWO times.
 
 Crew surfaces show the break window. F&B surfaces show the service window.
 """
+from time_utils import parse_minutes
 
 # House defaults, confirmed by Jason 2026-08-11.
 DEFAULT_SETUP_MINUTES = 30
@@ -89,6 +92,32 @@ def beverage_touchpoints(first_crew_call, eod,
         points.append(t)
         t += step
     return points
+
+
+def is_crew_start(description):
+    """Is this activity the moment a crew group arrives? ONE definition.
+
+    Five copies of this test had formed — the break builder, the backfill, the
+    master export, the day template and the beverage plan all need it, and a
+    day where they disagree is a day where a break hangs off one activity and
+    its headcount is read off another.
+    """
+    return "CREW START" in (description or "").upper()
+
+
+def crew_starts_for_day(day):
+    """``[(minutes, activity), ...]`` for every timed CREW START on the day.
+
+    Duck-typed on purpose (``day.activities``, ``a.description``, ``a.time``) so
+    this module still imports nothing.
+    """
+    out = []
+    for a in day.activities:
+        if is_crew_start(a.description):
+            m = parse_minutes(a.time)
+            if m is not None:
+                out.append((m, a))
+    return sorted(out, key=lambda p: p[0])
 
 
 def guess_meal_kind(name):

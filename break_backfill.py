@@ -15,6 +15,7 @@ applying it here would bake today's wrong answers into tomorrow's data.
 """
 import re
 
+from breaks import crew_starts_for_day, is_crew_start
 from extensions import db
 from models import (CATERED_NO, CATERED_UNCONFIRMED, CATERED_YES, CrewBreak,
                     MealService)
@@ -43,7 +44,7 @@ def is_return_marker(activity):
 
 def looks_like_break(activity):
     desc = (activity.description or "").upper()
-    if "CREW START" in desc:
+    if is_crew_start(desc):
         return False
     if is_return_marker(activity):
         return False
@@ -84,17 +85,6 @@ def recover_duration(day, activity):
         if best is None or end < best:
             best = end
     return None if best is None else best - start
-
-
-def crew_starts_for_day(day):
-    """``[(minutes, activity), ...]`` for every timed CREW START on the day."""
-    out = []
-    for a in day.activities:
-        if "CREW START" in (a.description or "").upper():
-            m = parse_minutes(a.time)
-            if m is not None:
-                out.append((m, a))
-    return sorted(out, key=lambda p: p[0])
 
 
 def infer_crew_call(day, activity):

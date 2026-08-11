@@ -1291,6 +1291,26 @@ class MealService(db.Model):
     def is_linked(self):
         return self.activity_id is not None
 
+    @property
+    def is_standing(self):
+        """All-day beverages: F&B sets up and tops up through the day, and the
+        crew never stops for it. Not a break, not a point-in-time meal."""
+        return bool(self.is_recurring)
+
+    @property
+    def beverage_plan(self):
+        """Setup and refresh touchpoints for a standing service, computed.
+
+        Never stored: they move with the first crew call, the day's EOD and
+        who is on site. Returns None for an ordinary service, and a plan
+        carrying a `reason` rather than an empty list when the day cannot
+        support touchpoints.
+        """
+        if not self.is_standing:
+            return None
+        from beverage_service import plan_for_service
+        return plan_for_service(self)
+
     def __repr__(self):
         return f"<MealService {self.name} day={self.schedule_day_id}>"
 
