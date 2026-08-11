@@ -1,7 +1,7 @@
 """Editing a crew break: time, duration, provided, meal-service link."""
 from flask import Blueprint, flash, redirect, request, url_for
 
-from breaks import break_export_text, guess_meal_kind
+from breaks import break_export_text, default_duration_for, guess_meal_kind
 from extensions import db
 from models import (CATERED_STATES, CATERED_UNCONFIRMED, CATERED_YES,
                     CrewBreak, MealService, MealServiceLocation,
@@ -65,23 +65,28 @@ def _back(show_id, day_id):
     return redirect(url_for("schedule.day_detail", show_id=show_id,
                             day_id=day_id))
 
+def _apply_break_form(cb, f, prefix=""):
+    """Apply one break's fields from a form. ONE definition.
 
-@break_edit_bp.route("/<int:show_id>/schedule/<int:day_id>/breaks/"
-                     "<int:break_id>/edit", methods=["POST"])
-def edit_break(show_id, day_id, break_id):
-    """Update one break. Time lives on the activity — that is still the event."""
-    cb = CrewBreak.query.get_or_404(break_id)
-    f = request.form
-    # Captured BEFORE the form is applied. A break that already had a service
+    The day page saves a whole crew call's breaks at once and the single-break
+    route saves one; both come through here, so the two can never disagree
+    about what "Provided" does. ``prefix`` namespaces the field names when
+    several breaks share a form: ``time_12``, ``label_12``, and so on.
+
+    Returns a created MealService, or None.
+    """
+    def field(name):
+        return f"{name}_{prefix}" if prefix else name
+
+    # Captured BEFORE anything is applied. A break that already had a service
     # and comes back without one has been deliberately unlinked, and must not
     # be handed a replacement; a break that never had one and is now marked
-    # provided needs one creating. The form alone cannot tell those apart —
-    # the select posts blank in both cases.
+    # provided needs one creating. The form alone cannot tell those apart.
     had_service = cb.meal_service_id is not None
 
-    if "time" in f:
+    if field("time") in f:
         # 24-hour canonical, same rule as every other time in the app.
-        cleaned = hhmm_or_blank(f.get("time"))
+        cleaned = hhmm_or_blank(f.get(field("time")))
         if cleaned:
             cb.activity.time = cleaned
             # Keep the offset honest rather than letting it go stale.
@@ -91,21 +96,21 @@ def edit_break(show_id, day_id, break_id):
                 if start is not None and now is not None:
                     cb.offset_minutes = now - start
 
-    if "duration_minutes" in f:
+    if field("duration_minutes") in f:
         try:
-            mins = int(f.get("duration_minutes") or 0)
+            mins = int(f.get(field("duration_minutes")) or 0)
             if mins in DURATION_CHOICES:
                 cb.duration_minutes = mins
         except (TypeError, ValueError):
             pass
 
-    if "catered" in f:
-        value = (f.get("catered") or "").strip()
+    if field("catered") in f:
+        value = (f.get(field("catered")) or "").strip()
         if value in CATERED_STATES:
             cb.catered = value
 
-    if "meal_service_id" in f:
-        raw = (f.get("meal_service_id") or "").strip()
+    if field("meal_service_id") in f:
+        raw = (f.get(field("meal_service_id")) or "").strip()
         wanted = int(raw) if raw else None
         # One service per crew group, always. Two breaks sharing a service is
         # not a tidier version of the same thing: an 08:00 crew and an 09:00
@@ -123,30 +128,23 @@ def edit_break(show_id, day_id, break_id):
         else:
             cb.meal_service_id = wanted
 
-    # Reconcile the two controls, which the same submit can contradict.
-    #
-    # A link plus "unconfirmed" is not a contradiction, it is an omission:
-    # picking a service IS the statement that something is provided, so the
-    # link wins. A link plus an explicit "Not provided" is a real
-    # contradiction, and there the person who just said "no" wins — otherwise
-    # a stale dropdown silently flips the answer back and the break can never
-    # be marked uncatered at all.
+    # A link plus "TBD" is not a contradiction, it is an omission: picking a
+    # service IS the statement that something is provided, so the link wins.
+    # A link plus an explicit "Not provided" is a real contradiction, and
+    # there the person who just said no wins — otherwise a stale dropdown
+    # flips the answer back and the break can never be marked uncatered.
     if cb.meal_service_id and cb.catered == CATERED_UNCONFIRMED:
         cb.catered = CATERED_YES
 
-    if "label" in f:
-        cb.label = (f.get("label") or "").strip() or None
+    if field("label") in f:
+        cb.label = (f.get(field("label")) or "").strip() or None
 
-    # Do this AFTER the label, so a service created here is named with what
-    # the user just typed rather than what was there before.
+    # AFTER the label, so a service created here is named with what the user
+    # just typed rather than what was there before.
     if cb.catered == CATERED_YES:
-        svc = _ensure_meal_service(cb) if not had_service else None
-        if svc is not None:
-            flash(f"Added '{svc.name}' to F&B, feeding "
-                  f"{cb.derived_headcount if cb.derived_headcount is not None else '?'} "
-                  f"crew from the {cb.crew_call.time if cb.crew_call else ''} call.",
-                  "success")
-    elif cb.meal_service_id:
+        return _ensure_meal_service(cb) if not had_service else None
+
+    if cb.meal_service_id:
         # Not provided, but a service is attached. Unlink rather than delete —
         # deleting F&B's work off a dropdown change is not recoverable, and the
         # coverage panel is where a service with no break belongs.
@@ -155,9 +153,54 @@ def edit_break(show_id, day_id, break_id):
         flash(f"Marked not provided. '{orphan.name if orphan else 'The service'}' "
               f"is still on the F&B tab — remove it there if it is not happening.",
               "warning")
+    return None
 
+
+def _created_flash(cb, svc):
+    flash(f"Added '{svc.name}' to F&B, feeding "
+          f"{cb.derived_headcount if cb.derived_headcount is not None else '?'} "
+          f"crew from the {cb.crew_call.time if cb.crew_call else ''} call.",
+          "success")
+
+
+@break_edit_bp.route("/<int:show_id>/schedule/<int:day_id>/breaks/"
+                     "<int:break_id>/edit", methods=["POST"])
+def edit_break(show_id, day_id, break_id):
+    """Update one break. Time lives on the activity — that is still the event."""
+    cb = CrewBreak.query.get_or_404(break_id)
+    svc = _apply_break_form(cb, request.form)
+    if svc is not None:
+        _created_flash(cb, svc)
     db.session.commit()
     return _back(show_id, day_id)
+
+
+@break_edit_bp.route("/<int:show_id>/schedule/<int:day_id>/crew-call/"
+                     "<int:act_id>/breaks/save", methods=["POST"])
+def save_breaks(show_id, day_id, act_id):
+    """Save every break on one crew call in a single submit.
+
+    Jason, 2026-08-11: the editor folds shut when you are done with it, so the
+    Save has to belong to the panel rather than to each row. A per-row save is
+    also a trap — change three breaks, save one, close the panel, and the
+    other two are silently gone.
+    """
+    breaks = (CrewBreak.query
+              .filter_by(show_id=show_id, crew_call_id=act_id)
+              .order_by(CrewBreak.id).all())
+    made = []
+    for cb in breaks:
+        svc = _apply_break_form(cb, request.form, prefix=str(cb.id))
+        if svc is not None:
+            made.append((cb, svc))
+    db.session.commit()
+    for cb, svc in made:
+        _created_flash(cb, svc)
+    if breaks and not made:
+        flash(f"Saved {len(breaks)} break{'' if len(breaks) == 1 else 's'}.",
+              "success")
+    return _back(show_id, day_id)
+
 
 
 @break_edit_bp.route("/<int:show_id>/schedule/<int:day_id>/crew-call/"
@@ -180,12 +223,15 @@ def add_break(show_id, day_id, act_id):
         offset = int(f.get("offset_minutes") or 0)
     except (TypeError, ValueError):
         offset = 0
+    # The offset picks the length unless the form says otherwise: +2:30 and
+    # +8:30 are coffee, +5:00 is lunch, and nobody takes an hour for a coffee.
+    fallback = default_duration_for(offset)
     try:
-        duration = int(f.get("duration_minutes") or 30)
+        duration = int(f.get("duration_minutes") or fallback)
     except (TypeError, ValueError):
-        duration = 30
+        duration = fallback
     if duration not in DURATION_CHOICES:
-        duration = 30
+        duration = fallback
 
     label = (f.get("label") or "BREAK").strip() or "BREAK"
 

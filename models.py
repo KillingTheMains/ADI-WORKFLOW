@@ -715,6 +715,13 @@ class CrewBreak(db.Model):
         return time_utils.parse_minutes(self.activity.time)
 
     @property
+    def end_time(self):
+        """When this crew is back. '' when the start is unreadable."""
+        from breaks import window_end
+        return time_utils.from_minutes(
+            window_end(self.start_minute, self.duration_minutes))
+
+    @property
     def fed_headcount(self):
         """How many F&B is being asked to feed at this sitting, or None when
         nobody is feeding it."""

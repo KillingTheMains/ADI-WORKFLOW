@@ -143,5 +143,5 @@ def test_break_row_renders_when_switched_on(app, client, db):
                  .get_data(as_text=True)
     assert 'id="breaks-%d"' % call.id in html       # the folded editor
     assert "+ Break" in html
-    assert "Crew sort themselves" in html           # one catering control
+    assert "Not Provided" in html                   # one catering control
     assert "LUNCH" in html                          # the period row

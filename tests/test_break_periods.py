@@ -174,8 +174,8 @@ def test_the_meal_service_dropdown_is_gone_from_the_day_page(app, client, db):
     html = client.get("/shows/%d/schedule/%d" % (show.id, day.id)) \
                  .get_data(as_text=True)
     assert "No meal service" not in html
-    assert "F&amp;B provides" in html
-    assert "Crew sort themselves" in html
+    assert ">Provided<" in html
+    assert ">Not Provided<" in html
 
 
 def test_a_break_does_not_also_render_as_an_ordinary_activity(app, client, db):

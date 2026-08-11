@@ -26,6 +26,38 @@ DEFAULT_HOLDOVER_MINUTES = 30
 # real shows break this knowingly and a hard block just gets worked around.
 FOOD_OUT_MAX_MINUTES = 120
 
+# What each offset is FOR. +2:30 and +8:30 are the morning and afternoon
+# coffee; +5:00 is lunch. Jason, 2026-08-11 — picking the offset should pick
+# the length, because nobody takes an hour for a coffee.
+DEFAULT_DURATION_FOR_OFFSET = {150: 15, 300: 60, 510: 15}
+
+
+def default_duration_for(offset_minutes):
+    """The house length for a break at this offset. ONE definition — the add
+    form's JS and the route that receives it both read it, so a browser with
+    JS off cannot save a different answer from one with it on."""
+    try:
+        return DEFAULT_DURATION_FOR_OFFSET.get(int(offset_minutes),
+                                               DEFAULT_SERVICE_MINUTES)
+    except (TypeError, ValueError):
+        return DEFAULT_SERVICE_MINUTES
+
+
+def duration_text(minutes):
+    """'15 Minutes'. Jason's wording, one definition, so the day page and any
+    document that later wants it cannot disagree."""
+    if not minutes:
+        return ""
+    return f"{int(minutes)} Minutes"
+
+
+def window_end(start_minute, duration_minutes):
+    """When the crew is back. None when the start is unreadable."""
+    if start_minute is None:
+        return None
+    return int(start_minute) + int(duration_minutes or 0)
+
+
 # Standing beverage service.
 BEVERAGE_SETUP_BEFORE_FIRST_CALL = 30
 BEVERAGE_REFRESH_INTERVAL = 150      # 2h30. Longer than the food-out cap on
@@ -155,7 +187,11 @@ def _period(label, sittings):
         "label": label,
         "minute": first.start_minute,
         "time": from_minutes(first.start_minute),
+        # The crew wants to know when it is back, not just when it stops.
+        "end_time": from_minutes(window_end(first.start_minute,
+                                            first.duration_minutes)),
         "duration_minutes": first.duration_minutes,
+        "duration_text": duration_text(first.duration_minutes),
         "sittings": sittings,
         "catered": states.pop() if len(states) == 1 else "mixed",
         "crew": sum(known) if known else None,
