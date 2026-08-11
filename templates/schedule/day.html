@@ -1965,13 +1965,12 @@ function openHeaderEdit(rowId) {
 let _dragRow = null;
 let _dragWasHeader = false;
 
+// Everything that must travel with a dragged row. For a section header that
+// is its edit form, its crew, AND its sub-sections — dragging ENCORE takes all
+// ten Encore groups with it. For a crew row it is just that row.
 function _blockOf(tr) {
+  if (tr.dataset.header !== '1') return [tr];
   const block = [tr];
-  if (tr.dataset.header !== '1') {
-    const edit = tr.nextElementSibling;
-    if (edit && edit.classList.contains('header-edit-row')) block.push(edit);
-    return block;
-  }
   const level = parseInt(tr.dataset.level || '1', 10);
   let r = tr.nextElementSibling;
   while (r) {
@@ -1981,6 +1980,14 @@ function _blockOf(tr) {
     r = r.nextElementSibling;
   }
   return block;
+}
+
+// First row of a section's contents — where a person dropped ONTO a header
+// should land.
+function _sectionTop(hdr) {
+  let a = hdr.nextElementSibling;
+  if (a && a.classList.contains('header-edit-row')) a = a.nextElementSibling;
+  return a;
 }
 
 // Rows are only draggable while a handle is held. Without this a crew row
@@ -2009,14 +2016,37 @@ document.addEventListener('dragstart', function (e) {
 document.addEventListener('dragover', function (e) {
   if (!_dragRow) return;
   const tr = e.target.closest && e.target.closest('.crew-drag-row');
-  if (!tr || tr === _dragRow) return;
-  if (tr.closest('tbody') !== _dragRow.closest('tbody')) return;
-  e.preventDefault();
+  if (!tr) return;
+  const body = tr.closest('tbody');
+  if (body !== _dragRow.closest('tbody')) return;
+
+  const block = _blockOf(_dragRow);
+  // A header dragged over its OWN crew used to land inside its own block and
+  // tear the section apart. That is what made sections appear to drag without
+  // their crew.
+  if (block.indexOf(tr) !== -1) return;
+
+  // A section can only be placed above or below ANOTHER section — never
+  // between two crew lines.
+  if (_dragWasHeader && tr.dataset.header !== '1') return;
+
   const box = tr.getBoundingClientRect();
   const after = (e.clientY - box.top) > box.height / 2;
-  const block = _blockOf(_dragRow);
-  const anchor = after ? _blockOf(tr)[_blockOf(tr).length - 1].nextElementSibling : tr;
-  const body = tr.closest('tbody');
+
+  let anchor;
+  if (!_dragWasHeader && tr.dataset.header === '1') {
+    // A person dropped onto a header joins that section at the top; dropped
+    // on its upper edge, they land at the end of the section above.
+    anchor = after ? _sectionTop(tr) : tr;
+  } else if (after) {
+    const tb = _blockOf(tr);
+    anchor = tb[tb.length - 1].nextElementSibling;
+  } else {
+    anchor = tr;
+  }
+
+  if (anchor && block.indexOf(anchor) !== -1) return;
+  e.preventDefault();
   block.forEach(function (n) { body.insertBefore(n, anchor); });
 });
 
