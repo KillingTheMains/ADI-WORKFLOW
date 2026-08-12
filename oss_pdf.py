@@ -40,7 +40,7 @@ WARM_WHITE = colors.HexColor(brand.WARM_WHITE)
 CYAN = colors.HexColor(brand.SIGNAL_CYAN)
 MINERAL = colors.HexColor(brand.MINERAL)
 HAIRLINE = colors.HexColor("#D7DCE3")
-ZEBRA = colors.HexColor("#F7F6F2")   # warm-white derived, matches the screen
+ZEBRA = colors.HexColor("#F4F6F9")
 
 # 6.5in of content, split so the schedule reads left-to-right as
 # when → who → what → how much → anything else.
@@ -55,7 +55,7 @@ ORPHAN_GUARD_ROWS = 3
 def _styles():
     body = ParagraphStyle(
         "body", fontName=brand.FONT_FALLBACK, fontSize=brand.PT_BODY,
-        leading=brand.PT_BODY + 2.2, textColor=colors.HexColor("#16202E"))   # Midnight-biased, was an undocumented grey
+        leading=brand.PT_BODY + 2.2, textColor=colors.HexColor("#1F2933"))
     return {
         "body": body,
         "cell": ParagraphStyle("cell", parent=body),
@@ -190,7 +190,7 @@ class _Doc(BaseDocTemplate):
     def _chrome(self, canvas, doc):
         canvas.saveState(); self._band(canvas)
         canvas.setFont(brand.FONT_FALLBACK + "-Bold", brand.PT_EYEBROW)
-        canvas.setFillColor(colors.HexColor(brand.MINERAL))   # "structure and secondary information"
+        canvas.setFillColor(colors.HexColor("#AEBBCC"))
         canvas.drawRightString(
             self.leftMargin + self.width,
             letter[1] - (brand.MARGIN_TOP_IN + brand.LOGO_BAND_H_IN) * inch + 8,
@@ -328,7 +328,7 @@ def _day_rows(day, items, st):
     style = [
         ("BACKGROUND", (0, 0), (-1, 0), MIDNIGHT),
         ("SPAN", (0, 0), (-1, 0)),
-        ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor(brand.MINERAL)),
+        ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor("#334155")),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("TOPPADDING", (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
@@ -405,7 +405,7 @@ def _department_sections(master_items, st):
         style = [
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#" + ds["hex"])),
             ("SPAN", (0, 0), (-1, 0)),
-            ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor(brand.MINERAL)),
+            ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor("#334155")),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("TOPPADDING", (0, 0), (-1, -1), 3),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 3),

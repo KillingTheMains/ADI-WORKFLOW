@@ -253,7 +253,7 @@
       <div style="display:grid;grid-template-columns:110px 1fr;gap:0;">
 
         <!-- Header row -->
-        <div style="padding:0 0 4px;font-size:.78rem;font-weight:700;color:var(--adi-muted);
+        <div style="padding:0 0 4px;font-size:.65rem;font-weight:700;color:var(--adi-muted);
                     text-transform:uppercase;letter-spacing:.06em;">Day</div>
         <div style="position:relative;height:22px;margin-bottom:6px;border-bottom:2px solid var(--adi-border);">
           {% for h in hours %}
@@ -378,7 +378,7 @@
             </td>
             <td>
               {% if day.phase %}
-              <span class="phase-pill" style="font-size:.78rem;">{{ day.phase }}</span>
+              <span class="phase-pill" style="font-size:.65rem;">{{ day.phase }}</span>
               {% else %}<span class="text-muted">—</span>{% endif %}
             </td>
             <td class="text-muted">{{ day.time_window or '—' }}</td>

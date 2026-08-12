@@ -135,33 +135,3 @@ LEGAL_ENTITY = "Allure Designs, Inc."
 def as_openpyxl(hex_value):
     """openpyxl wants a bare RRGGBB with no leading hash."""
     return (hex_value or "").lstrip("#").upper()
-
-
-# ── Timeline row kinds ──────────────────────────────────────────────────────
-# Mirrors the on-screen rail system in static/css/style.css. Added 2026-08-12.
-#
-# ⚠️ THE "short" CODE IS THE POINT, not the fill. These pages are printed in
-# black and white constantly — oss_export.py already says so verbatim and
-# solves it the same way for departments. In greyscale, Signal cyan lands at
-# 179 and Milestone gold at 169: ten levels apart, indistinguishable. A fill
-# is a courtesy; the text code is what survives, and it survives Excel's
-# "black and white" print setting too, which discards fills entirely.
-ROW_KIND_STYLE = {
-    "break":     {"hex": MIDNIGHT,       "short": "BRK",   "fill": "EEF1F6"},
-    "anchor":    {"hex": MINERAL,        "short": "DAY",   "fill": "EDEFF1"},
-    "recurring": {"hex": MILESTONE_GOLD, "short": "RECUR", "fill": "F7F1E4"},
-    "beverage":  {"hex": SIGNAL_CYAN,    "short": "BEV",   "fill": "E6F7FA"},
-    "activity":  {"hex": "#C3CAD3",      "short": "",      "fill": "FFFFFF"},
-}
-
-# Text colour to lay over each rail fill. Midnight and Mineral are dark enough
-# to need white; gold and cyan are light enough to need Midnight.
-#   Warm white on Midnight  14.02:1     Midnight on gold   6.56:1
-#   White on Mineral         4.70:1     Midnight on cyan   7.36:1
-ROW_KIND_INK = {
-    "break":     WARM_WHITE,
-    "anchor":    "#FFFFFF",
-    "recurring": MIDNIGHT,
-    "beverage":  MIDNIGHT,
-    "activity":  MIDNIGHT,
-}
