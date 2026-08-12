@@ -48,7 +48,7 @@
     <div class="row align-items-center">
       <div class="col">
         <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
-                    color:var(--adi-gold);">{{ show.code or 'SHOW' }}</div>
+                    color:var(--adi-blue-lt);">{{ show.code or 'SHOW' }}</div>
         <div style="font-size:1.1rem;font-weight:700;color:#fff;">{{ show.name }}</div>
         <div style="font-size:.8rem;color:rgba(255,255,255,.6);">
           {% if show.venue %}{{ show.venue.name }}, {{ show.venue.city }}{% endif %}
@@ -56,7 +56,7 @@
         </div>
       </div>
       <div class="col-auto text-end">
-        <div style="font-size:.75rem;color:var(--adi-gold);">{{ show.version_label }}</div>
+        <div style="font-size:.75rem;color:var(--adi-blue-lt);">{{ show.version_label }}</div>
         <div style="font-size:.75rem;color:rgba(255,255,255,.4);">
           {{ show.days|length }} day{{ 's' if show.days|length != 1 }}
           {% set act_count = namespace(n=0) %}{% for d in show.days %}{% set act_count.n = act_count.n + d.activities|length %}{% endfor %}· {{ act_count.n }} activities
@@ -191,7 +191,7 @@
   <div class="p-3">
     {% for act in day.activities[:4] %}
     <div class="d-flex gap-2 align-items-baseline mb-1" style="font-size:.82rem;">
-      <span style="min-width:70px;font-weight:600;color:var(--adi-gold);">
+      <span style="min-width:70px;font-weight:600;color:var(--adi-blue);">
         {{ act.time|to_12hr if act.time else '—' }}
       </span>
       <span>{{ act.description }}</span>
