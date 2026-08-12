@@ -620,6 +620,80 @@ def _report_orphaned_crew_breaks(session):
     print("[migration]   Paste this back before anything deletes them.")
 
 
+ORPHAN_PREDICTION = {
+    "crew_comm_assignments": 88,
+    "meal_services": 56,
+    "meal_service_locations": 56,
+    "crew_breaks": 40,
+    "radio_channels": 32,
+}
+
+
+def _delete_orphans_from_deleted_shows(session):
+    """Delete rows left behind by a show that no longer exists.
+
+    MEASURED ON PRODUCTION 2026-08-12, so every number here is checkable:
+
+        crew_comm_assignments    88
+        meal_services            56   (+ 56 meal_service_locations under them)
+        crew_breaks              40
+        radio_channels           32
+
+    All of it is show 5, `ZZ WORKING COPY — MCDC26 breaks`, plus one stray
+    meal service from some earlier deletion. `schedule_days`,
+    `schedule_activities`, `crew_rows`, `day_phases` and every other table
+    came back ZERO — those cascade correctly, and the leak was exactly the set
+    of tables with no collection on `Show`. That is now fixed at the source,
+    so this is a one-off sweep of what already existed rather than a recurring
+    tidy-up.
+
+    Safe because an orphan is unreachable: nothing renders a row whose show is
+    gone. But not harmless if left — a crew break holding a `meal_service_id`
+    is a ghost feeding a service, and `crew_breaks.activity_id` is UNIQUE, so
+    a stale row can collide with a future insert. That collision is what
+    produced a live 500 on 08-12.
+
+    Deletion order is deliberate: children before parents, so nothing is
+    orphaned a second time on the way out.
+    """
+    from models import (CrewBreak, CrewCommAssignment, MealService,
+                        MealServiceLocation, RadioChannel, Show)
+    live = {s.id for s in session.query(Show).all()}
+    counts = {}
+
+    def _sweep(model, key):
+        rows = [r for r in session.query(model).all() if r.show_id not in live]
+        for r in rows:
+            session.delete(r)
+        counts[key] = len(rows)
+        return rows
+
+    # Breaks first: they point AT meal services, so clearing them means no
+    # service is deleted while something still claims to be fed by it.
+    _sweep(CrewBreak, "crew_breaks")
+    _sweep(CrewCommAssignment, "crew_comm_assignments")
+    _sweep(RadioChannel, "radio_channels")
+
+    dead_services = _sweep(MealService, "meal_services")
+    dead_ids = {s.id for s in dead_services}
+    locs = [l for l in session.query(MealServiceLocation).all()
+            if l.meal_service_id in dead_ids]
+    for l in locs:
+        session.delete(l)
+    counts["meal_service_locations"] = len(locs)
+
+    for table, n in sorted(counts.items()):
+        predicted = ORPHAN_PREDICTION.get(table)
+        flag = "" if (predicted is None or n == predicted or not n) else \
+            f"  ⚠ PREDICTED {predicted}"
+        print(f"[migration]   {table:24s} {n:4d} removed{flag}")
+    total = sum(counts.values())
+    print(f"[migration] {total} orphaned row(s) from deleted shows removed "
+          f"(predicted {sum(ORPHAN_PREDICTION.values())})")
+    if total and total != sum(ORPHAN_PREDICTION.values()):
+        print("[migration] ⚠ not the predicted total — check before moving on.")
+
+
 DATA_MIGRATIONS = [
     ("2026-06-30-fb-v2-migrate-entries", _migrate_fb_entries_to_meal_services),
     ("2026-07-02-add-prompter-position", _seed_position_prompter),
@@ -669,6 +743,11 @@ DATA_MIGRATIONS = [
     # in the database needs counting before anybody decides what to do with
     # it. Read the number, then decide.
     ("2026-08-12-report-orphaned-crew-breaks", _report_orphaned_crew_breaks),
+    # 2026-08-12 — and now the sweep, with every count measured off production
+    # first rather than guessed. Runs AFTER the report so the two appear in
+    # order in the console: what was there, then what was removed.
+    ("2026-08-12-delete-orphans-from-deleted-shows",
+     _delete_orphans_from_deleted_shows),
 ]
 
 

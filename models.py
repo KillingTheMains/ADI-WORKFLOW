@@ -221,6 +221,43 @@ class Show(db.Model):
     crew_assignments = db.relationship("ShowCrewAssignment", back_populates="show",
                                        cascade="all, delete-orphan")
 
+    # ── Everything else a show owns ─────────────────────────────────────────
+    #
+    # Added 2026-08-12. Deleting show 5 left **216 rows behind** in the four
+    # tables that had no collection here: crew_comm_assignments 88,
+    # meal_services 56 (and 56 locations under them), crew_breaks 40,
+    # radio_channels 32. `days`, `phases` and `crew_assignments` cascaded and
+    # left nothing — the leak was exactly the set of tables missing from this
+    # list, which is why the rest are added now rather than only the four that
+    # happened to hold data.
+    #
+    # An orphan is invisible in the app, so nothing complains: it is found
+    # only by asking the database directly. It is not harmless either — a
+    # crew break holding a `meal_service_id` is a ghost feeding a service, and
+    # `crew_breaks.activity_id` is UNIQUE, so a stale row can collide with a
+    # future insert (see ScheduleActivity.crew_break).
+    meal_services    = db.relationship("MealService", back_populates="show",
+                                       cascade="all, delete-orphan")
+    crew_breaks      = db.relationship("CrewBreak", back_populates="show",
+                                       cascade="all, delete-orphan")
+    radio_channels   = db.relationship("RadioChannel", back_populates="show",
+                                       cascade="all, delete-orphan")
+    comm_assignments = db.relationship("CrewCommAssignment", back_populates="show",
+                                       cascade="all, delete-orphan")
+    comm_channels    = db.relationship("ShowCommChannel", back_populates="show",
+                                       cascade="all, delete-orphan")
+    dietary_notes    = db.relationship("ShowDietaryNote", back_populates="show",
+                                       cascade="all, delete-orphan")
+    open_slots       = db.relationship("ShowOpenSlot", back_populates="show",
+                                       cascade="all, delete-orphan")
+    oss_entries      = db.relationship("SubScheduleEntry", back_populates="show",
+                                       cascade="all, delete-orphan")
+    # No `show` relationship on these two, so nothing to pair with.
+    recurring_days_off = db.relationship("HardCodedEventDayOff",
+                                         cascade="all, delete-orphan")
+    recurring_prefs    = db.relationship("ShowHardCodedEvent",
+                                         cascade="all, delete-orphan")
+
     @property
     def version_label(self):
         return f"Version {self.version}"
@@ -733,6 +770,7 @@ class CrewBreak(db.Model):
     meal_service_id  = db.Column(db.Integer, db.ForeignKey("meal_services.id"),
                                  nullable=True)
 
+    show         = db.relationship("Show", back_populates="crew_breaks")
     activity     = db.relationship("ScheduleActivity", foreign_keys=[activity_id],
                                    back_populates="crew_break")
     crew_call    = db.relationship("ScheduleActivity", foreign_keys=[crew_call_id])
@@ -944,7 +982,7 @@ class ShowOpenSlot(db.Model):
     sort_order       = db.Column(db.Integer)
     created_at       = db.Column(db.DateTime, default=datetime.utcnow)
 
-    show     = db.relationship("Show")
+    show     = db.relationship("Show", back_populates="open_slots")
     position = db.relationship("Position")
 
     @property
@@ -985,7 +1023,7 @@ class SubScheduleEntry(db.Model):
     notes           = db.Column(db.Text)
     sort_order      = db.Column(db.Integer, default=0)
 
-    show           = db.relationship("Show")
+    show           = db.relationship("Show", back_populates="oss_entries")
     schedule_day   = db.relationship("ScheduleDay", back_populates="oss_entries")
     linked_activity = db.relationship("ScheduleActivity")
 
@@ -1161,7 +1199,7 @@ class RadioChannel(db.Model):
     __table_args__ = (db.UniqueConstraint("show_id", "slot",
                                           name="uq_radio_channel_slot"),)
 
-    show    = db.relationship("Show")
+    show    = db.relationship("Show", back_populates="radio_channels")
 
     def __repr__(self):
         return f"<RadioChannel show={self.show_id} slot={self.slot} '{self.name or ''}'>"
@@ -1175,7 +1213,7 @@ class ShowCommChannel(db.Model):
     name       = db.Column(db.String(50), nullable=False)
     sort_order = db.Column(db.Integer, default=0)
 
-    show       = db.relationship("Show")
+    show       = db.relationship("Show", back_populates="comm_channels")
 
     def __repr__(self):
         return f"<ShowCommChannel show={self.show_id} '{self.name}'>"
@@ -1202,7 +1240,7 @@ class CrewCommAssignment(db.Model):
     __table_args__  = (db.UniqueConstraint("show_id", "crew_member_id",
                                            name="uq_show_crewcomm"),)
 
-    show            = db.relationship("Show")
+    show            = db.relationship("Show", back_populates="comm_assignments")
     crew_member     = db.relationship("CrewMember")
 
     @property
@@ -1353,7 +1391,7 @@ class MealService(db.Model):
     # nobody reads. Cleared automatically the moment the service is linked.
     standalone_confirmed = db.Column(db.Boolean, default=False)
 
-    show            = db.relationship("Show")
+    show            = db.relationship("Show", back_populates="meal_services")
     schedule_day    = db.relationship("ScheduleDay")
     linked_activity = db.relationship("ScheduleActivity")
     locations       = db.relationship("MealServiceLocation",
@@ -1518,7 +1556,7 @@ class ShowDietaryNote(db.Model):
     notes      = db.Column(db.Text)
     sort_order = db.Column(db.Integer, default=0)
 
-    show       = db.relationship("Show")
+    show       = db.relationship("Show", back_populates="dietary_notes")
 
     def __repr__(self):
         return f"<ShowDietaryNote {self.preference} show={self.show_id}>"
