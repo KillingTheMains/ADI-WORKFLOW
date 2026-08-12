@@ -210,16 +210,30 @@ def oss_hub(show_id):
     fb_linked_activity_ids = {
         svc.activity_id for svc in meal_services if svc.activity_id
     }
+    # LEGACY, and only for shows not switched over. `is_meal_break` guesses
+    # catering from an activity's description, which is the exact bug the
+    # overhaul exists to fix: a crew walking away to eat on their own is also
+    # called "LUNCH BREAK", so this warned about breaks that were never F&B's,
+    # and stayed quiet about "Crew Beverage Set" which contained no keyword.
+    # Switched-over shows get the real answer from break_coverage instead.
     missing_fb = []
-    for d in show.days:
-        for act in d.activities:
-            if is_meal_break(act) and act.id not in fb_linked_activity_ids:
-                missing_fb.append({
-                    "day":         d,
-                    "activity":    act,
-                    "day_url":     url_for("schedule.day_detail",
-                                           show_id=show.id, day_id=d.id),
-                })
+    if not show.uses_new_breaks:
+        for d in show.days:
+            for act in d.activities:
+                if is_meal_break(act) and act.id not in fb_linked_activity_ids:
+                    missing_fb.append({
+                        "day":         d,
+                        "activity":    act,
+                        "day_url":     url_for("schedule.day_detail",
+                                               show_id=show.id, day_id=d.id),
+                    })
+
+    # The trustworthy version: declared, not inferred. A summary only — the
+    # panel itself is where anything gets resolved.
+    coverage_counts = None
+    if show.uses_new_breaks:
+        import break_coverage
+        coverage_counts = break_coverage.survey(show)["counts"]
 
     # ── Wristbands tab data ─────────────────────────────────────────────
     # Simple: just pass show.days. The ScheduleDay model has the helpers
@@ -261,6 +275,7 @@ def oss_hub(show_id):
         fb_windows            = fb_windows,
         activities_by_day     = activities_by_day,
         missing_fb            = missing_fb,
+        coverage_counts       = coverage_counts,
         wristband_grand_total = wristband_grand_total,
         coms_channels         = coms_channels,
         radio_channels        = radio_channels,

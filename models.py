@@ -1288,6 +1288,14 @@ class MealService(db.Model):
     # interval. Negative offset means "before SOD".
     beverage_offset_minutes   = db.Column(db.Integer, default=-30)
     beverage_interval_minutes = db.Column(db.Integer, default=150)
+    # "This service feeds no crew break, and that is the right answer."
+    # (2026-08-12, step 6.) The F&B tab has always OFFERED standalone as an
+    # answer to the Feeds question — a client lunch or a green room genuinely
+    # feeds nobody — but had nowhere to record it, so the answer was
+    # indistinguishable from never having been asked. The coverage panel needs
+    # that difference: a check that cannot reach zero is the next warning
+    # nobody reads. Cleared automatically the moment the service is linked.
+    standalone_confirmed = db.Column(db.Boolean, default=False)
 
     show            = db.relationship("Show")
     schedule_day    = db.relationship("ScheduleDay")

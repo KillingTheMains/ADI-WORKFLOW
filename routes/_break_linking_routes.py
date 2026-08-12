@@ -13,6 +13,15 @@ break_link_bp = Blueprint("break_link", __name__)
 
 
 def _back_to_fb(show_id):
+    """Back where the question was asked.
+
+    The Feeds question is now asked in two places — the F&B tab and the
+    coverage panel — and answering it on the panel used to dump you on the
+    other page mid-list. A `next` of "coverage" comes back to the panel;
+    anything else, including nothing, keeps the old behaviour.
+    """
+    if (request.form.get("next") or "").strip() == "coverage":
+        return redirect(url_for("break_coverage.coverage", show_id=show_id))
     return redirect(url_for("oss.oss_hub", show_id=show_id, tab="F&B"))
 
 
@@ -48,7 +57,14 @@ def service_feeds(show_id, svc_id):
             flash(f"'{svc.name}' still feeds a break — use Unlink, which asks "
                   "what that break should say instead.", "warning")
         else:
-            flash(f"'{svc.name}' feeds no crew break.", "success")
+            # Standalone is an ANSWER, so record it. It was always offered
+            # here and never stored, which left it indistinguishable from a
+            # question nobody had asked — and that is precisely the difference
+            # the coverage panel has to be able to see.
+            svc.standalone_confirmed = True
+            db.session.commit()
+            flash(f"'{svc.name}' feeds no crew break. Noted — it will not be "
+                  "chased on the coverage panel.", "success")
         return _back_to_fb(show_id)
 
     cb = CrewBreak.query.get(int(raw))

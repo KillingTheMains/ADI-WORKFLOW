@@ -97,6 +97,11 @@ MIGRATIONS = [
     # interval. Defaults reproduce the previous hard-coded behaviour.
     ("meal_services", "beverage_offset_minutes", "INTEGER DEFAULT -30"),
     ("meal_services", "beverage_interval_minutes", "INTEGER DEFAULT 150"),
+    # 2026-08-12 — step 6, the coverage panel. "Feeds no crew break" was
+    # always an offered answer on the F&B tab with nowhere to be recorded, so
+    # it could not be told apart from an unanswered question. Defaults to 0:
+    # every existing service starts as "not asked", which is the truth.
+    ("meal_services", "standalone_confirmed", "INTEGER DEFAULT 0"),
 ]
 
 

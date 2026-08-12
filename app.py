@@ -24,6 +24,7 @@ _BLUEPRINTS = [
     ("routes._breaks_routes",   "breaks_bp",       "/shows"),
     ("routes._break_edit",      "break_edit_bp",   "/shows"),
     ("routes._break_linking_routes", "break_link_bp", "/shows"),
+    ("routes._break_coverage",  "break_coverage_bp", "/shows"),
 ]
 
 

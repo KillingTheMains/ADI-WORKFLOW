@@ -78,6 +78,37 @@
 </div>
 {% endif %}
 
+{# The trustworthy coverage check, for shows on the new breaks model. It
+   replaces the keyword warning above rather than joining it: that one guessed
+   catering from an activity's name, which is the bug this overhaul exists to
+   fix. Counts only — the panel is where anything is resolved. #}
+{% if coverage_counts %}
+{% if coverage_counts.total %}
+<div class="alert alert-warning py-2 px-3 d-flex align-items-center justify-content-between"
+     style="font-size:.82rem;gap:12px;">
+  <div>
+    <strong>⚠ {{ coverage_counts.total }} thing{{ '' if coverage_counts.total == 1 else 's' }}
+    still unanswered</strong> —
+    {{ coverage_counts.undecided }} break{{ '' if coverage_counts.undecided == 1 else 's' }}
+    nobody has decided on,
+    {{ coverage_counts.unfed }} with nothing feeding them,
+    {{ coverage_counts.orphans }} service{{ '' if coverage_counts.orphans == 1 else 's' }}
+    feeding nobody.
+  </div>
+  <a class="btn btn-sm btn-adi" style="flex-shrink:0;"
+     href="{{ url_for('break_coverage.coverage', show_id=show.id) }}">Coverage panel</a>
+</div>
+{% else %}
+<div class="alert py-2 px-3 d-flex align-items-center justify-content-between"
+     style="font-size:.82rem;gap:12px;background:#F2FAF6;border:1px solid #BFE3D0;">
+  <div><strong>Coverage is clear.</strong> Every break has an answer and every
+    service has somebody to feed.</div>
+  <a style="font-size:.78rem;flex-shrink:0;"
+     href="{{ url_for('break_coverage.coverage', show_id=show.id) }}">Coverage panel →</a>
+</div>
+{% endif %}
+{% endif %}
+
 {% if not show.days %}
 <div class="oss-empty">
   Add scheduled days first in the

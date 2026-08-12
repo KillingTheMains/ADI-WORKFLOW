@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}Break coverage — {{ show.name }}{% endblock %}
+{% block page_title %}Break coverage — {{ show.name }}{% endblock %}
+
+{% block content %}
+<style>
+  .cov-day { background:#F0EDE0; color:#1C2333; padding:6px 12px;
+             font-size:.82rem; font-weight:700; border-radius:6px;
+             margin:18px 0 8px; display:flex; justify-content:space-between; }
+  .cov-block { border:1px solid #E8E4D7; border-radius:8px; background:#fff;
+               margin-bottom:10px; }
+  .cov-block > .head { padding:5px 12px; font-size:.74rem; font-weight:700;
+                       text-transform:uppercase; letter-spacing:.04em;
+                       border-radius:8px 8px 0 0; }
+  .cov-undecided > .head { background:#FDF6E7; color:#B45309; }
+  .cov-unfed     > .head { background:#FDF0F0; color:#9F1239; }
+  .cov-orphan    > .head { background:#F2F6FA; color:#0B2545; }
+  .cov-row { display:flex; align-items:center; gap:10px; padding:5px 12px;
+             font-size:.8rem; border-top:1px solid #F2EFE6; }
+  .cov-row .when { font-variant-numeric:tabular-nums; min-width:104px;
+                   font-weight:600; }
+  .cov-row .what { flex:1; }
+  .cov-row .note { color:#59636E; font-size:.74rem; }
+  .cov-flag { background:#9F1239; color:#fff; padding:1px 7px;
+              border-radius:8px; font-size:.66rem; font-weight:700; }
+  .cov-bar { position:sticky; bottom:0; background:#0B2545; color:#F7F4EE;
+             padding:8px 14px; border-radius:8px; margin-top:16px;
+             display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+             font-size:.82rem; z-index:5; }
+</style>
+
+<div class="mb-3" style="font-size:.85rem;color:var(--adi-muted);">
+  Three questions, and only three: which breaks nobody has answered, which have
+  nothing feeding them, and which services feed nobody.
+  <strong>A break marked Not Provided is an answer, not a gap</strong> — it is
+  not listed here. Fixing anything is the same tool as everywhere else: the
+  crew call sets a break, the Feeds picker links a service.
+</div>
+
+{% if not show.uses_new_breaks %}
+<div class="alert alert-warning py-2 px-3" style="font-size:.82rem;">
+  <strong>The new breaks model is OFF for this show.</strong> Break records may
+  exist, but nothing reads them yet, so these figures describe data that is not
+  in use. Turn it on from the
+  <a href="{{ url_for('breaks.backfill_preview', show_id=show.id) }}">backfill page</a>.
+</div>
+{% endif %}
+
+<div class="card mb-3">
+  <div class="card-body py-2 px-3 d-flex align-items-center gap-3 flex-wrap">
+    <span style="color:#B45309;"><strong>{{ counts.undecided }}</strong>
+      not decided</span>
+    <span style="color:#9F1239;"><strong>{{ counts.unfed }}</strong>
+      with nothing feeding them</span>
+    <span style="color:#0B2545;"><strong>{{ counts.orphans }}</strong>
+      service{{ '' if counts.orphans == 1 else 's' }} feeding nobody</span>
+    <span style="color:var(--adi-muted);">across
+      <strong>{{ counts.days }}</strong> day{{ '' if counts.days == 1 else 's' }}</span>
+    <a class="ms-auto" style="font-size:.78rem;"
+       href="{{ url_for('oss.oss_hub', show_id=show.id, tab='F&B') }}">F&amp;B tab →</a>
+  </div>
+</div>
+
+{% if clear %}
+<div class="empty-state py-4">
+  <div style="font-size:.9rem;font-weight:600;">Nothing outstanding</div>
+  <p class="text-muted" style="font-size:.82rem;">
+    Every break on {{ show.name }} has an answer, and every service has
+    somebody to feed or is confirmed standalone.
+  </p>
+</div>
+{% else %}
+
+<form method="POST"
+      action="{{ url_for('break_coverage.resolve', show_id=show.id) }}"
+      id="cov-form">
+
+{% for e in days %}
+{% set d = e.day %}
+<div class="cov-day">
+  <span>
+    {{ d.date.strftime('%a %d %b') if d.date else 'Undated' }}
+    {% if d.label %} · {{ d.label }}{% endif %}
+  </span>
+  <span style="font-weight:400;font-size:.74rem;">
+    <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=d.id) }}"
+       style="color:#1C2333;">open the day →</a>
+  </span>
+</div>
+
+{% if e.undecided %}
+<div class="cov-block cov-undecided">
+  <div class="head">Not decided — {{ e.undecided|length }}</div>
+  {% for cb in e.undecided %}
+  <label class="cov-row" style="margin:0;cursor:pointer;">
+    <input type="checkbox" name="break_ids" value="{{ cb.id }}" checked>
+    <span class="when">
+      {{ cb.activity.time|to_12hr if cb.activity and cb.activity.time else '—' }}
+      {%- if cb.end_time %} – {{ cb.end_time|to_12hr }}{% endif %}
+    </span>
+    <span class="what">
+      {{ cb.label or 'BREAK' }}
+      <span class="note">
+        · {{ cb.duration_minutes or 0 }} min
+        {%- if cb.crew_call and cb.crew_call.time %}
+        · off the {{ cb.crew_call.time|to_12hr }} crew call
+        {%- else %} · <span style="color:#9F1239;">no crew call to read a
+          headcount from</span>{% endif %}
+        {%- if cb.derived_headcount is not none %}
+        · {{ cb.derived_headcount }} crew{% endif %}
+      </span>
+    </span>
+  </label>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if e.unfed %}
+<div class="cov-block cov-unfed">
+  <div class="head">Nothing feeding them — {{ e.unfed|length }}</div>
+  {% for cb in e.unfed %}
+  {% set contradiction = cb.catered == 'yes' and not cb.meal_service_id %}
+  <label class="cov-row" style="margin:0;cursor:pointer;">
+    <input type="checkbox" name="break_ids" value="{{ cb.id }}"
+           {% if contradiction %}checked{% endif %}>
+    <span class="when">
+      {{ cb.activity.time|to_12hr if cb.activity and cb.activity.time else '—' }}
+      {%- if cb.end_time %} – {{ cb.end_time|to_12hr }}{% endif %}
+    </span>
+    <span class="what">
+      {{ cb.label or 'BREAK' }}
+      {% if contradiction %}
+      <span class="cov-flag" title="Marking a break Provided is what creates its service, so this one had its service deleted afterwards. It reads as catered and nothing is catering it.">says provided</span>
+      {% endif %}
+      <span class="note">
+        · {{ cb.duration_minutes or 0 }} min
+        {%- if not contradiction %} · marked Not Provided, and long enough to
+        be a meal{% endif %}
+        {%- if cb.derived_headcount is not none %}
+        · {{ cb.derived_headcount }} crew{% endif %}
+      </span>
+    </span>
+  </label>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if e.orphans %}
+<div class="cov-block cov-orphan">
+  <div class="head">Feeding nobody — {{ e.orphans|length }}</div>
+  {% for svc in e.orphans %}
+  <div class="cov-row">
+    <span class="when">
+      {{ svc.earliest_time|to_12hr if svc.earliest_time else '—' }}
+    </span>
+    <span class="what">
+      {{ svc.name }}
+      <span class="note">· {{ svc.kind }} · {{ svc.total_headcount }} to feed</span>
+    </span>
+    {# The controls live here; their FORMS live at the bottom of the page, via
+       HTML5 form=. A form cannot nest inside the bulk form, and the same
+       pattern is already how the booking sheet and the break editor keep
+       delete buttons out of the form they sit inside. #}
+    {% if link_choices.get(svc.id) %}
+    <select name="break_id" form="svcfeed-{{ svc.id }}"
+            style="font-size:.74rem;max-width:280px;">
+      <option value="">which break does this feed?</option>
+      {% for c in link_choices[svc.id] %}
+      <option value="{{ c.cb.id }}">
+        {{ c.cb.activity.time|to_12hr if c.cb.activity and c.cb.activity.time else '—' }}
+        {{ c.cb.label or 'BREAK' }}{% if c.suggested %} — suggested{% endif %}
+      </option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-sm btn-adi" form="svcfeed-{{ svc.id }}"
+            style="font-size:.72rem;padding:1px 8px;">Link</button>
+    {% endif %}
+    <button class="btn btn-sm btn-outline-secondary" form="svcnone-{{ svc.id }}"
+            style="font-size:.72rem;padding:1px 8px;"
+            title="A client lunch or a green room feeds no crew break. Recorded, so it stops being chased.">
+      feeds nobody
+    </button>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endfor %}
+
+{% if unplaced.breaks or unplaced.services %}
+<div class="cov-day"><span>Not on any day of this show</span></div>
+<div class="cov-block cov-unfed">
+  <div class="head">Nothing was dropped — these have no day to sit under</div>
+  {% for cb in unplaced.breaks %}
+  <label class="cov-row" style="margin:0;cursor:pointer;">
+    <input type="checkbox" name="break_ids" value="{{ cb.id }}">
+    <span class="when">{{ cb.activity.time|to_12hr if cb.activity and cb.activity.time else '—' }}</span>
+    <span class="what">{{ cb.label or 'BREAK' }}
+      <span class="note">· break with no day</span></span>
+  </label>
+  {% endfor %}
+  {% for svc in unplaced.services %}
+  <div class="cov-row">
+    <span class="when">{{ svc.earliest_time|to_12hr if svc.earliest_time else '—' }}</span>
+    <span class="what">{{ svc.name }}
+      <span class="note">· service with no day on this show</span></span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="cov-bar">
+  <span id="cov-count"></span>
+  <button type="submit" name="catered" value="yes" class="btn btn-sm btn-adi"
+          onclick="return confirm('Mark the ticked breaks as Provided?\n\nEach one without a service gets one created, following its crew call for the headcount.');">
+    F&amp;B provides these
+  </button>
+  <button type="submit" name="catered" value="no"
+          class="btn btn-sm btn-outline-light"
+          onclick="return confirm('Mark the ticked breaks as Not Provided?\n\nAny service attached is unlinked, never deleted — it stays on the F&amp;B tab.');">
+    The crew sorts these themselves
+  </button>
+  <span style="font-size:.72rem;opacity:.8;">
+    Tick what you mean. Nothing is guessed — a wrong answer here reaches a
+    caterer as a wrong headcount.
+  </span>
+</div>
+</form>
+
+{# Service forms, outside the bulk form. Both post to the F&B tab's own Feeds
+   route — one transaction behind both doors — and come back here. #}
+{% for e in days %}{% for svc in e.orphans %}
+<form method="POST" id="svcfeed-{{ svc.id }}" style="display:none;"
+      action="{{ url_for('break_link.service_feeds', show_id=show.id, svc_id=svc.id) }}">
+  <input type="hidden" name="next" value="coverage">
+</form>
+<form method="POST" id="svcnone-{{ svc.id }}" style="display:none;"
+      action="{{ url_for('break_link.service_feeds', show_id=show.id, svc_id=svc.id) }}">
+  <input type="hidden" name="next" value="coverage">
+  <input type="hidden" name="break_id" value="">
+</form>
+{% endfor %}{% endfor %}
+
+<script>
+  // Just the count. The ticking itself is plain HTML — a bulk action that
+  // stops working with JS off is a bulk action that silently does nothing.
+  (function () {
+    var form = document.getElementById('cov-form');
+    var out  = document.getElementById('cov-count');
+    if (!form || !out) return;
+    function tally() {
+      var n = form.querySelectorAll('input[name="break_ids"]:checked').length;
+      out.innerHTML = '<strong>' + n + '</strong> break' + (n === 1 ? '' : 's') + ' ticked';
+    }
+    form.addEventListener('change', tally);
+    tally();
+  })();
+</script>
+{% endif %}
+{% endblock %}

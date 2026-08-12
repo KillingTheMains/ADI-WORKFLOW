@@ -71,6 +71,10 @@ def link(cb, svc):
     # Linking IS the statement that something is provided.
     cb.catered = CATERED_YES
     svc.activity_id = cb.activity_id
+    # It plainly is not standalone any more, whatever it was marked before.
+    # Left set, it would hide a real link from the coverage panel's orphan
+    # count and quietly make the totals wrong.
+    svc.standalone_confirmed = False
     return True, (f"'{svc.name}' now feeds the {cb.label or 'break'} at "
                   f"{cb.activity.time if cb.activity else '?'}.")
 
