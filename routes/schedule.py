@@ -299,12 +299,24 @@ def day_detail(show_id, day_id):
         if not has_fb:
             meal_breaks_missing_fb.add(act.id)
 
-    # Show crew grouped by company for the bulk-assign pop-up (#38)
-    crew_by_company = {}
-    for cm in crew_members:
+    # Show crew grouped by company for the Create Crew Call wizard.
+    #
+    # ROSTER ORDER THROUGHOUT — Jason, 2026-08-12. `crew_members` above is
+    # already sorted by `roster_index`, so iterating it keeps each company's
+    # people in roster order. The GROUPS are then ordered by where their first
+    # person sits in the roster rather than alphabetically, so the whole list
+    # reads top to bottom in exactly the order the crew call itself renders.
+    # Alphabetical companies would have interleaved against the roster and
+    # given the same names two different orders on one page, which is the
+    # thing `crew_ordering` exists to prevent.
+    _roster_idx = roster_index(show.id)
+    crew_by_company, _first_seen = {}, {}
+    for pos, cm in enumerate(crew_members):
         key = cm.company.name if cm.company else "No Company"
         crew_by_company.setdefault(key, []).append(cm)
-    crew_by_company = sorted(crew_by_company.items())
+        _first_seen.setdefault(key, _roster_idx.get(cm.id, 10 ** 9 + pos))
+    crew_by_company = sorted(crew_by_company.items(),
+                             key=lambda kv: (_first_seen[kv[0]], kv[0]))
 
     from hardcoded_service import overlay_for_day, hidden_for_day
     hc_overlay, hc_missing_anchor = overlay_for_day(day)

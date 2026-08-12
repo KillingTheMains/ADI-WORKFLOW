@@ -1706,12 +1706,18 @@
                 <input type="checkbox" class="ccc-company-all"> {{ co_name }}
                 <span style="color:var(--adi-muted);font-weight:400;">({{ crew|length }})</span>
               </label>
-              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
+              {# ONE COLUMN, in ROSTER order — Jason, 2026-08-12. Wrapped
+                 columns read left-to-right-then-down, so the roster order was
+                 there but unreadable: the second name in the roster appeared
+                 to the right of the first rather than under it. A crew call
+                 renders as a single ordered column and so does this. #}
+              <div style="margin-top:4px;">
                 {% for cm in crew %}
-                <label style="font-size:.82rem;display:flex;align-items:center;gap:4px;min-width:155px;">
+                <label style="font-size:.82rem;display:flex;align-items:center;gap:6px;
+                              padding:2px 0;line-height:1.5;">
                   <input type="checkbox" class="ccc-crew" name="crew_member_ids" value="{{ cm.id }}">
-                  {{ cm.display_label }}
-                  {% if cm.position %}<span style="color:var(--adi-muted);font-size:.72rem;">({{ cm.position.title }})</span>{% endif %}
+                  <span>{{ cm.display_label }}</span>
+                  {% if cm.position %}<span style="color:var(--adi-muted);font-size:.72rem;">{{ cm.position.title }}</span>{% endif %}
                 </label>
                 {% endfor %}
               </div>

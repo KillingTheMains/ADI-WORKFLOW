@@ -179,3 +179,78 @@ def test_the_day_page_offers_the_wizard_not_the_old_pop_up(app, client, db):
     # The old pop-up and its trigger are gone. Anchored on the element id, not
     # the words — this file's own header comment names the thing it replaced.
     assert "bulkAssignCrewModal" not in html
+
+
+# ── Roster order in the picker (Jason, 2026-08-12) ───────────────────────────
+
+def _rostered(db, show, people):
+    """Give the show a deliberate roster order: `people` is the order wanted."""
+    from models import ShowCrewAssignment
+    for i, cm in enumerate(people):
+        a = ShowCrewAssignment.query.filter_by(
+            show_id=show.id, crew_member_id=cm.id).one()
+        a.sort_order = (i + 1) * 10
+    db.session.commit()
+
+
+def _picker_order(html):
+    """The crew checkbox ids, in the order the picker draws them."""
+    import re
+    body = html.split('id="createCrewCallModal"')[1]
+    return [int(x) for x in
+            re.findall(r'class="ccc-crew" name="crew_member_ids" value="(\d+)"',
+                       body)]
+
+
+def test_the_picker_lists_crew_in_roster_order(app, client, db):
+    """Same order the crew call itself renders in. Two different orders for the
+    same names on one page reads as a bug — it is what crew_ordering exists to
+    stop.
+    """
+    from models import Company
+    show, day = _show_day(db)
+    co = Company(name="Alpha AV")
+    db.session.add(co)
+    db.session.flush()
+    people = _crew(db, show, 4)
+    for cm in people:
+        cm.company_id = co.id
+    db.session.commit()
+
+    wanted = [people[2], people[0], people[3], people[1]]
+    _rostered(db, show, wanted)
+
+    html = client.get(f"/shows/{show.id}/schedule/{day.id}").get_data(as_text=True)
+    assert _picker_order(html) == [cm.id for cm in wanted]
+
+
+def test_company_groups_follow_the_roster_not_the_alphabet(app, client, db):
+    """The groups are ordered by where their first person sits in the roster,
+    so the whole list reads top to bottom in one order.
+    """
+    from models import Company
+    show, day = _show_day(db)
+    zulu = Company(name="Zulu Rigging")
+    alpha = Company(name="Alpha AV")
+    db.session.add_all([zulu, alpha])
+    db.session.flush()
+    people = _crew(db, show, 2)
+    people[0].company_id = zulu.id      # first in the roster
+    people[1].company_id = alpha.id
+    db.session.commit()
+    _rostered(db, show, people)
+
+    html = client.get(f"/shows/{show.id}/schedule/{day.id}").get_data(as_text=True)
+    body = html.split('id="createCrewCallModal"')[1]
+    assert body.index("Zulu Rigging") < body.index("Alpha AV")
+    assert _picker_order(html) == [people[0].id, people[1].id]
+
+
+def test_the_picker_is_one_column(app, client, db):
+    """A wrapped grid reads left-to-right-then-down, which hides the order."""
+    show, day = _show_day(db)
+    _crew(db, show, 3)
+    html = client.get(f"/shows/{show.id}/schedule/{day.id}").get_data(as_text=True)
+    body = html.split('id="createCrewCallModal"')[1]
+    body = body[:body.index("3. What do they stop for?")]
+    assert "flex-wrap:wrap" not in body
