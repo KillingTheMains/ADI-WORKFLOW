@@ -93,13 +93,23 @@ def test_add_break_creates_an_activity_and_a_record(app, client, db):
     assert ScheduleActivity.query.get(new.activity_id).time == "09:30"
 
 
-def test_added_break_starts_unconfirmed(app, client, db):
+def test_added_meal_break_starts_unconfirmed(app, client, db):
+    """A new MEAL break presumes nothing — somebody still has to say whether
+    F&B provides it.
+
+    Rewritten 2026-08-12, NOT weakened. It used to add at +2:30 and assert
+    unconfirmed; +2:30 is now a coffee slot, and a coffee break deliberately
+    has no catering question at all (see test_break_kinds). The intent of this
+    test — "adding a break does not quietly answer the question for you" —
+    belongs to the meal slot, so it asks there. That a coffee break does the
+    opposite is asserted separately rather than lost here.
+    """
     from models import CrewBreak
     show, day, call, act, cb, ms = _setup(db, "BE33")
     client.post("/shows/%d/schedule/%d/crew-call/%d/breaks/add"
                 % (show.id, day.id, call.id),
-                data={"label": "TEA", "offset_minutes": "150",
-                      "duration_minutes": "15"})
+                data={"label": "TEA", "offset_minutes": "300",
+                      "duration_minutes": "60"})
     new = CrewBreak.query.filter_by(label="TEA").one()
     assert new.catered == CATERED_UNCONFIRMED
 

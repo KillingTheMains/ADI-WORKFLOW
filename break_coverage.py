@@ -39,9 +39,21 @@ from models import (CATERED_UNCONFIRMED, CATERED_YES, CrewBreak, MealService,
 MEAL_LENGTH_MINUTES = DEFAULT_SERVICE_MINUTES
 
 
+def asks_catering(cb):
+    """Is there a question here at all?
+
+    A coffee break has none — fifteen minutes, the crew helps itself from the
+    standing beverage table, and Jason's words are "they just are what they
+    are". They were 54 of the 92 rows this panel listed on its first run, and
+    every one of them had exactly one possible answer. A list where most items
+    need no decision is a list nobody finishes.
+    """
+    return getattr(cb, "asks_catering", True)
+
+
 def is_undecided(cb):
     """Nobody has said whether F&B provides this break."""
-    return cb.catered == CATERED_UNCONFIRMED
+    return asks_catering(cb) and cb.catered == CATERED_UNCONFIRMED
 
 
 def is_unfed(cb):
@@ -56,6 +68,8 @@ def is_unfed(cb):
     Undecided breaks are excluded: they are already the first question, and
     counting one break twice makes the totals lie.
     """
+    if not asks_catering(cb):
+        return False
     if cb.meal_service_id is not None or is_undecided(cb):
         return False
     if cb.catered == CATERED_YES:

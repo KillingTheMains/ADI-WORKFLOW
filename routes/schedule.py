@@ -17,7 +17,7 @@ schedule_bp = Blueprint("schedule", __name__)
 # Placement lives in hardcoded_service so the day editor and the show book
 # cannot drift apart on where a recurring event belongs.
 from hardcoded_service import place_in_day as _place_recurring
-from breaks import is_crew_start
+from breaks import break_options_for, is_crew_start
 
 
 # ── Time helpers ─────────────────────────────────────────────────────────────
@@ -323,7 +323,7 @@ def day_detail(show_id, day_id):
     break_link_choices = {}
     if show.uses_new_breaks:
         from models import CrewBreak
-        from breaks import group_breaks
+        from breaks import group_breaks  # noqa: F811
         day_act_ids = {a.id for a in day.activities}
         on_this_day = []
         for cb in CrewBreak.query.filter_by(show_id=show.id).all():
@@ -405,6 +405,11 @@ def day_detail(show_id, day_id):
                            breaks_by_activity=breaks_by_activity,
                            breaks_by_crew_call=breaks_by_crew_call,
                            break_periods=break_periods,
+                           # The add-break choices for a crew call. Passed as
+                           # the function so the template asks per call — the
+                           # second meal only appears where somebody on THAT
+                           # call is over 14 hours.
+                           break_options=break_options_for,
                            break_link_choices=break_link_choices,
                            day_meal_services=day_meal_services,
                            crew_by_company=crew_by_company,

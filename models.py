@@ -670,6 +670,11 @@ CATERED_NO = "no"
 CATERED_UNCONFIRMED = "unconfirmed"
 CATERED_STATES = [CATERED_YES, CATERED_NO, CATERED_UNCONFIRMED]
 
+# Re-exported from breaks.py so a model default and the rules that read it
+# cannot drift into two spellings of the same word.
+from breaks import KIND_COFFEE as BREAK_KIND_COFFEE  # noqa: E402
+from breaks import KIND_MEAL as BREAK_KIND_MEAL      # noqa: E402
+
 
 class CrewBreak(db.Model):
     """A break in a crew's shift, and whether F&B provides anything at it.
@@ -700,6 +705,14 @@ class CrewBreak(db.Model):
     duration_minutes = db.Column(db.Integer, default=60)
     label            = db.Column(db.String(120))
     catered          = db.Column(db.String(12), default=CATERED_UNCONFIRMED)
+    # meal | coffee (2026-08-12). The ONE thing it changes is whether the
+    # catering question is asked. Jason: a coffee break is "around 2.5 hours
+    # after the start of the call or coming back from a meal break", it is
+    # always 15 minutes, and "they just are what they are" — the crew helps
+    # itself from the standing beverage table, so there is nothing to decide.
+    # Stored rather than derived from the duration, so that changing a break's
+    # length cannot silently strip a catering answer somebody gave.
+    kind             = db.Column(db.String(12), default=BREAK_KIND_MEAL)
     meal_service_id  = db.Column(db.Integer, db.ForeignKey("meal_services.id"),
                                  nullable=True)
 
@@ -724,9 +737,29 @@ class CrewBreak(db.Model):
         return self.catered == CATERED_UNCONFIRMED
 
     @property
+    def is_coffee(self):
+        return self.kind == BREAK_KIND_COFFEE
+
+    @property
+    def asks_catering(self):
+        """Does this break put a question to anybody?
+
+        A coffee break does not. It is fifteen minutes, the crew helps itself
+        from the standing beverage table, and there is nothing for F&B to
+        decide — so the control is not shown and it never reaches the coverage
+        panel. Asking a question with only one answer, 54 times, is how the
+        real questions stop being read.
+        """
+        return not self.is_coffee
+
+    @property
     def visible_to_fnb(self):
         """F&B sees catered breaks, and unconfirmed ones so they can be
-        resolved. Never a break confirmed as uncatered."""
+        resolved. Never a break confirmed as uncatered, and never a coffee
+        break — that one runs off the standing beverage service, which feeds
+        nobody AT a break by definition."""
+        if self.is_coffee:
+            return False
         return self.catered in (CATERED_YES, CATERED_UNCONFIRMED)
 
     @property

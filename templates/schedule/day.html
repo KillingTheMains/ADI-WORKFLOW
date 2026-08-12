@@ -576,7 +576,10 @@
         <span class="text-muted" style="font-size:.75rem;"
               title="Read off the crew calls, live.">{{ p.crew }} crew{% if p.crew_partial %} +?{% endif %}</span>
         {% endif %}
-        {{ catered_pill(p.catered) }}
+        {# A coffee period asks nothing, so it says nothing. A "TBD" pill here
+           would put the question back on the surface everybody reads, after
+           the editor stopped offering any way to answer it. #}
+        {% if p.asks_catering %}{{ catered_pill(p.catered) }}{% endif %}
       </div>
       {# Linked to F&B — said plainly, under the event, so you can see it
          without opening another tab. #}
@@ -725,7 +728,14 @@
                 {% endfor %}
               </select>
               {# ONE control for the one question. A break marked Provided IS
-                 what creates the meal service on the F&B tab. #}
+                 what creates the meal service on the F&B tab.
+
+                 A COFFEE break has no question — 15 minutes, the crew helps
+                 itself from the standing beverage table (Jason, 2026-08-12:
+                 "they just are what they are"). The control is absent rather
+                 than disabled, because a greyed-out dropdown still reads as
+                 a decision somebody has to look at. #}
+              {% if b.asks_catering %}
               <select name="catered_{{ b.id }}" class="form-select form-select-sm"
                       style="font-size:.72rem;width:132px;"
                       title="Provided = F&amp;B puts food on for this break, and it appears on the F&amp;B tab.">
@@ -733,6 +743,12 @@
                 <option value="yes" {% if b.catered == 'yes' %}selected{% endif %}>Provided</option>
                 <option value="no" {% if b.catered == 'no' %}selected{% endif %}>Not Provided</option>
               </select>
+              {% else %}
+              <span class="text-muted" style="font-size:.7rem;width:132px;"
+                    title="A coffee break runs off the standing beverage service. There is nothing for F&amp;B to decide.">
+                ☕ coffee — nothing to decide
+              </span>
+              {% endif %}
               <span class="text-muted" style="font-size:.7rem;flex:1;">
                 {%- if b.offset_minutes is not none %}+{{ b.offset_minutes }}m{% endif %}
                 {%- if b.derived_headcount is not none %} · {{ b.derived_headcount }} crew{% endif %}
@@ -784,17 +800,21 @@
           <form method="POST" class="d-flex align-items-center gap-1 flex-wrap pt-2 mt-2"
                 style="border-top:1px solid var(--adi-border);"
                 action="{{ url_for('break_edit.add_break', show_id=show.id, day_id=day.id, act_id=act.id) }}">
-            <input type="text" name="label" placeholder="BREAK"
-                   class="form-control form-control-sm" style="font-size:.72rem;width:130px;">
-            {# The offset picks the length: +2:30 and +8:30 are coffee, +5:00
-               is lunch. data-duration drives the JS; add_break applies the
-               same mapping server-side so JS-off cannot save a different
-               answer. #}
+            <input type="text" name="label" placeholder="{{ break_options(act)[1].label }}"
+                   class="form-control form-control-sm" style="font-size:.72rem;width:130px;"
+                   title="Leave blank to use the house name for whichever slot you pick.">
+            {# The offset picks the length AND the kind: +2:30 and +8:30 are
+               coffee, +5:00 is the meal, and +11:00 is the second meal, shown
+               only when somebody on this call is over 14 hours. ONE definition
+               in breaks.break_options_for — data-duration drives the JS and
+               add_break applies the same mapping server-side, so JS-off cannot
+               save a different answer. #}
             <select name="offset_minutes" class="form-select form-select-sm break-offset"
-                    style="font-size:.72rem;width:96px;" title="After this crew start">
-              <option value="150" data-duration="15">+2:30</option>
-              <option value="300" data-duration="60" selected>+5:00</option>
-              <option value="510" data-duration="15">+8:30</option>
+                    style="font-size:.72rem;width:150px;" title="After this crew start">
+              {% for o in break_options(act) %}
+              <option value="{{ o.offset }}" data-duration="{{ o.duration }}"
+                      {% if o.offset == 300 %}selected{% endif %}>{{ o.text }}</option>
+              {% endfor %}
             </select>
             <select name="duration_minutes" class="form-select form-select-sm break-duration"
                     style="font-size:.72rem;width:104px;">

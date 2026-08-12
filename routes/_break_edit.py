@@ -1,11 +1,12 @@
 """Editing a crew break: time, duration, provided, meal-service link."""
 from flask import Blueprint, flash, redirect, request, url_for
 
-from breaks import break_export_text, default_duration_for, guess_meal_kind
+from breaks import (BREAK_KINDS, break_export_text, break_options_for,
+                    default_duration_for, guess_meal_kind, kind_for_offset)
 from extensions import db
-from models import (CATERED_STATES, CATERED_UNCONFIRMED, CATERED_YES,
-                    CrewBreak, MealService, MealServiceLocation,
-                    ScheduleActivity, ScheduleDay, Show)
+from models import (BREAK_KIND_COFFEE, CATERED_NO, CATERED_STATES,
+                    CATERED_UNCONFIRMED, CATERED_YES, CrewBreak, MealService,
+                    MealServiceLocation, ScheduleActivity, ScheduleDay, Show)
 # parse_minutes, NOT sort_minutes: sort_minutes returns a 1,000,000
 # sentinel for an unreadable time so an `is None` guard never fires,
 # which would place a break at a nonsense hour off an untimed crew call.
@@ -104,7 +105,14 @@ def _apply_break_form(cb, f, prefix=""):
         except (TypeError, ValueError):
             pass
 
-    if field("catered") in f:
+    # A coffee break asks nothing, so it accepts nothing. Guarding here rather
+    # than only hiding the control means a stale form, a JS-off browser or a
+    # hand-rolled POST cannot put a catering answer back onto a break that has
+    # no question — the same reason the offset->duration rule is applied
+    # server-side as well as in the JS.
+    if cb.kind == BREAK_KIND_COFFEE:
+        cb.catered = CATERED_NO
+    elif field("catered") in f:
         value = (f.get(field("catered")) or "").strip()
         if value in CATERED_STATES:
             cb.catered = value
@@ -233,7 +241,18 @@ def add_break(show_id, day_id, act_id):
     if duration not in DURATION_CHOICES:
         duration = fallback
 
-    label = (f.get("label") or "BREAK").strip() or "BREAK"
+    # The offset picks the KIND as well as the length, and the same house rule
+    # decides both — see breaks.break_options_for. A kind posted by the form is
+    # honoured, but only if it is one we recognise; anything else falls to the
+    # offset, and an unrecognised offset falls to MEAL so the catering question
+    # is asked rather than quietly skipped.
+    kind = (f.get("kind") or "").strip()
+    if kind not in BREAK_KINDS:
+        kind = kind_for_offset(offset)
+
+    default_label = next((o["label"] for o in break_options_for(call)
+                          if o["offset"] == offset), "BREAK")
+    label = (f.get("label") or "").strip() or default_label
 
     start = parse_minutes(call.time)
     if start is None:
@@ -254,10 +273,18 @@ def add_break(show_id, day_id, act_id):
     db.session.add(CrewBreak(
         show_id=show.id, activity_id=act.id, crew_call_id=call.id,
         offset_minutes=offset, duration_minutes=duration, label=label,
+        kind=kind,
+        # A coffee break has no question, so it is not left sitting on TBD
+        # waiting for an answer nobody is going to give.
+        catered=(CATERED_NO if kind == BREAK_KIND_COFFEE
+                 else CATERED_UNCONFIRMED),
     ))
     db.session.commit()
-    flash(f"Added {label} at {act.time}. Set whether it is provided.",
-          "success")
+    if kind == BREAK_KIND_COFFEE:
+        flash(f"Added {label} at {act.time}.", "success")
+    else:
+        flash(f"Added {label} at {act.time}. Set whether it is provided.",
+              "success")
     return _back(show_id, day_id)
 
 

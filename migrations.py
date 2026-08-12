@@ -25,6 +25,8 @@ renaming columns, splitting tables), add an entry to DATA_MIGRATIONS with
 a unique key plus a callable. The keys we've already applied are tracked
 in a tiny `applied_migrations` table.
 """
+import re
+
 from sqlalchemy import text, inspect as sa_inspect
 from extensions import db
 
@@ -102,6 +104,10 @@ MIGRATIONS = [
     # it could not be told apart from an unanswered question. Defaults to 0:
     # every existing service starts as "not asked", which is the truth.
     ("meal_services", "standalone_confirmed", "INTEGER DEFAULT 0"),
+    # 2026-08-12 — meal | coffee. Defaults to 'meal' so that a row the
+    # classifier below never reaches keeps its catering question rather than
+    # silently losing it.
+    ("crew_breaks", "kind", "VARCHAR(12) DEFAULT 'meal'"),
 ]
 
 
@@ -413,6 +419,75 @@ def _break_durations_from_labels(session):
           "default with nothing in the label to read")
 
 
+_MEAL_NAME_AT_START = re.compile(
+    r"^\s*(?:LUNCH|DINNER|BREAKFAST|MEAL)(?:\s+BREAK)?\b", re.IGNORECASE)
+
+
+def _classify_break_kinds(session):
+    """Sort existing breaks into meal and coffee, and rename the meals.
+
+    Two things, together, because they are the same decision seen twice.
+
+    **The kind.** Jason, 2026-08-12: a coffee break is "always 15 minutes".
+    That is the classifier — the DURATION, which is structural, and not the
+    NAME, which is the inference this overhaul exists to remove. It agrees
+    with what the labels say on 73 of the 92 outstanding breaks, and every
+    disagreement is a coffee-named break still stuck at 60 minutes because
+    its label had no readable length for the 08-12 duration repair to find.
+    Those stay MEALS and keep their catering question, which is the safe way
+    to be wrong: a needless question costs a click, a missing one costs a
+    crew their dinner.
+
+    A break carrying a meal service is never reclassified whatever its
+    length, because something is demonstrably feeding it.
+
+    **The name.** Jason: the first break "may not always be lunch", so LUNCH /
+    DINNER / BREAKFAST all become MEAL BREAK. Which meal it actually is lives
+    on the MealService — its kind and its name — which is where the two
+    timelines were always meant to separate: the crew timeline says the crew
+    stops to eat, the F&B timeline says what is being served.
+
+    Any trailing text is preserved: "LUNCH BREAK — 07:00 CREW" becomes
+    "MEAL BREAK — 07:00 CREW".
+
+    **This rewrites live client-facing labels.** The undo is the pre-migration
+    snapshot in ~/backups/, which run_migrations takes automatically.
+    """
+    from breaks import (COFFEE_DURATION_MINUTES, KIND_COFFEE, KIND_MEAL,
+                        MEAL_BREAK_LABEL)
+    from models import CATERED_NO, CrewBreak
+    coffee = meals = renamed = stuck = settled = 0
+    for cb in session.query(CrewBreak).all():
+        is_coffee = (cb.duration_minutes == COFFEE_DURATION_MINUTES
+                     and cb.meal_service_id is None)
+        cb.kind = KIND_COFFEE if is_coffee else KIND_MEAL
+        if is_coffee:
+            coffee += 1
+            # And it stops SAYING TBD. Leaving the stored state alone left a
+            # coffee break rendering a "TBD" pill on the day's timeline —
+            # asking, on the one surface everybody reads, a question the
+            # editor no longer offers a way to answer.
+            if cb.catered != CATERED_NO:
+                cb.catered = CATERED_NO
+                settled += 1
+            continue
+        meals += 1
+        new = _MEAL_NAME_AT_START.sub(MEAL_BREAK_LABEL, cb.label or "")
+        if new and new != cb.label:
+            print(f"[migration]   {cb.label!r} -> {new!r}")
+            cb.label = new
+            renamed += 1
+        if cb.duration_minutes == 60 and not _MEAL_NAME_AT_START.match(
+                cb.label or ""):
+            stuck += 1
+    print(f"[migration] break kinds: {coffee} coffee ({settled} of them were "
+          f"still saying TBD), {meals} meal, "
+          f"{renamed} renamed to '{MEAL_BREAK_LABEL}'. {stuck} meal-kind "
+          "break(s) are 60 minutes with a non-meal name — likely coffee "
+          "breaks whose duration was never recovered; they keep their "
+          "catering question until somebody sets the length.")
+
+
 DATA_MIGRATIONS = [
     ("2026-06-30-fb-v2-migrate-entries", _migrate_fb_entries_to_meal_services),
     ("2026-07-02-add-prompter-position", _seed_position_prompter),
@@ -445,6 +520,10 @@ DATA_MIGRATIONS = [
     # name, and no live show has the RETURN FROM rows it DID read, so all 91
     # breaks sat on the 60-minute default. See the function.
     ("2026-08-12-break-durations-from-labels", _break_durations_from_labels),
+    # 2026-08-12 — meal vs coffee, and LUNCH/DINNER -> MEAL BREAK. Runs AFTER
+    # the duration repair on purpose: the durations are what it classifies on,
+    # so doing it the other way round would call 66 corrected breaks meals.
+    ("2026-08-12-classify-break-kinds", _classify_break_kinds),
 ]
 
 

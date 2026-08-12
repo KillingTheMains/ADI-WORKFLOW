@@ -31,7 +31,98 @@ FOOD_OUT_MAX_MINUTES = 120
 # What each offset is FOR. +2:30 and +8:30 are the morning and afternoon
 # coffee; +5:00 is lunch. Jason, 2026-08-11 — picking the offset should pick
 # the length, because nobody takes an hour for a coffee.
-DEFAULT_DURATION_FOR_OFFSET = {150: 15, 300: 60, 510: 15}
+DEFAULT_DURATION_FOR_OFFSET = {150: 15, 300: 60, 510: 15, 660: 60}
+
+# ── What KIND of break it is, and what that changes ─────────────────────────
+#
+# Jason, 2026-08-12: "coffee breaks are the ones that are around 2.5 hours
+# either after the start of the call or coming back from a meal break. So in a
+# standard day, there would be 3 breaks: COFFEE, MEAL, COFFEE."
+#
+# That is why the house offsets are what they are, and it is worth writing
+# down because they look arbitrary otherwise: +2:30 is 2.5h after the call;
+# +5:00 is the meal; +8:30 is 2.5h after an hour-long meal ends. A show whose
+# meal is 30 minutes puts its second coffee at +8:00 for the same reason.
+#
+# The difference the kind makes is ONE thing: a meal break asks whether F&B
+# provides it, and a coffee break does not. Jason: "those are always 15
+# minutes and they just are what they are." A crew helping itself from the
+# standing beverage table is not a catering question, and asking it 54 times
+# is how a real question stops being read.
+KIND_MEAL = "meal"
+KIND_COFFEE = "coffee"
+BREAK_KINDS = (KIND_MEAL, KIND_COFFEE)
+
+COFFEE_AFTER_MINUTES = 150       # "around 2.5 hours"
+COFFEE_DURATION_MINUTES = 15     # "those are always 15 minutes"
+MEAL_BREAK_LABEL = "MEAL BREAK"  # not LUNCH: the first meal is not always one
+COFFEE_BREAK_LABEL = "COFFEE BREAK"
+
+# The second meal. Jason, 2026-08-12: offered when any crew on the call is
+# scheduled beyond 14 hours, and it sits at the 11th hour.
+SECOND_MEAL_OFFSET = 660
+LONG_CALL_HOURS = 14
+
+
+def kind_for_offset(offset_minutes):
+    """Which kind the house schedule puts at this offset.
+
+    Unknown offsets are a MEAL, deliberately. Getting it wrong that way asks a
+    catering question nobody needed; getting it wrong the other way silently
+    removes one, and a missing meal on site is far worse than an extra line.
+    """
+    try:
+        offset = int(offset_minutes)
+    except (TypeError, ValueError):
+        return KIND_MEAL
+    if DEFAULT_DURATION_FOR_OFFSET.get(offset) == COFFEE_DURATION_MINUTES:
+        return KIND_COFFEE
+    return KIND_MEAL
+
+
+def longest_shift_hours(crew_call):
+    """The longest shift on this crew call, in hours. ``None`` when nobody has
+    said — which is not zero, and must not be read as a short day.
+
+    Duck-typed on ``crew_call.crew_rows`` and each row's ``hours``.
+    """
+    if crew_call is None:
+        return None
+    hours = [r.hours for r in getattr(crew_call, "crew_rows", [])
+             if not getattr(r, "is_group_header", False) and r.hours]
+    return max(hours) if hours else None
+
+
+def needs_second_meal(crew_call):
+    """Is anybody on this call working past ``LONG_CALL_HOURS``?
+
+    False when the hours are unknown. The second meal is OFFERED, never
+    created, so a silent False costs an option in a dropdown rather than a
+    meal nobody ordered.
+    """
+    longest = longest_shift_hours(crew_call)
+    return longest is not None and longest > LONG_CALL_HOURS
+
+
+def break_options_for(crew_call):
+    """The add-a-break choices for one crew call, in clock order.
+
+    ONE definition, so the dropdown and the route that receives it cannot
+    offer different things — the same reason ``default_duration_for`` exists.
+    """
+    out = [
+        {"offset": 150, "kind": KIND_COFFEE, "label": COFFEE_BREAK_LABEL,
+         "duration": 15, "text": "+2:30  Coffee"},
+        {"offset": 300, "kind": KIND_MEAL, "label": MEAL_BREAK_LABEL,
+         "duration": 60, "text": "+5:00  Meal"},
+        {"offset": 510, "kind": KIND_COFFEE, "label": COFFEE_BREAK_LABEL,
+         "duration": 15, "text": "+8:30  Coffee"},
+    ]
+    if needs_second_meal(crew_call):
+        out.append({"offset": SECOND_MEAL_OFFSET, "kind": KIND_MEAL,
+                    "label": MEAL_BREAK_LABEL, "duration": 60,
+                    "text": "+11:00  Second meal"})
+    return out
 
 
 def default_duration_for(offset_minutes):
@@ -226,6 +317,21 @@ def group_breaks(breaks):
         for group in buckets[key]:
             clash = (b.crew_call_id is not None
                      and any(x.crew_call_id == b.crew_call_id for x in group))
+            # ...and a group cannot span more than one sitting's worth of
+            # clock. Necessary from 2026-08-12, when LUNCH and DINNER both
+            # became MEAL BREAK: two meals six hours apart off DIFFERENT crew
+            # calls share a label and do not clash, so without this they
+            # collapsed into one period row timed at the first of them, with
+            # the evening meal hidden inside it as a sitting.
+            #
+            # FOOD_OUT_MAX_MINUTES is the right limit and not a new number:
+            # it is already the app's statement of how long one service can
+            # be out, so sittings further apart than that cannot be one meal.
+            if not clash and group and b.start_minute is not None:
+                first = group[0].start_minute
+                if (first is not None
+                        and abs(b.start_minute - first) > FOOD_OUT_MAX_MINUTES):
+                    clash = True
             if not clash:
                 home = group
                 break
@@ -243,6 +349,11 @@ def _period(label, sittings):
     are not' is exactly the thing somebody needs to see."""
     states = {b.catered for b in sittings}
     first = sittings[0]
+    # A period asks the catering question only if its sittings do. A coffee
+    # period showed a "TBD" pill on the day's timeline otherwise — putting the
+    # question back on the one surface everybody reads, after the editor had
+    # stopped offering any way to answer it.
+    asks = any(getattr(b, "asks_catering", True) for b in sittings)
     counts = [b.derived_headcount for b in sittings]
     known = [c for c in counts if c is not None]
     return {
@@ -255,6 +366,7 @@ def _period(label, sittings):
         "duration_minutes": first.duration_minutes,
         "duration_text": duration_text(first.duration_minutes),
         "sittings": sittings,
+        "asks_catering": asks,
         "catered": states.pop() if len(states) == 1 else "mixed",
         "crew": sum(known) if known else None,
         "crew_partial": len(known) != len(counts),
