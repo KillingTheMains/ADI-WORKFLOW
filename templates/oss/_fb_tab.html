@@ -10,7 +10,7 @@
   .meal-card .head .name { font-weight:700; flex:1; }
   .meal-card .head .kind {
     background:rgba(201,168,76,.2); padding:1px 8px; border-radius:8px;
-    font-size:.66rem; text-transform:uppercase; letter-spacing:.04em;
+    font-size:.68rem; text-transform:uppercase; letter-spacing:.04em;
   }
   .meal-card .head .total {
     background:#C9A84C; color:#1C2333; padding:2px 10px; border-radius:10px;
@@ -18,7 +18,7 @@
   }
   .meal-card .body { padding:8px 10px; }
   .loc-table { font-size:.78rem; margin:0; width:100%; }
-  .loc-table th { font-size:.66rem; text-transform:uppercase;
+  .loc-table th { font-size:.68rem; text-transform:uppercase;
                   color:#666; font-weight:600; padding:4px 6px; background:#fafafa; }
   .loc-table td { padding:4px 6px; vertical-align:middle; }
   .loc-table input { font-size:.76rem; padding:2px 6px; width:100%; }
@@ -171,14 +171,14 @@
       👤 {{ svc.total_headcount }}
     </span>
     {% if win and win.breach %}
-    <span style="font-size:.66rem;color:#FFD9A0;white-space:nowrap;"
+    <span style="font-size:.68rem;color:#FFD9A0;white-space:nowrap;"
           title="Food would be out for {{ win.food_out }} minutes. The house maximum is 120. Saveable — real shows break this knowingly — but somebody should see it.">
       ⚠ food out {{ win.food_out }}m
     </span>
     {% endif %}
     {% if not svc.headcount_is_derived and svc.derived_headcount is not none
           and svc.derived_headcount != svc.total_headcount %}
-    <span style="font-size:.66rem;color:#FFD9A0;white-space:nowrap;"
+    <span style="font-size:.68rem;color:#FFD9A0;white-space:nowrap;"
           title="These counts were typed by hand. The crew call now says something different. Clear a Count to follow the crew again.">
       ⚠ crew says {{ svc.derived_headcount }}
     </span>
@@ -205,12 +205,12 @@
             action="{{ url_for('oss.fb_service_save', show_id=show.id, svc_id=svc.id) }}">
         <div class="row g-2 align-items-end mb-2">
           <div class="col-md-3">
-            <label style="font-size:.66rem;font-weight:600;">Service</label>
+            <label style="font-size:.68rem;font-weight:600;">Service</label>
             <input type="text" name="name" value="{{ svc.name }}"
                    class="form-control form-control-sm" style="font-size:.78rem;">
           </div>
           <div class="col-md-2">
-            <label style="font-size:.66rem;font-weight:600;">Kind</label>
+            <label style="font-size:.68rem;font-weight:600;">Kind</label>
             <select name="kind" class="form-select form-select-sm" style="font-size:.78rem;">
               {% for k in meal_kinds %}
               <option value="{{ k }}" {% if svc.kind == k %}selected{% endif %}>{{ k }}</option>
@@ -219,7 +219,7 @@
           </div>
           {% if svc.is_standing %}
           <div class="col-md-2">
-            <label style="font-size:.66rem;font-weight:600;">Set vs SOD</label>
+            <label style="font-size:.68rem;font-weight:600;">Set vs SOD</label>
             <select name="beverage_offset_minutes" class="form-select form-select-sm" style="font-size:.78rem;">
               {% for v, t in [(-60,'1 hr before'), (-30,'30 min before'), (0,'at SOD'), (30,'30 min after')] %}
               <option value="{{ v }}" {% if svc.beverage_offset_minutes == v %}selected{% endif %}>{{ t }}</option>
@@ -227,7 +227,7 @@
             </select>
           </div>
           <div class="col-md-2">
-            <label style="font-size:.66rem;font-weight:600;">Refresh every</label>
+            <label style="font-size:.68rem;font-weight:600;">Refresh every</label>
             <select name="beverage_interval_minutes" class="form-select form-select-sm" style="font-size:.78rem;">
               {% for v, t in [(90,'1:30'), (120,'2:00'), (150,'2:30'), (180,'3:00'), (240,'4:00')] %}
               <option value="{{ v }}" {% if svc.beverage_interval_minutes == v %}selected{% endif %}>{{ t }}</option>
@@ -236,14 +236,14 @@
           </div>
           {% else %}
           <div class="col-md-2">
-            <label style="font-size:.66rem;font-weight:600;"
+            <label style="font-size:.68rem;font-weight:600;"
                    title="F&amp;B is set up before the crew stops.">Set up (min)</label>
             <input type="number" name="setup_minutes" min="0" step="5"
                    value="{{ svc.setup_minutes if svc.setup_minutes is not none else 30 }}"
                    class="form-control form-control-sm" style="font-size:.78rem;">
           </div>
           <div class="col-md-2">
-            <label style="font-size:.66rem;font-weight:600;"
+            <label style="font-size:.68rem;font-weight:600;"
                    title="Held for latecomers after the crew is back.">Holdover (min)</label>
             <input type="number" name="holdover_minutes" min="0" step="5"
                    value="{{ svc.holdover_minutes if svc.holdover_minutes is not none else 30 }}"
@@ -251,7 +251,7 @@
           </div>
           {% endif %}
           <div class="col-md-3">
-            <label style="font-size:.66rem;font-weight:600;">Notes</label>
+            <label style="font-size:.68rem;font-weight:600;">Notes</label>
             <input type="text" name="notes" value="{{ svc.notes or '' }}"
                    class="form-control form-control-sm" style="font-size:.78rem;">
           </div>
@@ -270,27 +270,27 @@
         {% for loc in svc.locations_ordered %}
         <div class="row g-2 align-items-end">
           <div class="col-md-4">
-            <label style="font-size:.66rem;font-weight:600;">Where</label>
+            <label style="font-size:.68rem;font-weight:600;">Where</label>
             <input type="text" name="loc_{{ loc.id }}_location_name"
                    value="{{ loc.location_name or '' }}" placeholder="e.g. Backstage"
                    class="form-control form-control-sm" style="font-size:.78rem;">
           </div>
           {% if not svc.is_standing %}
           <div class="col-md-2">
-            <label style="font-size:.66rem;font-weight:600;">Start</label>
+            <label style="font-size:.68rem;font-weight:600;">Start</label>
             <input type="time" name="loc_{{ loc.id }}_start_time"
                    value="{{ loc.start_time|to_24hr }}"
                    class="form-control form-control-sm" style="font-size:.78rem;">
           </div>
           <div class="col-md-2">
-            <label style="font-size:.66rem;font-weight:600;">End</label>
+            <label style="font-size:.68rem;font-weight:600;">End</label>
             <input type="time" name="loc_{{ loc.id }}_end_time"
                    value="{{ loc.end_time|to_24hr }}"
                    class="form-control form-control-sm" style="font-size:.78rem;">
           </div>
           {% endif %}
           <div class="col-md-2">
-            <label style="font-size:.66rem;font-weight:600;">Count</label>
+            <label style="font-size:.68rem;font-weight:600;">Count</label>
             <input type="number" name="loc_{{ loc.id }}_headcount" min="0" step="1"
                    value="{{ loc.headcount if loc.headcount is not none else '' }}"
                    placeholder="{{ loc.derived_headcount if loc.derived_headcount is not none else '—' }}"
@@ -347,7 +347,7 @@
             style="border-top:1px solid #E8E4D7;"
             action="{{ url_for('oss.fb_location_add', show_id=show.id, svc_id=svc.id) }}">
         <div>
-          <label style="font-size:.66rem;font-weight:600;">Another location</label>
+          <label style="font-size:.68rem;font-weight:600;">Another location</label>
           <input type="text" name="location_name" placeholder="e.g. FOH"
                  class="form-control form-control-sm" style="font-size:.78rem;width:190px;">
         </div>
@@ -472,17 +472,17 @@
   <input type="hidden" name="schedule_day_id" value="{{ d.id }}">
   <div class="row g-1 align-items-end">
     <div class="col-md-2">
-      <label style="font-size:.66rem;font-weight:600;">Standing service</label>
+      <label style="font-size:.68rem;font-weight:600;">Standing service</label>
       <input type="text" name="name" value="All Day Beverages"
              class="form-control form-control-sm" style="font-size:.76rem;">
     </div>
     <div class="col-md-2">
-      <label style="font-size:.66rem;font-weight:600;">Location</label>
+      <label style="font-size:.68rem;font-weight:600;">Location</label>
       <input type="text" name="location_name" placeholder="e.g. Backstage"
              class="form-control form-control-sm" style="font-size:.76rem;">
     </div>
     <div class="col-md-2">
-      <label style="font-size:.66rem;font-weight:600;">Set relative to SOD</label>
+      <label style="font-size:.68rem;font-weight:600;">Set relative to SOD</label>
       <select name="beverage_offset_minutes" class="form-select form-select-sm"
               style="font-size:.76rem;" title="Negative is before SOD.">
         <option value="-60">1 hr before SOD</option>
@@ -492,7 +492,7 @@
       </select>
     </div>
     <div class="col-md-2">
-      <label style="font-size:.66rem;font-weight:600;">Refresh every</label>
+      <label style="font-size:.68rem;font-weight:600;">Refresh every</label>
       <select name="beverage_interval_minutes" class="form-select form-select-sm"
               style="font-size:.76rem;">
         <option value="90">1:30</option>
@@ -519,12 +519,12 @@
   <input type="hidden" name="schedule_day_id" value="{{ d.id }}">
   <div class="row g-1 align-items-end">
     <div class="col-md-2">
-      <label style="font-size:.66rem;font-weight:600;">Service</label>
+      <label style="font-size:.68rem;font-weight:600;">Service</label>
       <input type="text" name="name" placeholder="e.g. Breakfast, All Day Bev"
              class="form-control form-control-sm" style="font-size:.76rem;" required>
     </div>
     <div class="col-md-1">
-      <label style="font-size:.66rem;font-weight:600;">Kind</label>
+      <label style="font-size:.68rem;font-weight:600;">Kind</label>
       <select name="kind" class="form-select form-select-sm" style="font-size:.76rem;">
         {% for k in meal_kinds %}
         <option value="{{ k }}">{{ k }}</option>
@@ -532,25 +532,25 @@
       </select>
     </div>
     <div class="col-md-2">
-      <label style="font-size:.66rem;font-weight:600;">First location</label>
+      <label style="font-size:.68rem;font-weight:600;">First location</label>
       <input type="text" name="location_name" placeholder="e.g. Backstage"
              class="form-control form-control-sm" style="font-size:.76rem;">
     </div>
     <div class="col-md-1">
-      <label style="font-size:.66rem;font-weight:600;">Start</label>
+      <label style="font-size:.68rem;font-weight:600;">Start</label>
       <input type="time" name="start_time" class="form-control form-control-sm">
     </div>
     <div class="col-md-1">
-      <label style="font-size:.66rem;font-weight:600;">End</label>
+      <label style="font-size:.68rem;font-weight:600;">End</label>
       <input type="time" name="end_time" class="form-control form-control-sm">
     </div>
     <div class="col-md-1">
-      <label style="font-size:.66rem;font-weight:600;">Headcount</label>
+      <label style="font-size:.68rem;font-weight:600;">Headcount</label>
       <input type="number" name="headcount" min="0" step="1"
              class="form-control form-control-sm" style="font-size:.76rem;">
     </div>
     <div class="col-md-1">
-      <label style="font-size:.66rem;font-weight:600;" title="Link to schedule activity">Activity</label>
+      <label style="font-size:.68rem;font-weight:600;" title="Link to schedule activity">Activity</label>
       <select name="activity_id" class="form-select form-select-sm" style="font-size:.72rem;">
         <option value="">— none —</option>
         {% for act in d.activities %}
@@ -559,7 +559,7 @@
       </select>
     </div>
     <div class="col-md-2">
-      <label style="font-size:.66rem;font-weight:600;">Notes</label>
+      <label style="font-size:.68rem;font-weight:600;">Notes</label>
       <input type="text" name="notes" class="form-control form-control-sm" style="font-size:.76rem;">
     </div>
     <div class="col-md-1">

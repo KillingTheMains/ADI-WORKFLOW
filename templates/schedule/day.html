@@ -463,15 +463,24 @@
 
 
 
+    {# What the rails mean. One row of vertical space, and it removes the
+       only remaining ambiguity for anyone who uses this page less often than
+       Jason does. The rail swatches are `currentColor`, so they print. #}
+    <div class="tl-legend">
+      <span class="k k-act">Activity</span>
+      <span class="k k-break">Break</span>
+      <span class="k k-bev">Beverage</span>
+      <span class="k k-recur">Recurring</span>
+      <span class="k k-anchor">Start / End of day</span>
+    </div>
+
     <!-- ── Activities List ───────────────────────────────────────────── -->
     {# Note 6: a recurring event belongs IN the timeline at its own time, not
        in a block of its own at the top. #}
     {% macro recurring_row(hc) %}
-    <div class="mb-2 px-3 py-1 d-flex align-items-center gap-2"
-         style="font-size:.82rem;border-left:3px solid var(--adi-gold);
-                background:#FCFAF4;border-radius:3px;">
+    <div class="tl-row tl-recur mb-2 d-flex align-items-center gap-2">
       <span title="Recurring event" style="opacity:.6;">🔁</span>
-      <span style="min-width:74px;font-weight:700;color:var(--adi-blue);">
+      <span class="tl-time">
         {{ hc.time }}{% if hc.end_time %} – {{ hc.end_time }}{% endif %}
       </span>
       <span style="flex:1;">{{ hc.name }}</span>
@@ -494,16 +503,16 @@
     {% macro catered_pill(state) %}
     {# One glyph for the one question: who is feeding this crew? #}
     {% if state == 'yes' %}
-    <span class="badge" style="background:#DCFCE7;color:#166534;font-weight:600;font-size:.66rem;"
+    <span class="badge" style="background:#DCFCE7;color:#166534;font-weight:600;font-size:.68rem;"
           title="F&amp;B provides this. It has a meal service on the F&amp;B tab.">🍽 Provided</span>
     {% elif state == 'no' %}
-    <span class="badge" style="background:#F1F5F9;color:var(--adi-muted);font-weight:600;font-size:.66rem;"
+    <span class="badge" style="background:#F1F5F9;color:var(--adi-muted);font-weight:600;font-size:.68rem;"
           title="The crew stops, but F&amp;B provides nothing. Invisible to the F&amp;B tab.">Not Provided</span>
     {% elif state == 'mixed' %}
-    <span class="badge" style="background:#FEF3C7;color:#92400E;font-weight:600;font-size:.66rem;"
+    <span class="badge" style="background:#FEF3C7;color:#92400E;font-weight:600;font-size:.68rem;"
           title="The sittings disagree — one crew group is provided for and another is not.">Mixed</span>
     {% else %}
-    <span class="badge" style="background:#FEF3C7;color:#92400E;font-weight:600;font-size:.66rem;"
+    <span class="badge" style="background:#FEF3C7;color:#92400E;font-weight:600;font-size:.68rem;"
           title="Nobody has said yet. It still shows on the F&amp;B tab, flagged, until somebody does.">TBD</span>
     {% endif %}
     {% endmacro %}
@@ -513,10 +522,8 @@
        on every read from the day's SOD and EOD — so it moves when they do
        instead of going stale the way a generated row would. The crew never
        stops for it, which is why it is not a break. #}
-    <div class="mb-2 px-3 py-1 d-flex align-items-center gap-2"
-         data-row-time="{{ b.time }}"
-         style="font-size:.82rem;border-left:3px solid #35C4D8;background:#F4FCFD;
-                border-radius:3px;">
+    <div class="tl-row tl-bev mb-2 d-flex align-items-center gap-2"
+         data-row-time="{{ b.time }}">
       <span title="Standing beverage service" style="opacity:.7;">🥤</span>
       <span style="min-width:74px;font-weight:700;color:#0B2545;
                    font-variant-numeric:tabular-nums;">{{ b.time|to_12hr }}</span>
@@ -538,10 +545,9 @@
        "LUNCH, three sittings", not as three lunches. Read-only on purpose:
        a break is edited on the crew call it hangs off, because that is the
        only place its offset means anything. #}
-    <div class="mb-2 px-3 py-1" data-row-time="{{ p.time }}"
-         style="font-size:.82rem;border-left:3px solid #0B2545;background:#F7F9FB;
-                border-radius:3px;">
+    <div class="tl-row tl-break mb-2" data-row-time="{{ p.time }}">
       <div class="d-flex align-items-center gap-2">
+        <span title="Crew break" style="opacity:.7;">☕</span>
         {# Start AND end. "When am I back?" is the question a crew actually
            asks of a break, and the duration alone does not answer it. #}
         <span style="min-width:132px;font-weight:700;color:#0B2545;
@@ -600,11 +606,9 @@
        second copy of the same number and drifted from it on 17 of the 31 days
        that had one. An unset anchor still draws: "nobody has set this" is the
        message, and an absent row would read as "no end needed". #}
-    <div class="mb-2 px-3 py-1 d-flex align-items-center gap-2"
+    <div class="tl-row tl-anchor mb-2 d-flex align-items-center gap-2"
          {% if not a.unset %}data-row-time="{{ a.time }}"{% endif %}
-         data-anchor="{{ a.anchor }}"
-         style="font-size:.82rem;border-left:3px solid #59636E;background:#F6F7F8;
-                border-radius:3px;">
+         data-anchor="{{ a.anchor }}">
       <span title="Day anchor" style="opacity:.7;">{{ '🟢' if a.anchor == 'sod' else '🏁' }}</span>
       <span style="min-width:74px;font-weight:700;color:#59636E;
                    font-variant-numeric:tabular-nums;">
@@ -660,7 +664,7 @@
             {{ act.description }}
             {% if act.id in meal_breaks_missing_fb %}
             <span title="This looks like a meal break but no F&B OSS entry is linked. Click + OSS below to add one."
-                  style="display:inline-block;font-size:.65rem;font-weight:600;
+                  style="display:inline-block;font-size:.78rem;font-weight:600;
                          padding:1px 6px;border-radius:8px;margin-left:6px;
                          background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;">
               ⚠ no F&B
@@ -959,26 +963,26 @@
                           style="cursor:grab;opacity:.35;margin-right:2px;">⠿</span>
                     <input type="number" name="qty" value="{{ row.qty }}" min="1" step="1"
                            class="form-control form-control-sm d-inline-block"
-                           style="font-size:.72rem;padding:1px 4px;width:44px;"></td>
+                           style="font-size:.78rem;padding:2px 6px;width:44px;"></td>
                   <td><input type="number" name="hours" value="{{ row.hours if row.hours is not none else '' }}"
                              min="0" step="0.25" title="Estimated hours"
                              class="form-control form-control-sm"
-                             style="font-size:.72rem;padding:1px 4px;width:56px;"></td>
+                             style="font-size:.78rem;padding:2px 6px;width:56px;"></td>
                   <td><input type="number" name="actual_hours" value="{{ row.actual_hours if row.actual_hours is not none else '' }}"
                              min="0" step="0.25" title="Actual hours worked"
                              class="form-control form-control-sm"
-                             style="font-size:.72rem;padding:1px 4px;width:56px;
+                             style="font-size:.78rem;padding:2px 6px;width:56px;
                                     {% if row.actual_hours is not none and row.hours and row.actual_hours > row.hours %}background:#FEF3C7;{% endif %}"></td>
                   <td><input type="text" name="position" value="{{ row.position or '' }}"
                              list="crew-row-positions-{{ act.id }}"
                              class="form-control form-control-sm"
-                             style="font-size:.72rem;padding:1px 4px;">
+                             style="font-size:.78rem;padding:2px 6px;">
                     {# No task EDITOR here — Jason, 2026-08-12: a second box on
                        every row earned less than the space it took. The task
                        is still set when the line is added and still prints on
                        the master, so it is shown read-only when there is one. #}
                     {% if row.task %}
-                    <div class="text-muted" style="font-size:.66rem;margin-top:1px;"
+                    <div class="text-muted" style="font-size:.68rem;margin-top:1px;"
                          title="Set when the line was added.">{{ row.task }}</div>
                     {% endif %}
                   </td>
@@ -988,11 +992,11 @@
                              placeholder="{{ row.crew_member.display_label }}"
                              title="Override display name (leave blank to show {{ row.crew_member.display_label }})"
                              class="form-control form-control-sm"
-                             style="font-size:.72rem;padding:1px 4px;">
+                             style="font-size:.78rem;padding:2px 6px;">
                     {% else %}
                       <input type="text" name="name_override" value="{{ row.name_override or '' }}"
                              placeholder="TBD" class="form-control form-control-sm"
-                             style="font-size:.72rem;padding:1px 4px;">
+                             style="font-size:.78rem;padding:2px 6px;">
                     {% endif %}
                   </td>
                   <td>
@@ -1083,24 +1087,24 @@
                   <td>
                     <input type="number" name="qty" value="{{ row.qty or 1 }}" min="1" step="1"
                            class="form-control form-control-sm"
-                           style="font-size:.72rem;padding:1px 4px;width:52px;font-weight:700;">
+                           style="font-size:.78rem;padding:2px 6px;width:52px;font-weight:700;">
                   </td>
                   <td><input type="number" name="hours" value="{{ row.hours if row.hours is not none else '' }}"
                              min="0" step="0.25" title="Estimated hours, each"
                              class="form-control form-control-sm"
-                             style="font-size:.72rem;padding:1px 4px;width:56px;"></td>
+                             style="font-size:.78rem;padding:2px 6px;width:56px;"></td>
                   <td><input type="number" name="actual_hours" value="{{ row.actual_hours if row.actual_hours is not none else '' }}"
                              min="0" step="0.25" title="Actual hours worked, each"
                              class="form-control form-control-sm"
-                             style="font-size:.72rem;padding:1px 4px;width:56px;"></td>
+                             style="font-size:.78rem;padding:2px 6px;width:56px;"></td>
                   <td><input type="text" name="position" value="{{ row.position or '' }}"
                              list="crew-row-positions-{{ act.id }}"
                              class="form-control form-control-sm"
-                             style="font-size:.72rem;padding:1px 4px;"></td>
+                             style="font-size:.78rem;padding:2px 6px;"></td>
                   <td class="text-muted" style="font-size:.72rem;">{{ row.task or '—' }}</td>
                   <td><input type="text" name="notes" value="{{ row.notes or '' }}"
                              class="form-control form-control-sm"
-                             style="font-size:.72rem;padding:1px 4px;"></td>
+                             style="font-size:.78rem;padding:2px 6px;"></td>
                   <td style="white-space:nowrap;">
                     <button type="submit" class="btn btn-sm btn-link text-success p-0"
                             style="font-size:.85rem;line-height:1;" title="Save row">💾</button>
@@ -1117,7 +1121,7 @@
               {% endfor %}
             </tbody>
           </table>
-          <div class="text-muted" style="font-size:.66rem;margin-top:2px;">
+          <div class="text-muted" style="font-size:.68rem;margin-top:2px;">
             Hours are <em>each</em> — {{ ll_people }} people at these hours.
             Ordered by department, the same as the
             <a href="{{ url_for('local_labor.index') }}"
@@ -1209,7 +1213,7 @@
                   <button type="submit" class="btn btn-sm btn-adi w-100" style="font-size:.74rem;">+ Add</button>
                 </div>
               </div>
-              <div class="text-muted mt-1" style="font-size:.66rem;">
+              <div class="text-muted mt-1" style="font-size:.68rem;">
                 Time auto-pulls from this activity ({{ act.time or '—' }}). Linked OSS items
                 follow if you change the activity's time later.
               </div>
@@ -1283,7 +1287,7 @@
                            class="form-control form-control-sm mt-1"
                            oninput="onEndInput('{{ act.id }}')" title="Shift end time">
                     <div id="shift-hint-{{ act.id }}"
-                         style="font-size:.65rem;color:var(--adi-gold);min-height:1em;margin-top:2px;"></div>
+                         style="font-size:.78rem;color:var(--adi-gold);min-height:1em;margin-top:2px;"></div>
                   </div>
                   <div class="col-md-3">
                     <label style="font-size:.72rem;" class="form-label">Position</label>
