@@ -120,20 +120,59 @@ def department_key(name):
         return (1, 0, name.lower())
 
 
+# Who reads first within a department. The crew chief runs the crew, the
+# shadow is one skilled individual, the hands are the many. That is the order
+# a call sheet puts them in, so it is the order everywhere.
+TYPE_ORDER = {"lead": 0, "specialty": 1, "hand": 2}
+
+
+def type_key(value):
+    return TYPE_ORDER.get((value or "").strip().lower(), 3)
+
+
 def group_by_department(positions):
     """``[(department, [position, ...]), ...]`` in house order.
 
-    Leads before hands within a department, then alphabetical — a crew chief
-    reads above the fourteen hands they are running, which is the order a call
-    sheet puts them in too.
+    Leads, then shadows, then hands, then alphabetical — a crew chief reads
+    above the fourteen hands they are running.
     """
     buckets = {}
     for p in positions:
         buckets.setdefault((getattr(p, "department", None) or "Unassigned"),
                            []).append(p)
     for rows in buckets.values():
-        rows.sort(key=lambda p: (getattr(p, "type", "") != "lead",
+        rows.sort(key=lambda p: (type_key(getattr(p, "type", None)),
                                  (getattr(p, "title", "") or "").lower()))
+    return sorted(buckets.items(), key=lambda kv: department_key(kv[0]))
+
+
+def group_rows_by_department(rows):
+    """The same grouping and order, for CREW ROWS on a call.
+
+    ONE ordering, so the Local Labor Database and the local labour section of
+    a crew call cannot disagree about where Rigging sits or whether the head
+    reads above the hands. Jason, 2026-08-12 — the crew call follows the
+    catalogue.
+
+    A row with no catalogue position still appears, under "Unassigned", which
+    sorts last. It is usually a real crew of real people that nobody has named
+    a position for yet, and hiding it would hide them.
+    """
+    buckets = {}
+    for r in rows or []:
+        pos = getattr(r, "position_ref", None)
+        dept = (getattr(pos, "department", None) if pos else None) or "Unassigned"
+        buckets.setdefault(dept, []).append(r)
+
+    def _row_key(r):
+        pos = getattr(r, "position_ref", None)
+        title = (getattr(r, "position", None)
+                 or (getattr(pos, "title", "") if pos else "") or "")
+        return (type_key(getattr(pos, "type", None) if pos else None),
+                title.lower(), getattr(r, "id", 0) or 0)
+
+    for rs in buckets.values():
+        rs.sort(key=_row_key)
     return sorted(buckets.items(), key=lambda kv: department_key(kv[0]))
 
 

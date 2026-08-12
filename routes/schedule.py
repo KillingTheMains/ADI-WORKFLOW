@@ -244,7 +244,7 @@ def day_detail(show_id, day_id):
     # crew call. Grouped in house department order rather than alphabetically
     # so it reads the way a call sheet does.
     from local_labor import SEED_TASKS, group_by_department
-    local_labor_groups = group_by_department(
+    local_labor_catalogue = group_by_department(
         [p for p in positions if p.is_local_labor])
     # Tasks already used on this show come first — they are the ones likely to
     # be used again, and it keeps a show's vocabulary consistent with itself.
@@ -463,7 +463,7 @@ def day_detail(show_id, day_id):
 
     return render_template("schedule/day.html", show=show, day=day,
                            positions=positions, crew_members=crew_members,
-                           local_labor_groups=local_labor_groups,
+                           local_labor_catalogue=local_labor_catalogue,
                            task_options=task_options,
                            off_roster_crew=off_roster_crew,
                            all_companies=Company.query.order_by(Company.name).all(),

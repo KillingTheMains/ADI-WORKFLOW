@@ -485,6 +485,23 @@ class ScheduleActivity(db.Model):
         return order_crew_rows(rows, roster_index(show_id))
 
     @property
+    def local_labor_rows(self):
+        """The local labour on this call, in roster order."""
+        return [r for r in self.ordered_crew_rows if r.is_local_labor]
+
+    @property
+    def local_labor_groups(self):
+        """Local labour grouped by department, ordered like the catalogue.
+
+        Jason, 2026-08-12: the crew call follows the Local Labor Database. The
+        ordering lives in `local_labor.group_rows_by_department` and is the
+        same function the catalogue page uses, so the two cannot drift on
+        where Rigging sits or whether the head reads above the hands.
+        """
+        from local_labor import group_rows_by_department
+        return group_rows_by_department(self.local_labor_rows)
+
+    @property
     def crew_headcount(self):
         """How many people this one call brings in.
 

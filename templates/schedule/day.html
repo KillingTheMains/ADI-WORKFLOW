@@ -1036,7 +1036,7 @@
              full of "Sparks Lighting Hand" was reading as fifty-three people
              called Sparks. The header states the headcount because that is
              the number this section exists to get right. -->
-        {% set ll = act.ordered_crew_rows | selectattr('is_local_labor') | list %}
+        {% set ll = act.local_labor_rows %}
         {% if ll %}
         {% set ll_people = ll | sum(attribute='people') %}
         <div class="px-3 pb-2">
@@ -1062,7 +1062,21 @@
               </tr>
             </thead>
             <tbody>
-              {% for row in ll %}
+              {# Grouped and ordered by the SAME function the Local Labor
+                 Database uses — department in house order, then leads,
+                 shadows, hands. Two orders for the same list on one site is
+                 the thing crew_ordering exists to prevent. #}
+              {% for dept, dept_rows in act.local_labor_groups %}
+              {% set dept_people = dept_rows | sum(attribute='people') %}
+              <tr class="group-header">
+                <td colspan="7" style="font-size:.68rem;">
+                  {{ dept }}
+                  <span style="font-weight:400;opacity:.75;">
+                    · {{ dept_people }} {{ 'person' if dept_people == 1 else 'people' }}
+                  </span>
+                </td>
+              </tr>
+              {% for row in dept_rows %}
               <tr>
                 <form method="POST" data-autosave="true" style="display:contents;"
                       action="{{ url_for('schedule.edit_crew_row', show_id=show.id, day_id=day.id, row_id=row.id) }}">
@@ -1100,10 +1114,14 @@
                   </td>
               </tr>
               {% endfor %}
+              {% endfor %}
             </tbody>
           </table>
           <div class="text-muted" style="font-size:.66rem;margin-top:2px;">
             Hours are <em>each</em> — {{ ll_people }} people at these hours.
+            Ordered by department, the same as the
+            <a href="{{ url_for('local_labor.index') }}"
+               style="color:inherit;text-decoration:underline;">Local Labor Database</a>.
           </div>
         </div>
         {% endif %}
@@ -1327,7 +1345,7 @@
 
                Nested forms are invalid HTML, so this sits after the close
                tag rather than inside it. #}
-            {% if local_labor_groups %}
+            {% if local_labor_catalogue %}
             <div style="border-top:1px dashed var(--adi-border);margin-top:10px;padding-top:8px;">
               <form method="POST"
                     action="{{ url_for('schedule.add_crew_row', show_id=show.id, day_id=day.id, act_id=act.id) }}">
@@ -1344,7 +1362,7 @@
                             onchange="this.form.position.value =
                                       this.options[this.selectedIndex].dataset.title || '';">
                       <option value="">— position —</option>
-                      {% for dept, rows in local_labor_groups %}
+                      {% for dept, rows in local_labor_catalogue %}
                       <optgroup label="{{ dept }}">
                         {% for p in rows %}
                         <option value="{{ p.id }}" data-title="{{ p.title }}">{{ p.title }}</option>
