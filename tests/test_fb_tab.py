@@ -58,11 +58,18 @@ def test_the_editor_is_folded_away(app, client, db):
 
 
 def test_the_line_says_what_it_is_without_opening_anything(app, client, db):
+    """Updated 2026-08-12 for the wording, not the intent. The pill said
+    "11 to feed · from crew" — three ideas on every row — and Jason asked for
+    just a headcount. The line still has to carry the count without opening
+    anything, which is what this guards."""
     show, day, svc, cb = _show(db, "FB02")
     html = _tab(client, show)
     assert "Crew Lunch" in html
     assert "Backstage" in html
-    assert "11 to feed" in html
+    assert "👤 11" in html
+    # The PILL, specifically. "to feed" still appears in the coverage banner's
+    # prose further up the page, which is a sentence rather than a label.
+    assert "11 to feed" not in html
 
 
 def test_one_save_for_the_service_and_its_locations(app, client, db):

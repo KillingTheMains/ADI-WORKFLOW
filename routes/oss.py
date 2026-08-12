@@ -148,8 +148,20 @@ def oss_hub(show_id):
     # Chronological within each day. The query above orders by sort_order,
     # which is assigned at creation — so without this a meal added later sat
     # at the bottom of its day no matter what time it was set to.
+    # All-day first, then the clock. A standing beverage service has no single
+    # time — it is set once and topped up all day — so sorting it in among the
+    # meals by its setup time is meaningless and moves it around as that time
+    # is edited. It belongs at the top of the day, where it describes the day.
+    #
+    # `is_beverage_service`, not `is_standing`: the ONE predicate, so the
+    # legacy services carrying `is_recurring = False` float up with the modern
+    # ones instead of being scattered through the meals.
+    from breaks import is_beverage_service as _all_day
+
     def _meal_key(svc):
-        return (sort_minutes(svc.earliest_time), svc.sort_order or 0, svc.id or 0)
+        return (0 if _all_day(svc) else 1,
+                sort_minutes(svc.earliest_time), svc.sort_order or 0,
+                svc.id or 0)
     for _day_id in meals_by_day:
         meals_by_day[_day_id].sort(key=_meal_key)
     unscheduled_meals.sort(key=_meal_key)
@@ -276,6 +288,9 @@ def oss_hub(show_id):
         activities_by_day     = activities_by_day,
         missing_fb            = missing_fb,
         coverage_counts       = coverage_counts,
+        # The ONE beverage predicate, so the tab's label and the tab's
+        # ordering cannot disagree about what an all-day service is.
+        is_all_day            = _all_day,
         wristband_grand_total = wristband_grand_total,
         coms_channels         = coms_channels,
         radio_channels        = radio_channels,

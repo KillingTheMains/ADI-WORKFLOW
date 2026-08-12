@@ -488,6 +488,34 @@ def _classify_break_kinds(session):
           "catering question until somebody sets the length.")
 
 
+def _meal_services_stop_saying_other(session):
+    """A service that feeds a MEAL BREAK is a meal, not 'other'.
+
+    Fallout from the 08-12 rename, and small: `guess_meal_kind` had no 'meal'
+    to return, so every service created from a MEAL BREAK opened on "other".
+    On the F&B tab that reads as though somebody forgot to pick a kind, and it
+    tells a caterer nothing.
+
+    Only services that actually FEED a meal break are touched, and only where
+    the kind is still the fallback. A service somebody deliberately set to
+    'other' while it feeds nothing is their answer, and a standalone service
+    named for something else is none of this migration's business.
+    """
+    from breaks import KIND_MEAL
+    from models import CrewBreak, MealService
+    fixed = 0
+    for svc in session.query(MealService).filter(
+            MealService.kind == "other").all():
+        cb = session.query(CrewBreak).filter(
+            CrewBreak.meal_service_id == svc.id).first()
+        if cb is None or cb.kind != KIND_MEAL:
+            continue
+        svc.kind = "meal"
+        fixed += 1
+    print(f"[migration] {fixed} meal service(s) moved from 'other' to 'meal' "
+          "— they feed a meal break")
+
+
 DATA_MIGRATIONS = [
     ("2026-06-30-fb-v2-migrate-entries", _migrate_fb_entries_to_meal_services),
     ("2026-07-02-add-prompter-position", _seed_position_prompter),
@@ -524,6 +552,10 @@ DATA_MIGRATIONS = [
     # the duration repair on purpose: the durations are what it classifies on,
     # so doing it the other way round would call 66 corrected breaks meals.
     ("2026-08-12-classify-break-kinds", _classify_break_kinds),
+    # 2026-08-12 — and the services those renamed breaks created, which had no
+    # 'meal' kind to land on. AFTER the classifier: it reads CrewBreak.kind.
+    ("2026-08-12-meal-services-stop-saying-other",
+     _meal_services_stop_saying_other),
 ]
 
 

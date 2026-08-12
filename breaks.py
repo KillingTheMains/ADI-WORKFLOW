@@ -395,6 +395,28 @@ def break_export_text(label, duration_minutes):
 # Larry created before the model had anywhere to put a beverage table.
 BEVERAGE_WORDS = ("BEVERAGE", "REFRESH", "COFFEE", "WATER", "CREW BREAK")
 
+# Matched on WORD BOUNDARIES, which the plain substring test was not.
+#
+# 2026-08-12: "CREW BREAK" is a prefix of "CREW BREAKFAST", so a service named
+# CREW BREAKFAST — one exists on MCDC26 — was read as a standing beverage
+# service by all six consumers of this predicate. `can_link` refused to attach
+# it to any break; `classify` marked a break it fed as NOT PROVIDED without
+# ever reaching the meal-name branch three lines below, which was written to
+# catch exactly that name; and the 08-11 repair migration would have unlinked
+# it. Found by an ordering test, not by any of them.
+#
+# The plural forms are spelled out rather than left to a prefix match, because
+# a prefix match is what caused this.
+_BEVERAGE_RE = re.compile(
+    r"\b(?:BEVERAGES?|REFRESH(?:ES|MENTS?)?|COFFEE|WATERS?|CREW BREAKS?)\b")
+
+# NOT changed here: beverage wording still beats a stray meal word, so
+# "Crew Break - Lunch Refresh" stays a beverage service. That is a deliberate
+# earlier decision with a test on it — the failure it prevents is a standing
+# beverage table being read as a catered meal. A meal word was tried as an
+# override on 2026-08-12 and reverted when that test caught it; the bug was
+# only ever the missing word boundary.
+
 
 def is_beverage_service(service):
     """Is this service a standing beverage setup rather than a meal?
@@ -413,7 +435,7 @@ def is_beverage_service(service):
     if (getattr(service, "kind", "") or "").lower() == "beverages":
         return True
     name = (getattr(service, "name", "") or "").upper()
-    return any(word in name for word in BEVERAGE_WORDS)
+    return bool(_BEVERAGE_RE.search(name))
 
 
 def is_crew_start(description):
@@ -457,6 +479,12 @@ def guess_meal_kind(name):
         return "lunch"
     if "DINNER" in n:
         return "dinner"
+    # After the specific ones, so "LUNCH MEAL" is still lunch. Before the
+    # rest, because since 2026-08-12 a break is a MEAL BREAK and a service
+    # created from one was landing in "other" — which tells a caterer nothing
+    # and reads on the F&B tab as though somebody forgot to pick.
+    if "MEAL" in n:
+        return "meal"
     if "BEVERAGE" in n or "COFFEE" in n:
         return "beverages"
     if "SNACK" in n:

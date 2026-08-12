@@ -24,12 +24,20 @@
   .loc-table input { font-size:.76rem; padding:2px 6px; width:100%; }
   .loc-table input.time     { max-width:80px; }
   .loc-table input.count    { max-width:60px; text-align:right; }
+  /* The day has to win. At .82rem/700 it was the same weight as the service
+     lines beneath it, so eleven days of services read as one long list and
+     you had to stop and work out which day you were looking at. Bigger, in
+     the Midnight band, with air above it. */
   .day-header {
-    background:#F0EDE0; color:#1C2333; padding:6px 12px;
-    font-size:.82rem; font-weight:700;
-    border-radius:6px; margin:16px 0 8px;
-    display:flex; align-items:center; justify-content:space-between;
+    background:#0B2545; color:#F7F4EE; padding:9px 14px;
+    font-size:1.02rem; font-weight:700; letter-spacing:.01em;
+    border-radius:6px; margin:26px 0 10px;
+    display:flex; align-items:baseline; justify-content:space-between;
+    box-shadow:0 1px 0 rgba(11,37,69,.18);
   }
+  .day-header .dh-count { font-weight:400; font-size:.76rem; opacity:.75; }
+  /* First one does not need the big gap above it. */
+  .day-header:first-of-type { margin-top:8px; }
   .add-service-form { padding:6px; background:#FFF8EC; border:1px dashed #E8DCA8;
                       border-radius:6px; margin-top:6px; font-size:.76rem; }
   .dietary-card { border:1px solid #E8E4D7; border-radius:8px; }
@@ -126,7 +134,7 @@
     {% if d.label %} · {{ d.label }}{% endif %}
     {% if d.phase %} · {{ d.phase }}{% endif %}
   </span>
-  <span class="text-muted" style="font-weight:400;font-size:.74rem;">
+  <span class="dh-count">
     {{ day_meals|length }} service{{ '' if day_meals|length == 1 else 's' }}
   </span>
 </div>
@@ -139,7 +147,11 @@
 
   {# ── The line you read. No inputs until you ask for them. ──────────── #}
   <div class="head">
-    <span class="kind">{{ '🥤' if svc.is_standing else svc.kind }}</span>
+    {# The word, not a cup. An emoji is not a label — it has to be decoded,
+       and it decoded to nothing next to "lunch" and "dinner" on the rows
+       beside it. `is_beverage_service` is the ONE predicate, so a legacy
+       beverage service reads BEVERAGES too rather than "other". #}
+    <span class="kind">{{ 'beverages' if is_all_day(svc) else svc.kind }}</span>
     <span style="min-width:118px;font-variant-numeric:tabular-nums;font-weight:700;">
       {%- if win %}{{ win.start|to_12hr }} – {{ win.end|to_12hr }}
       {%- elif svc.earliest_time %}{{ svc.earliest_time|to_12hr }}
@@ -152,7 +164,11 @@
     </span>
     <span class="total"
           title="{% if svc.headcount_is_derived %}Read from the crew call this meal feeds — it changes when the crew changes.{% else %}From the figures typed against each location.{% endif %}">
-      {{ svc.total_headcount }} to feed{% if svc.headcount_is_derived %} · from crew{% endif %}
+      {# Just the number. "N to feed · from crew" was three ideas in a pill on
+         every row; the count is what anybody reads it for, and the rest is a
+         tooltip. The warning chips beside it still shout when a hand-typed
+         figure and the crew call disagree, which is the case that matters. #}
+      👤 {{ svc.total_headcount }}
     </span>
     {% if win and win.breach %}
     <span style="font-size:.66rem;color:#FFD9A0;white-space:nowrap;"
@@ -565,9 +581,9 @@
 {% for svc in unscheduled_meals %}
 <div class="meal-card">
   <div class="head">
-    <span class="kind">{{ svc.kind }}</span>
+    <span class="kind">{{ 'beverages' if is_all_day(svc) else svc.kind }}</span>
     <span class="name">{{ svc.name }}</span>
-    <span class="total">Total: {{ svc.total_headcount }}</span>
+    <span class="total">👤 {{ svc.total_headcount }}</span>
     <form method="POST" style="margin:0;"
           action="{{ url_for('oss.fb_service_delete', show_id=show.id, svc_id=svc.id) }}"
           onsubmit="return confirm('Delete this meal service and all its locations?');">

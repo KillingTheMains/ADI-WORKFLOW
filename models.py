@@ -1293,7 +1293,12 @@ class CrewImportSession(db.Model):
 #   * ShowDietaryNote — per-show dietary preference rollup (e.g. "30%
 #                       vegetarian", "2 GF, 1 vegan").
 
-MEAL_KINDS = ["breakfast", "lunch", "dinner", "beverages", "snack", "other"]
+# "meal" leads because it is now the common case: a break is a MEAL BREAK
+# (2026-08-12) and the first one is not always lunch. The specific kinds stay
+# — a caterer told "breakfast" knows more than one told "meal" — but nothing
+# has to pretend a midday meal is lunch to avoid landing in "other".
+MEAL_KINDS = ["meal", "breakfast", "lunch", "dinner", "beverages", "snack",
+              "other"]
 
 
 class MealService(db.Model):

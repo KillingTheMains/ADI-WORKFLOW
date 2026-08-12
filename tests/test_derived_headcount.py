@@ -291,7 +291,12 @@ def test_the_fb_tab_offers_the_derived_figure_as_a_placeholder(app, client, db):
     cb, svc, loc = _break_with_service(db, show, day, call)
     html = client.get("/shows/%d/oss?tab=F%%26B" % show.id).get_data(as_text=True)
     assert 'placeholder="11"' in html
-    assert "from crew" in html
+    # The visible "· from crew" left the pill on 2026-08-12 — Jason asked for
+    # just a headcount number. Where the figure COMES from still has to be
+    # discoverable, so it moved to the pill's tooltip rather than vanishing.
+    # The greyed placeholder above is still the thing that makes clearing the
+    # box the obvious way back, and that is what this test is really about.
+    assert "Read from the crew call this meal feeds" in html
 
 
 # ── one service per crew group ──────────────────────────────────────────────

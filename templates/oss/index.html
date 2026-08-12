@@ -42,9 +42,13 @@
     font-size: .82rem; padding: 3px 6px;
   }
   .oss-section-help { color: #777; font-size: .78rem; margin-bottom: 10px; }
-  .oss-master-day-header td { background: #1C2333; color: #C9A84C;
-    font-weight: 700; font-size: .78rem; text-transform: uppercase; letter-spacing: .04em;
-    padding: 6px 10px; }
+  /* Same problem the F&B tab had: at .78rem the day was the same size as the
+     rows under it, so the master timeline read as one undifferentiated list.
+     The day is the structure of this page — it should be unmissable. */
+  .oss-master-day-header td { background: #0B2545; color: #F7F4EE;
+    font-weight: 700; font-size: 1rem; letter-spacing: .01em;
+    padding: 10px 12px; border-top: 3px solid #fff; }
+  .oss-master-day-header:first-child td { border-top: 0; }
   .oss-pill { display: inline-block; font-size: .68rem; font-weight: 600;
               padding: 2px 8px; border-radius: 10px; background: #eee; color: #333; }
 </style>

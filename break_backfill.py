@@ -131,8 +131,14 @@ def infer_crew_call(day, activity):
     return (candidate[1], break_m - candidate[0])
 
 
-MEAL_KINDS_REAL = ("breakfast", "lunch", "dinner", "snack")
-_BEVERAGE_WORDS = ("BEVERAGE", "REFRESH", "COFFEE", "WATER", "CREW BREAK")
+# "meal" belongs here (2026-08-12): a service created from a MEAL BREAK is as
+# real a meal as one called lunch. Left out, the backfill would read one as no
+# evidence and leave its break unconfirmed.
+MEAL_KINDS_REAL = ("meal", "breakfast", "lunch", "dinner", "snack")
+# _BEVERAGE_WORDS used to live here as well. Removed 2026-08-12: it was a
+# second copy of the list in breaks.py, unread since is_beverage_service
+# became the ONE predicate, and a second copy of this exact list is what
+# caused the silent migration failure on 08-11.
 
 
 def classify(meal_service):
