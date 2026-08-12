@@ -516,6 +516,70 @@ def _meal_services_stop_saying_other(session):
           "— they feed a meal break")
 
 
+def _remove_eod_wrap_activities(session):
+    """Delete the hand-typed EOD WRAP rows. The day's end is Day Settings' EOD.
+
+    PREDICTED ON PRODUCTION 2026-08-12: **31** — show 2: 8, show 3: 10,
+    show 4: 13. A different number means the sweep and this query disagree
+    about what an EOD WRAP row is; stop and find out which before trusting it.
+
+    The row was a second copy of a number the day already held, and it drifted:
+    of the 31, only 14 matched their day's EOD, 9 disagreed with it, and 8 (all
+    of show 2) sat on days with no EOD set at all. Jason's call, 2026-08-12:
+    **Day Settings EOD wins in every case.** Nothing is backfilled from a wrap
+    row — where a day has no EOD, the derived anchor renders with an
+    instruction to go and set one, which is the honest state.
+
+    Only an exact 'EOD WRAP' is deleted. Anything merely CONTAINING the phrase
+    is somebody's own label and is reported, never removed. A row carrying crew
+    rows, an OSS entry or a break is skipped and named: deleting a crew call
+    because of its description would be the worst possible outcome here.
+    """
+    from models import ScheduleActivity, SubScheduleEntry
+    deleted = skipped = 0
+    for act in session.query(ScheduleActivity).all():
+        desc = (act.description or "").strip().upper()
+        if "EOD WRAP" not in desc:
+            continue
+        show_id = act.day.show_id if act.day else "?"
+        if desc != "EOD WRAP":
+            print(f"[migration]   left alone (not a plain wrap row): "
+                  f"show {show_id} day {act.day_id} — {act.description!r}")
+            skipped += 1
+            continue
+        reasons = []
+        if act.crew_rows:
+            reasons.append(f"{len(act.crew_rows)} crew row(s)")
+        if session.query(SubScheduleEntry).filter_by(activity_id=act.id).count():
+            reasons.append("an OSS entry")
+        if _table_exists("crew_breaks"):
+            from models import CrewBreak
+            if session.query(CrewBreak).filter(
+                    (CrewBreak.activity_id == act.id)
+                    | (CrewBreak.crew_call_id == act.id)).count():
+                reasons.append("a break")
+        if reasons:
+            print(f"[migration]   SKIPPED show {show_id} day {act.day_id} "
+                  f"act {act.id} — carries {', '.join(reasons)}")
+            skipped += 1
+            continue
+        session.delete(act)
+        deleted += 1
+    # A fresh or empty database has nothing to predict against — a test DB
+    # would otherwise print the warning on every run and teach everybody to
+    # ignore it, which is exactly how `unlinked 0` got read as success on
+    # 08-11. The prediction only means something where there is data.
+    total = session.query(ScheduleActivity).count()
+    print(f"[migration] {deleted} EOD WRAP activit(ies) removed, "
+          f"{skipped} skipped")
+    if total or deleted or skipped:
+        print("[migration]   predicted 31 on production 2026-08-12 "
+              "(show 2: 8, show 3: 10, show 4: 13)")
+        if deleted != 31:
+            print(f"[migration] ⚠ removed {deleted}, not the predicted 31 — "
+                  "find out why before moving on.")
+
+
 DATA_MIGRATIONS = [
     ("2026-06-30-fb-v2-migrate-entries", _migrate_fb_entries_to_meal_services),
     ("2026-07-02-add-prompter-position", _seed_position_prompter),
@@ -556,6 +620,10 @@ DATA_MIGRATIONS = [
     # 'meal' kind to land on. AFTER the classifier: it reads CrewBreak.kind.
     ("2026-08-12-meal-services-stop-saying-other",
      _meal_services_stop_saying_other),
+    # 2026-08-12 — the day's end is Day Settings' EOD, drawn as a derived
+    # anchor row. The hand-typed EOD WRAP activity was a second copy of it and
+    # had drifted on 17 of the 31 days that carried one. Predicted 31.
+    ("2026-08-12-remove-eod-wrap-activities", _remove_eod_wrap_activities),
 ]
 
 

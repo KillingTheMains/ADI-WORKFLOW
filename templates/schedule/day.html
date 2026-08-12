@@ -168,59 +168,56 @@
           <button type="submit" class="btn btn-sm btn-adi w-100">Save Day</button>
         </form>
 
-        <!-- ── Break Schedule Builder ───────────────────────────────── -->
-        <div style="border-top:1px solid var(--adi-border);margin:14px 0 12px;"></div>
-        <div class="mb-2" style="font-size:.75rem;font-weight:700;text-transform:uppercase;
-             letter-spacing:.06em;color:var(--adi-dark);">☕ Break Schedule</div>
-
-        <form method="POST"
-              action="{{ url_for('schedule.build_day_schedule', show_id=show.id, day_id=day.id) }}"
-              id="break-sched-form">
-          <!-- Hidden mirrors of call/wrap — synced by JS -->
-          <input type="hidden" name="call_time" id="bs-call" value="{{ day.call_time or '' }}">
-          <input type="hidden" name="wrap_time" id="bs-wrap" value="{{ day.wrap_time or '' }}">
-
-          <div class="mb-2">
-            <label class="form-label">Lunch Duration</label>
-            <div class="d-flex gap-3">
-              <div class="form-check">
-                <input class="form-check-input" type="radio" name="lunch_minutes"
-                       value="30" id="lunch-30" checked onchange="onLunchChange(this.value)">
-                <label class="form-check-label" for="lunch-30"
-                       style="font-size:.8rem;">30 min</label>
-              </div>
-              <div class="form-check">
-                <input class="form-check-input" type="radio" name="lunch_minutes"
-                       value="60" id="lunch-60" onchange="onLunchChange(this.value)">
-                <label class="form-check-label" for="lunch-60"
-                       style="font-size:.8rem;">60 min</label>
-              </div>
-            </div>
-          </div>
-
-          <!-- Live break preview -->
-          <div id="break-preview"
-               style="background:var(--adi-surface);border:1px solid var(--adi-border);
-                      border-radius:6px;padding:8px 10px;margin-bottom:10px;
-                      font-size:.78rem;line-height:2;color:var(--adi-muted);">
-            Breaks generate off each Crew Start on this day (10-hour default).
-          </div>
-
-          <div class="form-check mb-2" style="font-size:.75rem;">
-            <input class="form-check-input" type="checkbox" name="replace" value="1"
-                   id="break-replace" checked>
-            <label class="form-check-label" for="break-replace">
-              Replace existing breaks (Crew Starts are kept)
-            </label>
-          </div>
-
-          <button type="submit" class="btn btn-sm btn-adi w-100">
-            ⚡ Build Day Schedule
-          </button>
-        </form>
 
       </div>
     </div>
+
+    <!-- ── Recurring Events ──────────────────────────────────────────────
+         Moved out of the timeline column on 2026-08-12. It is a statement
+         ABOUT the day, not an event on it — the events themselves are placed
+         in the stream by time, so a banner above the schedule was a second
+         heading competing with the day's first real row. It belongs with the
+         other things you set once and read, not edit per row. -->
+    {% if hardcoded_overlay or hardcoded_missing_anchor or hardcoded_hidden %}
+    <div class="card mb-3" style="border-left:3px solid var(--adi-gold);">
+      <div class="card-header d-flex align-items-center justify-content-between"
+           style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">
+        <span>🔁 Recurring Events</span>
+        <a href="/hard-coded-events" style="font-size:.7rem;text-transform:none;font-weight:600;">Manage</a>
+      </div>
+      <div class="card-body p-3">
+        <div style="font-size:.75rem;color:var(--adi-muted);">
+          {{ hardcoded_overlay|length }} placed in the schedule by time
+          <span style="opacity:.8;">· auto · timed off SOD/EOD</span>
+        </div>
+        {% if hardcoded_missing_anchor %}
+        <div style="font-size:.72rem;color:#B45309;margin-top:5px;">
+          Set this day's Start/End of Day above to place the remaining
+          recurring events.
+        </div>
+        {% endif %}
+        {% if hardcoded_hidden %}
+        {# A removal with no visible trace is a trap — the user needs to see
+           what they hid in order to undo it. #}
+        <div style="font-size:.72rem;color:var(--adi-muted);margin-top:8px;
+                    border-top:1px dashed var(--adi-border);padding-top:6px;">
+          <div style="margin-bottom:3px;">{{ hardcoded_hidden|length }} hidden on this day:</div>
+          {% for ev in hardcoded_hidden %}
+          <div style="display:flex;align-items:center;gap:6px;line-height:1.7;">
+            <span style="text-decoration:line-through;flex:1;">{{ ev.name }}</span>
+            <form method="POST" style="display:inline;"
+                  action="{{ url_for('schedule.restore_recurring_to_day', show_id=show.id, day_id=day.id, hce_id=ev.id) }}">
+              <button type="submit" title="Put this back on this day"
+                      style="border:none;background:none;color:var(--adi-blue);
+                             font-size:.72rem;padding:0;">restore</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
 
     <!-- Travel Info (shown when phase = Travel) -->
     <div class="card mb-3" id="travel-card"
@@ -318,14 +315,6 @@
           </button>
         </form>
 
-        <!-- Smart Breaks — one-click crew-start break set (regenerates) -->
-        <form method="POST" action="{{ url_for('schedule.build_day_schedule', show_id=show.id, day_id=day.id) }}" class="mb-2">
-          <input type="hidden" name="replace" value="1">
-          <button type="submit" class="btn btn-sm btn-outline-secondary tool-btn"
-                  title="Add coffee & lunch breaks off each Crew Start on this day">
-            ☕ Smart Breaks
-          </button>
-        </form>
 
         <!-- Bulk Shift -->
         <button type="button" class="btn btn-sm btn-outline-secondary tool-btn mb-2"
@@ -375,110 +364,104 @@
       </div>
     </div>
 
-    <!-- ── Add Activity Form ──────────────────────────────────────────── -->
-    <div class="card mb-3">
-      <div class="card-header">+ Add Activity</div>
-      <div class="card-body p-3">
-
-        <!-- Quick-add preset pills -->
-        <div class="d-flex gap-1 flex-wrap mb-2" id="quick-add-pills">
-          <span class="quick-add-btn" data-time="" data-desc="CREW START">Crew Start</span>
-          <span class="quick-add-btn" data-time="" data-desc="LUNCH BREAK — 30 min">Lunch Break</span>
-          <span class="quick-add-btn" data-time="" data-desc="AFTERNOON BREAK — 15 min">PM Break</span>
-          <span class="quick-add-btn" data-time="" data-desc="DOORS OPEN">Doors Open</span>
-          <span class="quick-add-btn" data-time="" data-desc="GENERAL SESSION BEGINS">General Session</span>
-          <span class="quick-add-btn" data-time="" data-desc="TECH REHEARSAL BEGINS">Tech Rehearsal</span>
-          <span class="quick-add-btn" data-time="" data-desc="PRESENTER REHEARSAL">Presenter Rehearsal</span>
-          <span class="quick-add-btn" data-time="" data-desc="SOUND CHECK">Sound Check</span>
-          <span class="quick-add-btn" data-time="" data-desc="EOD WRAP">EOD Wrap</span>
-        </div>
-
-        <form method="POST"
-              action="{{ url_for('schedule.add_activity', show_id=show.id, day_id=day.id) }}">
-          <div class="row g-2 align-items-start">
-            <div class="col-md-2">
-              <label class="form-label" style="font-size:.75rem;">Time</label>
-              <input type="time" name="time" id="new-act-time"
-                     class="form-control form-control-sm">
-              <div class="time-calc-hint" id="time-calc-hint"></div>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label" style="font-size:.75rem;">Duration (hrs)</label>
-              <input type="number" id="new-act-duration" class="form-control form-control-sm"
-                     step="0.25" min="0" placeholder="optional">
-            </div>
-            <div class="col-md-5" style="position:relative;">
-              <label class="form-label" style="font-size:.75rem;">Description</label>
-              <input type="text" name="description" id="new-act-desc"
-                     class="form-control form-control-sm"
-                     placeholder="e.g. LOAD IN / SETUP RIGGING" required
-                     autocomplete="off">
-              <div class="activity-suggestions" id="act-suggestions"></div>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label" style="font-size:.75rem;">Notes</label>
-              <input type="text" name="notes" class="form-control form-control-sm" placeholder="Optional">
-            </div>
-            <div class="col-md-1 pt-1">
-              <label class="form-label" style="font-size:.75rem;">&nbsp;</label>
-              <button type="submit" class="btn btn-sm btn-adi w-100">Add</button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- ── Recurring Events (auto overlay, per-occurrence removable) ────── -->
-    {% if hardcoded_overlay or hardcoded_missing_anchor or hardcoded_hidden %}
-    <div class="card mb-2" style="border-left:3px solid var(--adi-gold);">
-      <div class="card-body py-2 px-3">
-        <div class="d-flex align-items-center justify-content-between mb-1">
-          <span style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--adi-muted);">
-            🔁 Recurring Events <span style="text-transform:none;">· auto · timed off SOD/EOD</span>
-          </span>
-          <a href="/hard-coded-events" style="font-size:.72rem;">Manage</a>
-        </div>
-        <div style="font-size:.72rem;color:var(--adi-muted);">
-          {{ hardcoded_overlay|length }} placed in the schedule below by time.
-        </div>
-        {% if hardcoded_missing_anchor %}
-        <div style="font-size:.72rem;color:var(--adi-muted);margin-top:3px;">
-          Set this day's Start/End of Day to place the remaining recurring events.
-        </div>
-        {% endif %}
-        {% if hardcoded_hidden %}
-        {# A removal with no visible trace is a trap — the user needs to see
-           what they hid in order to undo it. #}
-        <div style="font-size:.72rem;color:var(--adi-muted);margin-top:5px;
-                    border-top:1px dashed var(--adi-border);padding-top:4px;">
-          {{ hardcoded_hidden|length }} hidden on this day:
-          {% for ev in hardcoded_hidden %}
-          <span style="white-space:nowrap;">
-            <span style="text-decoration:line-through;">{{ ev.name }}</span>
-            <form method="POST" style="display:inline;"
-                  action="{{ url_for('schedule.restore_recurring_to_day', show_id=show.id, day_id=day.id, hce_id=ev.id) }}">
-              <button type="submit" title="Put this back on this day"
-                      style="border:none;background:none;color:var(--adi-blue);
-                             font-size:.72rem;padding:0 2px;">restore</button>
-            </form>{% if not loop.last %} · {% endif %}
-          </span>
-          {% endfor %}
-        </div>
-        {% endif %}
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- ── Bulk Assign Crew (#38) ─────────────────────────────────────── -->
-    <div class="mb-2 d-flex align-items-center gap-2">
+    <!-- ── Day actions ───────────────────────────────────────────────────
+         Two doors, in the order the day is actually built: the crew call
+         first, because it carries the crew AND their breaks, then everything
+         else. The Add Activity form used to sit here permanently expanded,
+         six controls wide, above every day whether or not anybody was adding
+         anything — so the first thing you read on a schedule was a form
+         rather than the schedule. It folds now. -->
+    <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
       <button type="button" class="btn btn-sm btn-adi"
-              data-bs-toggle="modal" data-bs-target="#bulkAssignCrewModal">
-        👥 Bulk Assign Crew
+              data-bs-toggle="modal" data-bs-target="#createCrewCallModal">
+        👥 Create Crew Call
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary"
+              data-bs-toggle="collapse" data-bs-target="#add-activity-panel"
+              aria-expanded="false" aria-controls="add-activity-panel">
+        + Add Activity
       </button>
       <span style="font-size:.72rem;color:var(--adi-muted);">
-        Pull show crew into a Crew Start event
+        A crew call brings people in and carries their breaks. Anything else
+        that happens on the day is an activity.
       </span>
     </div>
+
+    <!-- ── Add Activity (folded) ─────────────────────────────────────── -->
+    <div class="collapse mb-3" id="add-activity-panel">
+      <div class="card">
+        <div class="card-body p-3">
+
+          {# Quick-add presets. CREW START, the breaks and EOD WRAP are all
+             gone from here on purpose:
+               · a crew call is made by the button above, so the crew and the
+                 breaks come with it instead of arriving as a bare label;
+               · a break is created on its crew call — a break typed here is
+                 an activity with a break's name and none of its meaning,
+                 which is what MCDC26's stuck rows are;
+               · the day's end is Day Settings' EOD and draws itself.
+             What is left is the set of things that genuinely ARE activities. #}
+          <div class="d-flex gap-1 flex-wrap mb-3" id="quick-add-pills">
+            <span class="quick-add-btn" data-time="" data-desc="LOAD IN BEGINS">Load In</span>
+            <span class="quick-add-btn" data-time="" data-desc="DOORS OPEN">Doors Open</span>
+            <span class="quick-add-btn" data-time="" data-desc="HOUSE OPEN">House Open</span>
+            <span class="quick-add-btn" data-time="" data-desc="GENERAL SESSION BEGINS">General Session</span>
+            <span class="quick-add-btn" data-time="" data-desc="TECH REHEARSAL BEGINS">Tech Rehearsal</span>
+            <span class="quick-add-btn" data-time="" data-desc="PRESENTER REHEARSAL">Presenter Rehearsal</span>
+            <span class="quick-add-btn" data-time="" data-desc="SOUND CHECK">Sound Check</span>
+            <span class="quick-add-btn" data-time="" data-desc="END OF SHOW">End of Show</span>
+            <span class="quick-add-btn" data-time="" data-desc="LOAD OUT BEGINS">Load Out</span>
+            <span class="quick-add-btn" data-time="" data-desc="STRIKE COMPLETE">Strike Complete</span>
+          </div>
+
+          <form method="POST"
+                action="{{ url_for('schedule.add_activity', show_id=show.id, day_id=day.id) }}">
+            <div class="row g-2 align-items-start">
+              <div class="col-md-5" style="position:relative;">
+                {# Description leads now. It is the field that says what the
+                   row IS, and it was buried third behind two number boxes. #}
+                <label class="form-label" style="font-size:.75rem;">Description</label>
+                <input type="text" name="description" id="new-act-desc"
+                       class="form-control form-control-sm"
+                       placeholder="Start typing — e.g. LOAD IN" required
+                       autocomplete="off">
+                <div class="activity-suggestions" id="act-suggestions"></div>
+                <div style="font-size:.7rem;color:var(--adi-muted);margin-top:3px;">
+                  Suggests from this show first, then the house list.
+                </div>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label" style="font-size:.75rem;">Time</label>
+                <input type="time" name="time" id="new-act-time"
+                       class="form-control form-control-sm">
+                <div class="time-calc-hint" id="time-calc-hint"></div>
+              </div>
+              <div class="col-md-2">
+                {# Not stored. It drives the end-time hint under Time and
+                   nothing else — labelled so it stops reading as a field that
+                   saves something. #}
+                <label class="form-label" style="font-size:.75rem;">
+                  Runs for
+                  <span class="text-muted" style="font-weight:400;">· hint only</span>
+                </label>
+                <input type="number" id="new-act-duration" class="form-control form-control-sm"
+                       step="0.25" min="0" placeholder="hrs">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label" style="font-size:.75rem;">Notes</label>
+                <input type="text" name="notes" class="form-control form-control-sm" placeholder="Optional">
+              </div>
+              <div class="col-md-1 pt-1">
+                <label class="form-label" style="font-size:.75rem;">&nbsp;</label>
+                <button type="submit" class="btn btn-sm btn-adi w-100">Add</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+
 
     <!-- ── Activities List ───────────────────────────────────────────── -->
     {# Note 6: a recurring event belongs IN the timeline at its own time, not
@@ -610,6 +593,38 @@
     </div>
     {% endmacro %}
 
+    {% macro anchor_row(a) %}
+    {# The day's start and end. Derived from Day Settings on every read — this
+       is NOT an activity and there is nothing to edit here, which is what the
+       greyed hint says. It replaced EOD WRAP, a hand-typed row that held a
+       second copy of the same number and drifted from it on 17 of the 31 days
+       that had one. An unset anchor still draws: "nobody has set this" is the
+       message, and an absent row would read as "no end needed". #}
+    <div class="mb-2 px-3 py-1 d-flex align-items-center gap-2"
+         {% if not a.unset %}data-row-time="{{ a.time }}"{% endif %}
+         data-anchor="{{ a.anchor }}"
+         style="font-size:.82rem;border-left:3px solid #59636E;background:#F6F7F8;
+                border-radius:3px;">
+      <span title="Day anchor" style="opacity:.7;">{{ '🟢' if a.anchor == 'sod' else '🏁' }}</span>
+      <span style="min-width:74px;font-weight:700;color:#59636E;
+                   font-variant-numeric:tabular-nums;">
+        {{ a.time|to_12hr if not a.unset else '—' }}
+      </span>
+      <span style="flex:1;font-weight:600;letter-spacing:.02em;color:#59636E;">
+        {{ a.label }}
+      </span>
+      {% if a.unset %}
+      <span style="font-size:.72rem;color:#B45309;">
+        Set the {{ a.anchor|upper }} time in Day Settings
+      </span>
+      {% else %}
+      <span style="font-size:.72rem;color:var(--adi-muted);opacity:.75;">
+        To change this, edit SOD / EOD in Day Settings
+      </span>
+      {% endif %}
+    </div>
+    {% endmacro %}
+
     {% macro timeline_row(r) %}
     {# A day is ONE timeline. These used to be three lists rendered one after
        another, so everything in the same gap came out grouped by type — a
@@ -617,6 +632,7 @@
        one stream now and dispatched here, so the page reads by the clock. #}
     {%- if r.kind == 'recurring' %}{{ recurring_row(r.item) }}
     {%- elif r.kind == 'beverage' %}{{ beverage_row(r.item) }}
+    {%- elif r.kind == 'anchor' %}{{ anchor_row(r.item) }}
     {%- else %}{{ break_period_row(r.item) }}{% endif %}
     {% endmacro %}
 
@@ -1224,7 +1240,11 @@
 
     {% else %}
     {% for r in extras_after %}{{ timeline_row(r) }}{% endfor %}
-    {% if not extras_after %}
+    {# The empty state asks about ACTIVITIES, so it is gated on activities.
+       It used to test `extras_after`, which was empty on a bare day — but the
+       two SOD/EOD anchor rows are always in that list now, so a day with
+       nothing on it would have quietly lost its "No activities yet" prompt. #}
+    {% if not day.activities %}
     <div class="empty-state py-4">
       <div class="empty-icon">⏰</div>
       <div style="font-size:.9rem;font-weight:600;margin-bottom:6px;">No activities yet</div>
@@ -1633,47 +1653,63 @@
   </div>
 </div>
 
-<!-- ── Bulk Assign Crew modal (#38) ─────────────────────────────────────────── -->
-<div class="modal fade" id="bulkAssignCrewModal" tabindex="-1">
+<!-- ── Create Crew Call ─────────────────────────────────────────────────────────
+     Replaces Bulk Assign Crew, which could only fill a CREW START somebody had
+     already typed by hand. The three steps here are the job: when the crew
+     arrives, who arrives, and what they stop for. -->
+<div class="modal fade" id="createCrewCallModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form method="POST" action="{{ url_for('schedule.bulk_assign_crew', show_id=show.id, day_id=day.id) }}">
+      <form method="POST"
+            action="{{ url_for('schedule.create_crew_call', show_id=show.id, day_id=day.id) }}">
         <div class="modal-header">
-          <h5 class="modal-title">👥 Bulk Assign Crew</h5>
+          <h5 class="modal-title">👥 Create Crew Call</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <div class="mb-3">
-            <div style="font-size:.8rem;font-weight:600;margin-bottom:4px;">1. Assign into which Crew Start?</div>
-            {% set found = namespace(any=false) %}
-            {% for act in day.activities %}
-              {% if 'CREW START' in (act.description or '')|upper %}
-              {% set found.any = true %}
-              <label style="display:block;font-size:.85rem;padding:2px 0;">
-                <input type="radio" name="activity_id" value="{{ act.id }}" {% if found.any and loop.first %}checked{% endif %}>
-                <strong>{{ act.time or '—' }}</strong> · {{ act.description }}
-              </label>
-              {% endif %}
-            {% endfor %}
-            {% if not found.any %}
-            <div style="font-size:.8rem;color:var(--adi-muted);">
-              No Crew Start on this day yet — add one from the quick-add row above first.
+
+          <div style="font-size:.8rem;font-weight:600;margin-bottom:6px;">1. When do they arrive?</div>
+          <div class="row g-2 mb-3">
+            <div class="col-md-3">
+              <label class="form-label" style="font-size:.72rem;">Call time</label>
+              <input type="time" name="time" id="ccc-time"
+                     class="form-control form-control-sm" required>
             </div>
-            {% endif %}
+            <div class="col-md-6">
+              <label class="form-label" style="font-size:.72rem;">
+                Which crew? <span class="text-muted" style="font-weight:400;">· optional</span>
+              </label>
+              <input type="text" name="description" class="form-control form-control-sm"
+                     placeholder="e.g. RIGGING, or leave blank for all">
+              <div style="font-size:.68rem;color:var(--adi-muted);margin-top:2px;">
+                Saved as <strong>CREW START</strong>, or <strong>CREW START — RIGGING</strong>.
+              </div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" style="font-size:.72rem;">
+                Hours <span class="text-muted" style="font-weight:400;">· optional</span>
+              </label>
+              <input type="number" name="hours" id="ccc-hours"
+                     class="form-control form-control-sm"
+                     step="0.5" min="0" placeholder="e.g. 10">
+              <div style="font-size:.68rem;color:var(--adi-muted);margin-top:2px;">
+                Over 14 adds a second meal.
+              </div>
+            </div>
           </div>
 
-          <div style="font-size:.8rem;font-weight:600;margin-bottom:4px;">2. Select crew (assigned to this show)</div>
+          <div style="font-size:.8rem;font-weight:600;margin-bottom:6px;">2. Who is on it?</div>
           {% if crew_by_company %}
             {% for co_name, crew in crew_by_company %}
             <div class="mb-2" style="border:1px solid var(--adi-border);border-radius:6px;padding:6px 10px;">
               <label style="font-weight:600;font-size:.82rem;display:flex;align-items:center;gap:6px;">
-                <input type="checkbox" class="bac-company-all"> {{ co_name }}
+                <input type="checkbox" class="ccc-company-all"> {{ co_name }}
                 <span style="color:var(--adi-muted);font-weight:400;">({{ crew|length }})</span>
               </label>
               <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
                 {% for cm in crew %}
                 <label style="font-size:.82rem;display:flex;align-items:center;gap:4px;min-width:155px;">
-                  <input type="checkbox" class="bac-crew" name="crew_member_ids" value="{{ cm.id }}">
+                  <input type="checkbox" class="ccc-crew" name="crew_member_ids" value="{{ cm.id }}">
                   {{ cm.display_label }}
                   {% if cm.position %}<span style="color:var(--adi-muted);font-size:.72rem;">({{ cm.position.title }})</span>{% endif %}
                 </label>
@@ -1681,43 +1717,89 @@
               </div>
             </div>
             {% endfor %}
+            <p style="font-size:.72rem;color:var(--adi-muted);margin-top:4px;">
+              Crew can be added to the call afterwards too — nothing here is final.
+            </p>
           {% else %}
-            <div style="font-size:.8rem;color:var(--adi-muted);">
-              No crew assigned to this show yet — assign crew on the Crew Roster first.
+            <div style="font-size:.8rem;color:var(--adi-muted);margin-bottom:8px;">
+              No crew assigned to this show yet — assign crew on the Crew Roster
+              first. The call can still be created empty.
             </div>
           {% endif %}
-          <p style="font-size:.72rem;color:var(--adi-muted);margin-top:6px;">
-            Additive — crew already on the selected Crew Start are left untouched.
-          </p>
+
+          <div style="font-size:.8rem;font-weight:600;margin:14px 0 6px;">3. What do they stop for?</div>
+          {% if show.uses_new_breaks %}
+          <label style="display:flex;align-items:flex-start;gap:8px;font-size:.82rem;">
+            <input type="checkbox" name="add_breaks" value="1" checked style="margin-top:3px;">
+            <span>
+              Add the standard breaks for this call
+              <div style="font-size:.72rem;color:var(--adi-muted);" id="ccc-break-preview">
+                Coffee at +2:30, a meal at +5:00, coffee at +8:30 — off this
+                call's own time. Each becomes a real break you can change or
+                delete on the call afterwards.
+              </div>
+            </span>
+          </label>
+          {% else %}
+          <div style="font-size:.78rem;color:#B45309;">
+            This show is still on the old breaks model, so no breaks will be
+            added. Switch it over on the F&amp;B tab first.
+          </div>
+          {% endif %}
+
         </div>
         <div class="modal-footer">
-          <span id="bac-count" style="font-size:.78rem;color:var(--adi-muted);margin-right:auto;">0 selected</span>
+          <span id="ccc-count" style="font-size:.78rem;color:var(--adi-muted);margin-right:auto;">0 crew selected</span>
           <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-sm btn-adi">Assign to Crew Start</button>
+          <button type="submit" class="btn btn-sm btn-adi">Create Crew Call</button>
         </div>
       </form>
     </div>
   </div>
 </div>
 
-<!-- ── Bulk Assign Crew behaviour (#38) ── -->
+<!-- ── Create Crew Call behaviour ── -->
 <script>
 (function () {
-  const modal = document.getElementById('bulkAssignCrewModal');
+  const modal = document.getElementById('createCrewCallModal');
   if (!modal) return;
-  const countEl = modal.querySelector('#bac-count');
-  function refresh() {
-    const n = modal.querySelectorAll('.bac-crew:checked').length;
-    if (countEl) countEl.textContent = n + ' selected';
+  const countEl = modal.querySelector('#ccc-count');
+  const timeEl  = modal.querySelector('#ccc-time');
+  const hoursEl = modal.querySelector('#ccc-hours');
+  const prevEl  = modal.querySelector('#ccc-break-preview');
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function plus(hhmm, mins) {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm || '');
+    if (!m) return null;
+    const t = (parseInt(m[1], 10) * 60 + parseInt(m[2], 10) + mins) % 1440;
+    return pad(Math.floor(t / 60)) + ':' + pad(t % 60);
   }
+
+  // Mirrors breaks.break_options_for for the PREVIEW only. The server builds
+  // the real breaks from that function — this never decides anything.
+  function refresh() {
+    const n = modal.querySelectorAll('.ccc-crew:checked').length;
+    if (countEl) countEl.textContent = n + (n === 1 ? ' crew selected' : ' crew selected');
+    if (!prevEl) return;
+    const t = timeEl && timeEl.value;
+    const c1 = plus(t, 150), meal = plus(t, 300), c2 = plus(t, 510);
+    if (!c1) return;
+    const hrs = parseFloat(hoursEl && hoursEl.value) || 0;
+    let txt = `Coffee ${c1} · Meal ${meal} · Coffee ${c2}`;
+    if (hrs > 14) txt += ` · Second meal ${plus(t, 660)}`;
+    prevEl.textContent = txt + ' — each one editable on the call afterwards.';
+  }
+
   modal.addEventListener('change', function (e) {
     const t = e.target;
-    if (t.classList && t.classList.contains('bac-company-all')) {
+    if (t.classList && t.classList.contains('ccc-company-all')) {
       const box = t.closest('div');
-      if (box) box.querySelectorAll('.bac-crew').forEach(b => { b.checked = t.checked; });
+      if (box) box.querySelectorAll('.ccc-crew').forEach(b => { b.checked = t.checked; });
     }
     refresh();
   });
+  modal.addEventListener('input', refresh);
 })();
 </script>
 
@@ -1887,10 +1969,13 @@
 
 // ── Activity library ─────────────────────────────────────────────────────────
 const ACTIVITY_LIBRARY = {
-  "Crew & Breaks": [
-    "CREW START", "LUNCH BREAK — 30 min", "LUNCH BREAK — 60 min",
-    "AFTERNOON BREAK — 15 min", "DINNER BREAK — 30 min", "EOD WRAP",
-    "MEAL PENALTY WARNING", "OVERTIME BEGINS",
+  // No CREW START, no break labels, no EOD WRAP. A crew call is made by the
+  // Create Crew Call button (so it arrives with its crew and its breaks), a
+  // break is created on its crew call, and the day's end is Day Settings' EOD
+  // drawn as an anchor row. Suggesting any of them here is suggesting the
+  // shape the 2026-08-12 migrations spent the day undoing.
+  "Crew": [
+    "MEAL PENALTY WARNING", "OVERTIME BEGINS", "SHIFT CHANGEOVER",
   ],
   "Load In / Setup": [
     "LOAD IN BEGINS", "EQUIPMENT DELIVERY", "SETUP RIGGING", "SETUP AUDIO",
@@ -2065,92 +2150,6 @@ function toggleCrewForm(cb, actId) {
   document.getElementById('crew-form-'   + actId).style.display = cb.checked ? 'none'  : 'block';
 }
 
-// ── Break schedule calculator ────────────────────────────────────────────────
-// 30-min lunch = ON THE CLOCK (paid) — does not extend the day
-// 60-min lunch = WALK AWAY (unpaid) — adds a full hour of working time
-let _lunchIsWalkAway = false;  // tracks current state; default is 30-min (on clock)
-
-function onLunchChange(newValStr) {
-  const newIsWalkAway = parseInt(newValStr) === 60;
-
-  if (newIsWalkAway !== _lunchIsWalkAway) {
-    const wrapInput = document.getElementById('wrap_time_input');
-    if (wrapInput && wrapInput.value.trim()) {
-      const wrapM = parseTimeToMins(wrapInput.value.trim());
-      if (wrapM !== null) {
-        // Walk away → add 60 min; back to on-clock → subtract 60 min
-        wrapInput.value = minsToStr(wrapM + (newIsWalkAway ? 60 : -60));
-      }
-    }
-  }
-
-  _lunchIsWalkAway = newIsWalkAway;
-  calcBreaks();
-}
-
-function calcBreaks() {
-  const callStr = (document.getElementById('call_time_input')?.value || '').trim();
-  const wrapStr = (document.getElementById('wrap_time_input')?.value || '').trim();
-  const preview = document.getElementById('break-preview');
-
-  // Keep hidden fields in sync so the form POST has the right values
-  const bsCall = document.getElementById('bs-call');
-  const bsWrap = document.getElementById('bs-wrap');
-  if (bsCall) bsCall.value = callStr;
-  if (bsWrap) bsWrap.value = wrapStr;
-
-  if (!preview) return;
-
-  const callM = parseTimeToMins(callStr);
-  if (callM === null) {
-    preview.innerHTML = '<span style="color:#adb5bd;">Enter call &amp; wrap times above to preview.</span>';
-    return;
-  }
-
-  const lunchMins = parseInt(
-    document.querySelector('input[name="lunch_minutes"]:checked')?.value || 30
-  );
-
-  const coffee1   = callM + 150;              // call + 2:30
-  const lunch     = callM + 300;              // call + 5:00
-  const lunchEnd  = lunch + lunchMins;
-  const coffee2   = lunchEnd + 150;           // lunch end + 2:30
-  const wrapM     = parseTimeToMins(wrapStr);
-  const elapsed   = wrapM !== null ? ((wrapM - callM + 1440) % 1440) : null;
-  const needsDinner = elapsed !== null && elapsed > 600; // > 10 hours
-
-  const rows = [
-    { t: callM,   icon: '🟢', label: 'CREW START' },
-    { t: coffee1, icon: '☕', label: 'MORNING BREAK — 15 min' },
-    { t: lunch,   icon: '🍽', label: `LUNCH BREAK — ${lunchMins} min` },
-    { t: coffee2, icon: '☕', label: 'AFTERNOON BREAK — 15 min' },
-  ];
-
-  if (needsDinner) {
-    const dinnerStart = lunchEnd + 300;       // 5 hours of work after lunch ends
-    // Only add dinner if it falls before the wrap time
-    if (wrapM === null || dinnerStart < wrapM) {
-      rows.push({ t: dinnerStart, icon: '🍽', label: `DINNER BREAK — ${lunchMins} min` });
-    }
-  }
-
-  if (wrapM !== null) rows.push({ t: wrapM, icon: '🏁', label: 'EOD WRAP' });
-
-  rows.sort((a, b) => a.t - b.t);
-
-  preview.innerHTML = rows.map(r =>
-    `<div>
-       <strong style="color:var(--adi-blue);display:inline-block;min-width:64px;">
-         ${minsToStr(r.t)}
-       </strong> ${r.icon} ${r.label}
-     </div>`
-  ).join('');
-}
-
-// Wire break calculator to call/wrap inputs
-document.getElementById('call_time_input')?.addEventListener('input', calcBreaks);
-document.getElementById('wrap_time_input')?.addEventListener('input', calcBreaks);
-document.addEventListener('DOMContentLoaded', calcBreaks);
 
 // ── Crew select from roster ───────────────────────────────────────────────────
 function onCrewSelect(sel, actId) {

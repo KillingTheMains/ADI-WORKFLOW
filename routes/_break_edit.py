@@ -62,6 +62,54 @@ def _ensure_meal_service(cb):
     return svc
 
 
+def create_break(show, day, call, offset, duration=None, kind=None,
+                 label=None):
+    """Create ONE break hanging off a crew call. The only place that does it.
+
+    Factored out on 2026-08-12 so the Create Crew Call wizard adds its opening
+    set of breaks through exactly the path the add-a-break button uses. A
+    second constructor is how a break ends up with a label and no kind, or an
+    offset that means nothing against its call — which is the whole class of
+    defect the 08-12 migrations cleaned up.
+
+    The caller commits. ``offset`` decides both the length and the kind unless
+    it is told otherwise, per breaks.break_options_for.
+    """
+    if duration is None or duration not in DURATION_CHOICES:
+        duration = default_duration_for(offset)
+    if kind not in BREAK_KINDS:
+        kind = kind_for_offset(offset)
+    if not label:
+        label = next((o["label"] for o in break_options_for(call)
+                      if o["offset"] == offset), "BREAK")
+
+    start = parse_minutes(call.time)
+    if start is None:
+        return None
+
+    act = ScheduleActivity(
+        day_id=day.id,
+        time=from_minutes(start + offset),
+        description=break_export_text(label, duration),
+        sort_order=(call.sort_order or 0) + 1,
+    )
+    db.session.add(act)
+    db.session.flush()
+
+    cb = CrewBreak(
+        show_id=show.id, activity_id=act.id, crew_call_id=call.id,
+        offset_minutes=offset, duration_minutes=duration, label=label,
+        kind=kind,
+        # A coffee break has no question, so it is not left sitting on TBD
+        # waiting for an answer nobody is going to give.
+        catered=(CATERED_NO if kind == BREAK_KIND_COFFEE
+                 else CATERED_UNCONFIRMED),
+    )
+    db.session.add(cb)
+    db.session.flush()
+    return cb
+
+
 def _back(show_id, day_id):
     return redirect(url_for("schedule.day_detail", show_id=show_id,
                             day_id=day_id))
@@ -260,25 +308,9 @@ def add_break(show_id, day_id, act_id):
               "against it.", "warning")
         return _back(show_id, day_id)
 
-    at = start + offset
-    act = ScheduleActivity(
-        day_id=day.id,
-        time=from_minutes(at),
-        description=break_export_text(label, duration),
-        sort_order=(call.sort_order or 0) + 1,
-    )
-    db.session.add(act)
-    db.session.flush()
-
-    db.session.add(CrewBreak(
-        show_id=show.id, activity_id=act.id, crew_call_id=call.id,
-        offset_minutes=offset, duration_minutes=duration, label=label,
-        kind=kind,
-        # A coffee break has no question, so it is not left sitting on TBD
-        # waiting for an answer nobody is going to give.
-        catered=(CATERED_NO if kind == BREAK_KIND_COFFEE
-                 else CATERED_UNCONFIRMED),
-    ))
+    cb = create_break(show, day, call, offset, duration=duration, kind=kind,
+                      label=label)
+    act = cb.activity
     db.session.commit()
     if kind == BREAK_KIND_COFFEE:
         flash(f"Added {label} at {act.time}.", "success")

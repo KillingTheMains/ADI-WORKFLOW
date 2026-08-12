@@ -364,12 +364,15 @@ def _seed_day_templates():
     if DayTemplate.query.first():
         return
 
+    # No EOD WRAP row in any of these. The end of a day is Day Settings' EOD
+    # and renders as a derived anchor on the timeline (day_anchors.py) — a
+    # template that also wrote a wrap ACTIVITY was seeding the second copy
+    # that drifted on 17 of the 31 days carrying one.
     defaults = [
         ("load_in", "Load In Day", "Load In", 1, [
             ("7:00 AM",  "CREW START"),
             ("12:30 PM", "LUNCH BREAK — 30 min"),
             ("3:00 PM",  "AFTERNOON BREAK — 15 min"),
-            ("7:00 PM",  "EOD WRAP"),
         ]),
         ("show_day", "Show Day", "Show", 2, [
             ("7:00 AM",  "CREW START"),
@@ -378,7 +381,6 @@ def _seed_day_templates():
             ("12:00 PM", "LUNCH BREAK — 60 min"),
             ("1:00 PM",  "AFTERNOON SESSION"),
             ("5:00 PM",  "END OF SHOW"),
-            ("7:00 PM",  "EOD WRAP"),
         ]),
         ("tech_rehearsal", "Tech Rehearsal", None, 3, [
             ("7:00 AM",  "CREW START"),
@@ -386,7 +388,6 @@ def _seed_day_templates():
             ("12:30 PM", "LUNCH BREAK — 30 min"),
             ("1:00 PM",  "TECH REHEARSAL RESUMES"),
             ("5:00 PM",  "END OF TECH"),
-            ("7:00 PM",  "EOD WRAP"),
         ]),
         ("presenter_rehearsal", "Presenter Rehearsal", None, 4, [
             ("8:00 AM",  "CREW START"),
@@ -394,17 +395,15 @@ def _seed_day_templates():
             ("12:00 PM", "LUNCH BREAK — 30 min"),
             ("1:00 PM",  "PRESENTER REHEARSAL RESUMES"),
             ("5:00 PM",  "END OF REHEARSAL"),
-            ("7:00 PM",  "EOD WRAP"),
         ]),
         ("strike", "Strike Day", "Strike", 5, [
             ("8:00 AM",  "CREW START — STRIKE BEGINS"),
             ("12:00 PM", "LUNCH BREAK — 30 min"),
-            ("6:00 PM",  "STRIKE COMPLETE / EOD WRAP"),
+            ("6:00 PM",  "STRIKE COMPLETE"),
         ]),
         ("prep", "Prep Day", "Prep", 6, [
             ("9:00 AM",  "CREW START — PREP"),
             ("12:30 PM", "LUNCH BREAK — 30 min"),
-            ("6:00 PM",  "EOD WRAP"),
         ]),
     ]
 

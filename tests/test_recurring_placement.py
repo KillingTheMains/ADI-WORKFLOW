@@ -97,4 +97,8 @@ def test_day_page_places_events_inline_not_in_a_top_block(app, client, db):
     # pills much earlier in the page.
     assert html.index("Gate Sweep") < html.index('id="act-%d"' % act.id)
     # And the old standalone list is gone — the panel only summarises now.
-    assert "placed in the schedule below by time" in html
+    # Wording changed on 2026-08-12 when the panel moved from above the
+    # timeline into the left sidebar, so "below" stopped being true. The
+    # behaviour under test is unchanged and still the point: a COUNT here,
+    # with the events themselves placed in the stream by time.
+    assert "placed in the schedule by time" in html

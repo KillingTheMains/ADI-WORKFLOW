@@ -1,101 +1,47 @@
 """
-Tests for the crew-start-anchored break builder (board #44).
+The crew-start-anchored break BUILDER is gone (2026-08-12). This file guards
+its absence.
 
-Breaks hang off each CREW START activity (not a day-level call time), each
-labelled with that crew start's time, on a 10-hour default. Crew starts are
-the INPUT and are never created or deleted by the builder. No EOD WRAP.
+It used to test `schedule.build_day_schedule` and `schedule.smart_breaks`,
+which generated breaks as ordinary ScheduleActivity rows labelled
+`COFFEE BREAK — 8:00 AM CREW`, `LUNCH BREAK — 30 min`, `EOD WRAP`. Those
+assertions encoded the OLD spec: they are the exact shape the 08-12 repair
+migrations spent the day undoing, and the same shape as MCDC26's 21 breaks
+still stuck at 60 minutes, because a label is not a duration.
+
+Breaks are created on the crew call now, through `breaks.break_options_for` —
+one door, one definition of the add list, and a real `CrewBreak` with a kind
+and a duration behind it. Jason's call, 2026-08-12: close both legacy doors
+rather than keep one for old shows.
+
+So this is a tombstone, not a deletion. The risk worth testing is that
+somebody re-adds a one-click generator because "there used to be one" — these
+tests fail loudly if either route comes back.
 """
-import datetime as dt
-
-DASH = "\u2014"  # em dash used in generated break labels
+import pytest
 
 
-def _make_day(db):
-    from models import Show, ScheduleDay
-    show = Show(name="Break Show", code="BS26")
-    db.session.add(show)
-    db.session.flush()
-    day = ScheduleDay(show_id=show.id, date=dt.date(2026, 7, 16))
-    db.session.add(day)
-    db.session.commit()
-    return show.id, day.id
+@pytest.mark.parametrize("endpoint", [
+    "schedule.build_day_schedule",
+    "schedule.smart_breaks",
+])
+def test_legacy_break_generators_are_gone(app, endpoint):
+    """Neither generator may be reachable by URL.
 
-
-def _add_activity(db, day_id, time, desc, sort_order=10):
-    from models import ScheduleActivity
-    a = ScheduleActivity(day_id=day_id, time=time, description=desc, sort_order=sort_order)
-    db.session.add(a)
-    db.session.commit()
-
-
-def _acts(day_id):
-    from models import ScheduleActivity
-    return {a.description: a.time
-            for a in ScheduleActivity.query.filter_by(day_id=day_id).all()}
-
-
-def _descs(day_id):
-    from models import ScheduleActivity
-    return [a.description for a in ScheduleActivity.query.filter_by(day_id=day_id).all()]
-
-
-def _build_url(app, show_id, day_id):
+    If this fails, a break is being written as a labelled activity somewhere
+    again. Read `breaks.py`'s kind section and the removal note in
+    routes/schedule.py before putting it back.
+    """
     from flask import url_for
     with app.test_request_context():
-        return url_for("schedule.build_day_schedule", show_id=show_id, day_id=day_id)
+        with pytest.raises(Exception):
+            url_for(endpoint, show_id=1, day_id=1)
 
 
-def test_build_breaks_off_single_crew_start(app, client, db):
-    show_id, day_id = _make_day(db)
-    _add_activity(db, day_id, "8:00 AM", "CREW START")
-
-    r = client.post(_build_url(app, show_id, day_id), data={})
-    assert r.status_code in (200, 302)
-
-    acts = _acts(day_id)
-    # Label stays human-readable 12-hour; the stored time is canonical 24h.
-    assert acts["COFFEE BREAK " + DASH + " 8:00 AM CREW"] == "10:30"
-    assert acts["LUNCH BREAK " + DASH + " 8:00 AM CREW"] == "13:00"
-    assert "AFTERNOON BREAK " + DASH + " 8:00 AM CREW" in acts
-    # Crew start preserved; no EOD WRAP generated
-    assert "CREW START" in acts
-    assert not any("EOD" in d for d in acts)
-
-
-def test_build_breaks_per_crew_start_are_offset(app, client, db):
-    show_id, day_id = _make_day(db)
-    _add_activity(db, day_id, "8:00 AM", "CREW START", 10)
-    _add_activity(db, day_id, "9:00 AM", "CREW START", 20)
-
-    client.post(_build_url(app, show_id, day_id), data={})
-
-    acts = _acts(day_id)
-    # Label stays human-readable 12-hour; the stored time is canonical 24h.
-    assert acts["COFFEE BREAK " + DASH + " 8:00 AM CREW"] == "10:30"
-    assert acts["COFFEE BREAK " + DASH + " 9:00 AM CREW"] == "11:30"  # one hour later
-    assert acts["LUNCH BREAK " + DASH + " 8:00 AM CREW"] == "13:00"
-    assert acts["LUNCH BREAK " + DASH + " 9:00 AM CREW"] == "14:00"
-
-
-def test_build_breaks_no_crew_start_adds_nothing(app, client, db):
-    show_id, day_id = _make_day(db)
-    _add_activity(db, day_id, "10:00 AM", "DOORS OPEN")
-
-    client.post(_build_url(app, show_id, day_id), data={})
-
-    assert _descs(day_id) == ["DOORS OPEN"]  # nothing generated without a crew start
-
-
-def test_replace_regenerates_without_touching_crew_start_or_user_rows(app, client, db):
-    show_id, day_id = _make_day(db)
-    _add_activity(db, day_id, "8:00 AM", "CREW START", 10)
-    _add_activity(db, day_id, "9:00 AM", "DOORS OPEN", 20)
-
-    client.post(_build_url(app, show_id, day_id), data={})            # first build
-    client.post(_build_url(app, show_id, day_id), data={"replace": "1"})  # regenerate
-
-    descs = _descs(day_id)
-    assert descs.count("CREW START") == 1          # input preserved
-    assert descs.count("DOORS OPEN") == 1          # unrelated activity preserved
-    assert descs.count("COFFEE BREAK " + DASH + " 8:00 AM CREW") == 1  # no duplicates
-    assert descs.count("LUNCH BREAK " + DASH + " 8:00 AM CREW") == 1
+def test_no_route_still_builds_breaks_as_activities(app):
+    """No registered rule may point at the old build/smart-break paths."""
+    rules = {str(r) for r in app.url_map.iter_rules()}
+    offenders = [r for r in rules
+                 if r.endswith("/build-schedule") or r.endswith("/smart-breaks")]
+    assert not offenders, (
+        "legacy break-generation route(s) reintroduced: " + ", ".join(offenders))

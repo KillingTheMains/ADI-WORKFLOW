@@ -369,6 +369,12 @@ def day_detail(show_id, day_id):
     # everything landing in the same gap came out grouped by TYPE — a 12:00
     # lunch drawing after a 15:00 beverage refresh, because breaks came after
     # beverages in the markup. A day is one timeline; it sorts by the clock.
+    # SOD and EOD are rows on this stream too, derived from Day Settings on
+    # every read. They replaced the hand-typed EOD WRAP activity, which was
+    # a second copy of a number the day already held and drifted from it.
+    from day_anchors import overlay_for_day as _anchor_overlay
+    anchor_overlay = _anchor_overlay(day)
+
     timeline = (
         [{"kind": "recurring", "sort_min": hc.get("sort_min") or 0, "item": hc}
          for hc in hc_overlay]
@@ -376,6 +382,8 @@ def day_detail(show_id, day_id):
            for b in bev_overlay]
         + [{"kind": "break", "sort_min": p["minute"] or 0, "item": p}
            for p in break_periods]
+        + [{"kind": "anchor", "sort_min": a["sort_min"], "item": a}
+           for a in anchor_overlay]
     )
     extras_before, extras_after = _place_recurring(day, timeline, visible_acts)
 
@@ -587,136 +595,17 @@ def apply_template(show_id, day_id):
     return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
 
 
-# ── Build Day Schedule (break schedule from call/wrap times) ─────────────────
-
-@schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/build-schedule", methods=["POST"])
-def build_day_schedule(show_id, day_id):
-    """
-    Generate a break schedule anchored to each CREW START on the day (#44).
-
-    Breaks belong to the crew, so they hang off crew-start times — not a
-    day-level call time (SOD/EOD replaced Call/Wrap in #36, and EOD is no
-    longer a crew concept). Every CREW START activity with a time spawns its
-    own 10-hour default break set, each break labelled with that crew start's
-    time, so an 08:00 crew and a 09:00 crew get distinct, offset breaks.
-
-    Crew starts are the INPUT now — this never creates or deletes them.
-
-    Per crew start at time T:
-        T + 2:30          → COFFEE BREAK — <T> CREW
-        T + 5:00          → LUNCH BREAK — <T> CREW
-        lunch end + 2:30  → AFTERNOON BREAK — <T> CREW
-    """
-    day = ScheduleDay.query.get_or_404(day_id)
-    f = request.form
-
-    lunch_mins = int(f.get("lunch_minutes") or 30)
-    replace    = f.get("replace") == "1"
-
-    # Crew starts are the input. Collect every CREW START activity that has a
-    # parseable time; skip any without a time set.
-    crew_starts = []
-    for act in day.activities:
-        if is_crew_start(act.description):
-            m = _parse_time_to_minutes(act.time or "")
-            if m is not None:
-                # Label from the parsed minutes, not the raw stored string,
-                # so break names read "8:00 AM CREW" whatever format the crew
-                # start happens to be stored in.
-                crew_starts.append((m, _display_time(m)))
-
-    if not crew_starts:
-        flash("Add a Crew Start with a time to this day first, then build breaks.",
-              "warning")
-        return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
-
-    # Optionally purge only the breaks WE generate — never crew starts, never
-    # anything else the user placed on the day.
-    if replace:
-        GENERATED = ("coffee break", "lunch break", "afternoon break",
-                     "morning break", "dinner break")
-        for act in list(day.activities):
-            if any(kw in (act.description or "").lower() for kw in GENERATED):
-                db.session.delete(act)
-        db.session.flush()
-
-    to_add = []
-    for base_m, label_time in crew_starts:
-        tag       = f"{label_time} CREW"
-        coffee1   = base_m + 150            # +2h 30m
-        lunch_s   = base_m + 300            # +5h 00m
-        lunch_end = lunch_s + lunch_mins
-        coffee2   = lunch_end + 150         # +2h 30m after lunch ends
-        to_add.append((coffee1, f"COFFEE BREAK — {tag}"))
-        to_add.append((lunch_s, f"LUNCH BREAK — {tag}"))
-        to_add.append((coffee2, f"AFTERNOON BREAK — {tag}"))
-
-    to_add.sort(key=lambda x: x[0])
-
-    last = db.session.query(
-        db.func.max(ScheduleActivity.sort_order)
-    ).filter_by(day_id=day_id).scalar() or 0
-
-    for i, (t, desc) in enumerate(to_add):
-        db.session.add(ScheduleActivity(
-            day_id=day_id,
-            time=_minutes_to_time_str(t),
-            description=desc,
-            sort_order=last + (i + 1) * 10,
-        ))
-
-    db.session.commit()
-    n = len(crew_starts)
-    flash(
-        f"Breaks built for {n} crew start{'s' if n != 1 else ''} "
-        f"({len(to_add)} added).",
-        "success"
-    )
-    return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
-
-
-# ── Smart breaks ─────────────────────────────────────────────────────────────
-
-@schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/smart-breaks", methods=["POST"])
-def smart_breaks(show_id, day_id):
-    day = ScheduleDay.query.get_or_404(day_id)
-    call_mins = _parse_time_to_minutes(day.call_time)
-    if call_mins is None:
-        flash("Set a call time on this day first.", "warning")
-        return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
-
-    existing = " ".join(a.description.upper() for a in day.activities)
-    last = db.session.query(db.func.max(ScheduleActivity.sort_order)).filter_by(day_id=day_id).scalar() or 0
-    to_add = []
-
-    # Lunch: call + 5h30, clamped 11:30–13:30
-    if "LUNCH" not in existing:
-        lunch = max(11 * 60 + 30, min(13 * 60 + 30, call_mins + 5 * 60 + 30))
-        to_add.append((lunch, "LUNCH BREAK — 30 min"))
-    else:
-        lunch = 12 * 60 + 30  # fallback for pm-break calc
-
-    # Afternoon break: lunch + 2h30
-    if "AFTERNOON BREAK" not in existing and "PM BREAK" not in existing:
-        to_add.append((lunch + 2 * 60 + 30, "AFTERNOON BREAK — 15 min"))
-
-    # EOD Wrap from wrap_time
-    wrap_mins = _parse_time_to_minutes(day.wrap_time)
-    if wrap_mins and "EOD WRAP" not in existing and "EOD" not in existing:
-        to_add.append((wrap_mins, "EOD WRAP"))
-
-    to_add.sort(key=lambda x: x[0])
-    for i, (t, desc) in enumerate(to_add):
-        db.session.add(ScheduleActivity(
-            day_id=day_id, time=_minutes_to_time_str(t),
-            description=desc, sort_order=last + (i + 1) * 10))
-
-    db.session.commit()
-    if to_add:
-        flash(f"{len(to_add)} break{'s' if len(to_add) != 1 else ''} added.", "success")
-    else:
-        flash("Breaks already exist on this day — nothing added.", "info")
-    return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
+# ── Break generation — REMOVED 2026-08-12 ────────────────────────────────────
+#
+# `build_day_schedule` and `smart_breaks` both wrote breaks as ordinary
+# ACTIVITIES labelled 'LUNCH BREAK — 30 min' / 'EOD WRAP'. That is the shape
+# the 08-12 repair migrations spent the day undoing: a label is not a
+# duration, and a break that is not attached to a crew call has no offset to
+# mean anything against. Breaks are created on the crew call now, through
+# `breaks.break_options_for` — one door, one definition of the add list.
+#
+# Jason's call, 2026-08-12: close BOTH doors rather than keep a legacy one.
+# The old sidebar builder and the Smart Breaks quick tool are gone with them.
 
 
 # ── Bulk time shift ───────────────────────────────────────────────────────────
@@ -1027,6 +916,123 @@ def set_travel_window(show_id):
                     "date": the_date.isoformat() if the_date else None})
 
 
+def _assign_crew_to_activity(activity, crew_ids, hours=None):
+    """Put crew onto an activity. STRICTLY ADDITIVE. ONE definition.
+
+    Returns ``(added, skipped)``. Somebody already on the call is skipped, not
+    duplicated and not overwritten. The caller commits.
+
+    Shared by the Create Crew Call wizard and the older bulk-assign pop-up so
+    the two cannot drift on what "assign" means — a second copy of this is how
+    one door starts overwriting rows the other leaves alone.
+    """
+    sort_order = db.session.query(
+        db.func.max(CrewRow.sort_order)).filter_by(
+            activity_id=activity.id).scalar() or 0
+    added = skipped = 0
+    for cm in CrewMember.query.filter(CrewMember.id.in_(crew_ids)).all():
+        if CrewRow.query.filter_by(activity_id=activity.id,
+                                   crew_member_id=cm.id).first():
+            skipped += 1
+            continue
+        sort_order += 10
+        db.session.add(CrewRow(
+            activity_id=activity.id,
+            crew_member_id=cm.id,
+            position=cm.position.title if cm.position else "",
+            position_id=cm.position_id,
+            crew_type="Lead Crew",
+            qty=1,
+            hours=hours,
+            sort_order=sort_order,
+        ))
+        added += 1
+    return added, skipped
+
+
+@schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/crew-call/create",
+                   methods=["POST"])
+def create_crew_call(show_id, day_id):
+    """Create a crew call, put its crew on it, and hang its breaks off it.
+
+    Replaces the Bulk Assign Crew pop-up, which could only fill a CREW START
+    that already existed — so the actual job (make the call, feed the people
+    on it) was three separate errands in two places.
+
+    ORDER MATTERS and is the reason this is one route rather than three:
+
+      1. the call, because a break's offset is meaningless without it;
+      2. the crew, because `breaks.needs_second_meal` reads their hours — do
+         this after the breaks and the +11:00 second meal can never appear;
+      3. the breaks, through `_break_edit.create_break`, which is the same
+         path the add-a-break button uses.
+
+    Breaks come from `breaks.break_options_for` and nowhere else. Nothing here
+    invents a label or a duration; that is what the removed day-level builder
+    did, and it is why MCDC26 has 21 breaks stuck at 60 minutes.
+    """
+    # Imported here, not at module scope: _break_edit imports from breaks and
+    # models at import time and schedule.py is loaded first.
+    from routes._break_edit import create_break
+
+    show = Show.query.get_or_404(show_id)
+    day = ScheduleDay.query.get_or_404(day_id)
+    f = request.form
+
+    time = hhmm_or_blank(f.get("time"))
+    if not time:
+        flash("A crew call needs a start time.", "warning")
+        return redirect(url_for("schedule.day_detail", show_id=show_id,
+                                day_id=day_id))
+
+    # The description must still READ as a crew start — `is_crew_start` is the
+    # one test five other places use to find these, and a call it cannot see
+    # is a call with no breaks, no headcount and no line on the master.
+    desc = (f.get("description") or "").strip().upper() or "CREW START"
+    if not is_crew_start(desc):
+        desc = f"CREW START — {desc}"
+
+    try:
+        hours = float(f.get("hours") or 0) or None
+    except (TypeError, ValueError):
+        hours = None
+
+    last = db.session.query(db.func.max(ScheduleActivity.sort_order)).filter_by(
+        day_id=day_id).scalar() or 0
+    call = ScheduleActivity(day_id=day.id, time=time, description=desc,
+                            sort_order=last + 10)
+    db.session.add(call)
+    db.session.flush()
+
+    assigned_ids = {a.crew_member_id for a in show.crew_assignments}
+    wanted = [int(x) for x in f.getlist("crew_member_ids") if x.isdigit()]
+    ids = [i for i in wanted if i in assigned_ids]
+    added = 0
+    if ids:
+        added, _ = _assign_crew_to_activity(call, ids, hours=hours)
+        db.session.flush()
+
+    made = 0
+    if f.get("add_breaks") and show.uses_new_breaks:
+        for opt in break_options_for(call):
+            if create_break(show, day, call, opt["offset"]) is not None:
+                made += 1
+
+    db.session.commit()
+
+    msg = f"Crew call created at {call.time}."
+    if added:
+        msg += f" {added} crew on it."
+    if made:
+        msg += (f" {made} break{'' if made == 1 else 's'} added — set whether "
+                "the meal is provided.")
+    elif f.get("add_breaks") and not show.uses_new_breaks:
+        msg += " Breaks were not added: this show is still on the old model."
+    flash(msg, "success")
+    return redirect(url_for("schedule.day_detail", show_id=show_id,
+                            day_id=day_id))
+
+
 @schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/bulk-assign-crew", methods=["POST"])
 def bulk_assign_crew(show_id, day_id):
     """#38 — bulk-assign show crew to a Crew Start event via the pop-up.
@@ -1056,26 +1062,7 @@ def bulk_assign_crew(show_id, day_id):
         flash("No crew selected.", "warning")
         return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
 
-    sort_order = db.session.query(
-        db.func.max(CrewRow.sort_order)).filter_by(activity_id=activity.id).scalar() or 0
-
-    added = skipped = 0
-    for cm in CrewMember.query.filter(CrewMember.id.in_(ids)).all():
-        # additive guard: don't duplicate a crew member already on this event
-        if CrewRow.query.filter_by(activity_id=activity.id, crew_member_id=cm.id).first():
-            skipped += 1
-            continue
-        sort_order += 10
-        db.session.add(CrewRow(
-            activity_id=activity.id,
-            crew_member_id=cm.id,
-            position=cm.position.title if cm.position else "",
-            position_id=cm.position_id,
-            crew_type="Lead Crew",
-            qty=1,
-            sort_order=sort_order,
-        ))
-        added += 1
+    added, skipped = _assign_crew_to_activity(activity, ids)
     db.session.commit()
 
     when = activity.time or "the event"
