@@ -783,6 +783,84 @@ def _convert_show3_to_local_labor(session):
               "uses its own wording")
 
 
+def _empty_section_headers(activity):
+    """Headers on one crew call with no crew under them. ONE definition.
+
+    A header owns everything between it and the next header AT OR ABOVE its
+    own level — so a level-1 section is NOT empty when a sub-header beneath it
+    holds crew, only when nothing in its whole span is a crew row.
+
+    Walks `ordered_crew_rows`, not `sort_order`: that is what the page draws,
+    and a header that looks empty on screen is the one the user means. All 136
+    headers in production are level 1, so the nesting arm is untested by real
+    data — it is here because `header_level` exists and a rule that quietly
+    deletes a populated parent would be worse than one that keeps a stray.
+    """
+    rows = list(activity.ordered_crew_rows)
+    out = []
+    for i, row in enumerate(rows):
+        if not row.is_group_header:
+            continue
+        level = row.header_level or 1
+        empty = True
+        for nxt in rows[i + 1:]:
+            if nxt.is_group_header:
+                if (nxt.header_level or 1) <= level:
+                    break
+                continue          # a sub-header — keep looking inside it
+            empty = False
+            break
+        if empty:
+            out.append(row)
+    return out
+
+
+def _delete_empty_section_headers(session):
+    """Remove section headers with no crew under them, on every crew call.
+
+    PREDICTED ON PRODUCTION 2026-08-12: **29** — show 3: 24, show 4: 5, show
+    2: 0. Counted off the show book, which renders the complete ordered crew
+    list; the day page's main table now hides local-labour rows, so a header
+    judged from THAT view would look empty when its crew had simply moved to
+    the local labour section. Local labour counts as crew here.
+
+    Labels going: ENCORE ×9, ENCORE LOCAL CREW ×4, LEAD CREW ×4, OWENS ×3,
+    MRPM ×2, and one each of VENUE SETUP CREW, LUMENARCHY, ACCELERATOR,
+    ENCORE RIGGING, ENCORE TEST, VRA, ENCORE CREW.
+
+    Every deletion is named in the output. A header carries only a label, so
+    the loss is small and retyping one is seconds — but it is still a delete,
+    and the pre-migration snapshot is the undo.
+
+    Emptiness is computed for ALL headers BEFORE anything is removed, so a
+    parent whose only contents were empty sub-headers goes in the same pass
+    rather than needing a second run.
+    """
+    from models import ScheduleActivity
+
+    doomed = []
+    for act in session.query(ScheduleActivity).all():
+        for header in _empty_section_headers(act):
+            doomed.append((act, header))
+
+    by_label = {}
+    for act, header in doomed:
+        label = (header.group_label or "(unnamed)").strip() or "(unnamed)"
+        by_label[label] = by_label.get(label, 0) + 1
+        day = act.day
+        print(f"[migration]   removing {label!r} — show "
+              f"{day.show_id if day else '?'} day {act.day_id} "
+              f"{act.time or 'untimed'} {act.description[:28]!r}")
+        session.delete(header)
+
+    print(f"[migration] {len(doomed)} empty section header(s) removed "
+          "(predicted 29 — show 3: 24, show 4: 5)")
+    for label, n in sorted(by_label.items(), key=lambda kv: (-kv[1], kv[0])):
+        print(f"[migration]     {n:3d} × {label}")
+    if doomed and len(doomed) != 29:
+        print("[migration] ⚠ not the predicted 29 — check before moving on.")
+
+
 ORPHAN_PREDICTION = {
     "crew_comm_assignments": 88,
     "meal_services": 56,
@@ -919,6 +997,11 @@ DATA_MIGRATIONS = [
     # against a mapping Jason approved. Runs AFTER the seed so it can reuse
     # the five titles that already match. Predicted 160 rows / 340 people.
     ("2026-08-12-convert-show3-to-local-labor", _convert_show3_to_local_labor),
+    # 2026-08-12 — section headers with no crew under them, on every crew
+    # call. Runs LAST: the show-3 conversion moves rows between sections in
+    # the UI but not in the data, so emptiness is the same either way — and
+    # running last means the count reflects the finished state. Predicted 29.
+    ("2026-08-12-delete-empty-section-headers", _delete_empty_section_headers),
 ]
 
 
