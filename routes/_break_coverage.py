@@ -102,6 +102,17 @@ def resolve(show_id):
                 "each following its crew call for headcount."
                 if created else " They were already linked to a service.")
         flash(f"{n} {word} marked Provided.{tail}", "success")
+        # Zero tells a caterer not to come. The service follows the crew call,
+        # so it corrects itself the moment crew are booked — but nobody should
+        # send that figure out in the meantime, and silence here is how they
+        # would.
+        blank = [cb for cb in rows if not cb.derived_headcount]
+        if blank:
+            flash(f"{len(blank)} of them have no crew booked on their call, so "
+                  f"{'that service reads' if len(blank) == 1 else 'those services read'}"
+                  " 0 to feed. They follow the crew call and will correct "
+                  "themselves once the crew is in — do not send a catering "
+                  "order until then.", "warning")
     else:
         tail = (f" {unlinked} service{'' if unlinked == 1 else 's'} left on the "
                 "F&B tab, unlinked — nothing was deleted."

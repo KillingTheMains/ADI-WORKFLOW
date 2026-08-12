@@ -15,7 +15,8 @@ applying it here would bake today's wrong answers into tomorrow's data.
 """
 import re
 
-from breaks import crew_starts_for_day, is_beverage_service, is_crew_start
+from breaks import (crew_starts_for_day, duration_from_label,
+                    is_beverage_service, is_crew_start)
 from extensions import db
 from models import (CATERED_NO, CATERED_UNCONFIRMED, CATERED_YES, CrewBreak,
                     MealService)
@@ -60,18 +61,29 @@ def _base_label(desc):
 
 
 def recover_duration(day, activity):
-    """Minutes, read from a matching RETURN FROM marker later the same day.
+    """Minutes, from the day's own evidence. None when there is none, and the
+    caller falls back to the house default rather than inventing a number.
 
-    The old data genuinely knows this; it is just written as a separate row.
-    Returns None when there is no matching marker, and the caller falls back
-    to the house default rather than inventing a number.
+    TWO sources, in order of how much they know:
+
+    1. A matching `RETURN FROM` marker later the same day — an actual
+       scheduled return time, so it beats anything merely stated.
+    2. The length written into the break's own NAME: "MORNING BREAK — 15 min".
+
+    (2) was missing until 2026-08-12 and it cost 91 wrong durations across
+    three live shows. MCDC26, AWS and Grace Hopper have no RETURN FROM rows at
+    all, so every break took the 60-minute house default — a fifteen-minute
+    coffee printing as an hour on the day page, the call sheet and the client
+    master, while its own label said fifteen. `_base_label` was even STRIPPING
+    that text, to pair breaks with return markers, and nothing ever read it.
     """
     start = parse_minutes(activity.time)
     if start is None:
         return None
+    from_label, _cleaned = duration_from_label(activity.description)
     want = _base_label(activity.description)
     if not want:
-        return None
+        return from_label
     best = None
     for other in day.activities:
         m = _RETURN.match(other.description or "")
@@ -84,7 +96,7 @@ def recover_duration(day, activity):
             continue
         if best is None or end < best:
             best = end
-    return None if best is None else best - start
+    return from_label if best is None else best - start
 
 
 def infer_crew_call(day, activity):

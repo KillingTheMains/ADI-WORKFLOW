@@ -15,6 +15,8 @@ The central idea: a catered meal is ONE event with TWO times.
 
 Crew surfaces show the break window. F&B surfaces show the service window.
 """
+import re
+
 from time_utils import from_minutes, parse_minutes
 
 # House defaults, confirmed by Jason 2026-08-11.
@@ -41,6 +43,42 @@ def default_duration_for(offset_minutes):
                                                DEFAULT_SERVICE_MINUTES)
     except (TypeError, ValueError):
         return DEFAULT_SERVICE_MINUTES
+
+
+# "MORNING BREAK — 15 min" — the length, written into the name, by whoever
+# built the schedule before the app had a field for it. Anchored to the END of
+# the string and requiring the dash, so "LUNCH BREAK — 60 minute NOT PROVIDED"
+# and "COFFEE BREAK — 08:00 CREW" do NOT match: a fragment in the middle of a
+# label is not reliably its duration, and half-reading one is worse than not.
+_DURATION_IN_LABEL = re.compile(
+    r"\s*[—–-]\s*(\d{1,3})\s*(?:mins?|minutes?)\.?\s*$", re.IGNORECASE)
+
+
+def duration_from_label(label):
+    """``'MORNING BREAK — 15 min'`` -> ``(15, 'MORNING BREAK')``.
+
+    Returns ``(None, label)`` unchanged when there is nothing to read.
+
+    This exists because the old schedules wrote the length into the break's
+    NAME, and the backfill only ever recovered a duration from a matching
+    `RETURN FROM` row. Shows without those rows took the 60-minute house
+    default for every break — so a fifteen-minute coffee printed as an hour on
+    the day page, the call sheet and the client master, while its own label
+    said fifteen. The answer was in the string the whole time.
+
+    Reading the number out is NOT the same as guessing from a keyword. The
+    length is stated; that a break is called COFFEE says nothing about how
+    long it is, and this deliberately will not infer one.
+    """
+    text = (label or "").strip()
+    m = _DURATION_IN_LABEL.search(text)
+    if not m:
+        return None, label
+    minutes = int(m.group(1))
+    if minutes <= 0 or minutes > 480:
+        return None, label
+    cleaned = text[:m.start()].strip().rstrip("—–-").strip()
+    return minutes, (cleaned or label)
 
 
 def duration_text(minutes):

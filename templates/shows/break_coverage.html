@@ -106,8 +106,10 @@
         · off the {{ cb.crew_call.time|to_12hr }} crew call
         {%- else %} · <span style="color:#9F1239;">no crew call to read a
           headcount from</span>{% endif %}
-        {%- if cb.derived_headcount is not none %}
-        · {{ cb.derived_headcount }} crew{% endif %}
+        {%- if cb.derived_headcount %} · {{ cb.derived_headcount }} crew
+        {%- elif cb.crew_call %} · <span style="color:#9F1239;"
+          title="A service created now would tell the caterer 0 to feed. It follows the crew call, so it corrects itself once crew are booked — but nobody should send that figure out.">no
+          crew booked on that call yet</span>{% endif %}
       </span>
     </span>
   </label>
@@ -136,8 +138,10 @@
         · {{ cb.duration_minutes or 0 }} min
         {%- if not contradiction %} · marked Not Provided, and long enough to
         be a meal{% endif %}
-        {%- if cb.derived_headcount is not none %}
-        · {{ cb.derived_headcount }} crew{% endif %}
+        {%- if cb.derived_headcount %} · {{ cb.derived_headcount }} crew
+        {%- elif cb.crew_call %} · <span style="color:#9F1239;"
+          title="A service created now would tell the caterer 0 to feed.">no
+          crew booked on that call yet</span>{% endif %}
       </span>
     </span>
   </label>

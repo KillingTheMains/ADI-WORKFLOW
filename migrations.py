@@ -365,6 +365,54 @@ def _unlink_breaks_from_standing_services(session):
           "beverage services (a beverage table feeds nobody at a break)")
 
 
+def _break_durations_from_labels(session):
+    """Read the length out of a break's own name, where it says one.
+
+    The backfill only ever recovered a duration from a matching `RETURN FROM`
+    row. None of the three live shows has any, so all 91 crew breaks took the
+    60-minute house default — including breaks literally named "MORNING BREAK
+    — 15 min". A fifteen-minute coffee printed as 10:30–11:30 on the day page,
+    the call sheet and the client master, and `break_export_text` rendered it
+    as "MORNING BREAK — 15 min — 60 Minutes", contradicting itself in one line.
+
+    TWO guards, both deliberate:
+
+    * **Only where the stored duration is still the house default.** A break
+      somebody has already set by hand is their answer, not a gap, and a data
+      migration that overwrites a human's edit is worse than the bug.
+    * **Only a clean trailing "— N min".** `breaks.duration_from_label` will
+      not read a fragment out of the middle of a label. "COFFEE BREAK — 08:00
+      CREW" keeps its 60 minutes and gets reported, because a break being
+      CALLED coffee is not evidence of how long it is — that inference is the
+      exact bug this whole overhaul exists to remove.
+
+    The label is tidied at the same time, since the suffix was only ever there
+    because the model had nowhere else to put the number. That also repairs
+    the day page's grouping: `group_breaks` groups by label, so two sittings
+    reading "...— 15 min" and "..." were two periods rather than one.
+    """
+    from breaks import DEFAULT_SERVICE_MINUTES, duration_from_label
+    from models import CrewBreak
+    fixed = relabelled = 0
+    for cb in session.query(CrewBreak).all():
+        minutes, cleaned = duration_from_label(cb.label)
+        if minutes is None:
+            continue
+        if cleaned != cb.label:
+            cb.label = cleaned
+            relabelled += 1
+        if (cb.duration_minutes == DEFAULT_SERVICE_MINUTES
+                and minutes != DEFAULT_SERVICE_MINUTES):
+            cb.duration_minutes = minutes
+            fixed += 1
+    left = [cb for cb in session.query(CrewBreak).all()
+            if cb.duration_minutes == DEFAULT_SERVICE_MINUTES
+            and duration_from_label(cb.label)[0] is None]
+    print(f"[migration] break durations read from labels: {fixed} corrected, "
+          f"{relabelled} label(s) tidied, {len(left)} still on the 60-minute "
+          "default with nothing in the label to read")
+
+
 DATA_MIGRATIONS = [
     ("2026-06-30-fb-v2-migrate-entries", _migrate_fb_entries_to_meal_services),
     ("2026-07-02-add-prompter-position", _seed_position_prompter),
@@ -393,6 +441,10 @@ DATA_MIGRATIONS = [
     # predicate. A no-op wherever the first pass already did the job.
     ("2026-08-11-unlink-breaks-from-beverage-services-v2",
      _unlink_breaks_from_standing_services),
+    # 2026-08-12 — the backfill never read the length out of a break's own
+    # name, and no live show has the RETURN FROM rows it DID read, so all 91
+    # breaks sat on the 60-minute default. See the function.
+    ("2026-08-12-break-durations-from-labels", _break_durations_from_labels),
 ]
 
 
