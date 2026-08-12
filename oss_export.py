@@ -17,6 +17,7 @@ import re
 from datetime import date as _date_cls
 
 from breaks import break_export_text, is_crew_start
+from local_labor import line_label
 from time_utils import sort_minutes, UNKNOWN as UNKNOWN_GUARD
 
 # Undated rows sort after every real day rather than jumping to the top.
@@ -341,19 +342,44 @@ def build_master_items(show, entries, meal_services):
             if is_crew_start(a.description):
                 names = crew_by_time.setdefault(a.time or "", [])
                 for row in a.ordered_crew_rows:
-                    if row.is_group_header or not row.crew_member_id:
+                    if row.is_group_header:
                         continue
-                    cm = row.crew_member
-                    who = cm.display_label if cm else (row.name_override or "TBD")
-                    if who not in names:
-                        names.append(who)
+                    if row.crew_member_id:
+                        cm = row.crew_member
+                        who = cm.display_label if cm else (row.name_override or "TBD")
+                        if who not in names:
+                            names.append(who)
+                        continue
+                    # LOCAL LABOUR (2026-08-12). A row with no crew member is
+                    # a COUNT of a position — "14 × Rigger". It used to be
+                    # skipped entirely, so eighteen lighting hands appeared
+                    # nowhere on the client master and the headcount beside
+                    # the call counted only the named leads.
+                    #
+                    # Not deduplicated, unlike names: two lines of the same
+                    # position at the same call time are two different crews
+                    # doing two different tasks, and merging them would lose
+                    # the count.
+                    if row.position or row.position_id:
+                        names.append(line_label(
+                            row.position or (row.position_ref.title
+                                             if row.position_ref else None),
+                            row.qty, row.task))
 
         # #47 — one grouped Crew row per distinct call time, not one per person.
         for t, names in crew_by_time.items():
             if not names:
                 continue
+            # HEADCOUNT, not line count. A local labour line is one entry in
+            # `names` but N people on site, and this number is what the client
+            # master prints and what a caterer reads.
+            head = 0
+            for a in d.activities:
+                if not is_crew_start(a.description) or (a.time or "") != t:
+                    continue
+                head += a.crew_headcount
             item = _item(d, t, "Crew", ", ".join(names),
-                         icon="👤", count=len(names), source=SOURCE_CREW)
+                         icon="👤", count=head or len(names), source=SOURCE_CREW)
             # Exports show the count and put the names on the Crew sheet —
             # 40 names in one cell is unreadable and wrecks PDF pagination.
             item["crew_names"] = list(names)

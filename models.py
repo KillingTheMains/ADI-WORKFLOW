@@ -69,6 +69,18 @@ class Position(db.Model):
     department     = db.Column(db.String(50))    # Audio / Video / Lighting / LED / Rigging / Scenic / Power / General
     type           = db.Column(db.String(30))    # lead / head / hand / utility / specialty
     union_eligible = db.Column(db.Boolean, default=False)
+    # LOCAL LABOUR (2026-08-12) — hired in MULTIPLES and tracked by position
+    # rather than by name: "18 Lighting Hands", not eighteen people.
+    #
+    # One table, not two. Departments, ordering, union_eligible and the rate
+    # fields are the same question for both kinds, and the crew row's position
+    # picker already points here — a parallel table would fork all of it.
+    #
+    # The distinction is real though, and it is exactly the one Jason's SAP
+    # workbooks encode as a title prefix: `Local - `, `House - `,
+    # `Deco - Teamster - ` and `Freeman - ` are nameless multiples; everything
+    # else is one title held by one person. See ADI_Local_Labor_Findings.md §1.
+    is_local_labor = db.Column(db.Boolean, default=False, nullable=False)
     rate_low       = db.Column(db.Float)
     rate_high      = db.Column(db.Float)
     notes          = db.Column(db.Text)
@@ -548,6 +560,18 @@ class CrewRow(db.Model):
     crew_member_id  = db.Column(db.Integer, db.ForeignKey("crew_members.id"), nullable=True)
     name_override   = db.Column(db.String(200))      # if not linked to crew_member
     crew_type       = db.Column(db.String(50), default="Lead Crew")
+    # What this crew is DOING on this call (2026-08-12). Local labour only, in
+    # practice: "Hang / Circuit Lights", "Catwalk Strike", "Pin/Bolt Truss".
+    #
+    # It lives on the ROW, not on the Position, and that is the whole design.
+    # Jason's 2025 workbook welded the task into the title and ended up with
+    # 117 local slot titles — `Local - Stage Hand (Hang / Circuit Lights) CL1`
+    # through CL14, and so on. But the same stagehand hangs lights on Tuesday
+    # and strikes catwalks on Friday: same person, same rate, same position.
+    # Task-on-the-row collapses those 117 titles to about ten positions, and
+    # makes "how many riggers on Thursday" answerable — which it is not when
+    # the task is part of the name.
+    task            = db.Column(db.String(120))
     notes           = db.Column(db.Text)
 
     activity        = db.relationship("ScheduleActivity", back_populates="crew_rows")

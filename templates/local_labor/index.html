@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Local Labor Database{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-1">
+  <h1 class="page-title mb-0">Local Labor Database</h1>
+  <span class="text-muted" style="font-size:.8rem;">
+    {{ total }} position{{ '' if total == 1 else 's' }}
+  </span>
+</div>
+{# What this is FOR, said once, at the top. The distinction from the Crew
+   Database is the entire point of the page and is not self-evident from a
+   list of job titles. #}
+<p class="text-muted" style="font-size:.85rem;max-width:60em;">
+  Positions hired in <strong>multiples</strong> and tracked by title rather
+  than by name — five riggers, eighteen lighting hands. These come from a
+  labour provider, a house crew or a local, and they are not the same people
+  every day. There are no names here: how many of each is decided on the crew
+  call. Named lead crew live in the <a href="{{ url_for('crew.index') }}">Crew
+  Database</a>.
+</p>
+
+<div class="card mb-3">
+  <div class="card-header">+ Add a position</div>
+  <div class="card-body p-3">
+    <form method="POST" action="{{ url_for('local_labor.add') }}"
+          class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label" style="font-size:.75rem;">Title</label>
+        <input type="text" name="title" class="form-control form-control-sm"
+               placeholder="e.g. High Rigger" required>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" style="font-size:.75rem;">Department</label>
+        <select name="department" class="form-select form-select-sm">
+          {% for d in departments %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" style="font-size:.75rem;">Type</label>
+        <select name="type" class="form-select form-select-sm">
+          <option value="hand">hand — hired in multiples</option>
+          <option value="lead">lead — runs the crew</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" style="font-size:.75rem;">Notes</label>
+        <input type="text" name="notes" class="form-control form-control-sm"
+               placeholder="Optional">
+      </div>
+      <div class="col-md-2">
+        <div class="form-check mb-1" style="font-size:.78rem;">
+          <input class="form-check-input" type="checkbox" name="union_eligible"
+                 value="1" id="new-union">
+          <label class="form-check-label" for="new-union">Union</label>
+        </div>
+        <button type="submit" class="btn btn-sm btn-adi w-100">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if not grouped %}
+<div class="empty-state py-5">
+  <div class="empty-icon">👷</div>
+  <div style="font-size:.95rem;font-weight:600;margin-bottom:6px;">
+    No local labour positions yet
+  </div>
+  <p class="text-muted" style="font-size:.85rem;">
+    Add one above, or run the deploy migration to seed the house list.
+  </p>
+</div>
+{% endif %}
+
+{% for dept, rows in grouped %}
+<div class="card mb-3">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <span>{{ dept }}</span>
+    <span class="text-muted" style="font-size:.72rem;font-weight:400;">
+      {{ rows|length }} position{{ '' if rows|length == 1 else 's' }}
+    </span>
+  </div>
+  <table class="table table-sm mb-0" style="font-size:.85rem;">
+    <thead>
+      <tr>
+        <th style="width:34%;">Position</th>
+        <th style="width:10%;">Type</th>
+        <th style="width:8%;">Union</th>
+        <th style="width:14%;">On calls</th>
+        <th>Notes</th>
+        <th style="width:150px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in rows %}
+      <tr>
+        <td>
+          <input type="text" name="title" form="ll-{{ p.id }}"
+                 value="{{ p.title }}" class="form-control form-control-sm">
+        </td>
+        <td>
+          <select name="type" form="ll-{{ p.id }}" class="form-select form-select-sm">
+            {% for t in types %}
+            <option value="{{ t }}" {% if p.type == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </td>
+        <td class="text-center">
+          <input type="checkbox" name="union_eligible" value="1" form="ll-{{ p.id }}"
+                 {% if p.union_eligible %}checked{% endif %}>
+        </td>
+        <td class="text-muted" style="font-size:.78rem;">
+          {# Bodies, not rows — a line of 18 counts 18. Says whether the
+             catalogue matches practice or has drifted from it. #}
+          {% if usage.get(p.id) %}{{ usage[p.id] }} called{% else %}—{% endif %}
+        </td>
+        <td>
+          <input type="text" name="notes" form="ll-{{ p.id }}"
+                 value="{{ p.notes or '' }}" class="form-control form-control-sm"
+                 placeholder="—">
+        </td>
+        <td>
+          {# Forms live OUTSIDE the table via HTML5 form=, the same pattern the
+             booking sheet uses — a form element inside a <tr> is invalid and
+             browsers hoist it out, silently breaking the row. #}
+          <div class="d-flex gap-1">
+            <select name="department" form="ll-{{ p.id }}"
+                    class="form-select form-select-sm" style="width:auto;">
+              {% for d in departments %}
+              <option value="{{ d }}" {% if p.department == d %}selected{% endif %}>{{ d }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" form="ll-{{ p.id }}"
+                    class="btn btn-sm btn-adi">Save</button>
+            <button type="submit" form="ll-rm-{{ p.id }}"
+                    class="btn btn-sm btn-outline-secondary"
+                    title="Take it out of this catalogue. Nothing is deleted — it stays on any crew row already using it.">✕</button>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+
+{% for dept, rows in grouped %}{% for p in rows %}
+<form id="ll-{{ p.id }}" method="POST"
+      action="{{ url_for('local_labor.edit', pos_id=p.id) }}"></form>
+<form id="ll-rm-{{ p.id }}" method="POST"
+      action="{{ url_for('local_labor.remove', pos_id=p.id) }}"
+      onsubmit="return confirm('Remove “{{ p.title|e }}” from the local labour catalogue?\n\nNothing is deleted — it stays on any crew row already using it.');"></form>
+{% endfor %}{% endfor %}
+
+{% endblock %}

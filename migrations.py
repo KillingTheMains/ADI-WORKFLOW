@@ -63,6 +63,12 @@ MIGRATIONS = [
     ("show_open_slots",       "sort_order",         "INTEGER"),
     # 2026-07-01 — Actual hours per crew row (planned vs actual)
     ("crew_rows",             "actual_hours",       "FLOAT"),
+    # 2026-08-12 — Local labour. A position hired in multiples and tracked by
+    # title rather than by name; and what that crew is doing on this call,
+    # which lives on the ROW because the same stagehand hangs lights one day
+    # and strikes catwalks the next. See local_labor.py.
+    ("positions",             "is_local_labor",     "BOOLEAN DEFAULT 0"),
+    ("crew_rows",             "task",               "VARCHAR(120)"),
     # 2026-06-30 — Phase B: per-crew-per-show travel detail
     ("show_crew_assignments", "hotel_name",         "VARCHAR(200)"),
     ("show_crew_assignments", "hotel_check_in",     "DATE"),
@@ -620,6 +626,47 @@ def _report_orphaned_crew_breaks(session):
     print("[migration]   Paste this back before anything deletes them.")
 
 
+def _seed_local_labor_positions(session):
+    """Seed the local-labour catalogue. Additive, never destructive.
+
+    A position hired in multiples — "18 Lighting Hands" — rather than held by
+    one named person. The list is Jason's real vocabulary, lifted from the SAP
+    Sapphire labour workbooks, not invented; see ADI_Local_Labor_Findings.md.
+
+    PREDICTION: on a database that has never seen this, **22 created**. On
+    production some titles may already exist as ordinary positions (there are
+    63), in which case they are FLAGGED rather than duplicated — a second
+    "Rigger" would split every count that matters.
+
+    Matching is case-insensitive on the title, because "Stagehand" and
+    "stagehand" are the same job and the workbooks contain both.
+    """
+    from local_labor import SEED_POSITIONS
+    from models import Position
+
+    existing = {}
+    for p in session.query(Position).all():
+        existing.setdefault((p.title or "").strip().lower(), p)
+
+    created = flagged = 0
+    for title, dept, typ in SEED_POSITIONS:
+        match = existing.get(title.lower())
+        if match is not None:
+            if not match.is_local_labor:
+                match.is_local_labor = True
+                # Do NOT overwrite department or type — somebody may have set
+                # them deliberately, and this migration is not the authority
+                # on a row that already existed.
+                flagged += 1
+            continue
+        session.add(Position(title=title, department=dept, type=typ,
+                             is_local_labor=True))
+        created += 1
+    print(f"[migration] local labour: {created} position(s) created, "
+          f"{flagged} existing position(s) marked as local labour "
+          f"(predicted 22 created on a fresh database)")
+
+
 ORPHAN_PREDICTION = {
     "crew_comm_assignments": 88,
     "meal_services": 56,
@@ -748,6 +795,10 @@ DATA_MIGRATIONS = [
     # order in the console: what was there, then what was removed.
     ("2026-08-12-delete-orphans-from-deleted-shows",
      _delete_orphans_from_deleted_shows),
+    # 2026-08-12 — the local labour catalogue, seeded from Jason's real SAP
+    # workbook vocabulary. Additive: an existing position with the same title
+    # is flagged, never duplicated.
+    ("2026-08-12-seed-local-labor-positions", _seed_local_labor_positions),
 ]
 
 

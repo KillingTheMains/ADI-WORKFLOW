@@ -969,7 +969,18 @@
                   <td><input type="text" name="position" value="{{ row.position or '' }}"
                              list="crew-row-positions-{{ act.id }}"
                              class="form-control form-control-sm"
-                             style="font-size:.72rem;padding:1px 4px;"></td>
+                             style="font-size:.72rem;padding:1px 4px;">
+                    {# The task sits under the position because it qualifies
+                       it — "Stagehand, catwalk strike". Only shown where it
+                       applies, so a lead-crew row does not grow a second box
+                       it will never use. #}
+                    {% if row.task or (row.qty or 1) > 1 or row.crew_type == 'Local Crew' %}
+                    <input type="text" name="task" value="{{ row.task or '' }}"
+                           list="task-list-{{ act.id }}" placeholder="task…"
+                           class="form-control form-control-sm mt-1"
+                           style="font-size:.68rem;padding:1px 4px;color:var(--adi-muted);">
+                    {% endif %}
+                  </td>
                   <td>
                     {% if row.crew_member %}
                       <input type="text" name="name_override" value="{{ row.name_override or '' }}"
@@ -1227,6 +1238,77 @@
                 </div>
               </div>
             </form>
+
+            {# ── Local labour ──────────────────────────────────────────────
+               A SEPARATE form, not a mode of the one above. What you supply
+               is different in kind: a number and a position, never a name.
+               Mixing them into one form would mean a Name box that must be
+               left empty and a Qty box that must be 1, which is how you get
+               eighteen rows that each say "TBD".
+
+               Nested forms are invalid HTML, so this sits after the close
+               tag rather than inside it. #}
+            {% if local_labor_groups %}
+            <div style="border-top:1px dashed var(--adi-border);margin-top:10px;padding-top:8px;">
+              <form method="POST"
+                    action="{{ url_for('schedule.add_crew_row', show_id=show.id, day_id=day.id, act_id=act.id) }}">
+                <input type="hidden" name="crew_type" value="Local Crew">
+                <div class="row g-2 align-items-end">
+                  <div class="col-md-1">
+                    <label style="font-size:.72rem;" class="form-label">How many</label>
+                    <input type="number" name="qty" class="form-control form-control-sm"
+                           value="1" min="1" step="1" required>
+                  </div>
+                  <div class="col-md-3">
+                    <label style="font-size:.72rem;" class="form-label">Local labour position</label>
+                    <select name="position_id" class="form-select form-select-sm" required
+                            onchange="this.form.position.value =
+                                      this.options[this.selectedIndex].dataset.title || '';">
+                      <option value="">— position —</option>
+                      {% for dept, rows in local_labor_groups %}
+                      <optgroup label="{{ dept }}">
+                        {% for p in rows %}
+                        <option value="{{ p.id }}" data-title="{{ p.title }}">{{ p.title }}</option>
+                        {% endfor %}
+                      </optgroup>
+                      {% endfor %}
+                    </select>
+                    {# The title is mirrored into `position` because the call
+                       sheet and the master export read that string. #}
+                    <input type="hidden" name="position" value="">
+                  </div>
+                  <div class="col-md-3">
+                    <label style="font-size:.72rem;" class="form-label">
+                      Task <span class="text-muted" style="font-weight:400;">· optional</span>
+                    </label>
+                    <input type="text" name="task" class="form-control form-control-sm"
+                           list="task-list-{{ act.id }}" placeholder="e.g. Hang / Circuit Lights">
+                    <datalist id="task-list-{{ act.id }}">
+                      {% for t in task_options %}<option value="{{ t }}">{% endfor %}
+                    </datalist>
+                  </div>
+                  <div class="col-md-2">
+                    <label style="font-size:.72rem;" class="form-label">Hrs</label>
+                    <input type="number" name="hours" class="form-control form-control-sm"
+                           step="0.5" placeholder="hrs">
+                  </div>
+                  <div class="col-md-2">
+                    <label style="font-size:.72rem;" class="form-label">Notes</label>
+                    <input type="text" name="notes" class="form-control form-control-sm">
+                  </div>
+                  <div class="col-auto">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                      👷 Add crew
+                    </button>
+                  </div>
+                </div>
+                <div style="font-size:.68rem;color:var(--adi-muted);margin-top:4px;">
+                  One line, however many people — they are counted individually
+                  for headcounts and meals.
+                </div>
+              </form>
+            </div>
+            {% endif %}
           </div>
         </div>
 

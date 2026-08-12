@@ -240,6 +240,20 @@ def day_detail(show_id, day_id):
     show      = Show.query.get_or_404(show_id)
     day       = ScheduleDay.query.get_or_404(day_id)
     positions = Position.query.order_by(Position.department, Position.title).all()
+    # The local labour catalogue, for the "add N of a position" form on each
+    # crew call. Grouped in house department order rather than alphabetically
+    # so it reads the way a call sheet does.
+    from local_labor import SEED_TASKS, group_by_department
+    local_labor_groups = group_by_department(
+        [p for p in positions if p.is_local_labor])
+    # Tasks already used on this show come first — they are the ones likely to
+    # be used again, and it keeps a show's vocabulary consistent with itself.
+    used_tasks = [t[0] for t in db.session.query(CrewRow.task)
+                  .join(ScheduleActivity, CrewRow.activity_id == ScheduleActivity.id)
+                  .join(ScheduleDay, ScheduleActivity.day_id == ScheduleDay.id)
+                  .filter(ScheduleDay.show_id == show_id,
+                          CrewRow.task.isnot(None)).distinct().all() if t[0]]
+    task_options = used_tasks + [t for t in SEED_TASKS if t not in used_tasks]
 
     # Crew assigned to this show only; fall back to full roster if none assigned yet
     assigned_ids = [a.crew_member_id for a in show.crew_assignments]
@@ -449,6 +463,8 @@ def day_detail(show_id, day_id):
 
     return render_template("schedule/day.html", show=show, day=day,
                            positions=positions, crew_members=crew_members,
+                           local_labor_groups=local_labor_groups,
+                           task_options=task_options,
                            off_roster_crew=off_roster_crew,
                            all_companies=Company.query.order_by(Company.name).all(),
                            show_companies=show_companies,
@@ -889,6 +905,11 @@ def add_crew_row(show_id, day_id, act_id):
         crew_member_id=crew_member_id,
         name_override=f.get("name_override", "") if not is_header else "",
         crew_type=f.get("crew_type", "Lead Crew") if not is_header else "",
+        # What this crew is doing on this call. Local labour in practice —
+        # "Hang / Circuit Lights", "Catwalk Strike". On the row rather than
+        # the position, because the same stagehand does a different job on
+        # Friday. See local_labor.py.
+        task=(f.get("task") or "").strip()[:120] or None if not is_header else None,
         notes=f.get("notes", ""),
     )
     db.session.add(row)
@@ -1180,6 +1201,8 @@ def edit_crew_row(show_id, day_id, row_id):
     if "name_override" in f:
         v = (f.get("name_override") or "").strip()
         row.name_override = v or None
+    if "task" in f:
+        row.task = (f.get("task") or "").strip()[:120] or None
     if "crew_type" in f:
         v = (f.get("crew_type") or "").strip()
         if v in CREW_TYPES:
