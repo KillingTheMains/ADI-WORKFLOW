@@ -888,7 +888,10 @@
             </thead>
             <tbody class="crew-tbody" data-act="{{ act.id }}"
                    data-reorder-url="{{ url_for('schedule.reorder_crew_rows', show_id=show.id, day_id=day.id, act_id=act.id) }}">
-              {% for row in act.ordered_crew_rows %}
+              {# Local labour is drawn in its own section below — it is a
+                 count of a position, not a person, and it does not want a
+                 Name column at all. Jason, 2026-08-12. #}
+              {% for row in act.ordered_crew_rows if not row.is_local_labor %}
               {% if row.is_group_header %}
               {# Note 1: tiered, collapsible, editable section header. #}
               <tr class="group-header crew-drag-row"
@@ -970,15 +973,13 @@
                              list="crew-row-positions-{{ act.id }}"
                              class="form-control form-control-sm"
                              style="font-size:.72rem;padding:1px 4px;">
-                    {# The task sits under the position because it qualifies
-                       it — "Stagehand, catwalk strike". Only shown where it
-                       applies, so a lead-crew row does not grow a second box
-                       it will never use. #}
-                    {% if row.task or (row.qty or 1) > 1 or row.crew_type == 'Local Crew' %}
-                    <input type="text" name="task" value="{{ row.task or '' }}"
-                           list="task-list-{{ act.id }}" placeholder="task…"
-                           class="form-control form-control-sm mt-1"
-                           style="font-size:.68rem;padding:1px 4px;color:var(--adi-muted);">
+                    {# No task EDITOR here — Jason, 2026-08-12: a second box on
+                       every row earned less than the space it took. The task
+                       is still set when the line is added and still prints on
+                       the master, so it is shown read-only when there is one. #}
+                    {% if row.task %}
+                    <div class="text-muted" style="font-size:.66rem;margin-top:1px;"
+                         title="Set when the line was added.">{{ row.task }}</div>
                     {% endif %}
                   </td>
                   <td>
@@ -1026,6 +1027,84 @@
               {% endfor %}
             </tbody>
           </table>
+        </div>
+        {% endif %}
+
+        <!-- ── Local labour on this call ──────────────────────────────────
+             Its own section, and its own columns. A local labour line is a
+             COUNT of a position — there is no name to show, and a Name column
+             full of "Sparks Lighting Hand" was reading as fifty-three people
+             called Sparks. The header states the headcount because that is
+             the number this section exists to get right. -->
+        {% set ll = act.ordered_crew_rows | selectattr('is_local_labor') | list %}
+        {% if ll %}
+        {% set ll_people = ll | sum(attribute='people') %}
+        <div class="px-3 pb-2">
+          <div class="d-flex align-items-center gap-2 mb-1"
+               style="font-size:.7rem;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.06em;color:#59636E;">
+            <span>👷 Local Labour</span>
+            <span style="font-weight:400;text-transform:none;">
+              {{ ll|length }} line{{ '' if ll|length == 1 else 's' }} ·
+              <strong>{{ ll_people }} {{ 'person' if ll_people == 1 else 'people' }}</strong>
+            </span>
+          </div>
+          <table class="crew-table">
+            <thead>
+              <tr>
+                <th style="width:56px;">How many</th>
+                <th style="width:56px;" title="Estimated hours each">Est</th>
+                <th style="width:56px;" title="Actual hours worked each">Actual</th>
+                <th>Position</th>
+                <th>Task</th>
+                <th>Notes</th>
+                <th style="width:30px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in ll %}
+              <tr>
+                <form method="POST" data-autosave="true" style="display:contents;"
+                      action="{{ url_for('schedule.edit_crew_row', show_id=show.id, day_id=day.id, row_id=row.id) }}">
+                  <td>
+                    <input type="number" name="qty" value="{{ row.qty or 1 }}" min="1" step="1"
+                           class="form-control form-control-sm"
+                           style="font-size:.72rem;padding:1px 4px;width:52px;font-weight:700;">
+                  </td>
+                  <td><input type="number" name="hours" value="{{ row.hours if row.hours is not none else '' }}"
+                             min="0" step="0.25" title="Estimated hours, each"
+                             class="form-control form-control-sm"
+                             style="font-size:.72rem;padding:1px 4px;width:56px;"></td>
+                  <td><input type="number" name="actual_hours" value="{{ row.actual_hours if row.actual_hours is not none else '' }}"
+                             min="0" step="0.25" title="Actual hours worked, each"
+                             class="form-control form-control-sm"
+                             style="font-size:.72rem;padding:1px 4px;width:56px;"></td>
+                  <td><input type="text" name="position" value="{{ row.position or '' }}"
+                             list="crew-row-positions-{{ act.id }}"
+                             class="form-control form-control-sm"
+                             style="font-size:.72rem;padding:1px 4px;"></td>
+                  <td class="text-muted" style="font-size:.72rem;">{{ row.task or '—' }}</td>
+                  <td><input type="text" name="notes" value="{{ row.notes or '' }}"
+                             class="form-control form-control-sm"
+                             style="font-size:.72rem;padding:1px 4px;"></td>
+                  <td style="white-space:nowrap;">
+                    <button type="submit" class="btn btn-sm btn-link text-success p-0"
+                            style="font-size:.85rem;line-height:1;" title="Save row">💾</button>
+                </form>
+                    <form method="POST" style="display:inline;"
+                          action="{{ url_for('schedule.delete_crew_row', show_id=show.id, day_id=day.id, row_id=row.id) }}"
+                          onsubmit="return confirm('Delete this local labour line?');">
+                      <button type="submit" class="btn btn-sm btn-link text-danger p-0"
+                              style="font-size:.7rem;">✕</button>
+                    </form>
+                  </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <div class="text-muted" style="font-size:.66rem;margin-top:2px;">
+            Hours are <em>each</em> — {{ ll_people }} people at these hours.
+          </div>
         </div>
         {% endif %}
 

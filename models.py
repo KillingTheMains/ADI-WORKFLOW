@@ -418,17 +418,7 @@ class ScheduleDay(db.Model):
         even if they appear in multiple activities; unnamed rows are summed
         as 'qty' since each represents a distinct slot.
         """
-        named_ids = set()
-        unnamed_total = 0
-        for act in self.activities:
-            for row in act.crew_rows:
-                if row.is_group_header:
-                    continue
-                if row.crew_member_id:
-                    named_ids.add(row.crew_member_id)
-                else:
-                    unnamed_total += (row.qty or 1)
-        return len(named_ids) + unnamed_total
+        return count_people([r for a in self.activities for r in a.crew_rows])
 
     @property
     def effective_crew_count(self):
@@ -508,22 +498,59 @@ class ScheduleActivity(db.Model):
         never be cached: the whole point is that changing the crew changes
         what F&B is told.
         """
-        named_ids = set()
-        unnamed_total = 0
-        for row in self.crew_rows:
-            if row.is_group_header:
-                continue
-            if row.crew_member_id:
-                named_ids.add(row.crew_member_id)
-            else:
-                unnamed_total += (row.qty or 1)
-        return len(named_ids) + unnamed_total
+        return count_people(self.crew_rows)
 
     def __repr__(self):
         return f"<Activity {self.time} {self.description[:40]}>"
 
 
 CREW_TYPES = ["Lead Crew", "Local Crew", "Vendor Crew", "Union Crew"]
+
+
+def count_people(rows):
+    """How many HUMANS a set of crew rows represents. ONE definition.
+
+    ⚠️ THE RULE THAT WAS WRONG UNTIL 2026-08-12, and it under-fed crews.
+
+    The old code did `if row.crew_member_id: named_ids.add(...)` — counting
+    one person and throwing `qty` away. That is correct for a real person, who
+    is one human however many rows they hold. But an UNFILLED SLOT also has a
+    `crew_member_id`: it points at a placeholder record like "Sparks Lighting
+    Hand". So a line reading `7 × Lighting Hand` counted as 1, and if the same
+    placeholder was used on several rows they collapsed into one another.
+
+    Measured on production the day this was found — show 3 (MCDC26), day 26:
+    **43 people on the crew calls, and every break told F&B 18.** Twenty-five
+    people with no meal ordered.
+
+    The rule now:
+
+    * a row that says there are several people HAS several people, whatever
+      else it says — `qty` wins first, because nobody types 7 for one person;
+    * a real named person counts once across however many rows they hold;
+    * anything else — an unfilled slot, a bare TBD — counts as one.
+
+    Deliberately ordered so this can only ever count MORE than the old code,
+    never fewer: a headcount that shrinks silently is how a caterer gets told
+    to bring less food than last week for the same crew.
+    """
+    named_ids, total = set(), 0
+    for row in rows or []:
+        if getattr(row, "is_group_header", False):
+            continue
+        try:
+            qty = int(row.qty or 1)
+        except (TypeError, ValueError):
+            qty = 1
+        qty = max(1, qty)
+        if qty > 1:
+            total += qty
+            continue
+        if row.crew_member_id and not row.is_unfilled:
+            named_ids.add(row.crew_member_id)
+            continue
+        total += 1
+    return len(named_ids) + total
 
 
 class CrewRow(db.Model):
@@ -583,6 +610,25 @@ class CrewRow(db.Model):
         if self.crew_member:
             return self.crew_member.display_label
         return self.name_override or "TBD"
+
+    @property
+    def is_local_labor(self):
+        """True when this row is a COUNT of a position rather than a person.
+
+        Two ways in, because both are true in the data: the row's position is
+        in the local labour catalogue, or somebody typed the crew type. The
+        catalogue wins where they disagree — it is the deliberate statement.
+        """
+        if self.is_group_header:
+            return False
+        if self.position_ref is not None and self.position_ref.is_local_labor:
+            return True
+        return (self.crew_type or "") == "Local Crew"
+
+    @property
+    def people(self):
+        """How many humans this one row is. See `count_people` for the rule."""
+        return count_people([self])
 
     @property
     def is_unfilled(self):
