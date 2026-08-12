@@ -14,10 +14,11 @@ local_labor_bp = Blueprint("local_labor", __name__)
 
 DEPARTMENTS = ["General", "Rigging", "Lighting", "LED", "Video", "Audio",
                "Scenic", "Power", "Production", "Specialty"]
-# 'lead' runs the crew, 'hand' is the one you hire N of. The 2026 workbook's
-# unfilled rate blocks were headed Leads and Hands, so this is most likely
-# what a rate eventually attaches to.
-TYPES = ["lead", "hand"]
+# 'lead' runs the crew, 'hand' is the one you hire N of, 'specialty' is one
+# skilled person shadowing a visiting counterpart (show 3's `(SHDW)` block).
+# The 2026 workbook's unfilled rate blocks were headed Leads and Hands, so
+# this is most likely what a rate eventually attaches to.
+TYPES = ["lead", "hand", "specialty"]
 
 
 @local_labor_bp.route("/local-labor")

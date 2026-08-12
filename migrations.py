@@ -667,6 +667,122 @@ def _seed_local_labor_positions(session):
           f"(predicted 22 created on a fresh database)")
 
 
+def _convert_show3_to_local_labor(session):
+    """Show 3 (MCDC26): every crew row with no real person becomes local labour.
+
+    PREDICTED: **160 rows, 340 people**, across 47 position titles. Measured
+    off production 2026-08-12 and approved title by title — the table is in
+    `ADI_Show3_Local_Labor_Mapping.md`, the decisions in `local_labor_show3.py`.
+
+    What it changes per row: `position_id` points at the catalogue position,
+    and `crew_type` becomes 'Local Crew'. **`qty`, `hours`, `notes` and the
+    placeholder crew member are left exactly as they are** — nothing is
+    renumbered, renamed or deleted, and clearing `is_local_labor` on the
+    positions puts every row back where it was.
+
+    Scoped to show 3 by design. The other shows have the same shape and are
+    not being touched until somebody asks.
+    """
+    from local_labor_show3 import (SHOW3_POSITIONS, SHOW3_PREDICTED_ROWS,
+                                   SHOW3_PREDICTED_TOTAL_PEOPLE,
+                                   SHOW3_PREDICTED_TOTAL_ROWS,
+                                   SHOW3_RETIRE_IF_UNUSED, catalogue_title_for)
+    from models import (CrewRow, Position, ScheduleActivity, ScheduleDay, Show,
+                        count_people)
+
+    show = session.query(Show).filter_by(id=3).first()
+    if show is None:
+        print("[migration] show 3 not found — nothing to convert")
+        return
+
+    # ── the catalogue ───────────────────────────────────────────────────────
+    by_title = {}
+    for p in session.query(Position).all():
+        by_title.setdefault((p.title or "").strip().lower(), p)
+    created = 0
+    for title, (dept, typ) in SHOW3_POSITIONS.items():
+        p = by_title.get(title.lower())
+        if p is None:
+            p = Position(title=title, department=dept, type=typ,
+                         is_local_labor=True)
+            session.add(p)
+            session.flush()
+            by_title[title.lower()] = p
+            created += 1
+        elif not p.is_local_labor:
+            p.is_local_labor = True
+    print(f"[migration] show 3 local labour: {created} catalogue position(s) "
+          f"created, {len(SHOW3_POSITIONS)} in the approved list")
+
+    # ── the rows ────────────────────────────────────────────────────────────
+    rows = (session.query(CrewRow)
+            .join(ScheduleActivity, CrewRow.activity_id == ScheduleActivity.id)
+            .join(ScheduleDay, ScheduleActivity.day_id == ScheduleDay.id)
+            .filter(ScheduleDay.show_id == show.id,
+                    CrewRow.is_group_header == False).all())  # noqa: E712
+
+    seen, converted, mislabelled, no_position, unknown = {}, [], [], [], {}
+    for row in rows:
+        if not row.is_unfilled:
+            continue                      # a real person; not local labour
+        pos = (row.position or "").strip()
+        if not pos:
+            no_position.append(row)
+            row.crew_type = "Local Crew"  # still N people who must be fed
+            continue
+        seen[pos] = seen.get(pos, 0) + 1
+        title, was_mislabelled = catalogue_title_for(row)
+        target = by_title.get(title.lower())
+        if target is None:
+            unknown[pos] = unknown.get(pos, 0) + 1
+            continue
+        row.position_id = target.id
+        row.crew_type = "Local Crew"
+        converted.append(row)
+        if was_mislabelled:
+            mislabelled.append(row)
+
+    people = count_people(converted) + count_people(no_position)
+    print(f"[migration] show 3: {len(converted)} row(s) converted, "
+          f"{people} people (predicted {SHOW3_PREDICTED_TOTAL_ROWS} rows / "
+          f"{SHOW3_PREDICTED_TOTAL_PEOPLE} people)")
+
+    for pos, n in sorted(seen.items()):
+        want = SHOW3_PREDICTED_ROWS.get(pos)
+        if want is not None and want != n:
+            print(f"[migration] ⚠ {pos!r}: {n} rows, predicted {want}")
+        elif want is None:
+            print(f"[migration] ⚠ {pos!r}: {n} rows, NOT in the approved list")
+    for pos, n in sorted(unknown.items()):
+        print(f"[migration] ⚠ SKIPPED {pos!r} ({n} row(s)) — no catalogue "
+              "position; it was not on the approved list")
+    if no_position:
+        print(f"[migration]   {len(no_position)} row(s) have NO position at "
+              f"all ({count_people(no_position)} people) — marked local "
+              "labour so they are still fed, but nothing says what they do:")
+        for r in no_position:
+            print(f"[migration]     row {r.id} qty {r.qty} on activity "
+                  f"{r.activity_id}")
+    if mislabelled:
+        print(f"[migration]   {len(mislabelled)} row(s) read 'Steward' but are "
+              "shadow A1s — catalogued as A1 (SHDW), display string left as "
+              "Jason asked. Fix these by hand:")
+        for r in mislabelled:
+            print(f"[migration]     row {r.id} on activity {r.activity_id}")
+
+    # ── retire the seed's guesses, but only if nothing is using them ────────
+    for title in SHOW3_RETIRE_IF_UNUSED:
+        p = by_title.get(title.lower())
+        if p is None or not p.is_local_labor:
+            continue
+        if session.query(CrewRow).filter_by(position_id=p.id).count():
+            print(f"[migration]   kept {title!r} — rows are using it")
+            continue
+        p.is_local_labor = False
+        print(f"[migration]   retired the seeded guess {title!r} — show 3 "
+              "uses its own wording")
+
+
 ORPHAN_PREDICTION = {
     "crew_comm_assignments": 88,
     "meal_services": 56,
@@ -799,6 +915,10 @@ DATA_MIGRATIONS = [
     # workbook vocabulary. Additive: an existing position with the same title
     # is flagged, never duplicated.
     ("2026-08-12-seed-local-labor-positions", _seed_local_labor_positions),
+    # 2026-08-12 — show 3 (MCDC26) converted to local labour, title by title
+    # against a mapping Jason approved. Runs AFTER the seed so it can reuse
+    # the five titles that already match. Predicted 160 rows / 340 people.
+    ("2026-08-12-convert-show3-to-local-labor", _convert_show3_to_local_labor),
 ]
 
 
