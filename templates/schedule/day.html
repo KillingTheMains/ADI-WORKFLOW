@@ -1718,6 +1718,16 @@
                   <input type="checkbox" class="ccc-crew" name="crew_member_ids" value="{{ cm.id }}">
                   <span>{{ cm.display_label }}</span>
                   {% if cm.position %}<span style="color:var(--adi-muted);font-size:.72rem;">{{ cm.position.title }}</span>{% endif %}
+                  {# Already on a call today. NAMED people from a COMPANY only
+                     — a local-labour row is a called position rather than a
+                     person, often the same position twice, so flagging it
+                     would cry wolf on most of the list. #}
+                  {% if cm.id in already_called %}
+                  <span style="color:#B45309;font-size:.7rem;margin-left:auto;white-space:nowrap;"
+                        title="Adding them again gives this person two sets of breaks and counts them on two calls, which inflates what F&amp;B is told.">
+                    ⚠ already on {{ already_called[cm.id]|map('to_12hr')|join(', ') }}
+                  </span>
+                  {% endif %}
                 </label>
                 {% endfor %}
               </div>
@@ -1746,6 +1756,20 @@
               </div>
             </span>
           </label>
+          {# The meal's length moves the afternoon coffee, because a coffee is
+             timed from coming BACK from the meal: 30 minutes puts it at +8:00,
+             an hour at +8:30. One control, because they are one decision. #}
+          <div class="d-flex align-items-center gap-3 mt-2"
+               style="font-size:.8rem;padding-left:24px;">
+            <span class="text-muted">Meal length</span>
+            {% for m in (30, 60) %}
+            <label style="display:flex;align-items:center;gap:5px;">
+              <input type="radio" name="meal_minutes" value="{{ m }}"
+                     class="ccc-meal" {% if m == 60 %}checked{% endif %}>
+              {{ m }} min
+            </label>
+            {% endfor %}
+          </div>
           {% else %}
           <div style="font-size:.78rem;color:#B45309;">
             This show is still on the old breaks model, so no breaks will be
@@ -1786,13 +1810,18 @@
   // the real breaks from that function — this never decides anything.
   function refresh() {
     const n = modal.querySelectorAll('.ccc-crew:checked').length;
-    if (countEl) countEl.textContent = n + (n === 1 ? ' crew selected' : ' crew selected');
+    if (countEl) countEl.textContent = n + ' crew selected';
     if (!prevEl) return;
     const t = timeEl && timeEl.value;
-    const c1 = plus(t, 150), meal = plus(t, 300), c2 = plus(t, 510);
-    if (!c1) return;
+    if (!plus(t, 0)) return;
+    // The afternoon coffee is 2.5h after the crew comes BACK from the meal,
+    // so it moves with the meal's length: 300 + meal + 150.
+    const mealMins = parseInt(
+      (modal.querySelector('.ccc-meal:checked') || {}).value || 60, 10);
+    const c1 = plus(t, 150), meal = plus(t, 300);
+    const c2 = plus(t, 300 + mealMins + 150);
     const hrs = parseFloat(hoursEl && hoursEl.value) || 0;
-    let txt = `Coffee ${c1} · Meal ${meal} · Coffee ${c2}`;
+    let txt = `Coffee ${c1} · Meal ${meal} (${mealMins} min) · Coffee ${c2}`;
     if (hrs > 14) txt += ` · Second meal ${plus(t, 660)}`;
     prevEl.textContent = txt + ' — each one editable on the call afterwards.';
   }

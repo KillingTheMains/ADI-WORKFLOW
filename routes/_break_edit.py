@@ -1,8 +1,10 @@
 """Editing a crew break: time, duration, provided, meal-service link."""
 from flask import Blueprint, flash, redirect, request, url_for
 
-from breaks import (BREAK_KINDS, break_export_text, break_options_for,
-                    default_duration_for, guess_meal_kind, kind_for_offset)
+from breaks import (BREAK_KINDS, COFFEE_BREAK_LABEL, DEFAULT_MEAL_MINUTES,
+                    KIND_COFFEE, MEAL_BREAK_LABEL, break_export_text,
+                    break_options_for, default_duration_for, guess_meal_kind,
+                    kind_for_offset, meal_minutes_from_breaks)
 from extensions import db
 from models import (BREAK_KIND_COFFEE, CATERED_NO, CATERED_STATES,
                     CATERED_UNCONFIRMED, CATERED_YES, CrewBreak, MealService,
@@ -62,8 +64,21 @@ def _ensure_meal_service(cb):
     return svc
 
 
+def meal_minutes_for_call(call):
+    """The meal length in use on this crew call. ONE lookup.
+
+    Reads it off the breaks already hanging on the call, so the add-a-break
+    dropdown and every route agree on where the afternoon coffee goes without
+    anybody configuring a show. Falls back to the house hour.
+    """
+    if call is None:
+        return DEFAULT_MEAL_MINUTES
+    rows = CrewBreak.query.filter_by(crew_call_id=call.id).all()
+    return meal_minutes_from_breaks(rows) or DEFAULT_MEAL_MINUTES
+
+
 def create_break(show, day, call, offset, duration=None, kind=None,
-                 label=None):
+                 label=None, meal_minutes=None):
     """Create ONE break hanging off a crew call. The only place that does it.
 
     Factored out on 2026-08-12 so the Create Crew Call wizard adds its opening
@@ -75,13 +90,19 @@ def create_break(show, day, call, offset, duration=None, kind=None,
     The caller commits. ``offset`` decides both the length and the kind unless
     it is told otherwise, per breaks.break_options_for.
     """
+    if meal_minutes is None:
+        meal_minutes = meal_minutes_for_call(call)
     if duration is None or duration not in DURATION_CHOICES:
         duration = default_duration_for(offset)
     if kind not in BREAK_KINDS:
         kind = kind_for_offset(offset)
     if not label:
-        label = next((o["label"] for o in break_options_for(call)
-                      if o["offset"] == offset), "BREAK")
+        # Fall back to the KIND's label, not a bare "BREAK". An offset the
+        # options list does not contain is not nameless — +8:00 on a 60-minute
+        # -meal call is still a coffee break, and "BREAK" would strip that.
+        label = next((o["label"] for o in break_options_for(call, meal_minutes)
+                      if o["offset"] == offset), None) or (
+            COFFEE_BREAK_LABEL if kind == KIND_COFFEE else MEAL_BREAK_LABEL)
 
     start = parse_minutes(call.time)
     if start is None:
@@ -298,8 +319,14 @@ def add_break(show_id, day_id, act_id):
     if kind not in BREAK_KINDS:
         kind = kind_for_offset(offset)
 
-    default_label = next((o["label"] for o in break_options_for(call)
-                          if o["offset"] == offset), "BREAK")
+    # The meal length already on this call is what decides where the
+    # afternoon coffee sits, so the label lookup has to use the same list the
+    # dropdown drew from.
+    meal_minutes = meal_minutes_for_call(call)
+    default_label = next(
+        (o["label"] for o in break_options_for(call, meal_minutes)
+         if o["offset"] == offset), None) or (
+        COFFEE_BREAK_LABEL if kind == KIND_COFFEE else MEAL_BREAK_LABEL)
     label = (f.get("label") or "").strip() or default_label
 
     start = parse_minutes(call.time)

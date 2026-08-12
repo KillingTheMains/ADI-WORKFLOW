@@ -410,6 +410,23 @@ class ScheduleActivity(db.Model):
     crew_rows   = db.relationship("CrewRow", back_populates="activity",
                                   order_by="CrewRow.sort_order",
                                   cascade="all, delete-orphan")
+    # The CrewBreak that DESCRIBES this activity, if it is a break.
+    #
+    # Added 2026-08-12 after a real 500. `crew_breaks.activity_id` is UNIQUE,
+    # and without this cascade deleting a day or a show left its CrewBreak
+    # rows behind pointing at activities that no longer existed. SQLite reuses
+    # rowids, so the next activity created took an id an orphan still claimed
+    # and the insert died on the unique constraint — a delete in one show
+    # breaking a create in another, with nothing on screen to explain it.
+    #
+    # Scoped to `activity_id` deliberately, NOT `crew_call_id`: deleting a
+    # crew call should not silently delete the breaks hanging off it, which is
+    # a decision with a catering consequence and belongs in a route that can
+    # say so.
+    crew_break  = db.relationship("CrewBreak", uselist=False,
+                                  foreign_keys="CrewBreak.activity_id",
+                                  back_populates="activity",
+                                  cascade="all, delete-orphan")
 
     @property
     def ordered_crew_rows(self):
@@ -716,7 +733,8 @@ class CrewBreak(db.Model):
     meal_service_id  = db.Column(db.Integer, db.ForeignKey("meal_services.id"),
                                  nullable=True)
 
-    activity     = db.relationship("ScheduleActivity", foreign_keys=[activity_id])
+    activity     = db.relationship("ScheduleActivity", foreign_keys=[activity_id],
+                                   back_populates="crew_break")
     crew_call    = db.relationship("ScheduleActivity", foreign_keys=[crew_call_id])
     # uselist=False because MealService <-> CrewBreak is 1:1 by design: one
     # service per crew group, always. Two crew groups lunching an hour apart

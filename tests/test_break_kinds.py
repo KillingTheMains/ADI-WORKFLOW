@@ -27,9 +27,21 @@ def test_the_house_offsets_are_coffee_meal_coffee():
 
 
 def test_an_unrecognised_offset_is_a_meal():
-    """The safe direction. An extra question costs a click."""
-    for offset in (0, 90, 200, 480, 1000, None, "banana"):
+    """The safe direction. An extra question costs a click.
+
+    480 was in this list until 2026-08-12 and has been deliberately removed:
+    it is now the afternoon coffee on a call with a 30-minute meal
+    (`breaks.second_coffee_offset`). Everything else here still falls to MEAL,
+    which is the behaviour this test exists to hold.
+    """
+    for offset in (0, 90, 200, 1000, None, "banana"):
         assert kind_for_offset(offset) == KIND_MEAL
+
+
+def test_480_is_recognised_because_a_thirty_minute_meal_moves_the_coffee():
+    """The other half of the change above — see test_meal_length_moves_coffee."""
+    from breaks import KIND_COFFEE
+    assert kind_for_offset(480) == KIND_COFFEE
 
 
 class _Row:

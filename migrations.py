@@ -580,6 +580,46 @@ def _remove_eod_wrap_activities(session):
                   "find out why before moving on.")
 
 
+def _report_orphaned_crew_breaks(session):
+    """REPORT ONLY. Counts CrewBreak rows whose activity no longer exists.
+
+    Deliberately changes nothing. Found on 2026-08-12 when a Create Crew Call
+    POST died on `UNIQUE constraint failed: crew_breaks.activity_id`: deleting
+    a day or a show left its CrewBreak rows behind, SQLite reused the activity
+    rowid, and the next break created collided with a ghost. The cascade is
+    fixed (ScheduleActivity.crew_break) so no NEW orphans can appear.
+
+    What is already in the database is another question, and it is one nobody
+    can predict from here — which is exactly why this does not delete. Per the
+    house rule: a count you cannot predict is a count you cannot check. Run
+    it, read the number, THEN decide. Show 5 (`ZZ WORKING COPY — MCDC26
+    breaks`) was deleted at some point and is the most likely source.
+
+    An orphan is invisible in the app — nothing renders it — but it can still
+    hold a `meal_service_id`, so it may also explain an F&B service that
+    appears to feed nobody.
+    """
+    from models import CrewBreak, ScheduleActivity
+    live = {a.id for a in session.query(ScheduleActivity.id).all()}
+    orphans = [cb for cb in session.query(CrewBreak).all()
+               if cb.activity_id not in live]
+    if not orphans:
+        print("[migration] orphaned crew breaks: none")
+        return
+    linked = [cb for cb in orphans if cb.meal_service_id]
+    print(f"[migration] ⚠ {len(orphans)} ORPHANED crew break(s) — rows whose "
+          "activity no longer exists. NOTHING WAS CHANGED.")
+    print(f"[migration]   {len(linked)} of them still hold a meal_service_id, "
+          "so they may be why a service reads as feeding nobody.")
+    for cb in orphans[:40]:
+        print(f"[migration]   break {cb.id} show {cb.show_id} "
+              f"activity {cb.activity_id} label {cb.label!r} "
+              f"service {cb.meal_service_id}")
+    if len(orphans) > 40:
+        print(f"[migration]   ... and {len(orphans) - 40} more")
+    print("[migration]   Paste this back before anything deletes them.")
+
+
 DATA_MIGRATIONS = [
     ("2026-06-30-fb-v2-migrate-entries", _migrate_fb_entries_to_meal_services),
     ("2026-07-02-add-prompter-position", _seed_position_prompter),
@@ -624,6 +664,11 @@ DATA_MIGRATIONS = [
     # anchor row. The hand-typed EOD WRAP activity was a second copy of it and
     # had drifted on 17 of the 31 days that carried one. Predicted 31.
     ("2026-08-12-remove-eod-wrap-activities", _remove_eod_wrap_activities),
+    # 2026-08-12 — REPORT ONLY, changes nothing. Deleting a day or a show used
+    # to orphan its crew breaks; the cascade is fixed, but whatever is already
+    # in the database needs counting before anybody decides what to do with
+    # it. Read the number, then decide.
+    ("2026-08-12-report-orphaned-crew-breaks", _report_orphaned_crew_breaks),
 ]
 
 

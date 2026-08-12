@@ -31,7 +31,13 @@ FOOD_OUT_MAX_MINUTES = 120
 # What each offset is FOR. +2:30 and +8:30 are the morning and afternoon
 # coffee; +5:00 is lunch. Jason, 2026-08-11 — picking the offset should pick
 # the length, because nobody takes an hour for a coffee.
-DEFAULT_DURATION_FOR_OFFSET = {150: 15, 300: 60, 510: 15, 660: 60}
+#
+# **480 is here for a reason.** It is the afternoon coffee on a show whose
+# meal is 30 minutes rather than 60 (see `second_coffee_offset`). Leave it out
+# and `kind_for_offset(480)` falls through to MEAL — which is the safe default
+# but the wrong answer, and it is precisely how a 15-minute coffee ends up
+# carrying a catering question and a 60-minute duration.
+DEFAULT_DURATION_FOR_OFFSET = {150: 15, 300: 60, 480: 15, 510: 15, 660: 60}
 
 # ── What KIND of break it is, and what that changes ─────────────────────────
 #
@@ -58,10 +64,59 @@ COFFEE_DURATION_MINUTES = 15     # "those are always 15 minutes"
 MEAL_BREAK_LABEL = "MEAL BREAK"  # not LUNCH: the first meal is not always one
 COFFEE_BREAK_LABEL = "COFFEE BREAK"
 
+MEAL_OFFSET = 300                # +5:00, the meal itself
+MEAL_MINUTES_CHOICES = (30, 60)  # the two lengths a meal break is
+DEFAULT_MEAL_MINUTES = 60
+
 # The second meal. Jason, 2026-08-12: offered when any crew on the call is
-# scheduled beyond 14 hours, and it sits at the 11th hour.
+# scheduled beyond 14 hours, and it sits at the 11th hour. It does NOT move
+# with the meal length — it is anchored to the 11th hour of the shift, not to
+# when the crew came back from the first meal.
 SECOND_MEAL_OFFSET = 660
 LONG_CALL_HOURS = 14
+
+
+def second_coffee_offset(meal_minutes=DEFAULT_MEAL_MINUTES):
+    """Where the afternoon coffee lands, given the meal's length.
+
+    Jason's rule is the arithmetic: a coffee is "around 2.5 hours ... coming
+    back from a meal break", so it follows the END of the meal and moves when
+    the meal does.
+
+        60-minute meal → 300 + 60 + 150 = +8:30
+        30-minute meal → 300 + 30 + 150 = +8:00
+
+    Before 2026-08-12 this was hard-coded at 510, so a 30-minute-meal show got
+    its afternoon coffee half an hour late and the offset it landed on was one
+    `kind_for_offset` did not recognise.
+    """
+    try:
+        meal = int(meal_minutes)
+    except (TypeError, ValueError):
+        meal = DEFAULT_MEAL_MINUTES
+    if meal not in MEAL_MINUTES_CHOICES:
+        meal = DEFAULT_MEAL_MINUTES
+    return MEAL_OFFSET + meal + COFFEE_AFTER_MINUTES
+
+
+def meal_minutes_from_breaks(breaks):
+    """The meal length already in use on a crew call, or None if none is.
+
+    Takes an iterable of CrewBreak-like rows (duck-typed on ``kind`` and
+    ``duration_minutes``) rather than querying, so breaks.py stays ORM-free.
+    Callers pass what they already have loaded.
+
+    This is what makes the add-a-break dropdown self-correcting: put a
+    30-minute meal on a call and the afternoon coffee it offers moves to +8:00
+    without anybody configuring anything.
+    """
+    for b in breaks or []:
+        if getattr(b, "kind", None) != KIND_MEAL:
+            continue
+        mins = getattr(b, "duration_minutes", None)
+        if mins in MEAL_MINUTES_CHOICES:
+            return mins
+    return None
 
 
 def kind_for_offset(offset_minutes):
@@ -104,19 +159,32 @@ def needs_second_meal(crew_call):
     return longest is not None and longest > LONG_CALL_HOURS
 
 
-def break_options_for(crew_call):
+def _offset_text(offset):
+    """'+8:30' — the offset as it reads on a button."""
+    return f"+{offset // 60}:{offset % 60:02d}"
+
+
+def break_options_for(crew_call, meal_minutes=DEFAULT_MEAL_MINUTES):
     """The add-a-break choices for one crew call, in clock order.
 
     ONE definition, so the dropdown and the route that receives it cannot
     offer different things — the same reason ``default_duration_for`` exists.
+
+    ``meal_minutes`` moves the afternoon coffee, because Jason's rule times it
+    from the END of the meal: a 30-minute meal puts it at +8:00, an hour-long
+    one at +8:30. Pass what the call actually uses — ``meal_minutes_from_breaks``
+    reads it off the breaks already on the call.
     """
+    meal = (meal_minutes if meal_minutes in MEAL_MINUTES_CHOICES
+            else DEFAULT_MEAL_MINUTES)
+    coffee2 = second_coffee_offset(meal)
     out = [
         {"offset": 150, "kind": KIND_COFFEE, "label": COFFEE_BREAK_LABEL,
          "duration": 15, "text": "+2:30  Coffee"},
-        {"offset": 300, "kind": KIND_MEAL, "label": MEAL_BREAK_LABEL,
-         "duration": 60, "text": "+5:00  Meal"},
-        {"offset": 510, "kind": KIND_COFFEE, "label": COFFEE_BREAK_LABEL,
-         "duration": 15, "text": "+8:30  Coffee"},
+        {"offset": MEAL_OFFSET, "kind": KIND_MEAL, "label": MEAL_BREAK_LABEL,
+         "duration": meal, "text": f"+5:00  Meal ({meal} min)"},
+        {"offset": coffee2, "kind": KIND_COFFEE, "label": COFFEE_BREAK_LABEL,
+         "duration": 15, "text": f"{_offset_text(coffee2)}  Coffee"},
     ]
     if needs_second_meal(crew_call):
         out.append({"offset": SECOND_MEAL_OFFSET, "kind": KIND_MEAL,

@@ -17,7 +17,23 @@ schedule_bp = Blueprint("schedule", __name__)
 # Placement lives in hardcoded_service so the day editor and the show book
 # cannot drift apart on where a recurring event belongs.
 from hardcoded_service import place_in_day as _place_recurring
-from breaks import break_options_for, is_crew_start
+from breaks import (DEFAULT_MEAL_MINUTES, MEAL_MINUTES_CHOICES,
+                    break_options_for, is_crew_start, meal_minutes_from_breaks)
+
+
+def _break_options_resolver(breaks_by_crew_call):
+    """The template asks per crew call, so the answer is per crew call.
+
+    The afternoon coffee follows the END of the meal, so a call with a
+    30-minute meal on it offers +8:00 and a call with an hour-long one offers
+    +8:30 — on the same day, from the same dropdown. Reading the length off
+    the breaks already loaded keeps it self-correcting and costs no query.
+    """
+    def resolve(crew_call):
+        rows = breaks_by_crew_call.get(getattr(crew_call, "id", None), [])
+        meal = meal_minutes_from_breaks(rows) or DEFAULT_MEAL_MINUTES
+        return break_options_for(crew_call, meal)
+    return resolve
 
 
 # ── Time helpers ─────────────────────────────────────────────────────────────
@@ -299,6 +315,30 @@ def day_detail(show_id, day_id):
         if not has_fb:
             meal_breaks_missing_fb.add(act.id)
 
+    # Who is ALREADY on a crew call today, for the wizard's double-booking
+    # flag. Jason, 2026-08-12: flag only a NAMED person from a COMPANY.
+    #
+    # Local labour is the reason for the rule. An Encore-style row is a called
+    # POSITION rather than a person — often several of them, often the same
+    # position twice — so seeing it on two calls is normal work, not a
+    # mistake, and flagging it would cry wolf on the majority of rows. The
+    # test is `is_unnamed_slot`, the strict one that already drives name
+    # substitution, plus a company: exactly "names and companies".
+    #
+    # When the LOCAL CREW section lands this is the one place to repoint.
+    already_called = {}
+    for act in day.activities:
+        if not is_crew_start(act.description):
+            continue
+        for row in act.crew_rows:
+            if row.is_group_header or not row.crew_member_id:
+                continue
+            cm_row = row.crew_member
+            if cm_row is None or cm_row.is_unnamed_slot or not cm_row.company_id:
+                continue
+            already_called.setdefault(row.crew_member_id, []).append(
+                act.time or "an untimed call")
+
     # Show crew grouped by company for the Create Crew Call wizard.
     #
     # ROSTER ORDER THROUGHOUT — Jason, 2026-08-12. `crew_members` above is
@@ -429,10 +469,12 @@ def day_detail(show_id, day_id):
                            # the function so the template asks per call — the
                            # second meal only appears where somebody on THAT
                            # call is over 14 hours.
-                           break_options=break_options_for,
+                           break_options=_break_options_resolver(
+                               breaks_by_crew_call),
                            break_link_choices=break_link_choices,
                            day_meal_services=day_meal_services,
                            crew_by_company=crew_by_company,
+                           already_called=already_called,
                            meal_breaks_missing_fb=meal_breaks_missing_fb)
 
 
@@ -1024,10 +1066,24 @@ def create_crew_call(show_id, day_id):
         added, _ = _assign_crew_to_activity(call, ids, hours=hours)
         db.session.flush()
 
+    # The meal length moves the afternoon coffee — 30 minutes puts it at
+    # +8:00, an hour at +8:30 — because Jason's rule times a coffee from the
+    # END of the meal. Passed explicitly: the call has no breaks yet, so
+    # there is nothing to read it off.
+    try:
+        meal_minutes = int(f.get("meal_minutes") or DEFAULT_MEAL_MINUTES)
+    except (TypeError, ValueError):
+        meal_minutes = DEFAULT_MEAL_MINUTES
+    if meal_minutes not in MEAL_MINUTES_CHOICES:
+        meal_minutes = DEFAULT_MEAL_MINUTES
+
     made = 0
     if f.get("add_breaks") and show.uses_new_breaks:
-        for opt in break_options_for(call):
-            if create_break(show, day, call, opt["offset"]) is not None:
+        for opt in break_options_for(call, meal_minutes):
+            if create_break(show, day, call, opt["offset"],
+                            duration=opt["duration"], kind=opt["kind"],
+                            label=opt["label"],
+                            meal_minutes=meal_minutes) is not None:
                 made += 1
 
     db.session.commit()
