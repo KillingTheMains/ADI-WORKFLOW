@@ -82,6 +82,25 @@
        it is a normal state, just one Larry wants to be able to scan for. */
     .crew-tbl td.unfilled { font-style: italic; color: #6b7280; }
 
+    /* Local labour block. Interface Spec §07, the print half of it: this gets
+       printed on a mono laser and read at arm's length, so the block is told
+       apart by SHAPE and TEXTURE, not by hue. The 45° hatch is the same mark
+       the day page uses and it is not decoration — it says "these lines are
+       multiples of a POSITION, not individual people". One Lighting Hand row
+       is seven humans, which is the distinction the 2026-08-12 headcount bug
+       turned on. The headcount is stated in the title for the same reason. */
+    .ll-block { margin-top: 6pt; padding-left: 6pt;
+                border-left: 1.5pt solid #24405F;
+                background: repeating-linear-gradient(45deg, #24405F 0 1.5pt,
+                            transparent 1.5pt 4pt) left/4pt 100% no-repeat,
+                            #EDF0F4; }
+    .ll-title { font-size: 7.5pt; font-weight: 700; text-transform: uppercase;
+                letter-spacing: .1em; color: #414A54; padding: 3pt 6pt 0; }
+    .ll-title .ll-count { font-weight: 400; text-transform: none;
+                          letter-spacing: 0; }
+    .ll-block .crew-tbl { margin-top: 2pt; }
+    .ll-foot { font-size: 7pt; color: #59636E; padding: 1pt 6pt 3pt; }
+
     /* A recurring event sits in the timeline like any other item, marked just
        enough that a reader can tell it came from the standing list. */
     .activity-block.recurring-line { border-left: 2pt solid #C9A45C; }
@@ -219,7 +238,14 @@
       <div class="activity-notes">{{ act.notes }}</div>
       {% endif %}
 
-      {% if act.ordered_crew_rows %}
+      {# Named crew and local labour are TWO tables, the way the day page
+         renders them. One table with a Name column cannot describe both: a
+         local-labour line has no name and never will — it is a count of a
+         position — so it left the column blank and read as an unfilled slot
+         for a person, which is a different and much more alarming thing. #}
+      {% set named = act.ordered_crew_rows | rejectattr('is_local_labor') | list %}
+      {% set has_named = named | rejectattr('is_group_header') | list %}
+      {% if has_named %}
       <table class="crew-tbl">
         <thead>
           <tr>
@@ -231,7 +257,7 @@
           </tr>
         </thead>
         <tbody>
-          {% for row in act.ordered_crew_rows %}
+          {% for row in named %}
           {% if row.is_group_header %}
           <tr class="group-hdr"><td colspan="5">{{ row.group_label }}</td></tr>
           {% else %}
@@ -246,6 +272,61 @@
           {% endfor %}
         </tbody>
       </table>
+      {% endif %}
+
+      {# LOCAL LABOUR. Its own block, with the headcount stated in the header
+         because that is the number this block exists to get right, and no
+         Name column at all. Grouped and ordered by the same function the
+         Local Labor Database and the day page use, so the show book cannot
+         disagree with either about where Rigging sits. #}
+      {% set ll = act.local_labor_rows %}
+      {% if ll %}
+      {% set ll_people = ll | sum(attribute='people') %}
+      <div class="ll-block">
+        <div class="ll-title">
+          Local Labour
+          <span class="ll-count">
+            {{ ll|length }} line{{ '' if ll|length == 1 else 's' }} ·
+            {{ ll_people }} {{ 'person' if ll_people == 1 else 'people' }}
+          </span>
+        </div>
+        <table class="crew-tbl">
+          <thead>
+            <tr>
+              <th style="width:36pt;">How many</th>
+              <th style="width:32pt;">Est</th>
+              <th style="width:32pt;">Actual</th>
+              <th style="width:120pt;">Position</th>
+              <th>Task</th>
+              <th style="width:70pt;">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for dept, dept_rows in act.local_labor_groups %}
+            {% set dept_people = dept_rows | sum(attribute='people') %}
+            <tr class="group-hdr">
+              <td colspan="6">
+                {{ dept }}
+                <span style="font-weight:400;text-transform:none;letter-spacing:0;">
+                  · {{ dept_people }} {{ 'person' if dept_people == 1 else 'people' }}
+                </span>
+              </td>
+            </tr>
+            {% for row in dept_rows %}
+            <tr>
+              <td style="font-weight:700;">{{ row.qty or 1 }}</td>
+              <td>{{ row.hours if row.hours is not none else '—' }}</td>
+              <td>{{ row.actual_hours if row.actual_hours is not none else '—' }}</td>
+              <td>{{ row.position or '—' }}</td>
+              <td>{{ row.task or '—' }}</td>
+              <td>{{ row.notes or '' }}</td>
+            </tr>
+            {% endfor %}
+            {% endfor %}
+          </tbody>
+        </table>
+        <div class="ll-foot">Hours are <em>each</em> — {{ ll_people }} people at these hours.</div>
+      </div>
       {% endif %}
     </div>
     {% endfor %}
