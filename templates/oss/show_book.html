@@ -62,7 +62,13 @@
     /* Activity block */
     .activity-block { margin-bottom: 10pt; padding-left: 10pt;
                       border-left: 2pt solid #C9A45C; }
-    .activity-time  { font-size: 8pt; font-weight: bold; color: #C9A45C;
+    /* Interface Spec §10. This was #C9A45C on white — 2.35:1, the pair the
+       audit table lists as BANNED, set at 8pt bold in a document that gets
+       printed. #7A5C1E is the ink sibling the spec keeps for exactly this
+       case: 6.22:1, and the same gold at a glance. The RULE below stays
+       #C9A45C — it is non-text and decorative, and the time is what has to
+       be readable at arm's length on paper. */
+    .activity-time  { font-size: 8pt; font-weight: bold; color: #7A5C1E;
                       text-transform: uppercase; letter-spacing: .04em; }
     .activity-desc  { font-size: 9.5pt; font-weight: bold; margin: 1pt 0 4pt; }
     .activity-notes { font-size: 8pt; color: #555; font-style: italic; margin-bottom: 4pt; }
