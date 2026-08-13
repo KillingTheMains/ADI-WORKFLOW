@@ -106,3 +106,40 @@
        master schedule is never blank — a blank there reads as "no data",
        which is a stronger and wronger claim than "ordinary row". #}
     {% macro kind_chip_safe(kind) %}{{ kind_chip(kind if kind in CODES else 'act') }}{% endmacro %}
+
+{#- ── Department chips ───────────────────────────────────────────────────
+    Mirrors brand.DEPT_CODE, which is what the PDF and the XLSX print — the
+    same relationship CODES has with brand.KIND_CODE, and
+    test_department_row_kind.py asserts the two tables agree rather than
+    trusting either. Jason, 2026-08-13: "DOCK events are REAL events ... they
+    need to be on the daily schedules as their own events at the times they
+    are listed with probably DOCK in the little indicator box to the left
+    instead of 'AC'."
+
+    A department row is an ORDINARY event structurally, so it keeps the
+    activity rail and the activity fill — row_shell('act') — and only the code
+    changes. Giving it a rail of its own would say it is a different class of
+    thing on the timeline, and it is not: a truck arriving at 06:00 is an
+    event at 06:00.
+
+    The chip is inverted against the plain activity chip (dark plate, light
+    ink, where 'act' is light plate, dark ink). That is the one visual claim
+    being made: this row's department is KNOWN. AC means nobody recorded one.
+-#}
+{%- set DEPT_CODES = {
+     'Dock': 'DK', 'Hazer': 'HZ', 'Doors': 'DR', 'Security': 'SC',
+     'F&B': 'FB', 'House LX': 'HL', 'HVAC': 'HV', 'Wristbands': 'WB',
+     'COMS': 'CM', 'Cleaning': 'CL'
+   } -%}
+
+    {# The department chip. An unrecognised department falls back to the plain
+       activity chip for the same reason kind_chip_safe does — a blank box on
+       a show morning is worse than an honest "ordinary row". #}
+    {% macro dept_chip(dept) %}
+      {%- if dept in DEPT_CODES -%}
+      <span title="{{ dept }}" style="display:inline-flex;align-items:center;
+            justify-content:center;width:26px;height:18px;flex:0 0 26px;
+            background:#414A54;color:#FFFFFF;border:1px solid #414A54;
+            font:700 10px/1 'Barlow',sans-serif;letter-spacing:.06em;">{{ DEPT_CODES[dept] }}</span>
+      {%- else -%}{{ kind_chip('act') }}{%- endif -%}
+    {%- endmacro %}

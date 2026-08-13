@@ -137,6 +137,34 @@ KIND_CODE = {
     "local": "LL", "recur": "RC", "sod": "SD", "eod": "ED",
 }
 
+# ── Department, on paper ───────────────────────────────────────────────────
+# A department event is an ordinary event in every structural way — it has a
+# time, it happens on a day, it is a line on the schedule. What it is NOT is
+# anonymous. Jason, 2026-08-13: "DOCK events are REAL events. Those are trucks
+# coming and going and delivering and picking up gear from the venue. So they
+# need to be on the daily schedules as their own events at the times they are
+# listed with probably DOCK in the little indicator box to the left instead
+# of 'AC'."
+#
+# So the ROW keeps the activity's rail and fill — same silhouette, because it
+# is the same kind of thing — and only the CODE changes. AC is the code for a
+# row whose department nobody recorded; a row that HAS one should say so.
+#
+# Two letters, not four, for the same reason every other code is two: the box
+# is a fixed 26px on screen and a fixed column in the PDF and the sheet, and
+# "SECURITY" does not fit any of the three. The full department name rides
+# alongside as a badge on screen and in its own column on paper, so nothing
+# is lost — the chip is an alphabet, not a label.
+#
+# HVAC is HV and not the obvious AC because AC is already the activity code.
+# Two rows meaning different things must never print the same two letters;
+# that is the entire premise of this table.
+DEPT_CODE = {
+    "Dock": "DK", "Hazer": "HZ", "Doors": "DR", "Security": "SC",
+    "F&B": "FB", "House LX": "HL", "HVAC": "HV", "Wristbands": "WB",
+    "COMS": "CM", "Cleaning": "CL",
+}
+
 # Three tiers, not seven. On paper the fill carries GROUPING — "these rows
 # belong together" — and the code column carries KIND. Trying to make a fill
 # mean kind is what fails in greyscale: these three sit at 236, 235 and 231,

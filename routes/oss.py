@@ -27,7 +27,7 @@ from models import (
     RadioChannel, COM_PACK_BRAND_LIMITS, COM_PACK_HARD_CAP, RADIO_CHANNEL_SLOTS,
     MealService, MealServiceLocation, ShowDietaryNote, MEAL_KINDS,
 )
-from time_utils import sort_minutes, hhmm_or_blank
+from time_utils import sort_minutes, hhmm_or_blank, parse_minutes
 from oss_export import build_dept_rows, build_master_items
 from datetime import date as _date_cls, datetime
 import re
@@ -231,25 +231,40 @@ def oss_hub(show_id):
         for t in _ordered_types()
     }
 
-    # ── Unassigned: entries that hang off no activity ───────────────────
+    # ── Unassigned: entries that cannot be placed on their day ──────────
     #
-    # An OSS entry is departmental detail ON something that happens on the
-    # day. One with no activity link is a row that appears on NO day page —
-    # it exists only here, which is the OSS being a second schedule rather
-    # than a summary of the first.
-    #
-    # They get their own tab rather than sitting inside whatever department
-    # they happen to carry. On production all ten were tagged Dock, which
-    # reads as a Dock backlog and is not one: the "+ OSS" button on an
-    # activity had no placeholder on its department select, so its first
-    # option — Dock, sort 1 — was submitted whenever nobody touched it, and
-    # deleting the activity later unlinks the entry but keeps it. Two steps,
-    # and the second one is documented behaviour.
+    # On production all ten were tagged Dock, which reads as a Dock backlog
+    # and is not one: the "+ OSS" button on an activity had no placeholder on
+    # its department select, so its first option — Dock, sort 1 — was
+    # submitted whenever nobody touched it. That is why the picker below is
+    # still worth having even though every entry already carries a type: the
+    # ones here are department-WRONG, not department-less.
     #
     # Grouped through build_dept_rows so the day banding and the clock order
     # are the same code the department tabs use.
+    #
+    # ── What "unassigned" means, after 2026-08-13 ────────────────────────
+    # It used to mean "no activity link", on the reasoning that such an entry
+    # appeared on no day page. That reasoning is now obsolete: an unlinked
+    # entry renders on the day timeline as its own row, at its own time. So
+    # having no activity is no longer a defect — it is the NORMAL shape of a
+    # dock call. Jason: "these will most likely be independent events that
+    # need their own line in the daily schedules."
+    #
+    # Keeping the old rule would have made this tab a trap. Its only control
+    # is the department picker, and `type` is NOT NULL — every entry already
+    # has a department — so re-filing one could never remove it from a list
+    # defined by its activity link. The user would pick a department, hit
+    # Save, and watch the row sit there.
+    #
+    # The rule is now "cannot be placed on the day at all": no activity to
+    # take a time from, and no readable time of its own. Those rows fall to
+    # the bottom of the timeline in whatever order they were created, which
+    # is the one remaining way an OSS entry can be genuinely lost. The fix is
+    # to give it a time, so the tab offers one.
     unassigned_rows = build_dept_rows(
-        [e for e in all_entries if not e.activity_id], [])
+        [e for e in all_entries
+         if not e.activity_id and parse_minutes(e.time) is None], [])
     unassigned_count = sum(len(rows) for _day, rows in unassigned_rows)
     dietary_notes = (ShowDietaryNote.query
                      .filter_by(show_id=show_id)
@@ -528,14 +543,28 @@ def edit_entry(show_id, entry_id):
 
 @oss_bp.route("/<int:show_id>/oss/<int:entry_id>/classify", methods=["POST"])
 def classify_entry(show_id, entry_id):
-    """Give an unassigned entry its proper department, and optionally put it
-    on an activity.
+    """Give an unassigned entry its proper department and a time.
+
+    The activity link is gone from this form. Jason, 2026-08-13: "I'm not sure
+    that the dropdown is the right direction because these will most likely be
+    independent events that need their own line in the daily schedules. What
+    we're looking to do with the unassigned tab is just assign a department,
+    not add it to another event on the day."
+
+    He is right, and the day page now backs him up: an entry with no activity
+    draws its own timeline row at its own time. So there is nothing left to
+    attach it TO, and attaching it would actively lose information — a linked
+    entry surrenders its clock to the activity, which for a truck booked at
+    06:15 against a 06:00 load-in is a fifteen-minute lie.
+
+    What replaced it is `time`, because that is what these rows are actually
+    missing: this tab now lists entries that have neither an activity nor a
+    readable time of their own, and so cannot be placed on the day at all.
 
     Deliberately NOT `_apply_form_to_entry`. That is the full write path and
-    reads `time`, `activity`, `count`, `duration_hrs` and `notes` off the
-    form — so a partial post through it would blank every field this form
-    does not carry, which on a triage screen is most of them. Two fields in,
-    two fields out.
+    reads `activity`, `count`, `duration_hrs` and `notes` off the form too —
+    so a partial post through it would blank every field this form does not
+    carry, which on a triage screen is most of them. Two fields in, two out.
     """
     entry = SubScheduleEntry.query.get_or_404(entry_id)
     if entry.show_id != show_id:
@@ -547,38 +576,36 @@ def classify_entry(show_id, entry_id):
         flash("Pick a department for that entry.", "danger")
         return _redirect_after_change(show_id, entry_type=TAB_UNASSIGNED)
 
-    # The activity link is optional here — assigning a department is useful on
-    # its own, and it is the thing Jason asked for. Linking is what actually
-    # takes the entry off this tab, because the tab asks "does this appear on
-    # a day page", not "does this have a department".
-    raw_act = (request.form.get("activity_id") or "").strip()
-    activity_id = None
-    if raw_act:
-        try:
-            activity_id = int(raw_act)
-        except ValueError:
-            flash("Invalid activity selection.", "danger")
-            return _redirect_after_change(show_id, entry_type=TAB_UNASSIGNED)
-        act = ScheduleActivity.query.get(activity_id)
-        if not act or act.day_id != entry.schedule_day_id:
-            flash("That activity is not on this entry's day.", "danger")
+    # The time is optional — re-filing a row under the right department is
+    # worth doing on its own, and a user who only wants to fix the department
+    # should not be forced to invent a clock time to do it.
+    #
+    # Blank means "leave it alone", NOT "clear it". A triage form that wipes a
+    # field the user did not fill in is the same partial-post bug the docstring
+    # avoids by not calling _apply_form_to_entry.
+    raw_time = (request.form.get("time") or "").strip()
+    new_time = None
+    if raw_time:
+        new_time = hhmm_or_blank(raw_time)
+        if not new_time:
+            flash("That time could not be read. Use HH:MM.", "danger")
             return _redirect_after_change(show_id, entry_type=TAB_UNASSIGNED)
 
     entry.type = type_key
-    if activity_id:
-        # Same rule the full write path uses: a linked entry has no clock of
-        # its own, because the activity is the single source of truth for
-        # when it happens.
-        entry.activity_id = activity_id
-        entry.time = None
+    if new_time:
+        entry.time = new_time
 
     db.session.commit()
     label = SUB_SCHEDULE_META.get(type_key, {}).get("label", type_key)
-    if activity_id:
-        flash("Filed under %s and linked to an activity." % label, "success")
+    if new_time:
+        # It now has a time, so it has a place on the day page and it leaves
+        # this tab. Send the user to the department tab where it landed —
+        # that is the answer to "where did it go".
+        flash("Filed under %s at %s. It is on that day's schedule now."
+              % (label, new_time), "success")
         return _redirect_after_change(show_id, entry_type=type_key)
-    flash("Filed under %s. It still has no activity, so it stays on this tab."
-          % label, "info")
+    flash("Filed under %s. It still has no time, so it cannot be placed on "
+          "the day and stays on this tab." % label, "info")
     return _redirect_after_change(show_id, entry_type=TAB_UNASSIGNED)
 
 

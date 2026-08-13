@@ -451,6 +451,24 @@ def day_detail(show_id, day_id):
            for p in break_periods]
         + [{"kind": "anchor", "sort_min": a["sort_min"], "item": a}
            for a in anchor_overlay]
+        # OSS entries that hang off no activity. Jason, 2026-08-13: "DOCK
+        # events are REAL events. Those are trucks coming and going and
+        # delivering and picking up gear from the venue. So they need to be
+        # on the daily schedules as their own events at the times they are
+        # listed."
+        #
+        # They used to render in a card BELOW the whole timeline, which is
+        # why the OSS felt like a second schedule: a truck at 06:00 was
+        # printed after the 23:00 wrap, so the day page could not be read as
+        # the day. They are events; they go in the stream with everything
+        # else and sort by the clock.
+        #
+        # sort_minutes, not parse_minutes: an entry with an unreadable time
+        # gets the sentinel and lands at the end via place_in_day, which is
+        # where an unplaceable row belongs — visible, and last.
+        + [{"kind": "oss", "sort_min": sort_minutes(e.effective_time),
+            "item": e}
+           for e in oss_unlinked]
     )
     extras_before, extras_after = _place_recurring(day, timeline, visible_acts)
 
