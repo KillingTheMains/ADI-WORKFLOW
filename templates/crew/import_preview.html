@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import '_icons.html' as ico %}
 {% block title %}Crew Import Preview — ADI Workflow{% endblock %}
 {% block page_title %}Crew Import — Review &amp; Apply{% endblock %}
 {% block breadcrumb %}
@@ -54,10 +55,10 @@
       <span class="imp-pill conflict">Conflicts {{ summary.conflict }}</span>
       <span class="imp-pill skip">Duplicates {{ summary.skip }}</span>
       {% if summary.new_pos %}
-      <span class="imp-pill warn">⚠ {{ summary.new_pos }} new positions</span>
+      <span class="imp-pill warn">{{ ico.icon('alert-triangle') }} {{ summary.new_pos }} new positions</span>
       {% endif %}
       {% if summary.new_co %}
-      <span class="imp-pill warn">⚠ {{ summary.new_co }} new companies</span>
+      <span class="imp-pill warn">{{ ico.icon('alert-triangle') }} {{ summary.new_co }} new companies</span>
       {% endif %}
     </div>
   </div>
@@ -144,7 +145,7 @@
                 </select>
               {% else %}
                 <input type="hidden" name="pos_choice_{{ r.n }}" value="use">
-                <div class="field-hint">✓ exact match in master list</div>
+                <div class="field-hint">{{ ico.icon('check') }} exact match in master list</div>
               {% endif %}
               {% if 'position' in r.conflicts %}
               <div class="conflict-bx">
@@ -178,7 +179,7 @@
                 </select>
               {% else %}
                 <input type="hidden" name="co_choice_{{ r.n }}" value="use">
-                <div class="field-hint">✓ exact match in master list</div>
+                <div class="field-hint">{{ ico.icon('check') }} exact match in master list</div>
               {% endif %}
               {% if 'company' in r.conflicts %}
               <div class="conflict-bx">
@@ -197,17 +198,17 @@
             <select name="decision_{{ r.n }}" class="form-select form-select-sm"
                     style="font-size:.78rem;">
               {% if not r.matched_id %}
-              <option value="add" {% if r.suggested == 'add' %}selected{% endif %}>➕ Add new</option>
+              <option value="add" {% if r.suggested == 'add' %}selected{% endif %}>+ Add new</option>
               <option value="skip" {% if r.suggested == 'skip' %}selected{% endif %}>Skip this row</option>
               {% else %}
-              <option value="update" {% if r.suggested == 'update' %}selected{% endif %}>✎ Update existing (fill blanks)</option>
+              <option value="update" {% if r.suggested == 'update' %}selected{% endif %}>Update existing (fill blanks)</option>
               <option value="skip" {% if r.suggested == 'skip' %}selected{% endif %}>Skip (duplicate)</option>
               <option value="add">Add as new anyway</option>
               {% endif %}
             </select>
             {% if r.suggested == 'conflict' %}
             <div class="field-hint" style="color:#92400E;margin-top:3px;">
-              ⚠ Has conflicts — review fields above
+              {{ ico.icon('alert-triangle') }} Has conflicts — review fields above
             </div>
             {% endif %}
           </td>
@@ -224,7 +225,7 @@
     Cancel
   </button>
   <button type="submit" class="btn btn-adi">
-    ✓ Apply import ({{ summary.add + summary['update'] }} change{{ '' if (summary.add + summary['update']) == 1 else 's' }})
+    {{ ico.icon('check') }} Apply import ({{ summary.add + summary['update'] }} change{{ '' if (summary.add + summary['update']) == 1 else 's' }})
   </button>
 </div>
 </form>

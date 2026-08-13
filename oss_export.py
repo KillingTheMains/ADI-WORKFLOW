@@ -101,7 +101,7 @@ def dept_label(value):
     return meta.get("label", value) if meta else value
 
 
-def _item(day, time_value, dept, activity, *, icon="•", count=None, kind="act",
+def _item(day, time_value, dept, activity, *, icon="", count=None, kind="act",
           duration_hrs=None, notes="", source=SOURCE_OSS, day_id=None,
           end_time=None, break_label=None, break_call_id=None,
           break_call_time=None):
@@ -323,7 +323,7 @@ def build_master_items(show, entries, meal_services):
                 svc.schedule_day,
                 (loc.start_time if loc else svc.earliest_time),
                 "F&B", _merge_text(label, act.description if act else None),
-                icon="🍽",
+                icon="utensils",
                 # A standing beverage table is not a stop; a meal service is.
                 # The `or is_recurring` belt-and-braces is gone: since
                 # 2026-08-13 `is_standing` reads breaks.is_beverage_service,
@@ -360,7 +360,7 @@ def build_master_items(show, entries, meal_services):
                     items.append(_item(
                         d, a.time, "Schedule",
                         break_export_text(cb.label, cb.duration_minutes),
-                        icon="☕", kind="break", count=cb.derived_headcount,
+                        icon="coffee", kind="break", count=cb.derived_headcount,
                         end_time=cb.end_time or None,
                         break_label=(cb.label or "BREAK").strip().upper(),
                         break_call_id=cb.crew_call_id,
@@ -368,7 +368,7 @@ def build_master_items(show, entries, meal_services):
                         notes=a.notes, source=SOURCE_ACTIVITY))
                 else:
                     items.append(_item(d, a.time, "Schedule", a.description,
-                                       icon="🗓", notes=a.notes,
+                                       icon="calendar", notes=a.notes,
                                        kind=("crew" if is_crew_start(a.description)
                                              else "act"),
                                        source=SOURCE_ACTIVITY))
@@ -427,7 +427,7 @@ def build_master_items(show, entries, meal_services):
             # field shows, and dropping the local lines from it would hide
             # them there. The SHAPE of the two is what separates now.
             item = _item(d, t, "Crew", ", ".join(names + labels),
-                         icon="👤", kind="crew",
+                         icon="user", kind="crew",
                          count=head or (len(names)
                                         + sum(l["qty"] for l in local)),
                          source=SOURCE_CREW)
@@ -454,7 +454,7 @@ def build_master_items(show, entries, meal_services):
             items.append(_item(d, ev.get("time"),
                                dept_label(dept) if dept else "Hard-Coded",
                                ev.get("name"),
-                               icon="📌", kind="recur",
+                               icon="repeat", kind="recur",
                                source=SOURCE_HARDCODED))
             if dept:
                 hardcoded_by_dept.setdefault(dept, []).append(dict(ev, day=d))

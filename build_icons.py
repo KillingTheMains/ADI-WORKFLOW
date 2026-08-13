@@ -50,7 +50,7 @@ def inner(name):
     return s.replace(' />', '/>')
 
 
-HEADER = """{# ── Line icons ──────────────────────────────────────────────
+HEADER = '''{# ── Line icons ──────────────────────────────────────────────
    Interface Spec Rev 1 §05. Lucide (lucide.dev, ISC licence), stroke 1.5,
    16px default, stroke="currentColor" so an icon tracks its own link's hover
    and active state without a second rule.
@@ -74,12 +74,13 @@ HEADER = """{# ── Line icons ───────────────�
 #}
 
 {% macro icon(name, size=16, cls='') -%}
-<svg class="ico {{ cls }}" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24"
+<svg class="ico {{ cls }}" data-icon="{{ name }}"
+     width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24"
      fill="none" stroke="currentColor" stroke-width="1.5"
      stroke-linecap="round" stroke-linejoin="round"
      aria-hidden="true" focusable="false"
      style="flex-shrink:0;vertical-align:-.15em;">
-"""
+'''
 
 FOOTER = """{%- else -%}
 {#- An unknown name draws nothing rather than a broken glyph. -#}

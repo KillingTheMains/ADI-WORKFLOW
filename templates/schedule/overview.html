@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import '_icons.html' as ico %}
 {% block title %}Schedule — {{ show.name }}{% endblock %}
 {% block page_title %}Schedule Builder{% endblock %}
 {% block breadcrumb %}
@@ -21,7 +22,7 @@
       </div>
       <button type="submit" class="btn btn-sm btn-outline-secondary"
               onclick="return confirm('Auto-generate a day for every date in the show\'s phase ranges?');">
-        ⚡ Auto-Generate Days
+        {{ ico.icon('zap') }} Auto-Generate Days
       </button>
     </div>
   </form>
@@ -30,12 +31,12 @@
     + Add Day
   </a>
   <a href="{{ url_for('oss.oss_hub', show_id=show.id) }}" class="btn btn-sm btn-outline-dark">
-    🗺 OSS
+    {{ ico.icon('map') }} OSS
   </a>
   {% if show.days %}
   <a href="{{ url_for('oss.show_book', show_id=show.id) }}" class="btn btn-sm btn-dark"
      target="_blank">
-    🖨 Show Book
+    {{ ico.icon('printer') }} Show Book
   </a>
   {% endif %}
 {% endblock %}
@@ -70,7 +71,7 @@
 {% if hc_events %}
 <details class="mb-3">
   <summary style="cursor:pointer;font-size:.85rem;color:var(--adi-muted);">
-    🔁 Recurring Events for this show ({{ hc_events|length }})
+    {{ ico.icon('repeat') }} Recurring Events for this show ({{ hc_events|length }})
   </summary>
   <div class="card mt-2"><div class="card-body py-2 px-3">
     <p style="font-size:.75rem;color:var(--adi-muted);" class="mb-2">
@@ -101,9 +102,9 @@
 <div class="d-flex align-items-center justify-content-between mb-3">
   <div class="btn-group btn-group-sm" role="group">
     <button type="button" class="btn btn-adi" id="view-list-btn"
-            onclick="setView('list')">☰ List</button>
+            onclick="setView('list')">{{ ico.icon('menu') }} List</button>
     <button type="button" class="btn btn-outline-secondary" id="view-timeline-btn"
-            onclick="setView('timeline')">📅 Timeline</button>
+            onclick="setView('timeline')">{{ ico.icon('calendar') }} Timeline</button>
   </div>
 </div>
 
@@ -163,7 +164,7 @@
               padding:2px 8px;border-radius:var(--r-pill);
               background:var(--adi-tint-recur);color:var(--adi-gold);
               border:1px solid var(--adi-gold-lt);text-decoration:none;">
-      🗺 {{ day.oss_entries|length }} OSS
+      {{ ico.icon('map') }} {{ day.oss_entries|length }} OSS
     </a>
     {% endif %}
     <div class="ms-auto d-flex gap-2 align-items-center">
@@ -351,7 +352,7 @@
   <!-- Crew summary table -->
   <div class="card mt-3">
     <div class="card-header" style="font-size:.78rem;font-weight:700;">
-      👥 Crew Summary by Day
+      {{ ico.icon('users') }} Crew Summary by Day
     </div>
     <div class="card-body p-0">
       <table class="table table-sm mb-0" style="font-size:.78rem;">
@@ -362,7 +363,7 @@
             <th>SOD / EOD</th>
             <th class="text-center" style="width:80px;">Activities</th>
             <th class="text-center" style="width:80px;">Crew Slots</th>
-            <th class="text-center" style="width:130px;" title="Mark the travel-window start (🛫) and end (🛬). Crew assigned to this show auto-fill Travel In/Out from these days.">Travel Window</th>
+            <th class="text-center" style="width:130px;" title="Mark the travel-window start and end. Crew assigned to this show auto-fill Travel In/Out from these days.">Travel Window</th>
           </tr>
         </thead>
         <tbody>
@@ -391,11 +392,11 @@
             <td class="text-center" style="white-space:nowrap;">
               <label title="Travel window start" style="cursor:pointer;margin-right:8px;">
                 <input type="radio" name="tw_start" class="tw-marker" data-marker="start" value="{{ day.id }}"
-                       {% if show.travel_window_start and day.date == show.travel_window_start %}checked{% endif %}> 🛫
+                       {% if show.travel_window_start and day.date == show.travel_window_start %}checked{% endif %}> {{ ico.icon('plane-takeoff') }}
               </label>
               <label title="Travel window end" style="cursor:pointer;">
                 <input type="radio" name="tw_end" class="tw-marker" data-marker="end" value="{{ day.id }}"
-                       {% if show.travel_window_end and day.date == show.travel_window_end %}checked{% endif %}> 🛬
+                       {% if show.travel_window_end and day.date == show.travel_window_end %}checked{% endif %}> {{ ico.icon('plane-landing') }}
               </label>
             </td>
           </tr>
@@ -435,7 +436,7 @@
 
 {% else %}
 <div class="empty-state">
-  <div class="empty-icon">📅</div>
+  <div class="empty-icon">{{ ico.icon('calendar', 32) }}</div>
   <div style="font-size:1rem;font-weight:600;margin-bottom:8px;">No days in this schedule yet</div>
   <p class="text-muted" style="font-size:.85rem;max-width:400px;margin:0 auto 16px;">
     {% if show.load_in_date and show.strike_date %}
@@ -458,7 +459,7 @@
           </label>
         </div>
       </div>
-      <button type="submit" class="btn btn-adi">⚡ Auto-Generate Days</button>
+      <button type="submit" class="btn btn-adi">{{ ico.icon('zap') }} Auto-Generate Days</button>
     </form>
     {% endif %}
     <a href="{{ url_for('schedule.add_day', show_id=show.id) }}" class="btn btn-dark">

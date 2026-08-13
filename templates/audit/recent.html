@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import '_icons.html' as ico %}
 {% block title %}Recent Activity — Undo / Redo{% endblock %}
 {% block page_title %}Recent Activity — Undo &amp; Redo{% endblock %}
 {% block breadcrumb %}
@@ -10,8 +11,8 @@
 <div class="card mb-3 p-3" style="background:#FFF8EC;border:1px solid #E8DCA8;">
   <div style="font-size:.85rem;">
     <strong>Undo / redo any recent change.</strong> Each item below is one
-    user action. Click <strong>↶ Undo</strong> to reverse it, or
-    <strong>↷ Redo</strong> to re-apply. Nested changes from a single click
+    user action. Click <strong>{{ ico.icon('undo-2') }} Undo</strong> to reverse it, or
+    <strong>{{ ico.icon('redo-2') }} Redo</strong> to re-apply. Nested changes from a single click
     (like deleting a day, which cascades to its activities and crew) are
     grouped and can be undone together.
   </div>
@@ -66,13 +67,13 @@
               <form method="POST" style="display:inline;"
                     action="{{ url_for('audit.undo_grp', group_id=g.group_id) }}"
                     onsubmit="return confirm('Undo all {{ g.entries|length }} change(s) in this action?');">
-                <button type="submit" class="btn btn-sm btn-outline-warning">↶ Undo</button>
+                <button type="submit" class="btn btn-sm btn-outline-warning">{{ ico.icon('undo-2') }} Undo</button>
               </form>
               {% endif %}
               {% if g.any_undone %}
               <form method="POST" style="display:inline;"
                     action="{{ url_for('audit.redo_grp', group_id=g.group_id) }}">
-                <button type="submit" class="btn btn-sm btn-outline-success">↷ Redo</button>
+                <button type="submit" class="btn btn-sm btn-outline-success">{{ ico.icon('redo-2') }} Redo</button>
               </form>
               {% endif %}
             {% else %}
@@ -80,12 +81,12 @@
                 {% if not e.undone %}
                 <form method="POST" style="display:inline;"
                       action="{{ url_for('audit.undo_one', entry_id=e.id) }}">
-                  <button type="submit" class="btn btn-sm btn-outline-warning">↶ Undo</button>
+                  <button type="submit" class="btn btn-sm btn-outline-warning">{{ ico.icon('undo-2') }} Undo</button>
                 </form>
                 {% else %}
                 <form method="POST" style="display:inline;"
                       action="{{ url_for('audit.redo_one', entry_id=e.id) }}">
-                  <button type="submit" class="btn btn-sm btn-outline-success">↷ Redo</button>
+                  <button type="submit" class="btn btn-sm btn-outline-success">{{ ico.icon('redo-2') }} Redo</button>
                 </form>
                 {% endif %}
               {% endfor %}

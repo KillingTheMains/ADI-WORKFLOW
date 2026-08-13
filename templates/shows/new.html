@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import '_icons.html' as ico %}
 {% block title %}New Show — ADI Workflow{% endblock %}
 {% block page_title %}New Show{% endblock %}
 {% block breadcrumb %}
@@ -118,7 +119,7 @@
                   <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end">
                 </div>
                 <div class="col-auto" style="width:36px;">
-                  <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">✕</button>
+                  <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">{{ ico.icon('x') }}</button>
                 </div>
                 <input type="hidden" name="phase_notes[]" value="">
               </div>
@@ -149,7 +150,7 @@
                   <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end">
                 </div>
                 <div class="col-auto" style="width:36px;">
-                  <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">✕</button>
+                  <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">{{ ico.icon('x') }}</button>
                 </div>
                 <input type="hidden" name="phase_notes[]" value="">
               </div>
@@ -180,7 +181,7 @@
                   <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end">
                 </div>
                 <div class="col-auto" style="width:36px;">
-                  <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">✕</button>
+                  <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">{{ ico.icon('x') }}</button>
                 </div>
                 <input type="hidden" name="phase_notes[]" value="">
               </div>
@@ -188,7 +189,7 @@
           </div><!-- #phases-container -->
 
           <p class="text-muted mb-0 mt-2" style="font-size:.78rem;">
-            💡 Rows auto-sort by start date. Drag the ⠿ handle to reorder manually.
+            {{ ico.icon('lightbulb') }} Rows auto-sort by start date. Drag the ⠿ handle to reorder manually.
             You can skip dates for now and fill them in later.
           </p>
         </div>
@@ -310,7 +311,7 @@
         <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end">
       </div>
       <div class="col-auto" style="width:36px;">
-        <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">✕</button>
+        <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">{{ ico.icon('x') }}</button>
       </div>
       <input type="hidden" name="phase_notes[]" value="">
     </div>

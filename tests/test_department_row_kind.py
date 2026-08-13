@@ -216,8 +216,17 @@ def test_the_full_department_name_rides_alongside(app, client, db, dock_day):
     name is on the row."""
     show, day, call, load = dock_day
     body = _page(client, show, day)
-    row = body[body.index("Truck 1 arrives"):][:900]
-    assert "🚚 Dock" in row
+    # The window is 2000 rather than 900 because an INLINE svg is ~450 chars
+    # of path data; §05's icons cost markup where the emoji cost one character.
+    # Widening the window keeps the claim ("on this row") intact -- the next
+    # row's content is still well outside it.
+    row = body[body.index("Truck 1 arrives"):][:2000]
+    # The badge is the department's Lucide glyph followed by its full name.
+    # Interface Spec §05 moved this off the 🚚 emoji; the assertion follows the
+    # rendering rather than being relaxed, so it still fails if the name stops
+    # riding alongside the code.
+    assert 'data-icon="truck"' in row
+    assert "Dock" in row
 
 
 def test_the_row_keeps_the_activity_silhouette(app, client, db, dock_day):

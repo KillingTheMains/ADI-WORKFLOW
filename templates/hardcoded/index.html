@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% import '_icons.html' as ico %}
+{% import '_row_kinds.html' as rk %}
 {% block title %}Recurring Events — ADI Workflow{% endblock %}
 {% block page_title %}Recurring Events{% endblock %}
 {% block breadcrumb %}
@@ -40,7 +42,7 @@
         <select name="department" class="form-select form-select-sm">
           <option value="">— none —</option>
           {% for t in oss_types %}
-          <option value="{{ t }}">{{ oss_meta[t].icon }} {{ oss_meta[t].label }}</option>
+          <option value="{{ t }}">{{ rk.DEPT_CODES.get(t, "") }} · {{ oss_meta[t].label }}</option>
           {% endfor %}
         </select>
       </div>
@@ -79,7 +81,7 @@
             <select name="department" class="form-select form-select-sm">
               <option value="" {% if not ev.department %}selected{% endif %}>— none —</option>
               {% for t in oss_types %}
-              <option value="{{ t }}" {% if ev.department == t %}selected{% endif %}>{{ oss_meta[t].icon }} {{ oss_meta[t].label }}</option>
+              <option value="{{ t }}" {% if ev.department == t %}selected{% endif %}>{{ rk.DEPT_CODES.get(t, "") }} · {{ oss_meta[t].label }}</option>
               {% endfor %}
             </select>
           </div>
@@ -113,7 +115,7 @@
         </form>
         <form method="POST" action="{{ url_for('hardcoded_bp.delete', ev_id=ev.id) }}"
               onsubmit="return confirm('Delete this recurring event?');">
-          <button class="btn btn-sm btn-outline-danger" title="Delete">✕</button>
+          <button class="btn btn-sm btn-outline-danger" title="Delete">{{ ico.icon('x') }}</button>
         </form>
       </div>
       {% endfor %}

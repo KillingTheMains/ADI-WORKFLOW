@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% import '_icons.html' as ico %}
+{% import '_row_kinds.html' as rk %}
 {% block title %}{{ show.name }} — OSS{% endblock %}
 {% block page_title %}On-Site Schedule — {{ show.name }}{% endblock %}
 {% block breadcrumb %}
@@ -9,8 +11,8 @@
 {% endblock %}
 
 {% block top_actions %}
-  <a href="{{ url_for('schedule.overview', show_id=show.id) }}" class="btn btn-sm btn-outline-secondary">📅 Schedule</a>
-  <a href="{{ url_for('oss.show_book', show_id=show.id) }}" target="_blank" class="btn btn-sm btn-adi">📖 Show Book</a>
+  <a href="{{ url_for('schedule.overview', show_id=show.id) }}" class="btn btn-sm btn-outline-secondary">{{ ico.icon('calendar') }} Schedule</a>
+  <a href="{{ url_for('oss.show_book', show_id=show.id) }}" target="_blank" class="btn btn-sm btn-adi">{{ ico.icon('book-open') }} Show Book</a>
   <a href="{{ url_for('shows.detail', show_id=show.id) }}" class="btn btn-sm btn-dark">← Show</a>
 {% endblock %}
 
@@ -86,7 +88,7 @@
   <li class="nav-item">
     <button class="nav-link {% if active_tab == 'master' %}active{% endif %}"
             data-bs-toggle="tab" data-bs-target="#tab-master" type="button">
-      <span class="icon">📋</span>Master Schedule
+      <span class="icon">{{ ico.icon('clipboard-list') }}</span>Master Schedule
       {% if master_items %}<span class="oss-pill ms-1">{{ master_items|length }}</span>{% endif %}
     </button>
   </li>
@@ -101,12 +103,12 @@
     <button class="nav-link {% if active_tab == tab_unassigned %}active{% endif %}"
             data-bs-toggle="tab" data-bs-target="#tab-unassigned" type="button"
             data-tab-key="{{ tab_unassigned }}">
-      <span class="icon">📥</span>Unassigned
+      <span class="icon">{{ ico.icon('inbox') }}</span>Unassigned
       <span title="Entries that are not on any day page yet"
             style="display:inline-block;font-size:.62rem;font-weight:700;
                    padding:1px 6px;border-radius:8px;margin-left:4px;
                    background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;">
-        ⚠ {{ unassigned_count }}
+        {{ ico.icon('alert-triangle') }} {{ unassigned_count }}
       </span>
     </button>
   </li>
@@ -117,7 +119,7 @@
     <button class="nav-link {% if active_tab == t %}active{% endif %}"
             data-bs-toggle="tab" data-bs-target="#tab-{{ loop.index }}" type="button"
             data-tab-key="{{ t }}">
-      <span class="icon">{{ m.icon }}</span>{{ m.label }}
+      <span class="icon">{{ ico.icon(m.icon) }}</span>{{ m.label }}
       {% if t == 'F&B' %}
         {% if meal_services %}<span class="oss-pill ms-1">{{ meal_services|length }}</span>{% endif %}
       {% elif grouped[t] %}<span class="oss-pill ms-1">{{ grouped[t]|length }}</span>{% endif %}
@@ -126,14 +128,14 @@
             style="display:inline-block;font-size:.62rem;font-weight:700;
                    padding:1px 6px;border-radius:8px;margin-left:4px;
                    background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;">
-        ⚠ {{ missing_fb|length }}
+        {{ ico.icon('alert-triangle') }} {{ missing_fb|length }}
       </span>
       {% elif t == 'F&B' and coverage_counts and coverage_counts.total %}
       <span title="Breaks and services still unanswered — declared, not guessed from a name"
             style="display:inline-block;font-size:.62rem;font-weight:700;
                    padding:1px 6px;border-radius:8px;margin-left:4px;
                    background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;">
-        ⚠ {{ coverage_counts.total }}
+        {{ ico.icon('alert-triangle') }} {{ coverage_counts.total }}
       </span>
       {% endif %}
     </button>
@@ -154,12 +156,12 @@
       <a href="{{ url_for('oss.master_pdf', show_id=show.id) }}"
          class="btn btn-sm btn-dark" style="white-space:nowrap;"
          title="Client-facing PDF — cover, at-a-glance, day-by-day, by department">
-        ⬇ PDF
+        {{ ico.icon('download') }} PDF
       </a>
       <a href="{{ url_for('oss.master_xlsx', show_id=show.id) }}"
          class="btn btn-sm btn-outline-dark" style="white-space:nowrap;"
          title="Working spreadsheet — a sheet per department, filterable">
-        ⬇ XLSX
+        {{ ico.icon('download') }} XLSX
       </a>
       {% endif %}
     </div>
@@ -202,7 +204,7 @@
               {%- if item.time %}{{ item.time|to_12hr }}{% if item.end_time %} – {{ item.end_time|to_12hr }}{% endif %}
               {%- else %}—{% endif %}
             </td>
-            <td style="{{ fill }}"><span class="oss-pill">{{ item.icon }} {{ item.dept }}</span></td>
+            <td style="{{ fill }}"><span class="oss-pill">{{ ico.icon(item.icon) }} {{ item.dept }}</span></td>
             <td style="{{ fill }}">{{ master_label(item) }}</td>
             <td style="{{ fill }}">{{ item.count if item.count is not none else '—' }}</td>
             <td style="{{ fill }}">{{ item.duration_hrs if item.duration_hrs is not none else '—' }}</td>
@@ -324,7 +326,7 @@
                 <option value="">— pick one —</option>
                 {% for t in ordered_types %}
                 <option value="{{ t }}" {% if t == e.type %}selected{% endif %}>
-                  {{ meta[t].icon }} {{ meta[t].label }}
+                  {{ rk.DEPT_CODES.get(t, "") }} · {{ meta[t].label }}
                 </option>
                 {% endfor %}
               </select>
@@ -373,7 +375,7 @@
        id="tab-{{ loop.index }}" role="tabpanel">
     {# Recurring events used to be listed here for EVERY tab, in a box styled
        #FEF3C7 / #FCD34D / #92400E — the app's warning colour, the same
-       treatment as "⚠ no F&B". Doors carries 21 of them and no other tab
+       treatment as "no F&B". Doors carries 21 of them and no other tab
        carries any, so the one tab where they matter read as a warning about
        its own schedule, above its own six entries, with no day grouping.
 
@@ -392,7 +394,7 @@
     {% else %}
     {% if t == 'F&B' and missing_fb %}
     <div class="alert alert-warning py-2 px-3" style="font-size:.82rem;">
-      <strong>⚠ {{ missing_fb|length }} meal break{% if missing_fb|length != 1 %}s{% endif %}
+      <strong>{{ ico.icon('alert-triangle') }} {{ missing_fb|length }} meal break{% if missing_fb|length != 1 %}s{% endif %}
       with no F&B entry.</strong>
       The schedule has meal-related activities (LUNCH, DINNER, BREAKFAST, MEAL) that
       aren't linked to any F&B OSS entry yet:
@@ -408,7 +410,7 @@
     {% endif %}
 
     <div class="oss-section-help">
-      {{ m.icon }} <strong>{{ m.label }}</strong> entries for this show.
+      {{ ico.icon(m.icon) }} <strong>{{ m.label }}</strong> entries for this show.
       {% if t == 'Wristbands' %}Use <em>Count</em> for total wristbands needed (techs + local labor).{% endif %}
       {% if t == 'F&B' %}Use <em>Count</em> for meal headcount. Use <em>Notes</em> for dietary or special instructions.{% endif %}
       {% if t == 'COMS' %}Use <em>Count</em> for total intercom packs needed.{% endif %}
@@ -480,7 +482,7 @@
                          font-variant-numeric:tabular-nums;">
                 {{ e.effective_time or '—' }}
                 {% if e.is_linked %}<span title="Linked to a schedule activity — time follows the activity"
-                                          style="color:var(--adi-gold);font-size:.72rem;">🔗</span>{% endif %}
+                                          style="color:var(--adi-gold);font-size:.72rem;">{{ ico.icon('link') }}</span>{% endif %}
               </td>
               <td style="{{ rk.row_fill('act') }}">
                 {{ e.activity or '—' }}

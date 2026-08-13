@@ -110,7 +110,10 @@ def test_it_carries_a_warning_badge_with_the_count(app, client, db,
     show, _days, _act = show_with_strays
     nav_src = _oss(client, show)
     nav = nav_src[nav_src.index('<ul class="nav nav-tabs'):nav_src.index("</ul>")]
-    assert "⚠ 3" in nav
+    # §05: the ⚠ became a Lucide glyph. The count -- three, not five -- is
+    # the claim, and the badge must still carry the warning icon.
+    assert 'data-icon="alert-triangle"' in nav
+    assert "3" in nav
     assert "#FEF3C7" in nav
 
 

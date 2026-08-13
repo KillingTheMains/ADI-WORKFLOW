@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import '_icons.html' as ico %}
 
 {% block title %}Dashboard — ADI Workflow{% endblock %}
 {% block page_title %}Dashboard{% endblock %}
@@ -90,7 +91,7 @@
   </div>
 {% else %}
   <div class="empty-state">
-    <div class="empty-icon">🎬</div>
+    <div class="empty-icon">{{ ico.icon('clapperboard', 32) }}</div>
     <div style="font-size:1rem;font-weight:600;margin-bottom:8px;">No shows yet</div>
     <p class="text-muted" style="font-size:0.875rem;">
       Create your first show to get started.

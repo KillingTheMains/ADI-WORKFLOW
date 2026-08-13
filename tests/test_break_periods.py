@@ -165,7 +165,9 @@ def test_the_editor_is_folded_away_until_asked_for(app, client, db):
                  .get_data(as_text=True)
     assert 'id="breaks-%d"' % calls[0].id in html
     assert 'class="collapse px-3 py-2" id="breaks-%d"' % calls[0].id in html
-    assert "☕ 2 breaks" in html
+    # The ☕ became a Lucide glyph in §05; the count is still the claim.
+    assert 'data-icon="coffee"' in html
+    assert "2 breaks" in html
 
 
 def test_the_meal_service_dropdown_is_gone_from_the_day_page(app, client, db):

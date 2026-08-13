@@ -1,3 +1,4 @@
+{% import '_icons.html' as ico %}
 {# F&B v2 tab — meal services grouped by day + dietary rollup. #}
 
 <style>
@@ -48,7 +49,7 @@
 </style>
 
 <div class="oss-section-help">
-  🍽 <strong>F&amp;B</strong> — meal services on each show day. A single service
+  {{ ico.icon('utensils') }} <strong>F&amp;B</strong> — meal services on each show day. A single service
   can have <strong>multiple locations</strong> (Backstage, FOH, Local Labor…) with
   their own times and headcounts. Totals roll up automatically. Add per-show
   dietary preferences at the bottom.
@@ -62,7 +63,7 @@
 {% if stray_fb %}
 <div class="alert alert-warning py-2 px-3 d-flex align-items-center justify-content-between" style="font-size:.82rem;gap:12px;">
   <div>
-    <strong>⚠ {{ stray_fb }} F&amp;B item{{ '' if stray_fb == 1 else 's' }} in the old format</strong>
+    <strong>{{ ico.icon('alert-triangle') }} {{ stray_fb }} F&amp;B item{{ '' if stray_fb == 1 else 's' }} in the old format</strong>
     — they exist on the schedule but don't show as meal services here yet. Convert them to bring them onto this tab.
   </div>
   <form method="POST" action="{{ url_for('oss.fb_convert_legacy', show_id=show.id) }}" style="margin:0;flex-shrink:0;">
@@ -73,7 +74,7 @@
 
 {% if t == 'F&B' and missing_fb %}
 <div class="alert alert-warning py-2 px-3" style="font-size:.82rem;">
-  <strong>⚠ {{ missing_fb|length }} meal break{% if missing_fb|length != 1 %}s{% endif %}
+  <strong>{{ ico.icon('alert-triangle') }} {{ missing_fb|length }} meal break{% if missing_fb|length != 1 %}s{% endif %}
   with no F&amp;B service.</strong>
   <ul class="mb-0 mt-1" style="font-size:.78rem;">
     {% for w in missing_fb %}
@@ -95,7 +96,7 @@
 <div class="alert alert-warning py-2 px-3 d-flex align-items-center justify-content-between"
      style="font-size:.82rem;gap:12px;">
   <div>
-    <strong>⚠ {{ coverage_counts.total }} thing{{ '' if coverage_counts.total == 1 else 's' }}
+    <strong>{{ ico.icon('alert-triangle') }} {{ coverage_counts.total }} thing{{ '' if coverage_counts.total == 1 else 's' }}
     still unanswered</strong> —
     {{ coverage_counts.undecided }} break{{ '' if coverage_counts.undecided == 1 else 's' }}
     nobody has decided on,
@@ -168,19 +169,19 @@
          every row; the count is what anybody reads it for, and the rest is a
          tooltip. The warning chips beside it still shout when a hand-typed
          figure and the crew call disagree, which is the case that matters. #}
-      👤 {{ svc.total_headcount }}
+      {{ ico.icon('user') }} {{ svc.total_headcount }}
     </span>
     {% if win and win.breach %}
     <span style="font-size:.66rem;color:#FFD9A0;white-space:nowrap;"
           title="Food would be out for {{ win.food_out }} minutes. The house maximum is 120. Saveable — real shows break this knowingly — but somebody should see it.">
-      ⚠ food out {{ win.food_out }}m
+      {{ ico.icon('alert-triangle') }} food out {{ win.food_out }}m
     </span>
     {% endif %}
     {% if not svc.headcount_is_derived and svc.derived_headcount is not none
           and svc.derived_headcount != svc.total_headcount %}
     <span style="font-size:.66rem;color:#FFD9A0;white-space:nowrap;"
           title="These counts were typed by hand. The crew call now says something different. Clear a Count to follow the crew again.">
-      ⚠ crew says {{ svc.derived_headcount }}
+      {{ ico.icon('alert-triangle') }} crew says {{ svc.derived_headcount }}
     </span>
     {% endif %}
     <button class="btn btn-sm" type="button"
@@ -194,7 +195,7 @@
           onsubmit="return confirm('Delete this service and all its locations?');">
       <button type="submit" class="btn btn-sm p-0"
               style="color:#fff;background:none;border:none;font-size:.84rem;"
-              title="Delete service">✕</button>
+              title="Delete service">{{ ico.icon('x') }}</button>
     </form>
   </div>
 
@@ -325,7 +326,7 @@
               <td><input type="text" name="loc_{{ loc.id }}_notes" value="{{ loc.notes or '' }}"></td>
               <td style="text-align:center;">
                 <button type="submit" form="del-loc-{{ loc.id }}" class="btn btn-sm p-0 text-danger"
-                        style="font-size:.78rem;" title="Remove this location">✕</button>
+                        style="font-size:.78rem;" title="Remove this location">{{ ico.icon('x') }}</button>
               </td>
             </tr>
             {% endfor %}
@@ -413,7 +414,7 @@
        they move whenever either does. #}
     <div class="mt-2" style="border-top:1px solid #E8E4D7;padding-top:6px;">
       <div style="font-size:.72rem;font-weight:700;color:#0B2545;">
-        🥤 Set &amp; refreshes
+        {{ ico.icon('cup-soda') }} Set &amp; refreshes
         <span style="font-weight:400;color:#59636E;">
           — from SOD {{ plan.sod or '—' }}
           {%- if svc.beverage_offset_minutes %} {{ '+' if svc.beverage_offset_minutes > 0 else '−' }}{{ svc.beverage_offset_minutes|abs }} min{% endif %},
@@ -423,7 +424,7 @@
         </span>
       </div>
       {% if plan.reason %}
-      <div style="font-size:.72rem;color:#B45309;margin-top:3px;">⚠ {{ plan.reason }}</div>
+      <div style="font-size:.72rem;color:#B45309;margin-top:3px;">{{ ico.icon('alert-triangle') }} {{ plan.reason }}</div>
       {% else %}
       <table class="loc-table mt-1">
         <thead><tr>
@@ -448,7 +449,7 @@
       {% if plan.estimated %}
       <div style="font-size:.68rem;color:#B45309;margin-top:3px;"
            title="Some crew rows have no Hrs set, so nobody can be counted off site. These figures are the maximum, not the exact number.">
-        ⚠ Estimate — some crew have no hours set, so nobody is counted as
+        {{ ico.icon('alert-triangle') }} Estimate — some crew have no hours set, so nobody is counted as
         having left. Set Hrs on the crew calls to sharpen these.
       </div>
       {% endif %}
@@ -506,7 +507,7 @@
       <button type="submit" class="btn btn-sm btn-outline-secondary"
               style="font-size:.72rem;"
               title="All-day beverages. The set and every refresh are worked out from this day's SOD and EOD, and appear on the schedule as events.">
-        🥤 Add beverage service
+        {{ ico.icon('cup-soda') }} Add beverage service
       </button>
     </div>
   </div>
@@ -575,7 +576,7 @@
 {# ── Meal services not tied to a show day (surfaced so they're never lost) ── #}
 {% if unscheduled_meals %}
 <div class="day-header" style="background:#7A2E2E;color:#FCD9D9;">
-  <span>⚠ Unscheduled meal services (not tied to a show day)</span>
+  <span>{{ ico.icon('alert-triangle') }} Unscheduled meal services (not tied to a show day)</span>
   <span style="font-weight:400;font-size:.74rem;">{{ unscheduled_meals|length }}</span>
 </div>
 {% for svc in unscheduled_meals %}
@@ -583,11 +584,11 @@
   <div class="head">
     <span class="kind">{{ 'beverages' if is_all_day(svc) else svc.kind }}</span>
     <span class="name">{{ svc.name }}</span>
-    <span class="total">👤 {{ svc.total_headcount }}</span>
+    <span class="total">{{ ico.icon('user') }} {{ svc.total_headcount }}</span>
     <form method="POST" style="margin:0;"
           action="{{ url_for('oss.fb_service_delete', show_id=show.id, svc_id=svc.id) }}"
           onsubmit="return confirm('Delete this meal service and all its locations?');">
-      <button type="submit" class="btn btn-sm p-0" style="color:#fff;background:none;border:none;font-size:.84rem;" title="Delete service">✕</button>
+      <button type="submit" class="btn btn-sm p-0" style="color:#fff;background:none;border:none;font-size:.84rem;" title="Delete service">{{ ico.icon('x') }}</button>
     </form>
   </div>
   <div class="body">
@@ -614,7 +615,7 @@
 
 {# ── Per-show dietary preferences ────────────────────────────────────── #}
 <div class="day-header" style="background:var(--adi-dark);color:var(--adi-gold-lt);">
-  <span>🥗 Dietary preferences (show-wide)</span>
+  <span>{{ ico.icon('salad') }} Dietary preferences (show-wide)</span>
   <span class="text-muted" style="color:rgba(255,255,255,.55) !important;font-weight:400;font-size:.74rem;">
     {{ dietary_notes|length }} note{{ '' if dietary_notes|length == 1 else 's' }}
   </span>
@@ -644,12 +645,12 @@
                        min="0" step="1" class="count"></td>
             <td><input type="text" name="notes" value="{{ d.notes or '' }}"></td>
             <td style="text-align:center;">
-              <button type="submit" class="btn btn-sm p-0 text-success" style="font-size:.9rem;">💾</button>
+              <button type="submit" class="btn btn-sm p-0 text-success" style="font-size:.9rem;">{{ ico.icon('save') }}</button>
           </form>
               <form method="POST" style="display:inline;"
                     action="{{ url_for('oss.fb_dietary_delete', show_id=show.id, did=d.id) }}"
                     onsubmit="return confirm('Remove this dietary note?');">
-                <button type="submit" class="btn btn-sm p-0 text-danger" style="font-size:.8rem;">✕</button>
+                <button type="submit" class="btn btn-sm p-0 text-danger" style="font-size:.8rem;">{{ ico.icon('x') }}</button>
               </form>
             </td>
           </tr>

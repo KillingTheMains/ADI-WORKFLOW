@@ -574,7 +574,7 @@ def edit_day(show_id, day_id):
     if date_changed:
         # Loud, non-dismissible-feeling notice so a silent rename is impossible.
         flash(
-            f"⚠ Day RENAMED from {original_iso or old_date} to {new_date}. "
+            f"Day RENAMED from {original_iso or old_date} to {new_date}. "
             f"If this was not intended, use Recent Activity to undo.",
             "warning",
         )
@@ -909,7 +909,7 @@ def add_crew_row(show_id, day_id, act_id):
                 conflict_act = ScheduleActivity.query.get(existing.activity_id)
                 conflict_time = conflict_act.time or "another activity"
                 flash(
-                    f"⚠ Double-booking: {name} is already on this day "
+                    f"Double-booking: {name} is already on this day "
                     f"({conflict_time} — {conflict_act.description[:40]}). "
                     f"Row added anyway — review the call sheet.",
                     "warning"

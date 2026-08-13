@@ -1,7 +1,8 @@
+{% import '_icons.html' as ico %}
 {# COMS tab — split top (Radios | Beltpacks) + crew assignment table. #}
 
 <div class="oss-section-help">
-  🎧 <strong>COMS</strong> — radio and intercom gear for crew on this show.
+  {{ ico.icon('headphones') }} <strong>COMS</strong> — radio and intercom gear for crew on this show.
   Set up your channel maps at the top (16 radio channels + as many beltpack
   channels as you need), then assign gear to each person below.
 </div>
@@ -16,7 +17,7 @@
     <div class="card h-100">
       <div class="card-header d-flex align-items-center justify-content-between"
            style="background:var(--adi-dark);color:var(--adi-gold-lt);">
-        <span style="font-size:.85rem;font-weight:700;">📻 Radio channels (1–16)</span>
+        <span style="font-size:.85rem;font-weight:700;">{{ ico.icon('radio') }} Radio channels (1–16)</span>
         <span class="text-muted" style="font-size:.7rem;color:rgba(255,255,255,.55)!important;">
           Two-way radio channel scheme for this show
         </span>
@@ -43,7 +44,7 @@
           </div>
           <div class="d-flex justify-content-end mt-2">
             <button type="submit" class="btn btn-sm btn-adi" style="font-size:.78rem;">
-              💾 Save radio names
+              {{ ico.icon('save') }} Save radio names
             </button>
           </div>
         </form>
@@ -56,7 +57,7 @@
     <div class="card h-100">
       <div class="card-header d-flex align-items-center justify-content-between"
            style="background:var(--adi-dark);color:var(--adi-gold-lt);">
-        <span style="font-size:.85rem;font-weight:700;">🎧 Beltpack channels</span>
+        <span style="font-size:.85rem;font-weight:700;">{{ ico.icon('headphones') }} Beltpack channels</span>
         <span style="font-size:.7rem;color:rgba(255,255,255,.55);">
           {{ coms_channels|length }} defined
         </span>
@@ -74,7 +75,7 @@
                   style="display:inline;"
                   onsubmit="return confirm('Remove channel {{ ch.name }}? It will be cleared from any crew assignments that reference it.');">
               <button type="submit" class="btn btn-sm btn-link p-0 text-danger"
-                      style="font-size:.78rem;line-height:1;" title="Remove">✕</button>
+                      style="font-size:.78rem;line-height:1;" title="Remove">{{ ico.icon('x') }}</button>
             </form>
           </div>
           {% endfor %}
@@ -108,17 +109,17 @@
 {# Summary header #}
 <div class="d-flex flex-wrap gap-2 mb-2" style="font-size:.78rem;">
   <span class="oss-pill" style="background:var(--adi-dark);color:var(--adi-gold-lt);">
-    📻 {{ coms_summary.radios }} radio{{ '' if coms_summary.radios == 1 else 's' }}
+    {{ ico.icon('radio') }} {{ coms_summary.radios }} radio{{ '' if coms_summary.radios == 1 else 's' }}
   </span>
   <span class="oss-pill" style="background:var(--adi-dark);color:var(--adi-gold-lt);">
-    🎧 {{ coms_summary.wireless }} wireless pack{{ '' if coms_summary.wireless == 1 else 's' }}
+    {{ ico.icon('headphones') }} {{ coms_summary.wireless }} wireless pack{{ '' if coms_summary.wireless == 1 else 's' }}
   </span>
   <span class="oss-pill" style="background:var(--adi-dark);color:var(--adi-gold-lt);">
-    🔌 {{ coms_summary.wired }} wired pack{{ '' if coms_summary.wired == 1 else 's' }}
+    {{ ico.icon('plug') }} {{ coms_summary.wired }} wired pack{{ '' if coms_summary.wired == 1 else 's' }}
   </span>
   {% if coms_summary.no_comms %}
   <span class="oss-pill" style="background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;">
-    ⚠ {{ coms_summary.no_comms }} crew without comms
+    {{ ico.icon('alert-triangle') }} {{ coms_summary.no_comms }} crew without comms
   </span>
   {% endif %}
 </div>
@@ -137,8 +138,8 @@
       <tr>
         <th>Name</th>
         <th>Position</th>
-        <th style="width:55px;text-align:center;">📻</th>
-        <th style="width:55px;text-align:center;">🎧</th>
+        <th style="width:55px;text-align:center;">{{ ico.icon('radio') }}</th>
+        <th style="width:55px;text-align:center;">{{ ico.icon('headphones') }}</th>
         <th style="width:110px;">Wired/Wireless</th>
         <th style="width:130px;">Brand</th>
         <th>Beltpack channels (K1–K{{ com_pack_hard_cap }})</th>
@@ -247,9 +248,9 @@
     <div class="text-muted" style="font-size:.74rem;">
       Each slot (K1–K{{ com_pack_hard_cap }}) is a separate key on the physical pack.
       Empty slots are fine. Slot count narrows to the brand's typical pack
-      size when you pick a brand. Touching any field auto-ticks 🎧.
+      size when you pick a brand. Touching any field auto-ticks the headset column.
     </div>
-    <button type="submit" class="btn btn-sm btn-adi">💾 Save COMS</button>
+    <button type="submit" class="btn btn-sm btn-adi">{{ ico.icon('save') }} Save COMS</button>
   </div>
 </form>
 
@@ -330,7 +331,7 @@
     counter.style.color = '#888';
   }
 
-  // Auto-tick 🎧 when the user touches any pack-related field, so the row
+  // Auto-tick the headset box when the user touches any pack-related field, so the row
   // actually commits its pack data on save.
   function autoCheckHeadset(aid) {
     document.querySelectorAll('.coms-headset-toggle').forEach(cb => {

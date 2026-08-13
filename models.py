@@ -519,7 +519,7 @@ class ScheduleActivity(db.Model):
             return None
         return SUB_SCHEDULE_META.get(
             self.department,
-            {"label": self.department, "icon": "•", "sort": 99})
+            {"label": self.department, "icon": "", "sort": 99})
 
     @property
     def ordered_crew_rows(self):
@@ -1062,16 +1062,24 @@ SUB_SCHEDULE_TYPES = [
 # UI metadata for OSS tabs. `label` is what the user sees, `icon` decorates
 # the tab, `sort` controls tab order. The model stores the raw `type` key.
 SUB_SCHEDULE_META = {
-    "Dock":       {"label": "Dock",         "icon": "🚚", "sort": 1},
-    "Hazer":      {"label": "Haze",         "icon": "💨", "sort": 2},
-    "Doors":      {"label": "Doors",        "icon": "🔒", "sort": 3},
-    "Security":   {"label": "Security",     "icon": "🛡",  "sort": 4},
-    "F&B":        {"label": "F&B",          "icon": "🍽", "sort": 5},
-    "House LX":   {"label": "House Lights", "icon": "💡", "sort": 6},
-    "HVAC":       {"label": "HVAC / AC",    "icon": "❄",  "sort": 7},
-    "Wristbands": {"label": "Wristbands",   "icon": "🎫", "sort": 8},
-    "COMS":       {"label": "COMS",         "icon": "🎧", "sort": 9},
-    "Cleaning":   {"label": "Cleaning",     "icon": "🧹", "sort": 10},
+    # `icon` is a LUCIDE NAME, not a character. Interface Spec §05. It is
+    # resolved by templates/_icons.html into an inline SVG; the names here are
+    # exactly the ten §05 nominates for these departments.
+    #
+    # A screen that CANNOT hold an SVG -- a <select>'s <option>, which permits
+    # text only -- prints brand.DEPT_CODE's two letters instead, which is what
+    # oss_pdf and oss_xlsx already print. So all five surfaces stay in step
+    # without any of them rendering a glyph its container cannot hold.
+    "Dock":       {"label": "Dock",         "icon": "truck",      "sort": 1},
+    "Hazer":      {"label": "Haze",         "icon": "wind",       "sort": 2},
+    "Doors":      {"label": "Doors",        "icon": "lock",       "sort": 3},
+    "Security":   {"label": "Security",     "icon": "shield",     "sort": 4},
+    "F&B":        {"label": "F&B",          "icon": "utensils",   "sort": 5},
+    "House LX":   {"label": "House Lights", "icon": "lightbulb",  "sort": 6},
+    "HVAC":       {"label": "HVAC / AC",    "icon": "snowflake",  "sort": 7},
+    "Wristbands": {"label": "Wristbands",   "icon": "ticket",     "sort": 8},
+    "COMS":       {"label": "COMS",         "icon": "headphones", "sort": 9},
+    "Cleaning":   {"label": "Cleaning",     "icon": "brush",      "sort": 10},
 }
 
 
@@ -1229,7 +1237,7 @@ class SubScheduleEntry(db.Model):
     @property
     def meta(self):
         """UI metadata (label, icon) for this entry's type."""
-        return SUB_SCHEDULE_META.get(self.type, {"label": self.type, "icon": "•", "sort": 99})
+        return SUB_SCHEDULE_META.get(self.type, {"label": self.type, "icon": "", "sort": 99})
 
     def __repr__(self):
         return f"<SubSchedule {self.type} day={self.schedule_day_id} act={self.activity_id} {self.time}>"

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
+{% import '_icons.html' as ico %}
 {% block title %}Travel — {{ show.name }}{% endblock %}
-{% block page_title %}✈ Travel — {{ show.name }}{% endblock %}
+{% block page_title %}{{ ico.icon('plane') }} Travel — {{ show.name }}{% endblock %}
 {% block breadcrumb %}
   <a href="{{ url_for('main.dashboard') }}">Home</a> /
   <a href="{{ url_for('shows.detail', show_id=show.id) }}">{{ show.name }}</a> /
@@ -20,15 +21,15 @@
        class="btn btn-sm {% if sort_by == 'position' %}btn-adi{% else %}btn-outline-secondary{% endif %}">Position</a>
   </div>
   <a href="{{ url_for('show_crew.travel_xlsx', show_id=show.id, sort=sort_by) }}"
-     class="btn btn-sm btn-outline-success" title="Download Excel">📊 XLSX</a>
+     class="btn btn-sm btn-outline-success" title="Download Excel">{{ ico.icon('chart-column') }} XLSX</a>
   <a href="{{ url_for('show_crew.travel_print', show_id=show.id, sort=sort_by) }}"
      class="btn btn-sm btn-outline-danger" title="Open the print-friendly view — then use your browser's Print → Save as PDF"
-     target="_blank">🖨 Print</a>
+     target="_blank">{{ ico.icon('printer') }} Print</a>
   <form method="POST" action="{{ url_for('crew_import.upload') }}"
         enctype="multipart/form-data" style="display:inline-block;margin-left:6px;">
     <input type="hidden" name="target_show_id" value="{{ show.id }}">
     <label class="btn btn-sm btn-outline-secondary" style="margin:0;cursor:pointer;">
-      📥 Import
+      {{ ico.icon('inbox') }} Import
       <input type="file" name="file" accept=".xlsx,.xlsm"
              onchange="this.form.submit()" style="display:none;">
     </label>
@@ -238,8 +239,8 @@
           </th>
           <th>Crew / Role</th>
           <th>Company</th>
-          <th colspan="5" style="border-left:1px solid #E8E4D7;">🏨 Hotel</th>
-          <th colspan="4" style="border-left:1px solid #E8E4D7;">✈ Flights</th>
+          <th colspan="5" style="border-left:1px solid #E8E4D7;">{{ ico.icon('hotel') }} Hotel</th>
+          <th colspan="4" style="border-left:1px solid #E8E4D7;">{{ ico.icon('plane') }} Flights</th>
           <th style="border-left:1px solid #E8E4D7;">Itinerary</th>
           <th></th>
         </tr>
@@ -357,7 +358,7 @@
           </td>
           <td>
             <button form="{{ fid }}" type="submit"
-                    class="save-btn-inline" title="Save row">💾</button>
+                    class="save-btn-inline" title="Save row">{{ ico.icon('save') }}</button>
           </td>
         </tr>
         {% endfor %}

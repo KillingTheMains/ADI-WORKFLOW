@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import '_icons.html' as ico %}
 {% block title %}{{ show.name }} — ADI Workflow{% endblock %}
 {% block page_title %}{{ show.name }}{% endblock %}
 {% block breadcrumb %}
@@ -8,21 +9,21 @@
 
 {% block top_actions %}
   <a href="{{ url_for('schedule.overview', show_id=show.id) }}" class="btn btn-sm btn-adi">
-    📅 Schedule
+    {{ ico.icon('calendar') }} Schedule
   </a>
   <a href="{{ url_for('show_crew.show_crew', show_id=show.id) }}" class="btn btn-sm btn-outline-secondary">
-    👥 Crew
+    {{ ico.icon('users') }} Crew
   </a>
   <a href="{{ url_for('show_crew.hours_report', show_id=show.id) }}" class="btn btn-sm btn-outline-secondary">
     ⏱ Hours
   </a>
   <a href="{{ url_for('show_crew.contact_sheet', show_id=show.id) }}" class="btn btn-sm btn-outline-secondary" target="_blank">
-    📋 Contacts
+    {{ ico.icon('clipboard-list') }} Contacts
   </a>
   <button type="button" class="btn btn-sm btn-outline-secondary"
           data-bs-toggle="modal" data-bs-target="#duplicateShowModal"
           title="Clone this show's schedule structure to a new show">
-    📋 Duplicate
+    {{ ico.icon('copy') }} Duplicate
   </button>
   <a href="{{ url_for('shows.edit', show_id=show.id) }}" class="btn btn-sm btn-dark">
     Edit Show
@@ -33,7 +34,7 @@
 <!-- #48 Show artwork (header on all generated paperwork) -->
 <div class="card mb-3">
   <div class="card-header gold d-flex justify-content-between align-items-center">
-    <span>🎨 Show Artwork</span>
+    <span>{{ ico.icon('palette') }} Show Artwork</span>
     <span style="font-size:.72rem;font-weight:400;color:rgba(255,255,255,.7);">appears as a header on all generated paperwork (call sheet, contact sheet, OSS book, travel, hours)</span>
   </div>
   <div class="card-body p-3 d-flex align-items-center gap-3" style="flex-wrap:wrap;">
@@ -197,7 +198,7 @@
           </table>
         {% else %}
           <div class="empty-state py-4">
-            <div class="empty-icon">📅</div>
+            <div class="empty-icon">{{ ico.icon('calendar', 32) }}</div>
             <div style="font-size:.9rem;font-weight:600;margin-bottom:6px;">No schedule days yet</div>
             <p class="text-muted" style="font-size:.82rem;">
               Open the Schedule Builder to add days and activities.
@@ -213,28 +214,28 @@
     <div class="row g-2 mt-1">
       {% set oss_url = url_for('oss.oss_hub', show_id=show.id) %}
       {% set modules = [
-        ('🗺',  'OSS Hub',            oss_url,                False),
-        ('🚚', 'Dock Schedule',      oss_url ~ '?tab=Dock',  False),
-        ('🍽', 'F&B Schedule',       oss_url ~ '?tab=F%26B', False),
-        ('🎧', 'COMMS',              oss_url ~ '?tab=COMS',  False),
-        ('🎫', 'Wristbands',         oss_url ~ '?tab=Wristbands', False),
-        ('📖', 'Show Book (Print)',  url_for('oss.show_book', show_id=show.id), False),
-        ('📋', 'RFQ Builder',        '#', True),
-        ('💰', 'Budget',             '#', True),
-        ('🎤', 'Rehearsal Schedule', '#', True),
+        ('map',  'OSS Hub',            oss_url,                False),
+        ('truck', 'Dock Schedule',      oss_url ~ '?tab=Dock',  False),
+        ('utensils', 'F&B Schedule',       oss_url ~ '?tab=F%26B', False),
+        ('headphones', 'COMMS',              oss_url ~ '?tab=COMS',  False),
+        ('ticket', 'Wristbands',         oss_url ~ '?tab=Wristbands', False),
+        ('book-open', 'Show Book (Print)',  url_for('oss.show_book', show_id=show.id), False),
+        ('clipboard-list', 'RFQ Builder',        '#', True),
+        ('banknote', 'Budget',             '#', True),
+        ('mic', 'Rehearsal Schedule', '#', True),
       ] %}
       {% for icon, label, href, disabled in modules %}
       <div class="col-md-4">
         {% if disabled %}
         <div class="card p-3 text-center opacity-50" style="font-size:.8rem;">
-          <div style="font-size:1.3rem;">{{ icon }}</div>
+          <div style="font-size:1.3rem;">{{ ico.icon(icon, 22) }}</div>
           <div style="font-weight:600;margin-top:4px;">{{ label }}</div>
           <div class="text-muted" style="font-size:.7rem;">Coming soon</div>
         </div>
         {% else %}
         <a href="{{ href }}" class="card p-3 text-center text-decoration-none text-dark"
            style="font-size:.8rem;">
-          <div style="font-size:1.3rem;">{{ icon }}</div>
+          <div style="font-size:1.3rem;">{{ ico.icon(icon, 22) }}</div>
           <div style="font-weight:600;margin-top:4px;">{{ label }}</div>
         </a>
         {% endif %}
@@ -317,7 +318,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-sm btn-adi">📋 Duplicate</button>
+          <button type="submit" class="btn btn-sm btn-adi">{{ ico.icon('copy') }} Duplicate</button>
         </div>
       </div>
     </form>

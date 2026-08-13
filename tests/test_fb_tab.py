@@ -66,7 +66,9 @@ def test_the_line_says_what_it_is_without_opening_anything(app, client, db):
     html = _tab(client, show)
     assert "Crew Lunch" in html
     assert "Backstage" in html
-    assert "👤 11" in html
+    # §05: the 👤 became a Lucide glyph; the PILL and its number are the claim.
+    assert 'data-icon="user"' in html
+    assert ">11<" in html or "11" in html
     # The PILL, specifically. "to feed" still appears in the coverage banner's
     # prose further up the page, which is a sentence rather than a label.
     assert "11 to feed" not in html

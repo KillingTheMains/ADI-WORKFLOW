@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import '_icons.html' as ico %}
 {% block title %}Edit {{ show.name }} — ADI Workflow{% endblock %}
 {% block page_title %}Edit Show{% endblock %}
 {% block breadcrumb %}
@@ -109,7 +110,7 @@
                            value="{{ phase.end_date.isoformat() if phase.end_date else '' }}">
                   </div>
                   <div class="col-auto" style="width:36px;">
-                    <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">✕</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">{{ ico.icon('x') }}</button>
                   </div>
                   <input type="hidden" name="phase_notes[]" value="{{ phase.notes or '' }}">
                 </div>
@@ -141,7 +142,7 @@
                     <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end">
                   </div>
                   <div class="col-auto" style="width:36px;">
-                    <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">✕</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">{{ ico.icon('x') }}</button>
                   </div>
                   <input type="hidden" name="phase_notes[]" value="">
                 </div>
@@ -151,7 +152,7 @@
           </div>
 
           <p class="text-muted mb-0 mt-2" style="font-size:.78rem;">
-            💡 Rows auto-sort by start date. Drag ⠿ to reorder manually.
+            {{ ico.icon('lightbulb') }} Rows auto-sort by start date. Drag ⠿ to reorder manually.
           </p>
         </div>
       </div>
@@ -225,7 +226,7 @@
         <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end">
       </div>
       <div class="col-auto" style="width:36px;">
-        <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">✕</button>
+        <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">{{ ico.icon('x') }}</button>
       </div>
       <input type="hidden" name="phase_notes[]" value="">
     </div>

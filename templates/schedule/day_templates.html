@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import '_icons.html' as ico %}
 {% block title %}Day Templates — ADI Workflow{% endblock %}
 {% block page_title %}Day Templates{% endblock %}
 {% block breadcrumb %}
@@ -65,7 +66,7 @@
               style="display:inline;"
               onsubmit="return confirm('Delete template \'{{ tpl.label }}\'? This won\'t affect existing schedule days.');">
           <button type="submit" class="btn btn-sm btn-outline-danger"
-                  style="font-size:.72rem;padding:2px 8px;">✕</button>
+                  style="font-size:.72rem;padding:2px 8px;">{{ ico.icon('x') }}</button>
         </form>
       </div>
       {% if tpl.activities %}
@@ -83,7 +84,7 @@
     </div>
     {% else %}
     <div class="empty-state py-4">
-      <div class="empty-icon">📋</div>
+      <div class="empty-icon">{{ ico.icon('clipboard-list', 32) }}</div>
       <div style="font-size:.9rem;font-weight:600;margin-bottom:6px;">No templates yet</div>
       <p class="text-muted" style="font-size:.82rem;">Create your first template to get started.</p>
     </div>
@@ -103,7 +104,7 @@
     {% else %}
     {# No form active — show a prompt #}
     <div class="card p-4 text-center" style="color:var(--adi-muted);">
-      <div style="font-size:1.5rem;margin-bottom:8px;">📋</div>
+      <div style="font-size:1.5rem;margin-bottom:8px;">{{ ico.icon('clipboard-list', 22) }}</div>
       <div style="font-size:.85rem;">Select a template to edit,<br>or create a new one.</div>
     </div>
     {% endif %}
@@ -178,7 +179,7 @@
                 <input type="text" name="activity_desc[]" class="form-control form-control-sm"
                        value="{{ desc }}" placeholder="Description" required>
                 <button type="button" class="remove-act-btn" onclick="removeRow(this)"
-                        title="Remove">✕</button>
+                        title="Remove">{{ ico.icon('x') }}</button>
               </div>
               {% endfor %}
             {% else %}
@@ -189,7 +190,7 @@
                        placeholder="7:00 AM">
                 <input type="text" name="activity_desc[]" class="form-control form-control-sm"
                        placeholder="CREW START">
-                <button type="button" class="remove-act-btn" onclick="removeRow(this)">✕</button>
+                <button type="button" class="remove-act-btn" onclick="removeRow(this)">{{ ico.icon('x') }}</button>
               </div>
               <div class="activity-row-tpl">
                 <span class="drag-handle" title="Drag to reorder">⠿</span>
@@ -200,7 +201,7 @@
                        placeholder="5:00 PM">
                 <input type="text" name="activity_desc[]" class="form-control form-control-sm"
                        placeholder="LOAD OUT BEGINS">
-                <button type="button" class="remove-act-btn" onclick="removeRow(this)">✕</button>
+                <button type="button" class="remove-act-btn" onclick="removeRow(this)">{{ ico.icon('x') }}</button>
               </div>
             {% endif %}
           </div>
@@ -269,7 +270,7 @@ function addActivityRow() {
            class="form-control form-control-sm act-time-col" placeholder="8:00 AM">
     <input type="text" name="activity_desc[]"
            class="form-control form-control-sm" placeholder="Description">
-    <button type="button" class="remove-act-btn" onclick="removeRow(this)" title="Remove">✕</button>
+    <button type="button" class="remove-act-btn" onclick="removeRow(this)" title="Remove">{{ ico.icon('x') }}</button>
   `;
   container.appendChild(row);
   bindDragEvents(row);

@@ -115,4 +115,4 @@ def test_the_headcount_pill_is_just_a_number(app, db, client):
     body = client.get(f"/shows/{show.id}/oss?tab=F%26B").get_data(as_text=True)
     # The PILL. "to feed" still appears in the coverage banner's prose, which
     # is a sentence rather than a label.
-    assert "0 to feed" not in body and "👤" in body
+    assert "0 to feed" not in body and 'data-icon="user"' in body

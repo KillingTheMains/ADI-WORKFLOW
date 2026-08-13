@@ -1,3 +1,4 @@
+{% import '_icons.html' as ico %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -282,9 +283,9 @@
       <a href="{{ url_for('schedule.overview', show_id=show.id) }}"
          style="font-size:.83rem;color:var(--muted);text-decoration:none;
                 padding:8px 14px;border:1px solid var(--border);border-radius:6px;">
-        📅 Schedule
+        {{ ico.icon('calendar') }} Schedule
       </a>
-      <button class="btn-print" onclick="window.print()">🖨 Print / Save PDF</button>
+      <button class="btn-print" onclick="window.print()">{{ ico.icon('printer') }} Print / Save PDF</button>
     </div>
   </div>
 
@@ -338,14 +339,14 @@
 
     {% if conflicts %}
     <div class="conflict-banner">
-      ⚠ Double-booking detected — highlighted rows below contain crew members appearing on multiple activities.
+      {{ ico.icon('alert-triangle') }} Double-booking detected — highlighted rows below contain crew members appearing on multiple activities.
     </div>
     {% endif %}
 
     <!-- Travel info (if travel day) -->
     {% if day.phase == 'Travel' and (day.travel_flight_number or day.travel_airline or day.travel_hotel_name) %}
     <div class="travel-card">
-      <div class="travel-card-title">✈ Travel Details</div>
+      <div class="travel-card-title">{{ ico.icon('plane') }} Travel Details</div>
       <div class="travel-grid">
         {% if day.travel_airline %}
         <div class="travel-item"><label>Airline</label><span>{{ day.travel_airline }}</span></div>
@@ -397,7 +398,7 @@
             <td class="time-cell">{{ line.act_time or '—' }}</td>
             <td class="name-cell">
               {{ line.name }}
-              {% if line.conflict %}<span class="conflict-badge">⚠ DBL</span>{% endif %}
+              {% if line.conflict %}<span class="conflict-badge">{{ ico.icon('alert-triangle') }} DBL</span>{% endif %}
             </td>
             <td>{{ line.position or '—' }}</td>
             <td style="font-size:.78rem;color:var(--muted);">{{ line.act_desc[:45] }}</td>
@@ -438,7 +439,7 @@
             <td class="time-cell">{{ line.act_time or '—' }}</td>
             <td class="name-cell">
               {{ line.name }}
-              {% if line.conflict %}<span class="conflict-badge">⚠ DBL</span>{% endif %}
+              {% if line.conflict %}<span class="conflict-badge">{{ ico.icon('alert-triangle') }} DBL</span>{% endif %}
             </td>
             <td>{{ line.position or '—' }}</td>
             <td style="font-size:.78rem;color:var(--muted);">{{ line.act_desc[:45] }}</td>

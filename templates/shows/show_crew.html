@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import '_icons.html' as ico %}
 {% block title %}Crew Roster — {{ show.name }}{% endblock %}
 {% block page_title %}Crew Roster{% endblock %}
 {% block breadcrumb %}
@@ -11,15 +12,15 @@
         enctype="multipart/form-data" style="display:inline-block;margin-right:6px;">
     <input type="hidden" name="target_show_id" value="{{ show.id }}">
     <label class="btn btn-sm btn-outline-secondary" style="margin:0;cursor:pointer;">
-      📥 Import Crew to this Show
+      {{ ico.icon('inbox') }} Import Crew to this Show
       <input type="file" name="file" accept=".xlsx,.xlsm"
              onchange="this.form.submit()" style="display:none;">
     </label>
   </form>
   <a href="{{ url_for('show_crew.travel', show_id=show.id) }}"
-     class="btn btn-sm btn-outline-secondary">✈ Travel</a>
+     class="btn btn-sm btn-outline-secondary">{{ ico.icon('plane') }} Travel</a>
   <a href="{{ url_for('show_crew.contact_sheet', show_id=show.id) }}"
-     class="btn btn-sm btn-outline-secondary" target="_blank">📋 Contact Sheet</a>
+     class="btn btn-sm btn-outline-secondary" target="_blank">{{ ico.icon('clipboard-list') }} Contact Sheet</a>
   <a href="{{ url_for('show_crew.hours_report', show_id=show.id) }}"
      class="btn btn-sm btn-outline-secondary">⏱ Hours Report</a>
 {% endblock %}
@@ -89,7 +90,7 @@
 </style>
 
 <div class="d-flex align-items-center justify-content-between mb-2">
-  <h5 style="margin:0;font-weight:600;">📋 Booking Sheet</h5>
+  <h5 style="margin:0;font-weight:600;">{{ ico.icon('clipboard-list') }} Booking Sheet</h5>
   <button type="button" class="btn btn-sm btn-adi"
           data-bs-toggle="collapse" data-bs-target="#add-slot-form">
     + Add TBD slot
@@ -162,7 +163,7 @@
 
 {% if roster_groups %}
   <div class="d-flex align-items-center gap-2" style="margin:6px 0;">
-    <h6 style="margin:0;font-weight:700;">👥 Crew Roster — {{ show.name }}</h6>
+    <h6 style="margin:0;font-weight:700;">{{ ico.icon('users') }} Crew Roster — {{ show.name }}</h6>
     <span style="font-size:.75rem;color:var(--adi-muted);">assigned crew, grouped by company</span>
   </div>
   <!-- ── Bulk actions bar (#42 — per-show roster) ── -->
@@ -238,7 +239,7 @@
                          value="{{ a.travel_out_date.isoformat() if a.travel_out_date else '' }}"
                          class="form-control form-control-sm"></td>
               <td>
-                <button form="{{ fid }}" type="submit" class="save-btn-inline">💾 Save</button>
+                <button form="{{ fid }}" type="submit" class="save-btn-inline">{{ ico.icon('save') }} Save</button>
               </td>
           </tr>
           {% else %}
@@ -289,9 +290,9 @@
                          value="{{ slot.travel_out_date.isoformat() if slot.travel_out_date else '' }}"
                          class="form-control form-control-sm"></td>
               <td style="white-space:nowrap;">
-                <button form="{{ fid }}" type="submit" class="save-btn-inline" title="Save changes">💾</button>
+                <button form="{{ fid }}" type="submit" class="save-btn-inline" title="Save changes">{{ ico.icon('save') }}</button>
                 <button form="{{ did }}" type="submit" class="del-btn-inline" title="Delete slot"
-                        onclick="return confirm('Delete this TBD slot?');">✕</button>
+                        onclick="return confirm('Delete this TBD slot?');">{{ ico.icon('x') }}</button>
               </td>
             </tr>
             {# Fill-slot row — a second tr per slot. Marked non-draggable
@@ -356,7 +357,7 @@
 <!-- ── CREW DATABASE section (#29 Phase 2) ── -->
 <div class="d-flex align-items-center gap-2"
      style="margin:26px 0 6px;padding-top:16px;border-top:2px solid var(--adi-border);">
-  <h6 style="margin:0;font-weight:700;">🗂 Crew Database</h6>
+  <h6 style="margin:0;font-weight:700;">{{ ico.icon('folders') }} Crew Database</h6>
   <span style="font-size:.75rem;color:var(--adi-muted);">all crew, by company — assign anyone to this show</span>
 </div>
 <p class="text-muted" style="font-size:.85rem;margin-bottom:16px;">
@@ -388,7 +389,7 @@
         <input type="hidden" name="action" value="assign">
         <button type="submit" class="btn btn-sm btn-adi"
                 style="font-size:.72rem;padding:3px 10px;">
-          ＋ Add All
+          {{ ico.icon('plus') }} Add All
         </button>
       </form>
       {% endif %}
@@ -451,7 +452,7 @@
           </td>
           <td style="padding:8px 16px;text-align:center;">
             {% if is_assigned %}
-            <span style="color:#15803D;font-size:1rem;">✓</span>
+            <span style="color:#15803D;font-size:1rem;">{{ ico.icon('check') }}</span>
             {% else %}
             <span style="color:#ccc;font-size:.75rem;">—</span>
             {% endif %}
@@ -486,7 +487,7 @@
 
 {% if not sorted_companies %}
 <div class="empty-state">
-  <div class="empty-icon">👥</div>
+  <div class="empty-icon">{{ ico.icon('users', 32) }}</div>
   <div style="font-size:1rem;font-weight:600;margin-bottom:8px;">No crew in the roster yet</div>
   <p class="text-muted" style="font-size:.85rem;max-width:400px;margin:0 auto 16px;">
     Add crew members to the global roster first, then assign them to shows.

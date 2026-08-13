@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import '_icons.html' as ico %}
 {% block title %}Break coverage — {{ show.name }}{% endblock %}
 {% block page_title %}Break coverage — {{ show.name }}{% endblock %}
 
@@ -162,7 +163,7 @@
       {# Same pill wording as the F&B tab — just the number. Two surfaces
          describing one figure two ways is how they start to disagree. #}
       <span class="note">· {{ 'beverages' if svc.is_standing else svc.kind }}
-        · 👤 {{ svc.total_headcount }}</span>
+        · {{ ico.icon('user') }} {{ svc.total_headcount }}</span>
     </span>
     {# The controls live here; their FORMS live at the bottom of the page, via
        HTML5 form=. A form cannot nest inside the bulk form, and the same

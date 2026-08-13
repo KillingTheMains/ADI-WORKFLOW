@@ -1,9 +1,10 @@
+{% import '_icons.html' as ico %}
 {# Wristbands tab — per-day credential count for the show.
    Crew count is auto-derived from the schedule. Override + Extras + Notes
    are editable per day; total = (override or crew) + extras. #}
 
 <div class="oss-section-help">
-  🎫 <strong>Wristbands</strong> — daily credential counts. The <em>Crew</em>
+  {{ ico.icon('ticket') }} <strong>Wristbands</strong> — daily credential counts. The <em>Crew</em>
   column is auto-derived from the schedule (unique named crew + unnamed
   qty across every activity that day). Use <em>Override</em> when the
   schedule's headcount isn't the right number, and <em>Extras</em> for
@@ -98,7 +99,7 @@
     <div class="text-muted" style="font-size:.74rem;">
       Override blank = use auto-derived crew count. Extras blank = 0.
     </div>
-    <button type="submit" class="btn btn-sm btn-adi">💾 Save wristbands</button>
+    <button type="submit" class="btn btn-sm btn-adi">{{ ico.icon('save') }} Save wristbands</button>
   </div>
 </form>
 

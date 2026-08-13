@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import '_icons.html' as ico %}
 {% block title %}Requests — ADI Workflow{% endblock %}
 {% block page_title %}Requests{% endblock %}
 {% block breadcrumb %}
@@ -91,7 +92,7 @@
   .add-form button:hover { background:#047857; }
 
   /* Bumped touch targets from ~18-20px to ≥40px on the row action buttons
-     (📎 attach, ✕ delete). Larry uses this board from iPad — mis-taps
+     (attach, delete). Larry uses this board from iPad — mis-taps
      erode trust. Icons stay visually small; the invisible click area is
      larger via padding. */
   .btn-mini { padding:8px 12px; font-size:.72rem; border:1px solid #CCC;
@@ -281,7 +282,7 @@
             action="{{ url_for('requests_bp.upload_attachment', req_id=r.id) }}"
             style="display:inline; margin-right:2px;">
         <label class="btn-mini" title="Attach image (screenshot)"
-               style="cursor:pointer; margin-bottom:0;">📎<input
+               style="cursor:pointer; margin-bottom:0;">{{ ico.icon('paperclip') }}<input
                type="file" name="files" multiple
                accept="image/png,image/jpeg,image/gif,image/webp"
                onchange="this.form.submit()" style="display:none;"></label>
@@ -290,7 +291,7 @@
             action="{{ url_for('requests_bp.delete', req_id=r.id) }}"
             onsubmit="return confirm('Delete this request? (You can undo from Recent Activity.)');"
             style="display:inline;">
-        <button type="submit" class="btn-mini danger" title="Delete">✕</button>
+        <button type="submit" class="btn-mini danger" title="Delete">{{ ico.icon('x') }}</button>
       </form>
     </td>
   </tr>
@@ -323,7 +324,7 @@
                            font-size:.85rem; cursor:pointer; line-height:1;
                            display:flex; align-items:center; justify-content:center;
                            touch-action:manipulation;"
-                    title="Delete attachment">✕</button>
+                    title="Delete attachment">{{ ico.icon('x') }}</button>
           </form>
         </div>
         {% endfor %}
@@ -394,7 +395,7 @@
             border:1px solid #E5E5E5; border-radius:6px;
             font-size:.78rem; color:#666;">
   <strong>Tips:</strong> Click any field to edit — autosaves as you type.
-  Drag the ☰ handle to reorder within a status. Click 📎 on a row to attach
+  Drag the handle at the left of a row to reorder within a status. Click the paperclip to attach
   a screenshot (PNG / JPG / GIF / WebP, max 5 MB each). Deleted a row by mistake?
   <a href="{{ url_for('audit.recent') }}">Undo it from Recent Activity</a>.
 </div>

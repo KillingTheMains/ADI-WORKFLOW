@@ -159,7 +159,7 @@
     <div class="px-4 pt-3">
       <div class="alert alert-warning py-2 px-3 mb-0" role="alert"
            style="border-left:4px solid #B45309;">
-        <strong>⚠ Some features are unavailable — a blueprint failed to load at startup.</strong>
+        <strong>{{ ico.icon('alert-triangle') }} Some features are unavailable — a blueprint failed to load at startup.</strong>
         The rest of the site is working. Check the PA error log for details.<br>
         <span style="font-family:monospace; font-size:.8rem; color:#78350F;">
           {% for path, err in blueprint_errors.items() %}{{ path }}: {{ err }}<br>{% endfor %}
@@ -174,7 +174,7 @@
     <div class="px-4 pt-3">
       <div class="alert alert-danger py-2 px-3 mb-0" role="alert"
            style="border-left:4px solid #B91C1C;">
-        <strong>⚠ Migration failed on startup.</strong>
+        <strong>{{ ico.icon('alert-triangle') }} Migration failed on startup.</strong>
         The database may be in a half-migrated state. Do not enter new data
         until this is resolved. Check the PA error log and the pre-migration
         snapshot under <code>~/backups/</code>.<br>
@@ -191,6 +191,12 @@
       <div class="px-4 pt-3">
         {% for cat, msg in messages %}
           <div class="alert alert-{{ 'success' if cat == 'success' else 'danger' if cat == 'danger' else 'info' if cat == 'info' else 'warning' }} alert-dismissible fade show py-2 px-3" role="alert">
+            {#- §05: the glyph follows the CATEGORY, so no flash string has to
+                carry a character. One rule here beats an emoji typed into
+                every flash() call in routes/. -#}
+            {{ ico.icon('check' if cat == 'success'
+                        else 'alert-triangle' if cat in ('danger', 'warning')
+                        else 'clipboard-list') }}
             {{ msg }}
             <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
           </div>
@@ -225,7 +231,7 @@
       if (btn && btn.parentNode) btn.parentNode.appendChild(flash);
       else form.appendChild(flash);
     }
-    flash.textContent = '✓ saved';
+    flash.innerHTML = `{{ ico.icon('check') }} saved`;
     flash.style.opacity = '1';
     setTimeout(() => { flash.style.opacity = '0'; }, 1200);
   }
@@ -233,7 +239,7 @@
   function flashError(form) {
     let flash = form.querySelector('.autosave-flash');
     if (flash) {
-      flash.textContent = '⚠ save failed';
+      flash.innerHTML = `{{ ico.icon('alert-triangle') }} save failed`;
       flash.style.color = '#B91C1C';
       flash.style.opacity = '1';
     }

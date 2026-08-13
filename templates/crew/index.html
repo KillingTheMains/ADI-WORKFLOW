@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import '_icons.html' as ico %}
 {% block title %}Crew Database — ADI Workflow{% endblock %}
 {% block page_title %}Crew Database{% endblock %}
 {% block breadcrumb %}<a href="{{ url_for('main.dashboard') }}">Home</a> / Crew Database{% endblock %}
@@ -6,7 +7,7 @@
   <form method="POST" action="{{ url_for('crew_import.upload') }}"
         enctype="multipart/form-data" style="display:inline-block;margin-right:6px;">
     <label class="btn btn-sm btn-outline-secondary" style="margin:0;cursor:pointer;">
-      📥 Import Crew
+      {{ ico.icon('inbox') }} Import Crew
       <input type="file" name="file" accept=".xlsx,.xlsm"
              onchange="this.form.submit()" style="display:none;">
     </label>
@@ -25,11 +26,11 @@
     <div class="col-md-4">
       <div class="input-group input-group-sm">
         <span class="input-group-text" style="background:var(--adi-surface);border-color:var(--adi-border-strong);">
-          🔍
+          {{ ico.icon('search') }}
         </span>
         <input type="text" id="crew-search" class="form-control form-control-sm"
                placeholder="Search name, position, company…">
-        <button class="btn btn-sm btn-outline-secondary" id="clear-search" title="Clear">✕</button>
+        <button class="btn btn-sm btn-outline-secondary" id="clear-search" title="Clear">{{ ico.icon('x') }}</button>
       </div>
     </div>
 
@@ -178,7 +179,7 @@
               {{ '$%.0f' % m.rate_standard if m.rate_standard else '—' }}
             </td>
             <td style="white-space:nowrap;">
-              <button type="submit" class="btn btn-sm btn-adi" style="font-size:.72rem;padding:2px 8px;" title="Save row">💾</button>
+              <button type="submit" class="btn btn-sm btn-adi" style="font-size:.72rem;padding:2px 8px;" title="Save row">{{ ico.icon('save') }}</button>
           </form>
               <a href="{{ url_for('crew.edit', member_id=m.id) }}"
                  class="btn btn-sm btn-link p-0" style="font-size:.7rem;" title="Full edit (rates, notes, etc.)">…more</a>
@@ -206,7 +207,7 @@
 
 {% else %}
 <div class="empty-state">
-  <div class="empty-icon">👥</div>
+  <div class="empty-icon">{{ ico.icon('users', 32) }}</div>
   <div style="font-size:1rem;font-weight:600;margin-bottom:8px;">No crew members yet</div>
   <p class="text-muted" style="font-size:.875rem;">
     Add your core team so they can be assigned to shows and schedules.

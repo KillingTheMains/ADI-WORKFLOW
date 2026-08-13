@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import '_icons.html' as ico %}
 {% block title %}Local Labor Database{% endblock %}
 {% block content %}
 
@@ -63,7 +64,7 @@
 
 {% if not grouped %}
 <div class="empty-state py-5">
-  <div class="empty-icon">👷</div>
+  <div class="empty-icon">{{ ico.icon('hard-hat', 32) }}</div>
   <div style="font-size:.95rem;font-weight:600;margin-bottom:6px;">
     No local labour positions yet
   </div>
@@ -135,7 +136,7 @@
                     class="btn btn-sm btn-adi">Save</button>
             <button type="submit" form="ll-rm-{{ p.id }}"
                     class="btn btn-sm btn-outline-secondary"
-                    title="Take it out of this catalogue. Nothing is deleted — it stays on any crew row already using it.">✕</button>
+                    title="Take it out of this catalogue. Nothing is deleted — it stays on any crew row already using it.">{{ ico.icon('x') }}</button>
           </div>
         </td>
       </tr>
