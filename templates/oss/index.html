@@ -24,9 +24,9 @@
     border: 1px solid transparent;
   }
   .oss-tabs .nav-link.active {
-    background: #1C2333;
-    color: #C9A84C;
-    border-color: #1C2333;
+    background: var(--adi-dark);
+    color: var(--adi-gold-lt);
+    border-color: var(--adi-dark);
     font-weight: 600;
   }
   .oss-tabs .nav-link:hover:not(.active) { background: #f3f3f3; }
@@ -262,7 +262,7 @@
             <td>
               {{ e.effective_time or '—' }}
               {% if e.is_linked %}<span title="Linked to a schedule activity — time follows the activity"
-                                        style="color:#C9A84C;font-size:.72rem;">🔗</span>{% endif %}
+                                        style="color:var(--adi-gold);font-size:.72rem;">🔗</span>{% endif %}
             </td>
             <td>
               {{ e.activity or '—' }}

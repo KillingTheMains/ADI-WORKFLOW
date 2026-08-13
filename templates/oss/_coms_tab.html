@@ -15,7 +15,7 @@
   <div class="col-md-6">
     <div class="card h-100">
       <div class="card-header d-flex align-items-center justify-content-between"
-           style="background:#1C2333;color:#C9A84C;">
+           style="background:var(--adi-dark);color:var(--adi-gold-lt);">
         <span style="font-size:.85rem;font-weight:700;">📻 Radio channels (1–16)</span>
         <span class="text-muted" style="font-size:.7rem;color:rgba(255,255,255,.55)!important;">
           Two-way radio channel scheme for this show
@@ -55,7 +55,7 @@
   <div class="col-md-6">
     <div class="card h-100">
       <div class="card-header d-flex align-items-center justify-content-between"
-           style="background:#1C2333;color:#C9A84C;">
+           style="background:var(--adi-dark);color:var(--adi-gold-lt);">
         <span style="font-size:.85rem;font-weight:700;">🎧 Beltpack channels</span>
         <span style="font-size:.7rem;color:rgba(255,255,255,.55);">
           {{ coms_channels|length }} defined
@@ -107,13 +107,13 @@
 
 {# Summary header #}
 <div class="d-flex flex-wrap gap-2 mb-2" style="font-size:.78rem;">
-  <span class="oss-pill" style="background:#1C2333;color:#C9A84C;">
+  <span class="oss-pill" style="background:var(--adi-dark);color:var(--adi-gold-lt);">
     📻 {{ coms_summary.radios }} radio{{ '' if coms_summary.radios == 1 else 's' }}
   </span>
-  <span class="oss-pill" style="background:#1C2333;color:#C9A84C;">
+  <span class="oss-pill" style="background:var(--adi-dark);color:var(--adi-gold-lt);">
     🎧 {{ coms_summary.wireless }} wireless pack{{ '' if coms_summary.wireless == 1 else 's' }}
   </span>
-  <span class="oss-pill" style="background:#1C2333;color:#C9A84C;">
+  <span class="oss-pill" style="background:var(--adi-dark);color:var(--adi-gold-lt);">
     🔌 {{ coms_summary.wired }} wired pack{{ '' if coms_summary.wired == 1 else 's' }}
   </span>
   {% if coms_summary.no_comms %}

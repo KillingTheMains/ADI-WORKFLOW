@@ -4,7 +4,7 @@
 
 {% block content %}
 <style>
-  .cov-day { background:#F0EDE0; color:#1C2333; padding:6px 12px;
+  .cov-day { background:#F0EDE0; color:var(--adi-dark); padding:6px 12px;
              font-size:.82rem; font-weight:700; border-radius:6px;
              margin:18px 0 8px; display:flex; justify-content:space-between; }
   .cov-block { border:1px solid #E8E4D7; border-radius:8px; background:#fff;
@@ -84,7 +84,7 @@
   </span>
   <span style="font-weight:400;font-size:.74rem;">
     <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=d.id) }}"
-       style="color:#1C2333;">open the day →</a>
+       style="color:var(--adi-dark);">open the day →</a>
   </span>
 </div>
 

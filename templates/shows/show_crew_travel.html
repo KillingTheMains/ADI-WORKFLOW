@@ -60,7 +60,7 @@
   }
   .save-btn-inline:hover { background:#15803D; }
   .summary-bar {
-    background:#1C2333; color:#C9A84C;
+    background:var(--adi-dark); color:var(--adi-gold-lt);
     padding:8px 14px; font-size:.78rem;
     border-radius:6px 6px 0 0;
     display:flex; justify-content:space-between; align-items:center;
@@ -71,12 +71,12 @@
   /* Company/vendor section banner (shown when sorted by Company) — mirrors
      the Crew Contact Sheet's grouped layout. */
   .travel-table tr.company-banner td {
-    background:#1A1A1A; color:#fff; font-weight:700;
+    background:var(--adi-dark); color:#fff; font-weight:700;
     font-size:.74rem; letter-spacing:.03em; padding:6px 10px;
     text-transform:uppercase; position:sticky; left:0;
   }
   .travel-table tr.company-banner .count {
-    font-weight:500; text-transform:none; color:#C9A84C; margin-left:6px;
+    font-weight:500; text-transform:none; color:var(--adi-gold-lt); margin-left:6px;
   }
 
   /* Bulk date editor */
@@ -94,10 +94,10 @@
   }
   .bulk-toolbar input[type="date"] { font-size:.76rem; padding:3px 6px; }
   .bulk-toolbar .bt-apply {
-    background:#1C2333; color:#C9A84C; border:none; border-radius:5px;
+    background:var(--adi-dark); color:var(--adi-gold-lt); border:none; border-radius:5px;
     padding:6px 14px; font-size:.76rem; font-weight:600; cursor:pointer;
   }
-  .bulk-toolbar .bt-apply:hover { background:#2A3350; }
+  .bulk-toolbar .bt-apply:hover { background:var(--adi-dark-2); }
   .bulk-toolbar .bt-apply:disabled { opacity:.5; cursor:not-allowed; }
   .bulk-toolbar .bt-hint {
     flex-basis:100%; color:#8A8577; font-size:.68rem; margin-top:2px;
@@ -124,7 +124,7 @@
     /* Page setup: landscape, small margins */
     @page { size: letter landscape; margin: 0.4in; }
     /* Ensure summary bar prints its color */
-    .summary-bar { background: #1C2333 !important; color: #C9A84C !important; }
+    .summary-bar { background: var(--adi-dark) !important; color: var(--adi-gold-lt) !important; }
   }
 </style>
 {% endblock %}

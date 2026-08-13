@@ -53,7 +53,7 @@
 <style>
   .booking-task-card { margin-bottom: 14px; }
   .booking-task-card .task-header {
-    background:#1C2333; color:#C9A84C;
+    background:var(--adi-dark); color:var(--adi-gold-lt);
     padding: 6px 14px; font-size:.78rem; font-weight:700;
     text-transform:uppercase; letter-spacing:.06em;
     display:flex; align-items:center; justify-content:space-between;
@@ -71,7 +71,7 @@
   .booking-table select { font-size:.76rem; padding:2px 6px; }
   .tbd-row { background:#FFF8EC; }
   .tbd-badge {
-    display:inline-block; background:#F59E0B; color:#1C2333;
+    display:inline-block; background:#F59E0B; color:var(--adi-dark);
     font-size:.62rem; font-weight:700; padding:1px 6px;
     border-radius:8px; text-transform:uppercase; letter-spacing:.04em;
     margin-left:6px;
@@ -633,7 +633,7 @@
 <style>
   .booking-drag-ghost   { opacity: 0.4; background: #FFF8EC !important; }
   .booking-drag-chosen  { background: #FEF3C7 !important; }
-  .booking-drag-handle:hover { color: #1C2333 !important; }
+  .booking-drag-handle:hover { color: var(--adi-dark) !important; }
 </style>
 {# Shared "+ New Position" modal (#41) — positions created here are saved globally #}
 {% include "crew/_new_position_modal.html" %}
