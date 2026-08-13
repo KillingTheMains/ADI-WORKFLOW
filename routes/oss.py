@@ -848,8 +848,17 @@ def fb_standing_add(show_id):
         flash("Pick a day for the standing service.", "danger")
         return _back_to_fb(show_id)
 
-    already = MealService.query.filter_by(show_id=show_id, schedule_day_id=day_id,
-                                          is_recurring=True).first()
+    # ⚠️ This guard used to be `filter_by(is_recurring=True)` and therefore
+    # never fired on MCDC26, where every beverage service is a legacy row
+    # carrying is_recurring=False. "One per day is the whole idea" was true of
+    # the comment above and false of the code: you could add a second, and a
+    # third. The predicate is Python-side (it reads the kind and the name too)
+    # so this is a scan of one day's services rather than a SQL filter — which
+    # is a handful of rows, and correctness is worth more than the index.
+    from breaks import is_beverage_service
+    already = next((s for s in MealService.query.filter_by(
+                        show_id=show_id, schedule_day_id=day_id).all()
+                    if is_beverage_service(s)), None)
     if already is not None:
         flash(f"'{already.name}' is already the standing service on that day.",
               "warning")

@@ -847,6 +847,11 @@ CATERED_STATES = [CATERED_YES, CATERED_NO, CATERED_UNCONFIRMED]
 # cannot drift into two spellings of the same word.
 from breaks import KIND_COFFEE as BREAK_KIND_COFFEE  # noqa: E402
 from breaks import KIND_MEAL as BREAK_KIND_MEAL      # noqa: E402
+# The ONE beverage predicate. MealService.is_standing reads it, so the model
+# and the rules cannot disagree about what a beverage service is — which they
+# did, on every row in production, until 2026-08-13. Safe to import at module
+# level: it is duck-typed on is_recurring / kind / name and imports no models.
+from breaks import is_beverage_service                # noqa: E402
 
 
 class CrewBreak(db.Model):
@@ -1572,8 +1577,29 @@ class MealService(db.Model):
     @property
     def is_standing(self):
         """All-day beverages: F&B sets up and tops up through the day, and the
-        crew never stops for it. Not a break, not a point-in-time meal."""
-        return bool(self.is_recurring)
+        crew never stops for it. Not a break, not a point-in-time meal.
+
+        ⚠️ THIS USED TO TEST `is_recurring` ALONE, and that was wrong for
+        every beverage service in production. They all came through
+        `_migrate_fb_entries_to_meal_services`, which hard-codes
+        `is_recurring=False` — so on MCDC26 this property was False for every
+        beverage table the show actually had, and three things quietly did
+        the wrong thing:
+
+          · `beverage_plan` returned None, so no set or refresh touchpoints
+            were computed for any real beverage service;
+          · `fb_service_save` skipped the offset and interval fields, so they
+            could not be edited;
+          · the F&B tab offered a "Feeds" link picker that `can_link` would
+            then refuse, because the RULES already used the right predicate.
+
+        `breaks.is_beverage_service` is that predicate — is_recurring OR the
+        kind OR the name — and it was introduced on 2026-08-11 precisely
+        because a repair migration written against `is_recurring` matched
+        none of the rows it was written for and had to be re-run. Every rule
+        was switched over then. This property was missed.
+        """
+        return is_beverage_service(self)
 
     @property
     def beverage_plan(self):

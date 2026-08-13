@@ -325,11 +325,12 @@ def build_master_items(show, entries, meal_services):
                 "F&B", _merge_text(label, act.description if act else None),
                 icon="🍽",
                 # A standing beverage table is not a stop; a meal service is.
-                # getattr because the legacy attribute is still `is_recurring`
-                # on rows that predate the rename.
-                kind=("bev" if (getattr(svc, "is_standing", None)
-                                or getattr(svc, "is_recurring", None))
-                      else "break"),
+                # The `or is_recurring` belt-and-braces is gone: since
+                # 2026-08-13 `is_standing` reads breaks.is_beverage_service,
+                # which already tests is_recurring along with the kind and the
+                # name. Keeping the fallback would have hidden the fact that
+                # the property was wrong.
+                kind=("bev" if getattr(svc, "is_standing", None) else "break"),
                 # effective_headcount, not headcount: an export must carry the
                 # number F&B is actually working to, which is the crew call
                 # unless somebody has deliberately typed over it.
