@@ -924,8 +924,13 @@
               <tr class="group-header crew-drag-row"
                   data-row="{{ row.id }}" data-header="1"
                   data-level="{{ row.header_level or 1 }}">
-                <td colspan="6"
-                    style="{% if (row.header_level or 1) > 1 %}padding-left:26px;font-size:7.6pt;opacity:.85;{% endif %}">
+                {# The indent and size for a sub-section live in style.css on
+                   .group-header[data-level="2"], not here. Inline they beat
+                   the stylesheet, and what they beat it with was
+                   font-size:7.6pt (≈10.1px, under the 11px small-text floor)
+                   and opacity:.85, which washed the Midnight band out to a
+                   grey nobody chose. #}
+                <td colspan="6">
                   <span class="crew-drag-handle" title="Drag to move this section"
                         style="cursor:grab;opacity:.45;margin-right:4px;">⠿</span>
                   <span class="sect-toggle" title="Collapse / expand"
@@ -1104,7 +1109,10 @@
               {% for dept, dept_rows in act.local_labor_groups %}
               {% set dept_people = dept_rows | sum(attribute='people') %}
               <tr class="group-header">
-                <td colspan="7" style="font-size:.68rem;">
+                {# 11px, not .68rem (10.88px). The small-text floor is 11 and
+                   this is the only place in the crew tables that was under
+                   it. §02. #}
+                <td colspan="7" style="font-size:11px;">
                   {{ dept }}
                   <span style="font-weight:400;opacity:.75;">
                     · {{ dept_people }} {{ 'person' if dept_people == 1 else 'people' }}

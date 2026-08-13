@@ -551,7 +551,34 @@ def count_people(rows):
     never fewer: a headcount that shrinks silently is how a caterer gets told
     to bring less food than last week for the same crew.
     """
-    named_ids, total = set(), 0
+    return sum(people for _row, people in iter_people(rows))
+
+
+def iter_people(rows):
+    """``(row, people)`` for each row, applying the rule in ``count_people``.
+
+    The per-row form exists because a caller sometimes needs to know how many
+    people ONE row is while still deduplicating named crew across the set —
+    ``beverage_service`` builds a time window per row and has to put the right
+    number of bodies in each.
+
+    That caller used to carry its own copy of the rule, and its copy was the
+    OLD one:
+
+        if row.crew_member_id:
+            qty = 1              # <- throws qty away
+        else:
+            qty = row.qty or 1
+
+    which is exactly the bug fixed here on 2026-08-12, still live in a second
+    file. An unfilled slot carries a ``crew_member_id`` pointing at a
+    placeholder, so ``14 × Rigger`` counted as one body and a crew call of
+    thirty reported six. Hence one generator, two callers, no second copy.
+
+    A named person seen twice yields 0 the second time rather than being
+    skipped, so a caller iterating rows still sees every row.
+    """
+    named_ids = set()
     for row in rows or []:
         if getattr(row, "is_group_header", False):
             continue
@@ -560,14 +587,19 @@ def count_people(rows):
         except (TypeError, ValueError):
             qty = 1
         qty = max(1, qty)
+        # A row that says there are several people HAS several people,
+        # whatever else it says. Nobody types 7 for one person.
         if qty > 1:
-            total += qty
+            yield row, qty
             continue
         if row.crew_member_id and not row.is_unfilled:
+            if row.crew_member_id in named_ids:
+                yield row, 0
+                continue
             named_ids.add(row.crew_member_id)
+            yield row, 1
             continue
-        total += 1
-    return len(named_ids) + total
+        yield row, 1
 
 
 class CrewRow(db.Model):

@@ -523,9 +523,18 @@ h1, h2, h3, h4, h5, h6,
 /* The zebra is off. Over 40 rows alternating fills fight the Midnight section
    headers and print as mud; a hairline row rule does the same job for free.
    The hover is OPAQUE now — --adi-blue-dim was a 14% alpha that smeared over
-   whatever it sat on and printed as a grey wash. */
-.crew-table tbody tr:nth-child(even) td { background: transparent; }
-.crew-table tbody tr:hover td           { background: var(--adi-hover); }
+   whatever it sat on and printed as a grey wash.
+   ⚠️ BOTH rules exclude .group-header, and that :not() is load-bearing.
+   Without it, `.crew-table tbody tr:nth-child(even) td` (0,2,3) outranks
+   `.crew-table .group-header td` (0,2,1), so every section header that
+   happened to land on an even row lost its Midnight fill and rendered WHITE
+   TEXT ON WHITE. Which headers broke depended on how many rows sat above
+   them, so a call could show one section correctly and the next one blank.
+   The hover rule (0,2,2) did the same thing to any header under the cursor.
+   Level-2 headers were accidentally immune: their [data-level] attribute
+   selector bought them one point of specificity. */
+.crew-table tbody tr:nth-child(even):not(.group-header) td { background: transparent; }
+.crew-table tbody tr:not(.group-header):hover td           { background: var(--adi-hover); }
 
 /* Midnight, not near-white. #F8F9FA on #FFF is 1.03:1 — across a 40-row call
    that is not a section divider, it is a rounding error. It is also how the
@@ -540,10 +549,21 @@ h1, h2, h3, h4, h5, h6,
   padding: var(--sp-2) var(--sp-4);
   border-bottom: none;
 }
+/* A sub-section is the SAME band, indented. It used to be --adi-kind-local
+   (#24405F) at 85% opacity, which lands around rgb(69,93,119) over white — a
+   washed grey-blue that reads as a different, weaker kind of object rather
+   than as a section one level down. Jason, 2026-08-13: they should all be the
+   dark blue. The indent and the marker carry the hierarchy instead, and both
+   survive a mono laser, which a 20-point difference in navy does not. */
 .crew-table .group-header[data-level="2"] td {
-  background: var(--adi-kind-local);   /* was the same #24405F, now named */
+  background: var(--adi-dark);
   padding-left: 26px;
   font-size: 11px;
+}
+.crew-table .group-header[data-level="2"] .sect-label::before {
+  content: "└ ";
+  opacity: .6;
+  font-weight: 400;
 }
 
 /* Times and counts align down the page. The single highest-value typographic

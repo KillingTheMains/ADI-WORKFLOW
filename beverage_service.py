@@ -47,22 +47,28 @@ def crew_windows_for_day(day):
     return value says whether any row was missing hours, so the figure can be
     shown as the estimate it is.
     """
+    from models import iter_people
+
     windows = []
     estimated = False
     for minute, act in crew_starts_for_day(day):
-        seen = set()
-        for row in act.crew_rows:
-            if row.is_group_header:
-                continue
-            if row.crew_member_id:
-                # One person is one body however many rows they hold, the same
-                # rule ScheduleActivity.crew_headcount uses.
-                if row.crew_member_id in seen:
-                    continue
-                seen.add(row.crew_member_id)
-                qty = 1
-            else:
-                qty = row.qty or 1
+        # ⚠️ This loop used to carry its own copy of the headcount rule, and
+        # its copy was the OLD one — `if row.crew_member_id: qty = 1`, which
+        # throws `qty` away. That is the bug fixed in count_people on
+        # 2026-08-12, which survived here in a second file because nothing
+        # pointed the two at each other.
+        #
+        # An UNFILLED SLOT carries a crew_member_id (it points at a
+        # placeholder record like "Sparks Lighting Hand"), so every local
+        # labour line counted as ONE body: a crew call of three leads and
+        # 14 + 7 + 6 local reported SIX people on site instead of thirty, and
+        # that number is what a beverage refresh is ordered against.
+        #
+        # `iter_people` is now the only definition, shared with count_people.
+        # Do not reintroduce a local rule here.
+        for row, qty in iter_people(act.crew_rows):
+            if not qty:
+                continue            # a named person already counted
             hours = row.hours
             if hours:
                 windows.append((minute, minute + int(round(float(hours) * 60)), qty))
