@@ -35,7 +35,11 @@ BAND = "F4F6F9"
 DEFAULT_NAVY = brand.as_openpyxl(brand.PRIMARY)
 
 
-MASTER_HEADERS = ["Time", "Department", "Item", "Detail", "Notes"]
+# The kind code leads every timeline-shaped sheet, exactly as it leads the
+# PDF's tables and the day page's rows. Interface Spec §07/§09.
+MASTER_HEADERS = ["K", "Time", "Department", "Item", "Detail", "Notes"]
+KIND_FILLS = {k: PatternFill("solid", fgColor=v.lstrip("#"))
+              for k, v in brand.KIND_FILL.items()}
 DEPT_HEADERS = ["Day", "Date", "Time", "Item", "Detail", "Count", "Hrs", "Notes"]
 
 _thin = Side(style="thin", color=RULE)
@@ -170,12 +174,12 @@ def _master(wb, show, agency, master_items):
     ws = wb.create_sheet("Master Schedule")
     ws.sheet_view.showGridLines = False
     navy = _navy(agency)
-    _fit(ws, [11, 15, 42, 20, 44])
+    _fit(ws, [4, 11, 15, 42, 20, 44])
 
     head = ws.cell(row=1, column=1,
                    value=f"{show.code or ''}  {show.name or ''}  —  Master Schedule".strip())
     head.font = Font(name=FONT, size=13, bold=True, color=navy)
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=5)
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=6)
     ws.row_dimensions[1].height = 22
 
     for col, label in enumerate(MASTER_HEADERS, start=1):
@@ -192,7 +196,7 @@ def _master(wb, show, agency, master_items):
         if row > 3:
             day_break_rows.append(row - 1)     # start each day on a fresh page
         banner = ws.cell(row=row, column=1, value=_day_label(day))
-        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=5)
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
         banner.font = Font(name=FONT, size=11, bold=True, color=WHITE)
         banner.fill = PatternFill("solid", fgColor=navy)
         banner.alignment = Alignment(vertical="center", indent=1)
@@ -201,20 +205,29 @@ def _master(wb, show, agency, master_items):
 
         for n, item in enumerate(items):
             style = department_style(item["dept"])
-            values = [time_range_text(item, _display_time), item["dept"],
+            kind = item.get("kind") or "act"
+            values = [brand.KIND_CODE.get(kind, ""),
+                      time_range_text(item, _display_time), item["dept"],
                       master_label(item), _detail(item), item["notes"]]
+            # The band alternated by POSITION, so it carried nothing and
+            # printed as noise. It now carries KIND, from the same three-tier
+            # map the PDF uses.
+            kind_fill = KIND_FILLS.get(kind)
             for col, value in enumerate(values, start=1):
                 c = ws.cell(row=row, column=col, value=value)
                 c.font = Font(name=FONT, size=10)
                 c.border = BORDER
                 c.alignment = Alignment(vertical="top",
-                                        wrap_text=(col in (3, 5)))
-                if n % 2:
-                    c.fill = PatternFill("solid", fgColor=BAND)
-            ws.cell(row=row, column=1).font = Font(name=FONT, size=10, bold=True)
+                                        wrap_text=(col in (4, 6)))
+                if kind_fill:
+                    c.fill = kind_fill
+            ws.cell(row=row, column=1).font = Font(name=FONT, size=9, bold=True)
+            ws.cell(row=row, column=1).alignment = Alignment(horizontal="center",
+                                                             vertical="top")
+            ws.cell(row=row, column=2).font = Font(name=FONT, size=10, bold=True)
             # Department cell carries the accent, so a printed page still
             # groups visually even without the chip colours.
-            ws.cell(row=row, column=2).font = Font(name=FONT, size=10,
+            ws.cell(row=row, column=3).font = Font(name=FONT, size=10,
                                                    bold=True, color=style["hex"])
             row += 1
 
@@ -222,14 +235,14 @@ def _master(wb, show, agency, master_items):
             # show book's call sheet. The headcount above stays: it is how the
             # count is read at a glance, and it is load-bearing in the workflow.
             for who in item.get("crew_names") or []:
-                c = ws.cell(row=row, column=3, value=who)
+                c = ws.cell(row=row, column=4, value=who)
                 c.font = Font(name=FONT, size=10)
                 c.alignment = Alignment(vertical="top", indent=2)
-                for col in range(1, 6):
+                for col in range(1, 7):
                     cell = ws.cell(row=row, column=col)
                     cell.border = BORDER
-                    if n % 2:
-                        cell.fill = PatternFill("solid", fgColor=BAND)
+                    if kind_fill:
+                        cell.fill = kind_fill
                 row += 1
 
     last = row - 1

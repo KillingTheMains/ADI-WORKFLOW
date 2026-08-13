@@ -44,8 +44,12 @@ ZEBRA = colors.HexColor("#F4F6F9")
 
 # 6.5in of content, split so the schedule reads left-to-right as
 # when → who → what → how much → anything else.
-COL_WIDTHS = [0.62 * inch, 0.70 * inch, 2.55 * inch, 0.85 * inch, 1.78 * inch]
-COLUMNS = ["Time", "Dept", "Item", "Detail", "Notes"]
+# The kind-code column is FIRST and 0.30in wide — two capitals in Helvetica-Bold
+# 9pt measure ~0.19in, so it fits with room and never wraps. The width comes off
+# Notes, the only column with slack; the row still totals CONTENT_WIDTH_IN.
+COL_WIDTHS = [0.30 * inch, 0.62 * inch, 0.70 * inch, 2.55 * inch, 0.85 * inch,
+              1.48 * inch]
+COLUMNS = ["", "Time", "Dept", "Item", "Detail", "Notes"]
 
 # A day header stranded at the foot of a page looks like a mistake, so it is
 # bound to this many following rows and moves with them.
@@ -186,6 +190,13 @@ class _Doc(BaseDocTemplate):
         canvas.drawRightString(
             self.leftMargin + self.width, brand.MARGIN_BOTTOM_IN * inch * 0.55,
             "  |  ".join(b for b in bits if b))
+        # The legend for the K column, on every page. A two-letter code is only
+        # useful if the key travels with the sheet — these get photocopied and
+        # handed out a page at a time, so a key on page one would be lost.
+        canvas.setFont(brand.FONT_FALLBACK, brand.PT_FOOTER - 0.5)
+        canvas.drawString(self.leftMargin,
+                          brand.MARGIN_BOTTOM_IN * inch * 0.55,
+                          brand.KIND_LEGEND)
 
     def _chrome(self, canvas, doc):
         canvas.saveState(); self._band(canvas)
@@ -322,7 +333,7 @@ def _day_rows(day, items, st):
     paragraph) is what lets repeatRows carry it onto a continuation page.
     """
     label = brand.fmt_date(day.date, "full") if day and day.date else "Unscheduled"
-    header = [Paragraph(label, st["day"]), "", "", "", ""]
+    header = [Paragraph(label, st["day"]), "", "", "", "", ""]
     cols = [Paragraph(f"<b>{c}</b>", st["head"]) for c in COLUMNS]
     rows = [header, cols]
     style = [
@@ -334,20 +345,31 @@ def _day_rows(day, items, st):
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
         ("LEFTPADDING", (0, 0), (-1, -1), 4),
         ("LINEBELOW", (0, 2), (-1, -1), 0.4, HAIRLINE),
+        # The code column is bold and centred so it reads as a column of
+        # symbols rather than as the start of the sentence in the next cell.
+        ("FONT",  (0, 2), (0, -1), "Helvetica-Bold", 8),
+        ("ALIGN", (0, 0), (0, -1), "CENTER"),
     ]
     i = 2
     for n, item in enumerate(items):
         ds = department_style(item["dept"])
+        kind = item.get("kind") or "act"
         rows.append([
+            brand.KIND_CODE.get(kind, ""),
             Paragraph(time_range_text(item, brand.fmt_time) or "—", st["cell"]),
             Paragraph(f"<b>{ds['short'] or item['dept'][:5]}</b>", st["cell"]),
             Paragraph(master_label(item), st["cell"]),
             Paragraph(_detail(item), st["cell_dim"]),
             Paragraph(item["notes"] or "", st["cell_dim"]),
         ])
-        style.append(("TEXTCOLOR", (1, i), (1, i), colors.HexColor("#" + ds["hex"])))
-        if i % 2:
-            style.append(("BACKGROUND", (0, i), (-1, i), ZEBRA))
+        style.append(("TEXTCOLOR", (2, i), (2, i), colors.HexColor("#" + ds["hex"])))
+        # The zebra is gone. It alternated by POSITION, which meant it carried
+        # no information at all and printed as mud over 40 rows. The fill now
+        # carries KIND — three tiers, from brand.KIND_FILL — while the code
+        # column carries the seven-way distinction.
+        fill = brand.KIND_FILL.get(kind)
+        if fill:
+            style.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor(fill)))
         i += 1
 
         # Note 5 — one name per row beneath the headcount, matching the show
@@ -356,10 +378,9 @@ def _day_rows(day, items, st):
         # event, which is the drift oss_export exists to prevent.
         for who in item.get("crew_names") or []:
             rows.append([
-                "", "", Paragraph(escape(who or ""), st["cell_name"]), "", "",
+                "", "", "", Paragraph(escape(who or ""), st["cell_name"]),
+                "", "",
             ])
-            if i % 2:
-                style.append(("BACKGROUND", (0, i), (-1, i), ZEBRA))
             i += 1
     return rows, style
 
@@ -395,12 +416,13 @@ def _day_sections(master_items, st):
 def _department_sections(master_items, st):
     """Each department's own schedule, so a head can find just their lines."""
     flow = [PageBreak(), _section_heading("Schedule by department", st)]
-    widths = [1.20 * inch, 0.62 * inch, 2.55 * inch, 0.75 * inch, 1.38 * inch]
+    widths = [0.30 * inch, 1.20 * inch, 0.62 * inch, 2.55 * inch, 0.75 * inch,
+              1.08 * inch]
     for dept, items in group_by_department(master_items):
         ds = department_style(dept)
-        header = [Paragraph(f"<b>{dept}</b>", st["day"]), "", "", "", ""]
+        header = [Paragraph(f"<b>{dept}</b>", st["day"]), "", "", "", "", ""]
         cols = [Paragraph(f"<b>{c}</b>", st["head"])
-                for c in ("Day", "Time", "Item", "Detail", "Notes")]
+                for c in ("", "Day", "Time", "Item", "Detail", "Notes")]
         rows = [header, cols]
         style = [
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#" + ds["hex"])),
@@ -410,11 +432,15 @@ def _department_sections(master_items, st):
             ("TOPPADDING", (0, 0), (-1, -1), 3),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
             ("LEFTPADDING", (0, 0), (-1, -1), 4),
-            ("LINEBELOW", (0, 2), (-1, -1), 0.4, HAIRLINE)]
+            ("LINEBELOW", (0, 2), (-1, -1), 0.4, HAIRLINE),
+            ("FONT",  (0, 2), (0, -1), "Helvetica-Bold", 8),
+            ("ALIGN", (0, 0), (0, -1), "CENTER")]
         i = 2
         for item in items:
             day = item["day"]
+            kind = item.get("kind") or "act"
             rows.append([
+                brand.KIND_CODE.get(kind, ""),
                 Paragraph(brand.fmt_date(day.date) if day and day.date
                           else "Unscheduled", st["cell"]),
                 Paragraph(time_range_text(item, brand.fmt_time) or "—", st["cell"]),
@@ -422,8 +448,9 @@ def _department_sections(master_items, st):
                 Paragraph(_detail(item), st["cell_dim"]),
                 Paragraph(escape(item["notes"] or ""), st["cell_dim"]),
             ])
-            if i % 2:
-                style.append(("BACKGROUND", (0, i), (-1, i), ZEBRA))
+            fill = brand.KIND_FILL.get(kind)
+            if fill:
+                style.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor(fill)))
             i += 1
             # This is what blew up on MCDC26. The Crew department's rows put
             # every name for a call into ONE cell in a 2.55in column — 40 names
@@ -431,11 +458,9 @@ def _department_sections(master_items, st):
             # a 618-point frame however it is split. One name per row (note 5)
             # is both what Larry asked for and what makes this paginate at all.
             for who in item.get("crew_names") or []:
-                rows.append(["", "",
+                rows.append(["", "", "",
                              Paragraph(escape(who or ""), st["cell_name"]),
                              "", ""])
-                if i % 2:
-                    style.append(("BACKGROUND", (0, i), (-1, i), ZEBRA))
                 i += 1
         table = _DayTable(rows, colWidths=widths, repeatRows=2)
         table.setStyle(TableStyle(style))

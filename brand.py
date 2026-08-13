@@ -122,6 +122,39 @@ def fmt_time(value):
 # bullet lists in any ADI document." Generated output should follow suit.
 USE_TABLES_NOT_BULLETS = True
 
+# ── Row kind, on paper ─────────────────────────────────────────────────────
+# Interface Spec Rev 1 §07/§09. The screen tells seven kinds apart with a
+# two-letter chip, a rail pattern and a silhouette. Paper cannot carry a rail
+# pattern or a silhouette, so the CODE does the whole job there — and because
+# it is two capital letters it survives a fax, a photocopy and a mono laser,
+# which is how these documents are actually consumed.
+#
+# Here rather than in each exporter, next to the palette, because oss_pdf and
+# oss_xlsx printing DIFFERENT codes for the same row would be worse than
+# printing none: a reader would have no reason to distrust either.
+KIND_CODE = {
+    "crew": "CC", "act": "AC", "break": "BR", "bev": "BV",
+    "local": "LL", "recur": "RC", "sod": "SD", "eod": "ED",
+}
+
+# Three tiers, not seven. On paper the fill carries GROUPING — "these rows
+# belong together" — and the code column carries KIND. Trying to make a fill
+# mean kind is what fails in greyscale: these three sit at 236, 235 and 231,
+# which is a texture, not an alphabet.
+#
+# 'bev' deliberately shares 'break's fill. On screen they are told apart by a
+# double rail against a dashed one; on paper that job belongs entirely to BV
+# against BR, and giving them two near-identical greys would only suggest a
+# distinction the reader cannot actually resolve.
+KIND_FILL = {
+    "break": "#E9ECF1",
+    "bev":   "#E9ECF1",
+    "local": "#E7EBF0",
+    "recur": "#EFE7D6",
+}
+
+KIND_LEGEND = "CC crew call · AC activity · BR break · BV beverage · LL local labour · RC recurring · SD/ED day anchors"
+
 # Naming: public signature is "ADI"; "ADI Experience Group" is reserved for
 # legal, formal and first-reference contexts. The legal entity is
 # Allure Designs, Inc. — which appears on contracts and insurance but nowhere

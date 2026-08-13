@@ -67,7 +67,8 @@ def test_department_identity_is_normalised(app, db):
     wb = _workbook(db, show)
     assert "House Lights" in wb.sheetnames
     assert "House LX" not in wb.sheetnames
-    depts = {wb["Master Schedule"].cell(row=r, column=2).value
+    # Department moved to column 3 behind the kind-code column (§09).
+    depts = {wb["Master Schedule"].cell(row=r, column=3).value
              for r in range(3, wb["Master Schedule"].max_row + 1)}
     assert "House LX" not in depts
 
@@ -111,13 +112,17 @@ def test_rows_are_chronological_within_each_day(app, db):
     show = _show(db)
     ws = _workbook(db, show)["Master Schedule"]
     run, runs = [], []
+    # Column indices shifted +1 when the kind-code column 'K' became
+    # column 1 of the Master sheet (Interface Spec §09). Behaviour is
+    # unchanged — only which column carries it moved.
     for r in range(3, ws.max_row + 1):
-        col2 = ws.cell(row=r, column=2).value
-        if col2 is None:                       # a day banner
+        # A day banner is merged from column 1, so its Department cell is
+        # empty; an item row always has one. Time is column 2 now.
+        if ws.cell(row=r, column=3).value is None:
             if run: runs.append(run)
             run = []
         else:
-            run.append(parse_minutes(ws.cell(row=r, column=1).value))
+            run.append(parse_minutes(ws.cell(row=r, column=2).value))
     if run: runs.append(run)
     for run in runs:
         assert run == sorted(run), f"day is out of clock order: {run}"
@@ -126,7 +131,8 @@ def test_rows_are_chronological_within_each_day(app, db):
 def test_detail_column_folds_count_and_duration(app, db):
     show = _show(db)
     ws = _workbook(db, show)["Master Schedule"]
-    details = [ws.cell(row=r, column=4).value for r in range(3, ws.max_row + 1)]
+    # Detail moved 4 -> 5 behind the kind-code column (§09).
+    details = [ws.cell(row=r, column=5).value for r in range(3, ws.max_row + 1)]
     assert any(d and "×3" in d and "1.5 hr" in d for d in details), details
 
 
@@ -137,3 +143,33 @@ def test_summary_counts_with_formulas_not_baked_numbers(app, db):
     formulas = [ws.cell(row=r, column=2).value for r in range(4, ws.max_row + 1)]
     assert any(str(f).startswith("=COUNTIF('Master Schedule'!") for f in formulas)
     assert any(str(f).startswith("=SUM(") for f in formulas)
+
+
+def test_the_kind_code_column_leads_the_master_sheet(app, db):
+    """Interface Spec §09: the two-letter code is the ONE channel that carries
+    row kind through greyscale, a photocopier and a fax.
+
+    On screen a kind is told by a chip, a rail pattern AND a silhouette. Paper
+    keeps only the chip, so if this column is wrong or missing there is nothing
+    left — which is exactly why it is worth a test of its own rather than
+    riding along on the layout assertions above.
+    """
+    import brand
+    show = _show(db)
+    ws = _workbook(db, show)["Master Schedule"]
+
+    assert ws.cell(row=2, column=1).value == "K", "the code column leads"
+
+    codes = [ws.cell(row=r, column=1).value
+             for r in range(3, ws.max_row + 1)
+             if ws.cell(row=r, column=3).value]      # skip day banners
+    assert codes, "every item row carries a code"
+
+    known = set(brand.KIND_CODE.values())
+    assert all(c in known for c in codes), \
+        f"unknown code printed: {sorted(set(codes) - known)}"
+
+    # The codes must agree with brand.KIND_CODE rather than being spelled out
+    # again here — oss_pdf and oss_xlsx printing DIFFERENT letters for the same
+    # row would be worse than printing none.
+    assert brand.KIND_CODE["break"] == "BR" and brand.KIND_CODE["crew"] == "CC"

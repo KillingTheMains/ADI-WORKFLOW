@@ -54,8 +54,11 @@ def test_xlsx_master_renders_24_hour_times(app, db):
 
     ws = build_workbook(show, SubScheduleEntry.query.all(), [],
                         agency=AgencySetting.get())["Master Schedule"]
-    times = [ws.cell(row=r, column=1).value for r in range(3, ws.max_row + 1)
-             if ws.cell(row=r, column=2).value]
+    # Column indices shifted +1 when the kind-code column 'K' became
+    # column 1 of the Master sheet (Interface Spec §09). Behaviour is
+    # unchanged — only which column carries it moved.
+    times = [ws.cell(row=r, column=2).value for r in range(3, ws.max_row + 1)
+             if ws.cell(row=r, column=3).value]
     assert "13:00" in times, times
     assert not any(re.search(r"[AP]M", str(t or ""), re.I) for t in times), times
 

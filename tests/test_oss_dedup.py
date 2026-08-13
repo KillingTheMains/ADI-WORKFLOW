@@ -146,7 +146,8 @@ def test_crew_names_move_to_the_crew_sheet(app, db):
 
     wb = build_workbook(show, [], [], agency=AgencySetting.get())
     master = wb["Master Schedule"]
-    labels = [master.cell(row=r, column=3).value
+    # Item moved 3 -> 4 behind the kind-code column (§09).
+    labels = [master.cell(row=r, column=4).value
               for r in range(3, master.max_row + 1)]
     assert "3 crew called" in labels, labels
     assert not any(l and "Ryan Crew," in str(l) for l in labels), \

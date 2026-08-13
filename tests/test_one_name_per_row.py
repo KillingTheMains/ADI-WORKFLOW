@@ -55,7 +55,9 @@ def test_xlsx_master_writes_one_row_per_name(app, db, tmp_path):
     wb.save(path)
 
     ws = openpyxl.load_workbook(path)["Master Schedule"]
-    col_c = [c.value for c in ws["C"] if c.value]
+    # Item moved from column C to column D when the kind-code column took
+    # column A (§09). The name list is still one name per row.
+    col_c = [c.value for c in ws["D"] if c.value]
     assert "2 crew called" in col_c
     assert "Ann One" in col_c and "Bob Two" in col_c
     # Not squashed into a single cell.

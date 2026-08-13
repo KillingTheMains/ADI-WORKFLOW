@@ -101,7 +101,7 @@ def dept_label(value):
     return meta.get("label", value) if meta else value
 
 
-def _item(day, time_value, dept, activity, *, icon="•", count=None,
+def _item(day, time_value, dept, activity, *, icon="•", count=None, kind="act",
           duration_hrs=None, notes="", source=SOURCE_OSS, day_id=None,
           end_time=None, break_label=None, break_call_id=None,
           break_call_time=None):
@@ -123,6 +123,11 @@ def _item(day, time_value, dept, activity, *, icon="•", count=None,
         "break_call_id":   break_call_id,
         "break_call_time": break_call_time,
         "icon":         icon,
+        # Interface Spec §07/§09. The row kind, decided HERE — at the one
+        # place that actually knows what each row is — rather than re-derived
+        # by each exporter from a display string. brand.KIND_CODE turns it
+        # into the two letters that print.
+        "kind":         kind,
         "dept":         dept,
         "activity":     activity or "",
         "count":        count,
@@ -305,6 +310,12 @@ def build_master_items(show, entries, meal_services):
                 (loc.start_time if loc else svc.earliest_time),
                 "F&B", _merge_text(label, act.description if act else None),
                 icon="🍽",
+                # A standing beverage table is not a stop; a meal service is.
+                # getattr because the legacy attribute is still `is_recurring`
+                # on rows that predate the rename.
+                kind=("bev" if (getattr(svc, "is_standing", None)
+                                or getattr(svc, "is_recurring", None))
+                      else "break"),
                 # effective_headcount, not headcount: an export must carry the
                 # number F&B is actually working to, which is the crew call
                 # unless somebody has deliberately typed over it.
@@ -328,7 +339,7 @@ def build_master_items(show, entries, meal_services):
                     items.append(_item(
                         d, a.time, "Schedule",
                         break_export_text(cb.label, cb.duration_minutes),
-                        icon="☕", count=cb.derived_headcount,
+                        icon="☕", kind="break", count=cb.derived_headcount,
                         end_time=cb.end_time or None,
                         break_label=(cb.label or "BREAK").strip().upper(),
                         break_call_id=cb.crew_call_id,
@@ -337,6 +348,8 @@ def build_master_items(show, entries, meal_services):
                 else:
                     items.append(_item(d, a.time, "Schedule", a.description,
                                        icon="🗓", notes=a.notes,
+                                       kind=("crew" if is_crew_start(a.description)
+                                             else "act"),
                                        source=SOURCE_ACTIVITY))
             # Crew on a Crew Start all share that event's call time.
             if is_crew_start(a.description):
@@ -379,7 +392,8 @@ def build_master_items(show, entries, meal_services):
                     continue
                 head += a.crew_headcount
             item = _item(d, t, "Crew", ", ".join(names),
-                         icon="👤", count=head or len(names), source=SOURCE_CREW)
+                         icon="👤", kind="crew",
+                         count=head or len(names), source=SOURCE_CREW)
             # Exports show the count and put the names on the Crew sheet —
             # 40 names in one cell is unreadable and wrecks PDF pagination.
             item["crew_names"] = list(names)
@@ -399,7 +413,8 @@ def build_master_items(show, entries, meal_services):
             items.append(_item(d, ev.get("time"),
                                dept_label(dept) if dept else "Hard-Coded",
                                ev.get("name"),
-                               icon="📌", source=SOURCE_HARDCODED))
+                               icon="📌", kind="recur",
+                               source=SOURCE_HARDCODED))
             if dept:
                 hardcoded_by_dept.setdefault(dept, []).append(dict(ev, day=d))
 
