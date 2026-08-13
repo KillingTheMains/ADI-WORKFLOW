@@ -68,11 +68,11 @@
     font-size: .72rem; color: var(--adi-gold); font-weight: 600;
     margin-top: 3px; min-height: 1em;
   }
-  /* ── Tool card ── */
-  .tools-card .tool-btn {
-    width: 100%; text-align: left; font-size: .78rem; padding: 6px 10px;
-    margin-bottom: 4px; border-radius: 6px;
-  }
+  /* .tools-card / .tool-btn deleted with the Quick Tools panel — the day
+     actions live in the Day tools menu on the header now and use Bootstrap's
+     own dropdown-item. A dropdown inside a dark card needs its own item
+     colours, since the menu itself is on white. */
+  .dropdown-item form { margin: 0; }
   /* ── Hours-on-clock badge ── */
   .hours-badge {
     font-size: .72rem; color: rgba(255,255,255,.5); margin-top: 2px;
@@ -291,52 +291,17 @@
       </div>
     </div>
 
-    <!-- Tools -->
-    <div class="card mb-3 tools-card">
-      <div class="card-header" style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">
-        ⚡ Quick Tools
-      </div>
-      <div class="card-body p-3">
+    {# The Quick Tools card lived here. Four controls — Apply Template, Bulk
+       Time Shift, Clone Day, Delete Day — in a permanently expanded panel
+       about 250px tall, on every day, forever. Three of them are one button
+       each; only Apply Template needed the room, and it is a day-CREATION
+       action you use once on an empty day and never again.
 
-        <!-- Apply Template -->
-        <form method="POST" action="{{ url_for('schedule.apply_template', show_id=show.id, day_id=day.id) }}" class="mb-3">
-          <label class="form-label">Apply Template</label>
-          <select name="template" class="form-select form-select-sm mb-1">
-            {% for key, tpl in day_templates.items() %}
-            <option value="{{ key }}">{{ tpl.label }}</option>
-            {% endfor %}
-          </select>
-          <div class="form-check form-switch mb-1" style="font-size:.75rem;">
-            <input class="form-check-input" type="checkbox" name="replace" value="1" id="tpl-replace">
-            <label class="form-check-label" for="tpl-replace">Replace existing activities</label>
-          </div>
-          <button type="submit" class="btn btn-sm btn-outline-secondary tool-btn">
-            📋 Apply Template
-          </button>
-        </form>
-
-
-        <!-- Bulk Shift -->
-        <button type="button" class="btn btn-sm btn-outline-secondary tool-btn mb-2"
-                data-bs-toggle="modal" data-bs-target="#bulkShiftModal">
-          ⏱ Bulk Time Shift
-        </button>
-
-        <!-- Clone Day -->
-        <form method="POST" action="{{ url_for('schedule.clone_day', show_id=show.id, day_id=day.id) }}"
-              onsubmit="return confirm('Clone this day and all its activities to the next calendar day?');">
-          <button type="submit" class="btn btn-sm btn-outline-secondary tool-btn">
-            📄 Clone Day
-          </button>
-        </form>
-
-        <div style="border-top:1px solid var(--adi-border);margin:10px 0;"></div>
-        <form method="POST" action="{{ url_for('schedule.delete_day', show_id=show.id, day_id=day.id) }}"
-              onsubmit="return confirm('Delete this entire day and all its activities?');">
-          <button type="submit" class="btn btn-sm btn-outline-danger tool-btn">🗑 Delete Day</button>
-        </form>
-      </div>
-    </div>
+       They are now a "Day tools" menu on the day header, which is the object
+       they act on, and Apply Template is a modal like Bulk Time Shift already
+       was. Clone Day was additionally DUPLICATED — the schedule overview has
+       had it all along, next to the list of days, which is the better place
+       to clone from. Jason, 2026-08-13. #}
 
   </div><!-- /col-md-3 -->
 
@@ -346,7 +311,51 @@
     <!-- Day header bar -->
     <div class="card mb-3" style="background:var(--adi-dark);border-color:var(--adi-dark);">
       <div class="card-body p-3">
-        <div style="font-size:1rem;font-weight:700;color:#fff;">{{ day.day_header }}</div>
+        <div class="d-flex align-items-center">
+          <div style="font-size:1rem;font-weight:700;color:#fff;">{{ day.day_header }}</div>
+
+          <!-- ── Day tools ────────────────────────────────────────────────
+               Actions that operate on the DAY, on the day's own header.
+               Delete sits behind this menu rather than in an always-visible
+               sidebar, which is the right number of clicks for it. -->
+          <div class="dropdown ms-auto">
+            <button class="btn btn-sm dropdown-toggle" type="button"
+                    data-bs-toggle="dropdown" aria-expanded="false"
+                    style="font-size:.75rem;color:var(--adi-blue-lt);
+                           border:1px solid rgba(255,255,255,.25);background:transparent;">
+              Day tools
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" style="font-size:.82rem;">
+              <li>
+                <button class="dropdown-item" type="button"
+                        data-bs-toggle="modal" data-bs-target="#applyTemplateModal">
+                  📋 Apply template…
+                </button>
+              </li>
+              <li>
+                <button class="dropdown-item" type="button"
+                        data-bs-toggle="modal" data-bs-target="#bulkShiftModal">
+                  ⏱ Bulk time shift…
+                </button>
+              </li>
+              <li>
+                <form method="POST"
+                      action="{{ url_for('schedule.clone_day', show_id=show.id, day_id=day.id) }}"
+                      onsubmit="return confirm('Clone this day and all its activities to the next calendar day?');">
+                  <button type="submit" class="dropdown-item">📄 Clone day</button>
+                </form>
+              </li>
+              <li><hr class="dropdown-divider"></li>
+              <li>
+                <form method="POST"
+                      action="{{ url_for('schedule.delete_day', show_id=show.id, day_id=day.id) }}"
+                      onsubmit="return confirm('Delete this entire day and all its activities?');">
+                  <button type="submit" class="dropdown-item text-danger">🗑 Delete day</button>
+                </form>
+              </li>
+            </ul>
+          </div>
+        </div>
         <div class="d-flex gap-3 align-items-center flex-wrap">
           {% if day.time_window %}
           <div style="font-size:.8rem;color:var(--adi-blue-lt);">{{ day.time_window }}</div>
@@ -665,6 +674,10 @@
        export has always printed. Editing lives on the crew call. #}
     {% else %}
     <div class="card mb-2 act-card" id="act-{{ act.id }}" data-act-id="{{ act.id }}" data-act-time="{{ act.time or '' }}">
+      {# Read up here rather than further down the card: the OSS control now
+         sits in the header beside Edit and Copy, so the count has to be known
+         before the header renders. #}
+      {% set linked_oss = oss_by_activity.get(act.id, []) %}
       <div class="card-body p-0">
 
         <!-- Activity header -->
@@ -686,7 +699,7 @@
           <span style="font-weight:600;font-size:.9rem;flex:1;">
             {{ act.description }}
             {% if act.id in meal_breaks_missing_fb %}
-            <span title="This looks like a meal break but no F&B OSS entry is linked. Click + OSS below to add one."
+            <span title="This looks like a meal break but no F&B OSS entry is linked. Use the OSS button on this row to add one."
                   style="display:inline-block;font-size:.65rem;font-weight:600;
                          padding:1px 6px;border-radius:8px;margin-left:6px;
                          background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;">
@@ -714,6 +727,15 @@
 
           <!-- Action buttons -->
           <div class="d-flex align-items-center gap-1 ms-2">
+            {# OSS lives here now, not in a panel of its own under every card.
+               It carries its own count, so an activity with linked entries
+               says so without spending a strip of the page to do it. #}
+            <button class="act-action-btn"
+                    data-bs-toggle="collapse" data-bs-target="#add-oss-{{ act.id }}"
+                    title="On-site schedule entries linked to this activity"
+                    style="font-weight:700;letter-spacing:.04em;{% if linked_oss %}color:var(--adi-gold);{% endif %}">
+              OSS{% if linked_oss %}&nbsp;{{ linked_oss|length }}{% endif %}
+            </button>
             <button class="act-action-btn"
                     data-bs-toggle="collapse" data-bs-target="#edit-act-{{ act.id }}"
                     title="Edit">✏️</button>
@@ -1170,23 +1192,18 @@
         {% endif %}
 
         <!-- ── OSS items linked to this activity ───────────────────────── -->
-        {% set linked_oss = oss_by_activity.get(act.id, []) %}
-        <div class="px-3 pb-2 pt-1" style="border-top:1px dashed #e9e0c0;">
-          <div class="d-flex align-items-center justify-content-between mb-1">
-            <span style="font-size:.7rem;font-weight:700;text-transform:uppercase;
-                         letter-spacing:.06em;color:var(--adi-muted);">
-              OSS · linked to this activity
-              {% if linked_oss %}<span class="text-muted" style="font-weight:400;">({{ linked_oss|length }})</span>{% endif %}
-            </span>
-            <button class="btn btn-sm btn-link p-0 text-muted" style="font-size:.74rem;"
-                    type="button"
-                    data-bs-toggle="collapse" data-bs-target="#add-oss-{{ act.id }}">
-              + OSS
-            </button>
-          </div>
+        {# This used to be a full-width panel under EVERY activity — a dashed
+           rule, an uppercase "OSS · LINKED TO THIS ACTIVITY" heading and a
+           "+ OSS" button — whether or not anything was linked to it. On a day
+           with six activities that is six boxes of white space, and most
+           activities have no OSS entries at all. Jason, 2026-08-13: "not sure
+           that we need the giant white box underneath all the events".
 
-          {% if linked_oss %}
-          <div class="d-flex flex-wrap gap-1 mb-1">
+           The control moved into the header, where it costs nothing when
+           unused and carries its count when used. What is left here draws
+           only when there is something to draw. #}
+        {% if linked_oss %}
+        <div class="px-3 pb-2 pt-1 d-flex flex-wrap gap-1 align-items-center">
             {% for e in linked_oss %}
             <div class="d-flex align-items-center gap-1 px-2 py-1"
                  style="background:#FFF8EC;border:1px solid #E8DCA8;border-radius:14px;
@@ -1209,11 +1226,13 @@
               </form>
             </div>
             {% endfor %}
-          </div>
-          {% endif %}
+        </div>
+        {% endif %}
 
-          <!-- Inline "+ OSS for this activity" form (collapsible) -->
-          <div class="collapse mt-1" id="add-oss-{{ act.id }}">
+        <!-- The add form, opened from the OSS button in the header. A
+             collapse takes no height while it is shut, so an activity nobody
+             is adding OSS to costs nothing at all. -->
+        <div class="collapse px-3 pb-2 pt-1" id="add-oss-{{ act.id }}">
             <form method="POST" action="{{ url_for('oss.add_entry', show_id=show.id) }}"
                   class="p-2" style="background:#FFF8EC;border:1px solid #E8DCA8;border-radius:6px;">
               <input type="hidden" name="schedule_day_id" value="{{ day.id }}">
@@ -1257,10 +1276,20 @@
                 follow if you change the activity's time later.
               </div>
             </form>
-          </div>
         </div>
 
-        <!-- Add crew row -->
+        <!-- Add crew row ─────────────────────────────────────────────────
+             CREW CALLS ONLY. Jason, 2026-08-13: "all the crew are in the crew
+             call section". A plain activity is a line on the day — a thing
+             that happens — and crew arriving is a crew call, which carries
+             the people and their breaks. Offering the control on every
+             activity invited crew rows onto things that are not calls, and
+             those rows are then invisible to the break builder and to every
+             count that reads from crew calls.
+
+             Existing rows on non-call activities still RENDER and can still
+             be deleted; this only stops new ones being created there. -->
+        {% if is_crew_start(act.description) %}
         <div class="px-3 pb-3 pt-1">
           <div class="d-flex align-items-center gap-3 flex-wrap mb-1">
             <button class="btn btn-sm btn-link p-0 text-muted" style="font-size:.78rem;"
@@ -1451,6 +1480,7 @@
             {% endif %}
           </div>
         </div>
+        {% endif %}{# crew rows are added on the crew call, nowhere else #}
 
       </div>
     </div>
@@ -2115,6 +2145,50 @@
 </div>
 
 <!-- Bulk Shift Modal -->
+<!-- Apply Template Modal ───────────────────────────────────────────────────
+     Was four controls open permanently in the sidebar. It is a thing you do
+     once, to an empty day, so it folds away like every other once-per-day
+     action on this page. -->
+<div class="modal fade" id="applyTemplateModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title">📋 Apply template</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('schedule.apply_template', show_id=show.id, day_id=day.id) }}">
+        <div class="modal-body">
+          <p class="text-muted" style="font-size:.8rem;">
+            Drops a standard set of activities onto this day. Leave the switch
+            off and they are added to whatever is already here.
+          </p>
+          <div class="mb-3">
+            <label class="form-label">Template</label>
+            <select name="template" class="form-select form-select-sm">
+              {% for key, tpl in day_templates.items() %}
+              <option value="{{ key }}">{{ tpl.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-check form-switch" style="font-size:.8rem;">
+            <input class="form-check-input" type="checkbox" name="replace" value="1" id="tpl-replace">
+            <label class="form-check-label" for="tpl-replace">
+              Replace existing activities
+              <span class="text-muted d-block" style="font-size:.72rem;">
+                Everything currently on this day is removed first.
+              </span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-adi">Apply template</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="bulkShiftModal" tabindex="-1">
   <div class="modal-dialog modal-sm">
     <div class="modal-content">
