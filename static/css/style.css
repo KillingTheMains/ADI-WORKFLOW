@@ -283,8 +283,12 @@ h1, h2, h3, h4, h5, h6,
 .top-bar {
   background: var(--adi-card);
   border-bottom: 1px solid var(--adi-border-strong);
-  box-shadow: var(--el-1);
-  padding: 14px var(--sp-8);
+  /* §06: "top bar 56px". Measured at 65px before this — the breadcrumb+title
+     block is 36px (11 + 2 + 23) and 14px padding either side overshot. 9px
+     lands it on 56 with the 1px rule included; min-height holds the floor if
+     a page title ever wraps. */
+  min-height: 56px;
+  padding: 9px var(--sp-8);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -324,7 +328,6 @@ h1, h2, h3, h4, h5, h6,
   border: 1px solid var(--adi-border);
   border-radius: var(--r-lg);
   background: var(--adi-card);
-  box-shadow: var(--el-1);
 }
 
 .card-header {
@@ -635,6 +638,24 @@ input[type="number"], input[type="time"] { font-variant-numeric: tabular-nums; }
 }
 
 .btn-sm { font-size: 0.78rem; padding: var(--sp-2) var(--sp-4); border-radius: var(--r-sm); }
+
+/* §06: buttons are 34px, small buttons 26px. They were 33 and 24 measured.
+   inline-flex rather than inline-block because a button's label now sits
+   beside an inline <svg> (§05) and needs centring on the cross axis; the 4px
+   gap is §04's "icon gap". min-height rather than height so a two-word label
+   that wraps grows instead of clipping. */
+.btn-adi, .btn-dark, .btn-adi-outline {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+}
+
+.btn-sm, .btn-adi.btn-sm, .btn-dark.btn-sm, .btn-adi-outline.btn-sm {
+  min-height: 26px;
+}
+
 
 /* ── Forms ───────────────────────────────────────────────────────────────── */
 .form-label {
