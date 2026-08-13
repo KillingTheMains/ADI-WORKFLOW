@@ -34,31 +34,48 @@
    appears, and a rail repeated on every cell draws six of them. The rail and
    the fill are held in one pair of dicts below so the two macros cannot
    drift apart. #}
+{#- (code, background, ink, border). The letters mirror brand.KIND_CODE,
+    which is what the PDF and the XLSX print — same eight, one alphabet. -#}
+{%- set CODES = {
+     'crew':  ('CC', '#0B2545', '#FFFFFF', '#0B2545'),
+     'act':   ('AC', '#FFFFFF', '#414A54', '#7E8794'),
+     'break': ('BR', '#0B2545', '#FFFFFF', '#0B2545'),
+     'bev':   ('BV', '#FFFFFF', '#0B2545', '#0B2545'),
+     'local': ('LL', '#24405F', '#FFFFFF', '#24405F'),
+     'recur': ('RC', '#F7F1E4', '#7A5C1E', '#7A5C1E'),
+     'sod':   ('SD', '#FFFFFF', '#59636E', '#59636E'),
+     'eod':   ('ED', '#FFFFFF', '#59636E', '#59636E')
+   } -%}
 {%- set RAIL = {
      'act':   'border-left:2px solid var(--adi-kind-act);',
      'break': 'border-left:4px dashed var(--adi-kind-break);',
      'bev':   'border-left:6px double var(--adi-blue);',
      'recur': 'border-left:4px dotted var(--adi-gold-lt);',
-     'local': 'border-left:2px solid var(--adi-kind-local);'
+     'local': 'border-left:2px solid var(--adi-kind-local);',
+     'crew':  'border-left:4px solid var(--adi-kind-crew);',
+     'sod':   'border-left:4px solid var(--adi-kind-anchor);',
+     'eod':   'border-left:4px solid var(--adi-kind-anchor);'
    } -%}
 {%- set FILL = {
      'act':   'background:#fff;',
      'break': 'background:var(--adi-tint-break);',
      'bev':   'background:var(--adi-tint-bev);',
      'recur': 'background:var(--adi-tint-recur);',
-     'local': 'background:var(--adi-tint-local);'
+     'local': 'background:var(--adi-tint-local);',
+     'crew':  'background:#fff;',
+     'sod':   'background:var(--adi-tint-anchor);',
+     'eod':   'background:var(--adi-tint-anchor);'
    } -%}
+{#- 'crew', 'sod' and 'eod' were added for the OSS master schedule. The day
+    page needs no rail for them — a crew call there is a framed plate and an
+    anchor is a rule, both read by silhouette — but a table row has no
+    silhouette to spend, so the rail carries it. The crew rail is 4px solid
+    Midnight, which is the plate's own rail on the day page.
+
+    .get() rather than [] on purpose: an unrecognised kind should cost a rail,
+    not throw a 500 on the OSS page at eight in the morning on a show day. -#}
     {% macro kind_chip(kind) %}
-      {%- set K = {
-        'crew':  ('CC', '#0B2545', '#FFFFFF', '#0B2545'),
-        'act':   ('AC', '#FFFFFF', '#414A54', '#7E8794'),
-        'break': ('BR', '#0B2545', '#FFFFFF', '#0B2545'),
-        'bev':   ('BV', '#FFFFFF', '#0B2545', '#0B2545'),
-        'local': ('LL', '#24405F', '#FFFFFF', '#24405F'),
-        'recur': ('RC', '#F7F1E4', '#7A5C1E', '#7A5C1E'),
-        'sod':   ('SD', '#FFFFFF', '#59636E', '#59636E'),
-        'eod':   ('ED', '#FFFFFF', '#59636E', '#59636E')
-      }[kind] -%}
+      {%- set K = CODES[kind] -%}
       <span title="{{ kind }}" style="display:inline-flex;align-items:center;
             justify-content:center;width:26px;height:18px;flex:0 0 26px;
             background:{{ K[1] }};color:{{ K[2] }};border:1px solid {{ K[3] }};
@@ -68,8 +85,14 @@
     {% macro row_shell(kind) %}
       {#- rail then fill, in that order, byte for byte what the single
           hard-coded dict used to emit. -#}
-      {{- RAIL[kind] }}{{ FILL[kind] -}}
+      {{- RAIL.get(kind, '') }}{{ FILL.get(kind, '') -}}
     {%- endmacro %}
 
     {# The fill alone, for the cells after the first in a table row. #}
-    {% macro row_fill(kind) %}{{- FILL[kind] -}}{%- endmacro %}
+    {% macro row_fill(kind) %}{{- FILL.get(kind, '') -}}{%- endmacro %}
+
+    {# The chip, tolerant of an unknown kind for the same reason. Falls back
+       to the activity chip rather than to nothing, so the code column on the
+       master schedule is never blank — a blank there reads as "no data",
+       which is a stronger and wronger claim than "ordinary row". #}
+    {% macro kind_chip_safe(kind) %}{{ kind_chip(kind if kind in CODES else 'act') }}{% endmacro %}

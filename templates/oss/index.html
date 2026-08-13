@@ -146,6 +146,7 @@
     <table class="table table-sm oss-table">
       <thead>
         <tr>
+          <th style="width:34px;"></th>
           <th style="width:70px;">Time</th>
           <th style="width:130px;">Department</th>
           <th>Activity</th>
@@ -155,11 +156,17 @@
         </tr>
       </thead>
       <tbody>
+        {# Every row already knows its kind — build_master_items() decides it
+           at the one place that knows what each row is, and both exporters
+           print it via brand.KIND_CODE. Until now the screen was the only
+           surface that threw it away, so a crew call, a break, a beverage
+           service and a recurring event all rendered as the same grey line.
+           §07: chip, rail, silhouette. #}
         {% set ns = namespace(prev_day=None) %}
         {% for item in master_items %}
           {% if item.day_id != ns.prev_day %}
           <tr class="oss-master-day-header">
-            <td colspan="6">
+            <td colspan="7">
               {{ item.day.date.strftime('%A, %B %-d, %Y') if item.day else 'No day' }}
               {% if item.day and item.day.label %} · {{ item.day.label }}{% endif %}
               {% if item.day and item.day.phase %} · {{ item.day.phase }}{% endif %}
@@ -167,24 +174,32 @@
           </tr>
           {% set ns.prev_day = item.day_id %}
           {% endif %}
+          {% set fill = rk.row_fill(item.kind) %}
           <tr>
-            <td style="white-space:nowrap;">
+            <td style="{{ rk.row_shell(item.kind) }}">{{ rk.kind_chip_safe(item.kind) }}</td>
+            <td style="{{ fill }}white-space:nowrap;font-variant-numeric:tabular-nums;">
               {%- if item.time %}{{ item.time|to_12hr }}{% if item.end_time %} – {{ item.end_time|to_12hr }}{% endif %}
               {%- else %}—{% endif %}
             </td>
-            <td><span class="oss-pill">{{ item.icon }} {{ item.dept }}</span></td>
-            <td>{{ master_label(item) }}</td>
-            <td>{{ item.count if item.count is not none else '—' }}</td>
-            <td>{{ item.duration_hrs if item.duration_hrs is not none else '—' }}</td>
-            <td class="text-muted" style="font-size:.78rem;">{{ item.notes or '' }}</td>
+            <td style="{{ fill }}"><span class="oss-pill">{{ item.icon }} {{ item.dept }}</span></td>
+            <td style="{{ fill }}">{{ master_label(item) }}</td>
+            <td style="{{ fill }}">{{ item.count if item.count is not none else '—' }}</td>
+            <td style="{{ fill }}">{{ item.duration_hrs if item.duration_hrs is not none else '—' }}</td>
+            <td style="{{ fill }}font-size:.78rem;" class="text-muted">{{ item.notes or '' }}</td>
           </tr>
           {# Note 5 — names one per row under the headcount, same as the show
-             book and both exports. #}
+             book and both exports. They belong to the row above, so they keep
+             its fill and sit under a continuation of its rail rather than
+             starting a new one. #}
           {% for who in item.crew_names or [] %}
           <tr class="oss-master-name-row">
-            <td></td><td></td>
-            <td style="padding-left:22px;font-size:.82rem;">{{ who }}</td>
-            <td></td><td></td><td></td>
+            <td style="{{ rk.row_shell(item.kind) }}"></td>
+            <td style="{{ fill }}"></td>
+            <td style="{{ fill }}"></td>
+            <td style="{{ fill }}padding-left:22px;font-size:.82rem;">{{ who }}</td>
+            <td style="{{ fill }}"></td>
+            <td style="{{ fill }}"></td>
+            <td style="{{ fill }}"></td>
           </tr>
           {% endfor %}
         {% endfor %}
