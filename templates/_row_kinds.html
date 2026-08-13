@@ -1,0 +1,55 @@
+{# ── Row kind: chip + rail ──────────────────────────────────────────
+   Interface Spec §07. Seven kinds sit in one clock-ordered stream and
+   used to look nearly identical. Three independent channels now carry
+   "what kind of thing is this", so no single one has to survive alone:
+
+     1. THE CHIP — two capitals in a fixed 26px box. Completely free of
+        colour, and identical on screen, in the PDF and in the sheet.
+     2. THE RAIL — 4px on the left that differs by PATTERN before it
+        differs by hue: solid, dashed, double, dotted, hatched. This is
+        the one that matters. Cyan greys to 156 and gold to 167 — ten
+        levels apart, invisible on the mono laser these get printed on
+        constantly. A dash against a dot is unmistakable at any grey.
+     3. THE SILHOUETTE — a crew call is a framed plate, a break is a
+        tinted band, an anchor is a rule. Readable from six feet.
+
+   Colour is the fourth channel and the only optional one. Nothing here
+   depends on it, which is also what makes it work for a colour-blind
+   reader.
+
+   Extracted verbatim from templates/schedule/day.html — the day page had
+   the only copy and the OSS templates could not reach it, so the master
+   schedule and the department tabs were speaking a different language
+   about the same rows. The macro bodies below are unchanged; this is a
+   move, not a rewrite. brand.KIND_CODE / KIND_FILL / KIND_LEGEND stay the
+   source of truth for the two exporters, so the codes cannot drift apart.
+
+   Usage:  {% import '_row_kinds.html' as rk %}
+           {{ rk.kind_chip('crew') }}
+           <div style="{{ rk.row_shell('recur') }}"> #}
+    {% macro kind_chip(kind) %}
+      {%- set K = {
+        'crew':  ('CC', '#0B2545', '#FFFFFF', '#0B2545'),
+        'act':   ('AC', '#FFFFFF', '#414A54', '#7E8794'),
+        'break': ('BR', '#0B2545', '#FFFFFF', '#0B2545'),
+        'bev':   ('BV', '#FFFFFF', '#0B2545', '#0B2545'),
+        'local': ('LL', '#24405F', '#FFFFFF', '#24405F'),
+        'recur': ('RC', '#F7F1E4', '#7A5C1E', '#7A5C1E'),
+        'sod':   ('SD', '#FFFFFF', '#59636E', '#59636E'),
+        'eod':   ('ED', '#FFFFFF', '#59636E', '#59636E')
+      }[kind] -%}
+      <span title="{{ kind }}" style="display:inline-flex;align-items:center;
+            justify-content:center;width:26px;height:18px;flex:0 0 26px;
+            background:{{ K[1] }};color:{{ K[2] }};border:1px solid {{ K[3] }};
+            font:700 10px/1 'Barlow',sans-serif;letter-spacing:.06em;">{{ K[0] }}</span>
+    {%- endmacro %}
+
+    {% macro row_shell(kind) %}
+      {%- set S = {
+        'act':   'border-left:2px solid var(--adi-kind-act);background:#fff;',
+        'break': 'border-left:4px dashed var(--adi-kind-break);background:var(--adi-tint-break);',
+        'bev':   'border-left:6px double var(--adi-blue);background:var(--adi-tint-bev);',
+        'recur': 'border-left:4px dotted var(--adi-gold-lt);background:var(--adi-tint-recur);',
+        'local': 'border-left:2px solid var(--adi-kind-local);background:var(--adi-tint-local);'
+      }[kind] -%}{{ S }}
+    {%- endmacro %}
