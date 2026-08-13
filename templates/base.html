@@ -310,6 +310,108 @@
 })();
 </script>
 
+<!-- ── Keep your place across a form POST ──────────────────────────────── -->
+<script>
+/* Every mutation in this app is a form POST that redirects back to the page
+   it came from, and the browser renders that response at the top. On a day
+   page that runs to thousands of pixels, deleting the ninth crew row throws
+   you back to Day Settings and you scroll down again to delete the tenth.
+   That is 30 delete controls, plus every add and every edit.
+
+   Jason, 2026-08-13: "every time i delete something from any of the pages,
+   the page refreshes and puts me back at the top of the page."
+
+   So: remember where you were, put you back.
+
+   THE FIVE-SECOND EXPIRY IS THE WHOLE DESIGN. Keying only on the path would
+   mean arriving at a page fresh from the dashboard and being dropped halfway
+   down it because of something you did ten minutes ago — surprising in a way
+   the original problem is not. A POST, a redirect and a render is well under
+   five seconds; a human coming back later is not. Restore only what is
+   plainly the continuation of an action you just took.
+
+   Deliberately NOT an anchor on the deleted element: the row is gone, so
+   there is nothing to anchor to. The page is also a few pixels shorter for
+   the missing row and a few taller for the flash message that replaces it,
+   so this lands within a row or two rather than exactly. The ask is not to
+   be put back at the top, and it is not. */
+(function () {
+  var KEY = 'adi:scroll';
+  var FRESH_MS = 5000;
+
+  /* history.scrollRestoration is deliberately LEFT ALONE. Setting it to
+     'manual' looks like the right move and is not: the browser's own
+     restoration only runs on a history traversal — back and forward — and it
+     is good there. A POST that redirects is a fresh navigation, which always
+     starts at the top, so there is nothing to fight. Turning it off would
+     have quietly broken the back button to fix something it was never doing. */
+
+  function stash() {
+    try {
+      sessionStorage.setItem(KEY, JSON.stringify({
+        path: location.pathname,
+        y: window.scrollY || document.documentElement.scrollTop || 0,
+        t: Date.now()
+      }));
+    } catch (err) { /* private mode, quota — never break a save over this */ }
+  }
+
+  /* Bubble phase, and it checks defaultPrevented: an autosave form has
+     already called preventDefault() by the time this runs, so it never
+     navigates and must not leave a stash behind for the next real one. */
+  document.addEventListener('submit', function (e) {
+    if (e.defaultPrevented) return;
+    stash();
+  });
+
+  /* Read and CLEAR once, here at parse time — this script is at the end of
+     <body>, so the document is already there. Holding the value in a closure
+     is what lets restore() run twice off one stash; re-reading storage each
+     time would find it gone and the second pass would silently do nothing. */
+  function takeStash() {
+    var raw;
+    try { raw = sessionStorage.getItem(KEY); } catch (err) { return null; }
+    if (!raw) return null;
+    try { sessionStorage.removeItem(KEY); } catch (err) { /* ignore */ }
+
+    var saved;
+    try { saved = JSON.parse(raw); } catch (err) { return null; }
+    if (!saved || saved.path !== location.pathname) return null;
+    if (!(Date.now() - saved.t < FRESH_MS)) return null;
+    if (!saved.y) return null;   // you were at the top; there is nothing to do
+    return saved;
+  }
+  var pending = takeStash();
+
+  function restore() {
+    if (!pending) return;
+    // Clamp: the page is usually shorter now than when the position was
+    // taken — something was just deleted from it.
+    var max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    var want = Math.min(pending.y, max);
+    /* behavior:'instant' is REQUIRED, not a preference. style.css sets
+       `html { scroll-behavior: smooth }`, so the two-argument scrollTo(0, y)
+       and behavior:'auto' both ANIMATE — and an animation that is started
+       twice (DOMContentLoaded, then load) interrupts itself and stops part
+       way. Measured: asking for 1000 landed at 169. Restoring a position is
+       not a scroll the user asked for, so it should not be seen to move at
+       all. */
+    window.scrollTo({ top: want, left: 0, behavior: 'instant' });
+  }
+
+  /* Twice, on purpose. The first lands as soon as the DOM is up so the jump
+     is not visible; the second corrects it once late layout — fonts, images,
+     the flash message — has settled the real height and the clamp can be
+     computed against it. */
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', restore);
+  } else {
+    restore();
+  }
+  window.addEventListener('load', restore);
+})();
+</script>
+
 {% block extra_js %}{% endblock %}
 </body>
 </html>
