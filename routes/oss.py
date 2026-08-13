@@ -832,6 +832,18 @@ def _int_or_none(v):
 
 
 def _back_to_fb(show_id):
+    """Where an F&B form returns to.
+
+    These routes are no longer reached only from the F&B tab: the day page
+    creates meal and beverage services too (Jason, 2026-08-13 — "adds a meal
+    service via a button on the daily schedule builder"). Sending that user to
+    the OSS hub would be answering a question they did not ask. So ?next=
+    wins when it is present, with the same cheap open-redirect guard
+    _redirect_after_change uses — one idiom, spelled once, in both places.
+    """
+    nxt = request.form.get("next") or request.args.get("next")
+    if nxt and nxt.startswith("/"):
+        return redirect(nxt)
     return redirect(url_for("oss.oss_hub", show_id=show_id, tab="F&B"))
 
 

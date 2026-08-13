@@ -6,7 +6,8 @@ from crew_sections import insert_index_for, renumber
 from models import Show, ScheduleDay, ScheduleActivity, CrewRow, Position, CrewMember, \
                    PHASES, CREW_TYPES, DayTemplate, PHASE_TYPES, ShowCrewAssignment, Company, \
                    SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break, DayPhase, \
-                   MealService, MealServiceLocation, HardCodedEventDayOff
+                   MealService, MealServiceLocation, HardCodedEventDayOff, \
+                   MEAL_KINDS
 from datetime import date, timedelta
 from time_utils import sort_minutes, parse_minutes, hhmm_or_blank
 import re, json
@@ -489,6 +490,11 @@ def day_detail(show_id, day_id):
                                breaks_by_crew_call),
                            break_link_choices=break_link_choices,
                            day_meal_services=day_meal_services,
+                           # The day page adds meal services now, so it needs
+                           # the same kind list the F&B tab offers — read from
+                           # models, not retyped here, so a new kind appears
+                           # in both places at once.
+                           meal_kinds=MEAL_KINDS,
                            crew_by_company=crew_by_company,
                            already_called=already_called,
                            meal_breaks_missing_fb=meal_breaks_missing_fb)
