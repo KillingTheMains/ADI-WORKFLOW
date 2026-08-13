@@ -59,6 +59,15 @@
   --adi-border-strong: #7E8794;   /* form controls: 3.63:1, meets WCAG 1.4.11 */
   --adi-rail-neutral:  #C3CAD3;
 
+  /* Interface Spec Rev 1 §02. Seven additions; nothing renamed. */
+  --adi-mineral-dk:    #414A54;   /* 9.00:1 on white — small text, text on tints */
+  --adi-row-rule:      #EDE9E1;   /* the rule between dense rows, replacing zebra */
+  --adi-hover:         #EAF4F6;   /* OPAQUE row hover — prints as tint, not smear */
+  --adi-tint-local:    #EDF0F4;   /* local-labour block */
+  --adi-kind-local:    #24405F;   /* local-labour rail */
+  --adi-kind-crew:     #0B2545;   /* crew-call rail */
+  --adi-kind-act:      #59636E;   /* activity rail */
+
   /* Timeline row kinds — load-bearing meaning, not decoration */
   --adi-kind-break:    #0B2545;
   --adi-kind-bev:      #35C4D8;
@@ -77,10 +86,18 @@
 
   --sp-1: 2px;  --sp-2: 4px;  --sp-3: 6px;  --sp-4: 8px;
   --sp-5: 12px; --sp-6: 16px; --sp-7: 20px; --sp-8: 28px;
-  --r-xs: 2px; --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-pill: 999px;
-  --el-1: 0 1px 2px rgba(11,37,69,.06);
-  --el-2: 0 2px 8px rgba(11,37,69,.10);
-  --el-3: 0 8px 24px rgba(11,37,69,.14);
+  --sp-9: 40px;                    /* NEW — page gutter */
+
+  /* Radius. 8px was the dated part; --r-pill squares every status pill
+     app-wide from this one line. Nothing here is round any more. */
+  --r-xs: 1px; --r-sm: 2px; --r-md: 2px; --r-lg: 3px; --r-pill: 2px;
+
+  /* Elevation: flat. Definition is a hairline, not a blur. Six overlapping
+     shadows on a 40-row page cost contrast and print as grey haze, so
+     elevation now means one thing only — a modal over its backdrop. */
+  --el-1: none;
+  --el-2: none;
+  --el-3: 0 18px 44px rgba(11,37,69,.20);   /* dialogs only */
 }
 
 /* Bootstrap 5.3 bridge — no build step; Bootstrap reads these at runtime, so
@@ -94,13 +111,13 @@
   --bs-link-hover-color-rgb: 8,74,84;
   --bs-emphasis-color-rgb:   11,37,69;
   --bs-secondary-color:      #59636E;
-  --bs-focus-ring-color:     rgba(53,196,216,.35);
-  --bs-focus-ring-width:     3px;
+  --bs-focus-ring-color:     rgba(12,107,121,.35);   /* ink cyan, matches §04 */
+  --bs-focus-ring-width:     2px;
 }
 
 /* ── Base ────────────────────────────────────────────────────────────────── */
 body {
-  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Barlow', 'Segoe UI', system-ui, sans-serif;
   background-color: var(--adi-surface);
   color: var(--adi-text);
   min-height: 100vh;
@@ -109,10 +126,19 @@ body {
 a { color: var(--adi-blue); text-decoration: none; }
 a:hover { color: #095A66; text-decoration: underline; }   /* darker, never lighter */
 
+/* Playfair is gone — it was never a brand decision, and a serif display face
+   on a dense operations screen was the single most dated thing here. Barlow
+   Condensed carries every heading and buys ~12% more characters per line in
+   table headers and tab strips. Both faces are SIL OFL: no licence exposure,
+   and a designer can swap them in one @import and two declarations. */
 h1, h2, h3, h4, h5, h6,
-.card-header.gold,
-.sidebar-logo .logo-text {
-  font-family: 'Playfair Display', 'Georgia', serif;
+.card-header, .card-header.gold,
+.sidebar-logo .logo-text, .top-bar .page-title {
+  font-family: 'Barlow Condensed', 'Barlow', sans-serif;
+  letter-spacing: .03em;
+}
+.top-bar .page-title {
+  font-size: 20px; font-weight: 600; line-height: 1.15; letter-spacing: .02em;
 }
 
 /* ── Sidebar nav ─────────────────────────────────────────────────────────── */
@@ -270,16 +296,18 @@ h1, h2, h3, h4, h5, h6,
 }
 
 /* ── Show cards on dashboard ─────────────────────────────────────────────── */
+/* A plate, not a card. Square, hairline, flat — the hover moves the border to
+   ink cyan and does nothing else. No lift: a page of eight cards lifting on
+   hover was eight competing shadows and printed as haze. */
 .show-card {
   border: 1px solid var(--adi-border);
-  border-radius: 8px;
-  background: #fff;
-  transition: box-shadow 0.2s, border-color 0.2s;
+  border-radius: var(--r-lg);
+  background: var(--adi-card);
+  transition: border-color 0.15s;
   overflow: hidden;
 }
 
 .show-card:hover {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
   border-color: var(--adi-blue);
 }
 
@@ -339,14 +367,14 @@ h1, h2, h3, h4, h5, h6,
 /* ── Schedule timeline ───────────────────────────────────────────────────── */
 .day-card {
   border: 1px solid var(--adi-border);
-  border-radius: 8px;
-  background: #fff;
+  border-radius: var(--r-lg);
+  background: var(--adi-card);
   margin-bottom: 8px;
   overflow: hidden;
-  transition: box-shadow 0.15s;
+  transition: border-color 0.15s;
 }
 
-.day-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+.day-card:hover { border-color: var(--adi-blue); }
 
 .day-card .day-header-bar {
   display: flex;
@@ -404,20 +432,21 @@ h1, h2, h3, h4, h5, h6,
 /* ── Crew table ──────────────────────────────────────────────────────────── */
 .crew-table {
   width: 100%;
-  font-size: 0.78rem;
+  font-size: 13px;          /* the small-text floor — was .78rem (12.5px) */
+  line-height: 1.25;
   border-collapse: collapse;
 }
 
 .crew-table thead tr { background: var(--adi-surface); }
 
 .crew-table th {
-  padding: var(--sp-3) var(--sp-4);
+  padding: var(--sp-2) var(--sp-4);
   text-align: left;
   font-weight: 700;
-  color: var(--adi-muted);
-  font-size: 0.68rem;
+  color: var(--adi-mineral-dk);
+  font-size: 11px;          /* 700 weight, caps, tracked — a label, not prose */
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   border-bottom: 1px solid var(--adi-border-strong);
   /* A crew call runs to 40+ rows. The header has to survive the scroll. */
   position: sticky;
@@ -427,14 +456,18 @@ h1, h2, h3, h4, h5, h6,
 }
 
 .crew-table td {
-  padding: var(--sp-3) var(--sp-4);
-  border-bottom: 1px solid var(--adi-border);
+  padding: 3px var(--sp-4);
+  border-bottom: 1px solid var(--adi-row-rule);
   color: var(--adi-text);
   vertical-align: middle;
 }
 
-.crew-table tbody tr:nth-child(even) td { background: #FAFAF7; }
-.crew-table tbody tr:hover td           { background: var(--adi-blue-dim); }
+/* The zebra is off. Over 40 rows alternating fills fight the Midnight section
+   headers and print as mud; a hairline row rule does the same job for free.
+   The hover is OPAQUE now — --adi-blue-dim was a 14% alpha that smeared over
+   whatever it sat on and printed as a grey wash. */
+.crew-table tbody tr:nth-child(even) td { background: transparent; }
+.crew-table tbody tr:hover td           { background: var(--adi-hover); }
 
 /* Midnight, not near-white. #F8F9FA on #FFF is 1.03:1 — across a 40-row call
    that is not a section divider, it is a rounding error. It is also how the
@@ -443,22 +476,22 @@ h1, h2, h3, h4, h5, h6,
   background: var(--adi-dark);
   color: #fff;
   font-weight: 700;
-  font-size: 0.68rem;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: var(--sp-3) var(--sp-4);
+  letter-spacing: 0.12em;
+  padding: var(--sp-2) var(--sp-4);
   border-bottom: none;
 }
 .crew-table .group-header[data-level="2"] td {
-  background: #24405F;
+  background: var(--adi-kind-local);   /* was the same #24405F, now named */
   padding-left: 26px;
-  font-size: 0.66rem;
+  font-size: 11px;
 }
 
 /* Times and counts align down the page. The single highest-value typographic
    change here — a 40-row call becomes scannable. */
-.crew-table td, .crew-table th,
-[data-row-time], [data-act-time],
+.crew-table td, .crew-table th, .top-bar .page-title,
+[data-row-time], [data-act-time], .activity-time,
 input[type="number"], input[type="time"] { font-variant-numeric: tabular-nums; }
 
 /* Drag affordance. The handles are inline-styled at opacity .35, so these
@@ -544,10 +577,11 @@ input[type="number"], input[type="time"] { font-variant-numeric: tabular-nums; }
   color: var(--adi-text);
 }
 .form-control:hover, .form-select:hover { border-color: var(--adi-mineral); }
+/* No box-shadow ring here — the :focus-visible rule below owns the indicator,
+   and `outline: none` on :focus was suppressing it for keyboard users on any
+   browser that fired :focus first. Border colour still moves. */
 .form-control:focus, .form-select:focus {
   border-color: var(--adi-blue);
-  box-shadow: 0 0 0 3px var(--adi-blue-dim);
-  outline: none;
 }
 .form-control::placeholder { color: var(--adi-muted); opacity: 1; }
 .form-control:disabled, .form-control[readonly] {
@@ -555,10 +589,19 @@ input[type="number"], input[type="time"] { font-variant-numeric: tabular-nums; }
 }
 .form-control.is-invalid, .form-select.is-invalid { border-color: var(--adi-danger); }
 
-/* Dense in-cell controls */
-.crew-table .form-control, .crew-table .form-select {
-  font-size: 0.78rem;
-  padding: var(--sp-2) var(--sp-3);
+/* Dense in-cell controls, and THE 13px FLOOR.
+   Roughly 300 controls across ~2,900 lines of day.html carry an inline
+   style="font-size:.72rem" (11.5px). Inline styles beat a stylesheet, so
+   !important is the only thing that reaches them — and it is why this is one
+   rule rather than an edit to every template. Row height still goes DOWN:
+   the density comes back out of padding and leading, not out of size. */
+.crew-table .form-control,
+.crew-table .form-select,
+.crew-table input,
+.crew-table select {
+  font-size: 13px !important;
+  padding: 2px 5px !important;
+  line-height: 1.2 !important;
   border-radius: var(--r-sm);
   border-color: var(--adi-border-strong);
 }
