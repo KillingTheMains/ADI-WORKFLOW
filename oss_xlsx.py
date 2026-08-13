@@ -206,7 +206,7 @@ def _master(wb, show, agency, master_items):
         for n, item in enumerate(items):
             style = department_style(item["dept"])
             kind = item.get("kind") or "act"
-            values = [brand.KIND_CODE.get(kind, ""),
+            values = [brand.row_code(kind, item.get("dept")),
                       time_range_text(item, _display_time), item["dept"],
                       master_label(item), _detail(item), item["notes"]]
             # The band alternated by POSITION, so it carried nothing and

@@ -355,7 +355,7 @@ def _day_rows(day, items, st):
         ds = department_style(item["dept"])
         kind = item.get("kind") or "act"
         rows.append([
-            brand.KIND_CODE.get(kind, ""),
+            brand.row_code(kind, item.get("dept")),
             Paragraph(time_range_text(item, brand.fmt_time) or "—", st["cell"]),
             Paragraph(f"<b>{ds['short'] or item['dept'][:5]}</b>", st["cell"]),
             Paragraph(master_label(item), st["cell"]),
@@ -459,7 +459,7 @@ def _department_sections(master_items, st):
             day = item["day"]
             kind = item.get("kind") or "act"
             rows.append([
-                brand.KIND_CODE.get(kind, ""),
+                brand.row_code(kind, item.get("dept")),
                 Paragraph(brand.fmt_date(day.date) if day and day.date
                           else "Unscheduled", st["cell"]),
                 Paragraph(time_range_text(item, brand.fmt_time) or "—", st["cell"]),

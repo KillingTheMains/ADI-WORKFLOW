@@ -135,6 +135,21 @@
     {# The department chip. An unrecognised department falls back to the plain
        activity chip for the same reason kind_chip_safe does — a blank box on
        a show morning is worse than an honest "ordinary row". #}
+    {# The chip for a row in a MERGED stream — the OSS master schedule, a
+       department tab. Mirrors brand.row_code(): an 'act' carrying a real
+       department is an OSS entry and prints that department's letters; a crew
+       call stays CC even when it is tagged F&B, because what the reader needs
+       from that row is that it is a crew call.
+
+       Jason, 2026-08-13: "the OSS and its tabs are just a reflection of the
+       day schedule ... anything you change should encompass all 3 areas of
+       the site." Without this the day page said DK and the summary of that
+       same day said AC. #}
+    {% macro row_chip(kind, dept) %}
+      {%- if kind == 'act' and dept in DEPT_CODES -%}{{ dept_chip(dept) }}
+      {%- else -%}{{ kind_chip_safe(kind) }}{%- endif -%}
+    {%- endmacro %}
+
     {% macro dept_chip(dept) %}
       {%- if dept in DEPT_CODES -%}
       <span title="{{ dept }}" style="display:inline-flex;align-items:center;

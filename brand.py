@@ -165,6 +165,26 @@ DEPT_CODE = {
     "COMS": "CM", "Cleaning": "CL",
 }
 
+
+def row_code(kind, dept=None):
+    """The two letters this row prints, on every surface.
+
+    ONE rule, called by the day page, the OSS hub, the department tabs, the
+    PDF and the sheet. Jason, 2026-08-13: "the OSS and its tabs are just a
+    reflection of the day schedule, so anything you change should encompass
+    all 3 areas of the site." A row that says DK on the day and AC on the
+    summary of that same day is the summary contradicting its source.
+
+    A plain activity carrying a department IS a department event — that is
+    the only shape an OSS entry takes in these streams — so it prints the
+    department's code. Everything else keeps its kind: a crew call is CC
+    whether or not somebody tagged it F&B, because what a reader needs from
+    that row is that it is a crew call.
+    """
+    if kind == "act" and dept in DEPT_CODE:
+        return DEPT_CODE[dept]
+    return KIND_CODE.get(kind, KIND_CODE["act"])
+
 # Three tiers, not seven. On paper the fill carries GROUPING — "these rows
 # belong together" — and the code column carries KIND. Trying to make a fill
 # mean kind is what fails in greyscale: these three sit at 236, 235 and 231,

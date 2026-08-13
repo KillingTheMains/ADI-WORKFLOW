@@ -62,9 +62,29 @@ def _page(client, show, day, strip_comments=False):
 def test_the_day_offers_all_four_doors(app, client, db, fb_day):
     show, day, act = fb_day
     body = _page(client, show, day, strip_comments=True)
-    for label in ("👥 Create Crew Call", "🍽 Add Meal Service",
-                  "🥤 All-Day Beverages", "+ Add Other Event"):
+    for label in ("Create Crew Call", "Add Meal Service",
+                  "All-Day Beverages", "Add Other Event"):
         assert label in body, label
+
+
+def test_the_four_doors_look_like_one_another(app, client, db, fb_day):
+    """Jason, 2026-08-13: "they all look different and I hate it. Make them
+    uniform, use the CREATE CREW CALL button as the model, remove any emojis
+    from these buttons."
+
+    Three of the four were btn-outline-secondary, which said the crew call is
+    the real action and the rest are afterthoughts. They are four equal ways
+    to put something on the day."""
+    import re as _re
+    show, day, act = fb_day
+    body = _page(client, show, day, strip_comments=True)
+    bar = body[body.index("Create Crew Call") - 2000:]
+    bar = bar[:bar.index("Add Other Event") + 200]
+    buttons = _re.findall(r'<button[^>]*class="([^"]*btn btn-sm[^"]*)"', bar)
+    assert len(buttons) == 4, buttons
+    assert all(c.strip() == "btn btn-sm btn-adi" for c in buttons), buttons
+    for emoji in ("👥", "🍽", "🥤"):
+        assert emoji not in bar, emoji
 
 
 def test_add_activity_was_renamed_not_duplicated(app, client, db, fb_day):
@@ -72,7 +92,7 @@ def test_add_activity_was_renamed_not_duplicated(app, client, db, fb_day):
     show, day, act = fb_day
     body = _page(client, show, day, strip_comments=True)
     assert "+ Add Activity" not in body
-    assert body.count("+ Add Other Event") == 1
+    assert body.count("Add Other Event") == 1
     # ...and it still opens the same panel, so nothing was lost in the rename.
     assert 'data-bs-target="#add-activity-panel"' in body
     assert 'id="add-activity-panel"' in body

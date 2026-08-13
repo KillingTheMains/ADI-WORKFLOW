@@ -197,7 +197,7 @@
           {% endif %}
           {% set fill = rk.row_fill(item.kind) %}
           <tr>
-            <td style="{{ rk.row_shell(item.kind) }}">{{ rk.kind_chip_safe(item.kind) }}</td>
+            <td style="{{ rk.row_shell(item.kind) }}">{{ rk.row_chip(item.kind, item.dept) }}</td>
             <td style="{{ fill }}white-space:nowrap;font-variant-numeric:tabular-nums;">
               {%- if item.time %}{{ item.time|to_12hr }}{% if item.end_time %} – {{ item.end_time|to_12hr }}{% endif %}
               {%- else %}—{% endif %}
@@ -475,7 +475,7 @@
             {% else %}
             {% set e = r.entry %}
             <tr>
-              <td style="{{ rk.row_shell('act') }}">{{ rk.kind_chip('act') }}</td>
+              <td style="{{ rk.row_shell('act') }}">{{ rk.dept_chip(r.entry.type) }}</td>
               <td style="{{ rk.row_fill('act') }}white-space:nowrap;
                          font-variant-numeric:tabular-nums;">
                 {{ e.effective_time or '—' }}

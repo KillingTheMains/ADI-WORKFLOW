@@ -165,7 +165,10 @@ def test_the_kind_code_column_leads_the_master_sheet(app, db):
              if ws.cell(row=r, column=3).value]      # skip day banners
     assert codes, "every item row carries a code"
 
-    known = set(brand.KIND_CODE.values())
+    # Department codes are legal codes on this sheet too — an OSS entry
+    # prints DK rather than AC, via brand.row_code(), so paper says what the
+    # screen says.
+    known = set(brand.KIND_CODE.values()) | set(brand.DEPT_CODE.values())
     assert all(c in known for c in codes), \
         f"unknown code printed: {sorted(set(codes) - known)}"
 

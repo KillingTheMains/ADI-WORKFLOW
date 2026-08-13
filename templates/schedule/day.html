@@ -394,34 +394,42 @@
          rather than the schedule. It folds now. -->
     {% set day_standing = day_meal_services | selectattr('is_standing') | list %}
     <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
+      {# FOUR DOORS, ONE BUTTON. Jason, 2026-08-13: "they all look different
+         and I hate it. Make them uniform, use the CREATE CREW CALL button as
+         the model, remove any emojis from these buttons."
+
+         They were btn-adi + three btn-outline-secondary, which said the crew
+         call is the real action and the rest are afterthoughts. They are four
+         equal ways to put something on the day. Same class, same weight, no
+         emoji — the words are the label. #}
       <button type="button" class="btn btn-sm btn-adi"
               data-bs-toggle="modal" data-bs-target="#createCrewCallModal">
-        👥 Create Crew Call
+        Create Crew Call
       </button>
-      <button type="button" class="btn btn-sm btn-outline-secondary"
+      <button type="button" class="btn btn-sm btn-adi"
               data-bs-toggle="modal" data-bs-target="#addMealServiceModal">
-        🍽 Add Meal Service
+        Add Meal Service
       </button>
       {# One standing service per day is the whole idea — it is "the beverage
          table", not a list of them. The route refuses a second; the button
          says so before you click it. #}
       {% if not day_standing %}
-      <button type="button" class="btn btn-sm btn-outline-secondary"
+      <button type="button" class="btn btn-sm btn-adi"
               data-bs-toggle="modal" data-bs-target="#addBeverageServiceModal">
-        🥤 All-Day Beverages
+        All-Day Beverages
       </button>
       {% else %}
       <span class="badge"
             style="background:var(--adi-surface);color:var(--adi-muted);
                    border:1px solid var(--adi-border);font-weight:500;"
             title="Set and refreshes are worked out from this day's SOD and EOD, and move whenever they do.">
-        🥤 {{ day_standing[0].name }} — on
+        {{ day_standing[0].name }} — on
       </span>
       {% endif %}
-      <button type="button" class="btn btn-sm btn-outline-secondary"
+      <button type="button" class="btn btn-sm btn-adi"
               data-bs-toggle="collapse" data-bs-target="#add-activity-panel"
               aria-expanded="false" aria-controls="add-activity-panel">
-        + Add Other Event
+        Add Other Event
       </button>
       <span style="font-size:.72rem;color:var(--adi-muted);">
         A crew call brings people in and carries their breaks. Meals feed
@@ -1293,7 +1301,12 @@
             <div class="d-flex align-items-center gap-1 px-2 py-1"
                  style="background:#FFF8EC;border:1px solid #E8DCA8;border-radius:14px;
                         font-size:.74rem;">
-              <span title="{{ e.meta.label }}">{{ e.meta.icon }}</span>
+              {# The department's own two letters, the same chip the timeline
+                 rows and both OSS tabs draw. This pill used to carry only the
+                 emoji, so a LINKED dock call — 34 of production's 44 entries
+                 are linked — showed no code at all while an unlinked one
+                 showed DK. Same fact, two spellings, on one page. #}
+              {{ rk.dept_chip(e.type) }}
               <span style="font-weight:600;">{{ e.meta.label }}</span>
               {% if e.activity %}<span class="text-muted">· {{ e.activity }}</span>{% endif %}
               {% if e.count is not none %}
@@ -2169,7 +2182,7 @@
         <input type="hidden" name="schedule_day_id" value="{{ day.id }}">
         <input type="hidden" name="next" value="{{ request.path }}">
         <div class="modal-header">
-          <h5 class="modal-title">🍽 Add meal service</h5>
+          <h5 class="modal-title">Add meal service</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
@@ -2252,7 +2265,7 @@
         <input type="hidden" name="schedule_day_id" value="{{ day.id }}">
         <input type="hidden" name="next" value="{{ request.path }}">
         <div class="modal-header">
-          <h5 class="modal-title">🥤 All-day beverage service</h5>
+          <h5 class="modal-title">All-day beverage service</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">

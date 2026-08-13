@@ -69,7 +69,10 @@ def test_every_master_row_carries_a_kind_chip(client, master_show):
 def test_recurring_and_entered_rows_are_told_apart(client, master_show):
     pane = _pane(client, master_show)
     assert pane.count('title="recur"') == 6      # 3 events x 2 days
-    assert pane.count('title="act"') == 2        # one Dock entry per day
+    # One Dock entry per day. They print DK, not AC: the OSS is a summary of
+    # the day schedules, so a row that says DK on the day cannot say AC here.
+    assert pane.count('title="Dock"') == 2
+    assert pane.count('title="act"') == 0
 
 
 def test_the_rails_are_the_day_pages_rails(client, master_show):

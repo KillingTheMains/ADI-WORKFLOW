@@ -196,7 +196,10 @@ def test_both_kinds_share_one_table_and_are_told_apart_by_the_chip(
     pane = _doors_pane(body)
     # Nine recurring occurrences (3 events x 3 days) and two entries.
     assert pane.count('title="recur"') == 9
-    assert pane.count('title="act"') == 2
+    # Two entries — and they now print their DEPARTMENT rather than the
+    # anonymous AC, the same chip the day page draws for the same rows.
+    assert pane.count('title="Doors"') == 2
+    assert pane.count('title="act"') == 0
     # One table, not two.
     assert pane.count("<table") == 1
 
