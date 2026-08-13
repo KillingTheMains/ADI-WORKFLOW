@@ -143,7 +143,11 @@ h1, h2, h3, h4, h5, h6,
 
 /* ── Sidebar nav ─────────────────────────────────────────────────────────── */
 #sidebar {
-  width: 240px;
+  /* 240 → 216. 24px back to the timeline, which is where the 40-row calls
+     are. The column rule below replaces a shadow that was doing nothing a
+     hairline cannot do. */
+  width: 216px;
+  border-right: 1px solid rgba(255,255,255,0.10);
   min-height: 100vh;
   background: var(--adi-dark);
   position: fixed;
@@ -188,7 +192,7 @@ h1, h2, h3, h4, h5, h6,
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.55);   /* was .35 — 3.08:1 FAIL, now 5.58:1 */
+  color: rgba(255,255,255,0.62);   /* .35 was 3.08:1 FAIL; .62 is 6.7:1 */
   margin-top: 8px;
 }
 
@@ -212,11 +216,48 @@ h1, h2, h3, h4, h5, h6,
   text-decoration: none;
 }
 
+/* The icon is an inline SVG now, not a character, so it needs a flex box
+   rather than a text box. currentColor means it tracks hover and active on
+   its own — no second rule, and it can never disagree with its label. */
 #sidebar nav a .nav-icon {
-  width: 18px;
-  text-align: center;
-  font-size: 1rem;
-  opacity: 0.8;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+#sidebar nav a:hover .nav-icon,
+#sidebar nav a.active .nav-icon { opacity: 1; }
+
+/* Show sub-lists hang off a 1px stem so a long list reads as one group
+   rather than as loose links. Was an inline style plus two JS handlers. */
+.sidebar-show-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 20px 5px 34px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.62);   /* 62% — §06 */
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  box-shadow: inset 1px 0 0 rgba(255,255,255,0.14);   /* the stem */
+  transition: color .15s, background .15s;
+}
+.sidebar-show-link:hover,
+.sidebar-show-link:focus-visible {
+  color: #fff;
+  background: rgba(53,196,216,0.16);
+  text-decoration: none;
+}
+.sidebar-show-link .show-dot {
+  width: 4px; height: 4px; border-radius: 50%;
+  background: currentColor; display: inline-block; flex-shrink: 0;
+}
+.sidebar-show-link .show-name {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 140px;
 }
 
 #sidebar .sidebar-footer {
@@ -235,7 +276,7 @@ h1, h2, h3, h4, h5, h6,
 
 /* ── Main content ────────────────────────────────────────────────────────── */
 #main-content {
-  margin-left: 240px;
+  margin-left: 216px;   /* must track #sidebar's width */
   min-height: 100vh;
 }
 
@@ -252,17 +293,27 @@ h1, h2, h3, h4, h5, h6,
   z-index: 50;
 }
 
+/* A two-line block: breadcrumb in 11px caps OVER a 20px condensed title. The
+   breadcrumb used to be the same weight and nearly the same size as the
+   title, so the top bar read as two competing labels rather than as a
+   location and a heading. */
 .top-bar .page-title {
-  font-size: 1.1rem;
+  font-size: 20px;
   font-weight: 600;
+  line-height: 1.15;
   color: var(--adi-dark);
 }
 
 .top-bar .breadcrumb {
-  font-size: 0.78rem;
-  color: var(--adi-muted);
-  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--adi-mineral-dk);   /* 9:1 — was --adi-muted at 11px */
+  margin: 0 0 2px;
+  line-height: 1;
 }
+.top-bar .breadcrumb a { color: inherit; }
 
 .page-body {
   padding: 28px;

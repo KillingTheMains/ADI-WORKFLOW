@@ -1,3 +1,4 @@
+{% import '_icons.html' as ico %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -32,18 +33,16 @@
   {% if all_shows %}
   <div style="padding:0 0 4px 0;">
     {% for s in all_shows %}
+    {# Was an inline style plus two onmouseover/onmouseout handlers that set
+       rgba(47,128,237,.1) — the LEGACY blue. It survived f00eb13 because it
+       was written as a literal inside JavaScript rather than as a token, so
+       nothing looking for CSS colours ever found it. All of it now lives in
+       .sidebar-show-link in style.css: the palette cannot drift again, and
+       keyboard focus gets the same treatment the mouse always had. #}
     <a href="{{ url_for(endpoint, show_id=s.id) }}"
-       style="padding:5px 20px 5px 38px;font-size:.78rem;color:rgba(255,255,255,.55);
-              display:flex;align-items:center;gap:8px;border-left:3px solid transparent;
-              transition:all .15s;text-decoration:none;"
-       class="sidebar-show-link {% if request.endpoint == endpoint and request.view_args and request.view_args.get('show_id') == s.id %}sidebar-show-active{% endif %}"
-       onmouseover="this.style.color='#fff';this.style.background='rgba(47,128,237,.1)'"
-       onmouseout="this.style.color='rgba(255,255,255,.55)';this.style.background=''">
-      <span style="width:4px;height:4px;border-radius:50%;background:currentColor;
-                   display:inline-block;flex-shrink:0;"></span>
-      <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;">
-        {{ s.name }}
-      </span>
+       class="sidebar-show-link {% if request.endpoint == endpoint and request.view_args and request.view_args.get('show_id') == s.id %}sidebar-show-active{% endif %}">
+      <span class="show-dot"></span>
+      <span class="show-name">{{ s.name }}</span>
     </a>
     {% endfor %}
   </div>
@@ -54,36 +53,36 @@
     <div class="nav-section">Dashboard</div>
     <a href="{{ url_for('main.dashboard') }}"
        class="{% if request.endpoint == 'main.dashboard' %}active{% endif %}">
-      <span class="nav-icon">⬛</span> Home
+      <span class="nav-icon">{{ ico.icon('layout-grid') }}</span> Home
     </a>
     <a href="{{ url_for('audit.recent') }}"
        class="{% if request.endpoint == 'audit.recent' %}active{% endif %}"
        title="Undo/redo recent changes">
-      <span class="nav-icon">↶</span> Recent Activity
+      <span class="nav-icon">{{ ico.icon('undo-2') }}</span> Recent Activity
     </a>
     {# Hardcoded href so a missing blueprint can't 500 the whole site. #}
     <a href="/requests"
        class="{% if request.endpoint and request.endpoint.startswith('requests_bp.') %}active{% endif %}"
        title="Feature requests, bugs, and questions">
-      <span class="nav-icon">📋</span> Requests
+      <span class="nav-icon">{{ ico.icon('clipboard-list') }}</span> Requests
     </a>
     {# Hardcoded href so a missing blueprint can't 500 the whole site. #}
     <a href="/hard-coded-events"
        class="{% if request.endpoint and request.endpoint.startswith('hardcoded_bp.') %}active{% endif %}"
        title="Recurring events defined once, timed off each day's SOD/EOD">
-      <span class="nav-icon">📌</span> Recurring Events
+      <span class="nav-icon">{{ ico.icon('repeat') }}</span> Recurring Events
     </a>
 
     <div class="nav-section">Shows</div>
     <a href="{{ url_for('shows.index') }}"
        class="{% if 'shows.' in (request.endpoint or '') and 'schedule' not in (request.endpoint or '') %}active{% endif %}">
-      <span class="nav-icon">🎬</span> All Shows
+      <span class="nav-icon">{{ ico.icon('clapperboard') }}</span> All Shows
     </a>
     {# Per-show links under All Shows → show detail #}
     {{ show_sub_list('shows.detail') }}
     <a href="{{ url_for('shows.new') }}"
        class="{% if request.endpoint == 'shows.new' %}active{% endif %}">
-      <span class="nav-icon">＋</span> New Show
+      <span class="nav-icon">{{ ico.icon('plus') }}</span> New Show
     </a>
 
     <div class="nav-section">Schedule Builder</div>
@@ -91,41 +90,41 @@
     {{ show_sub_list('schedule.overview') }}
     <a href="{{ url_for('schedule.template_list') }}"
        class="{% if request.endpoint and 'template' in request.endpoint %}active{% endif %}">
-      <span class="nav-icon">📋</span> Day Templates
+      <span class="nav-icon">{{ ico.icon('copy') }}</span> Day Templates
     </a>
 
     <div class="nav-section">Databases</div>
     <a href="{{ url_for('crew.index') }}"
        class="{% if request.endpoint == 'crew.index' or request.endpoint == 'crew.add' or request.endpoint == 'crew.edit' %}active{% endif %}">
-      <span class="nav-icon">👥</span> Crew Database
+      <span class="nav-icon">{{ ico.icon('users') }}</span> Crew Database
     </a>
     {# Per-show links under Crew Database → that show's crew page #}
     {{ show_sub_list('show_crew.show_crew') }}
     <a href="{{ url_for('local_labor.index') }}"
        class="{% if request.endpoint and request.endpoint.startswith('local_labor.') %}active{% endif %}">
-      <span class="nav-icon">👷</span> Local Labor
+      <span class="nav-icon">{{ ico.icon('hard-hat') }}</span> Local Labor
     </a>
     <a href="#" class="disabled" style="opacity:0.4; cursor:not-allowed;">
-      <span class="nav-icon">🏢</span> Vendors
+      <span class="nav-icon">{{ ico.icon('building-2') }}</span> Vendors
     </a>
     <a href="#" class="disabled" style="opacity:0.4; cursor:not-allowed;">
-      <span class="nav-icon">📦</span> Equipment
+      <span class="nav-icon">{{ ico.icon('package') }}</span> Equipment
     </a>
 
     <a href="/agency"
        class="{% if request.endpoint and request.endpoint.startswith('agency.') %}active{% endif %}">
-      <span class="nav-icon">🎨</span> Agency Branding
+      <span class="nav-icon">{{ ico.icon('palette') }}</span> Agency Branding
     </a>
 
     <div class="nav-section">Coming Soon</div>
     <a href="#" class="disabled" style="opacity:0.4; cursor:not-allowed;">
-      <span class="nav-icon">📋</span> RFQ Builder
+      <span class="nav-icon">{{ ico.icon('clipboard-list') }}</span> RFQ Builder
     </a>
     <a href="#" class="disabled" style="opacity:0.4; cursor:not-allowed;">
-      <span class="nav-icon">💰</span> Budget
+      <span class="nav-icon">{{ ico.icon('banknote') }}</span> Budget
     </a>
     <a href="#" class="disabled" style="opacity:0.4; cursor:not-allowed;">
-      <span class="nav-icon">🍽</span> F&amp;B
+      <span class="nav-icon">{{ ico.icon('utensils') }}</span> F&amp;B
     </a>
   </nav>
 
