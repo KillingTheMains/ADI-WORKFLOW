@@ -293,7 +293,9 @@
         <table class="crew-tbl">
           <thead>
             <tr>
-              <th style="width:36pt;">How many</th>
+              {# Wide enough to hold "How many" on ONE line. The day page can
+                 wrap a header; a printed page reads worse for it. #}
+              <th style="width:50pt;">How many</th>
               <th style="width:32pt;">Est</th>
               <th style="width:32pt;">Actual</th>
               <th style="width:120pt;">Position</th>
