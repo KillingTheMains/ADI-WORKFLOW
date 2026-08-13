@@ -1241,7 +1241,16 @@
               <div class="row g-1 align-items-end">
                 <div class="col-md-2">
                   <label class="form-label" style="font-size:.7rem;margin-bottom:1px;">Dept</label>
+                  {# The placeholder is load-bearing. Without it the first
+                     option — Dock, sort 1 — is what a browser submits when
+                     nobody touches the select, so an entry added here in a
+                     hurry silently became a Dock entry. Delete its activity
+                     later and it unlinks but survives, and you have an
+                     unassigned row wearing a department nobody chose. The
+                     other two OSS add forms on this page already had this;
+                     this one did not. #}
                   <select name="type" class="form-select form-select-sm" required style="font-size:.78rem;">
+                    <option value="">— dept —</option>
                     {% for t in oss_types %}
                     <option value="{{ t }}">{{ oss_meta[t].icon }} {{ oss_meta[t].label }}</option>
                     {% endfor %}

@@ -58,9 +58,16 @@ def _ordered_types():
     return sorted(SUB_SCHEDULE_TYPES, key=lambda t: SUB_SCHEDULE_META.get(t, {}).get("sort", 99))
 
 
+# The triage tab. Not a department — a queue of entries that belong to no
+# activity, and therefore appear on no day page. Jason, 2026-08-13:
+# "Unlinked entries should be their own tab in the OSS view and not randomly
+# assigned to 'dock'."
+TAB_UNASSIGNED = "unassigned"
+
+
 def _tab_safe(tab_key):
     """Validate a tab key, falling back to 'master'."""
-    if tab_key == "master" or tab_key in SUB_SCHEDULE_TYPES:
+    if tab_key in ("master", TAB_UNASSIGNED) or tab_key in SUB_SCHEDULE_TYPES:
         return tab_key
     return "master"
 
@@ -223,6 +230,27 @@ def oss_hub(show_id):
         t: build_dept_rows(grouped.get(t, []), hardcoded_by_dept.get(t, []))
         for t in _ordered_types()
     }
+
+    # ── Unassigned: entries that hang off no activity ───────────────────
+    #
+    # An OSS entry is departmental detail ON something that happens on the
+    # day. One with no activity link is a row that appears on NO day page —
+    # it exists only here, which is the OSS being a second schedule rather
+    # than a summary of the first.
+    #
+    # They get their own tab rather than sitting inside whatever department
+    # they happen to carry. On production all ten were tagged Dock, which
+    # reads as a Dock backlog and is not one: the "+ OSS" button on an
+    # activity had no placeholder on its department select, so its first
+    # option — Dock, sort 1 — was submitted whenever nobody touched it, and
+    # deleting the activity later unlinks the entry but keeps it. Two steps,
+    # and the second one is documented behaviour.
+    #
+    # Grouped through build_dept_rows so the day banding and the clock order
+    # are the same code the department tabs use.
+    unassigned_rows = build_dept_rows(
+        [e for e in all_entries if not e.activity_id], [])
+    unassigned_count = sum(len(rows) for _day, rows in unassigned_rows)
     dietary_notes = (ShowDietaryNote.query
                      .filter_by(show_id=show_id)
                      .order_by(ShowDietaryNote.sort_order, ShowDietaryNote.id)
@@ -290,6 +318,9 @@ def oss_hub(show_id):
         grouped               = grouped,
         hardcoded_by_dept     = hardcoded_by_dept,
         dept_rows             = dept_rows,
+        unassigned_rows       = unassigned_rows,
+        unassigned_count      = unassigned_count,
+        tab_unassigned        = TAB_UNASSIGNED,
         all_entries           = all_entries,
         days                  = show.days,
         unscheduled_meals     = unscheduled_meals,
@@ -493,6 +524,62 @@ def edit_entry(show_id, entry_id):
     db.session.commit()
     flash("Entry updated.", "success")
     return _redirect_after_change(show_id, entry_type=entry.type)
+
+
+@oss_bp.route("/<int:show_id>/oss/<int:entry_id>/classify", methods=["POST"])
+def classify_entry(show_id, entry_id):
+    """Give an unassigned entry its proper department, and optionally put it
+    on an activity.
+
+    Deliberately NOT `_apply_form_to_entry`. That is the full write path and
+    reads `time`, `activity`, `count`, `duration_hrs` and `notes` off the
+    form — so a partial post through it would blank every field this form
+    does not carry, which on a triage screen is most of them. Two fields in,
+    two fields out.
+    """
+    entry = SubScheduleEntry.query.get_or_404(entry_id)
+    if entry.show_id != show_id:
+        flash("Entry does not belong to this show.", "danger")
+        return redirect(url_for("oss.oss_hub", show_id=show_id))
+
+    type_key = (request.form.get("type") or "").strip()
+    if type_key not in SUB_SCHEDULE_TYPES:
+        flash("Pick a department for that entry.", "danger")
+        return _redirect_after_change(show_id, entry_type=TAB_UNASSIGNED)
+
+    # The activity link is optional here — assigning a department is useful on
+    # its own, and it is the thing Jason asked for. Linking is what actually
+    # takes the entry off this tab, because the tab asks "does this appear on
+    # a day page", not "does this have a department".
+    raw_act = (request.form.get("activity_id") or "").strip()
+    activity_id = None
+    if raw_act:
+        try:
+            activity_id = int(raw_act)
+        except ValueError:
+            flash("Invalid activity selection.", "danger")
+            return _redirect_after_change(show_id, entry_type=TAB_UNASSIGNED)
+        act = ScheduleActivity.query.get(activity_id)
+        if not act or act.day_id != entry.schedule_day_id:
+            flash("That activity is not on this entry's day.", "danger")
+            return _redirect_after_change(show_id, entry_type=TAB_UNASSIGNED)
+
+    entry.type = type_key
+    if activity_id:
+        # Same rule the full write path uses: a linked entry has no clock of
+        # its own, because the activity is the single source of truth for
+        # when it happens.
+        entry.activity_id = activity_id
+        entry.time = None
+
+    db.session.commit()
+    label = SUB_SCHEDULE_META.get(type_key, {}).get("label", type_key)
+    if activity_id:
+        flash("Filed under %s and linked to an activity." % label, "success")
+        return _redirect_after_change(show_id, entry_type=type_key)
+    flash("Filed under %s. It still has no activity, so it stays on this tab."
+          % label, "info")
+    return _redirect_after_change(show_id, entry_type=TAB_UNASSIGNED)
 
 
 @oss_bp.route("/<int:show_id>/oss/<int:entry_id>/delete", methods=["POST"])

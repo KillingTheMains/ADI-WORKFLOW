@@ -90,6 +90,27 @@
       {% if master_items %}<span class="oss-pill ms-1">{{ master_items|length }}</span>{% endif %}
     </button>
   </li>
+  {# Not a department — a triage queue. An OSS entry that hangs off no
+     activity appears on no day page, which is the OSS being a second
+     schedule instead of a summary of the first. It sits next to Master
+     because it is a thing to clear, not a place to work. Hidden entirely
+     when the count is zero: a tab that cannot reach empty is a tab nobody
+     reads. #}
+  {% if unassigned_count %}
+  <li class="nav-item">
+    <button class="nav-link {% if active_tab == tab_unassigned %}active{% endif %}"
+            data-bs-toggle="tab" data-bs-target="#tab-unassigned" type="button"
+            data-tab-key="{{ tab_unassigned }}">
+      <span class="icon">📥</span>Unassigned
+      <span title="Entries that are not on any day page yet"
+            style="display:inline-block;font-size:.62rem;font-weight:700;
+                   padding:1px 6px;border-radius:8px;margin-left:4px;
+                   background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;">
+        ⚠ {{ unassigned_count }}
+      </span>
+    </button>
+  </li>
+  {% endif %}
   {% for t in ordered_types %}
   {% set m = meta[t] %}
   <li class="nav-item">
@@ -230,6 +251,113 @@
     <div class="oss-empty">No OSS entries yet. Pick a department tab to add the first one.</div>
     {% endif %}
   </div>
+
+  <!-- ── Unassigned ──────────────────────────────────────────────────────
+       Entries that hang off no activity. They appear on no day page, so
+       they are the OSS acting as a second schedule rather than summarising
+       the first. Listed by day, with the department picker Jason asked for
+       and — because that is what actually clears them — an optional link to
+       an activity on the same day. -->
+  {% if unassigned_count %}
+  <div class="tab-pane oss-tab-pane {% if active_tab == tab_unassigned %}show active{% endif %}"
+       id="tab-unassigned" role="tabpanel">
+    <div class="oss-section-help">
+      <strong>{{ unassigned_count }}</strong>
+      entr{{ 'y' if unassigned_count == 1 else 'ies' }} not tied to anything on a
+      day page. The OSS is a summary of the daily schedules, so an entry with
+      no activity behind it is only here — it will not print on a day, and
+      nobody working from the schedule builder will see it.
+      <br>
+      Give each one its proper department. Linking it to an activity on its
+      day is what takes it off this list.
+    </div>
+
+    <table class="table table-sm oss-table">
+      <thead>
+        <tr>
+          <th style="width:34px;"></th>
+          <th style="width:96px;">Time</th>
+          <th>What it is</th>
+          <th style="width:150px;">Department</th>
+          <th>Put it on…</th>
+          <th style="width:70px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for day, rows in unassigned_rows %}
+        <tr class="oss-day-header">
+          <td colspan="6">
+            {{ day.date.strftime('%A, %B %-d, %Y') if day and day.date else 'No day' }}
+            {% if day and day.label %} · {{ day.label }}{% endif %}
+            {% if day and day.phase %} · {{ day.phase }}{% endif %}
+          </td>
+        </tr>
+          {% for r in rows %}
+          {% set e = r.entry %}
+          <tr>
+            <td style="{{ rk.row_shell('act') }}">{{ rk.kind_chip('act') }}</td>
+            <td style="{{ rk.row_fill('act') }}white-space:nowrap;
+                       font-variant-numeric:tabular-nums;">{{ e.effective_time or '—' }}</td>
+            <td style="{{ rk.row_fill('act') }}">
+              {{ e.activity or '—' }}
+              {% if e.notes %}
+              <div class="text-muted" style="font-size:.72rem;">{{ e.notes }}</div>
+              {% endif %}
+              {% if e.count is not none or e.duration_hrs is not none %}
+              <div class="text-muted" style="font-size:.72rem;">
+                {% if e.count is not none %}count {{ e.count }}{% endif %}
+                {% if e.duration_hrs is not none %} · {{ e.duration_hrs }} hr{% endif %}
+              </div>
+              {% endif %}
+            </td>
+            <td style="{{ rk.row_fill('act') }}">
+              <select name="type" form="fix-{{ e.id }}"
+                      class="form-select form-select-sm" required
+                      style="font-size:.78rem;">
+                <option value="">— pick one —</option>
+                {% for t in ordered_types %}
+                <option value="{{ t }}" {% if t == e.type %}selected{% endif %}>
+                  {{ meta[t].icon }} {{ meta[t].label }}
+                </option>
+                {% endfor %}
+              </select>
+            </td>
+            <td style="{{ rk.row_fill('act') }}">
+              <div class="d-flex gap-1">
+                <select name="activity_id" form="fix-{{ e.id }}"
+                        class="form-select form-select-sm" style="font-size:.78rem;">
+                  <option value="">— leave it off the day —</option>
+                  {% for a in activities_by_day.get(e.schedule_day_id, []) %}
+                  <option value="{{ a.id }}">{{ a.label }}</option>
+                  {% endfor %}
+                </select>
+                <button type="submit" form="fix-{{ e.id }}"
+                        class="btn btn-sm btn-adi" style="font-size:.72rem;white-space:nowrap;">
+                  Save
+                </button>
+              </div>
+              {# The form lives outside the cells so the two selects and the
+                 button can sit in different columns and still post together —
+                 the same form="id" association the crew rows use. A <form>
+                 inside a <tr> is invalid HTML. #}
+              <form method="POST" id="fix-{{ e.id }}"
+                    action="{{ url_for('oss.classify_entry', show_id=show.id, entry_id=e.id) }}"></form>
+            </td>
+            <td style="{{ rk.row_fill('act') }}">
+              <form method="POST"
+                    action="{{ url_for('oss.delete_entry', show_id=show.id, entry_id=e.id) }}"
+                    onsubmit="return confirm('Delete this entry?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2"
+                        style="font-size:.72rem;">Del</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
 
 
   <!-- ── Department tabs ─────────────────────────────────────────────── -->
