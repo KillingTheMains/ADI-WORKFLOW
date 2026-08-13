@@ -142,6 +142,20 @@ def _sort_key(item):
     return (day.date if day and day.date else DATE_MAX, item["sort_time"])
 
 
+def _qty(value):
+    """A local-labour line's headcount, read the way line_label() reads it.
+
+    Same coercion, deliberately — the number in "14 × Rigger" and the number
+    added into the call's headcount must be the same number, and they came
+    from two different readings of the same field once already.
+    """
+    try:
+        n = int(value or 1)
+    except (TypeError, ValueError):
+        n = 1
+    return n if n >= 1 else 1
+
+
 CREW_BREAK_RE = re.compile(
     r'^(?P<base>.+?)\s*[—–-]\s*(?P<call>\d{1,2}:\d{2}\s*(?:[AP]\.?M\.?)?)\s+CREW\s*$',
     re.I)
@@ -330,6 +344,12 @@ def build_master_items(show, entries, meal_services):
     # by a linked department row is skipped — it was merged in above.
     for d in show.days:
         crew_by_time = {}
+        # Local labour is kept in a SEPARATE list from the moment it is read.
+        # It used to be appended to `names`, so "14 × Rigger" and "Ann One"
+        # were the same shape everywhere downstream — one indented row under
+        # "N crew called" on the master, in the PDF and in the XLSX. Fourteen
+        # humans and one human, indistinguishable on the page.
+        local_by_time = {}
         for a in d.activities:
             if a.id not in claimed:
                 cb = crew_breaks.get(a.id)
@@ -354,6 +374,7 @@ def build_master_items(show, entries, meal_services):
             # Crew on a Crew Start all share that event's call time.
             if is_crew_start(a.description):
                 names = crew_by_time.setdefault(a.time or "", [])
+                local = local_by_time.setdefault(a.time or "", [])
                 for row in a.ordered_crew_rows:
                     if row.is_group_header:
                         continue
@@ -374,29 +395,48 @@ def build_master_items(show, entries, meal_services):
                     # doing two different tasks, and merging them would lose
                     # the count.
                     if row.position or row.position_id:
-                        names.append(line_label(
-                            row.position or (row.position_ref.title
-                                             if row.position_ref else None),
-                            row.qty, row.task))
+                        title = row.position or (row.position_ref.title
+                                                 if row.position_ref else None)
+                        local.append({
+                            "label":    line_label(title, row.qty, row.task),
+                            "qty":      _qty(row.qty),
+                            "position": (title or "Crew"),
+                            "task":     (row.task or "").strip(),
+                        })
 
         # #47 — one grouped Crew row per distinct call time, not one per person.
         for t, names in crew_by_time.items():
-            if not names:
+            local = local_by_time.get(t, [])
+            # A call can be ENTIRELY local labour — four riggers and no named
+            # lead. Testing `names` alone used to be enough only because the
+            # local lines were in it.
+            if not names and not local:
                 continue
-            # HEADCOUNT, not line count. A local labour line is one entry in
-            # `names` but N people on site, and this number is what the client
-            # master prints and what a caterer reads.
+            # HEADCOUNT, not line count. A local labour line is one row but N
+            # people on site, and this number is what the client master prints
+            # and what a caterer reads.
             head = 0
             for a in d.activities:
                 if not is_crew_start(a.description) or (a.time or "") != t:
                     continue
                 head += a.crew_headcount
-            item = _item(d, t, "Crew", ", ".join(names),
+            labels = [l["label"] for l in local]
+            # `activity` stays the full one-line summary — people then
+            # positions — because it is what a surface that has only this
+            # field shows, and dropping the local lines from it would hide
+            # them there. The SHAPE of the two is what separates now.
+            item = _item(d, t, "Crew", ", ".join(names + labels),
                          icon="👤", kind="crew",
-                         count=head or len(names), source=SOURCE_CREW)
+                         count=head or (len(names)
+                                        + sum(l["qty"] for l in local)),
+                         source=SOURCE_CREW)
             # Exports show the count and put the names on the Crew sheet —
             # 40 names in one cell is unreadable and wrecks PDF pagination.
             item["crew_names"] = list(names)
+            # Counts of a POSITION, never mixed in with the people. Rendered
+            # with the LL code and the local-labour fill, so one line reading
+            # "14 × Rigger" cannot be mistaken for one person.
+            item["local_lines"] = list(local)
             items.append(item)
 
 

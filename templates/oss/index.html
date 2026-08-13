@@ -202,6 +202,27 @@
             <td style="{{ fill }}"></td>
           </tr>
           {% endfor %}
+          {# LOCAL LABOUR. Not a name — a COUNT of a position. It used to be
+             appended to the same list as the people above and rendered as one
+             more indented line, so "14 × Rigger" and "Ann One" were the same
+             shape and fourteen humans read as one. LL, the local rail and the
+             local tint, and the headcount in its own column, which is the
+             number the line exists to get right. #}
+          {% set lfill = rk.row_fill('local') %}
+          {% for line in item.local_lines or [] %}
+          <tr class="oss-master-local-row">
+            <td style="{{ rk.row_shell('local') }}{{ rk.local_hatch() }}">{{ rk.kind_chip('local') }}</td>
+            <td style="{{ lfill }}"></td>
+            <td style="{{ lfill }}"></td>
+            <td style="{{ lfill }}padding-left:22px;font-size:.82rem;">
+              <strong>{{ line.position }}</strong>{% if line.task %}
+              <span style="color:var(--adi-mineral-dk);"> — {{ line.task }}</span>{% endif %}
+            </td>
+            <td style="{{ lfill }}font-variant-numeric:tabular-nums;">{{ line.qty }}</td>
+            <td style="{{ lfill }}"></td>
+            <td style="{{ lfill }}"></td>
+          </tr>
+          {% endfor %}
         {% endfor %}
       </tbody>
     </table>

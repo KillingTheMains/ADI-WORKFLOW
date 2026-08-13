@@ -382,6 +382,25 @@ def _day_rows(day, items, st):
                 "", "",
             ])
             i += 1
+
+        # LOCAL LABOUR. These used to be in `crew_names`, so "14 × Rigger"
+        # printed as one more indented name with an empty code column —
+        # identical on the page to one human. They carry LL and the
+        # local-labour fill, and the headcount goes in the detail column
+        # because the number is the whole point of the line.
+        for line in item.get("local_lines") or []:
+            rows.append([
+                brand.KIND_CODE.get("local", ""),
+                "", "",
+                Paragraph(escape(line.get("label") or ""), st["cell_name"]),
+                Paragraph(count_label("Crew", line.get("qty")) or "", st["cell_dim"]),
+                "",
+            ])
+            local_fill = brand.KIND_FILL.get("local")
+            if local_fill:
+                style.append(("BACKGROUND", (0, i), (-1, i),
+                              colors.HexColor(local_fill)))
+            i += 1
     return rows, style
 
 
@@ -461,6 +480,21 @@ def _department_sections(master_items, st):
                 rows.append(["", "", "",
                              Paragraph(escape(who or ""), st["cell_name"]),
                              "", ""])
+                i += 1
+            # Same split as the day sections: a count of a position is not a
+            # name, and the Crew department section is exactly where a reader
+            # goes to find out how many bodies are coming.
+            for line in item.get("local_lines") or []:
+                rows.append([brand.KIND_CODE.get("local", ""), "", "",
+                             Paragraph(escape(line.get("label") or ""),
+                                       st["cell_name"]),
+                             Paragraph(count_label("Crew", line.get("qty")) or "",
+                                       st["cell_dim"]),
+                             ""])
+                local_fill = brand.KIND_FILL.get("local")
+                if local_fill:
+                    style.append(("BACKGROUND", (0, i), (-1, i),
+                                  colors.HexColor(local_fill)))
                 i += 1
         table = _DayTable(rows, colWidths=widths, repeatRows=2)
         table.setStyle(TableStyle(style))

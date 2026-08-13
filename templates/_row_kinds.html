@@ -91,6 +91,16 @@
     {# The fill alone, for the cells after the first in a table row. #}
     {% macro row_fill(kind) %}{{- FILL.get(kind, '') -}}{%- endmacro %}
 
+    {# The 45° hatch is not decoration. It says "these lines are multiples of
+       a POSITION, not individual people" — one Lighting Hand row is seven
+       humans, and that distinction is what the 2026-08-12 headcount bug
+       turned on. Same declaration as the day page's local-labour block.
+
+       Put it AFTER row_shell('local') on a cell: it restates the flat fill as
+       the second layer of the gradient shorthand, so the later declaration
+       wins and the rail survives. #}
+    {% macro local_hatch() %}{{- 'background:repeating-linear-gradient(45deg,var(--adi-kind-local) 0 2px,transparent 2px 5px) left/6px 100% no-repeat,var(--adi-tint-local);' -}}{% endmacro %}
+
     {# The chip, tolerant of an unknown kind for the same reason. Falls back
        to the activity chip rather than to nothing, so the code column on the
        master schedule is never blank — a blank there reads as "no data",

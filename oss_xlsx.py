@@ -245,6 +245,33 @@ def _master(wb, show, agency, master_items):
                         cell.fill = kind_fill
                 row += 1
 
+            # LOCAL LABOUR, split out of the name list. A line reading
+            # "14 × Rigger" used to be written into the same column with the
+            # same font and an empty code cell — one filter on this sheet
+            # could not tell fourteen people from one. It now carries LL and
+            # the local-labour fill, and its headcount goes in the detail
+            # column so the number is filterable.
+            local_fill = KIND_FILLS.get("local")
+            for line in item.get("local_lines") or []:
+                ws.cell(row=row, column=1,
+                        value=brand.KIND_CODE.get("local", "")).font = Font(
+                            name=FONT, size=9, bold=True)
+                ws.cell(row=row, column=1).alignment = Alignment(
+                    horizontal="center", vertical="top")
+                c = ws.cell(row=row, column=4, value=line.get("label"))
+                c.font = Font(name=FONT, size=10)
+                c.alignment = Alignment(vertical="top", indent=2)
+                d = ws.cell(row=row, column=5,
+                            value=count_label("Crew", line.get("qty")))
+                d.font = Font(name=FONT, size=10)
+                d.alignment = Alignment(vertical="top")
+                for col in range(1, 7):
+                    cell = ws.cell(row=row, column=col)
+                    cell.border = BORDER
+                    if local_fill:
+                        cell.fill = local_fill
+                row += 1
+
     last = row - 1
     # Deliberately NO autofilter here: the day banners are merged across the
     # row and Excel handles a filter over merged cells badly. The flat
@@ -292,7 +319,12 @@ def _department_sheets(wb, show, agency, master_items):
         for n, item in enumerate(items):
             day = item["day"]
             # The Crew sheet is where the names live — the Master shows a count.
-            names = item.get("crew_names")
+            # Local labour is joined in after the people rather than dropped:
+            # this is a flat, filterable sheet with one row per item and no
+            # room for a second row per line, so the alternative would be a
+            # Crew tab that silently omits every local-labour call.
+            names = list(item.get("crew_names") or [])
+            names += [l.get("label") for l in item.get("local_lines") or []]
             label = (", ".join(names) if names else item["activity"])
             values = [
                 brand.fmt_date(day.date) if day and day.date else "Unscheduled",
