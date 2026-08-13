@@ -9,35 +9,43 @@
 {% endblock %}
 
 {% block content %}
-<div class="row g-3 mb-4">
-  <div class="col-md-3">
-    <div class="card p-3 text-center">
-      <div style="font-size:1.8rem;font-weight:700;color:var(--adi-gold)">{{ shows|length }}</div>
-      <div class="text-muted" style="font-size:0.8rem">Total Shows</div>
+{# §08. Four separate floating cards became ONE bordered four-cell strip.
+   They are four readings of the same thing, so they should be one object
+   with three internal rules, not four objects competing for the top of the
+   page. Figures are tabular and left-aligned so they compare down a column.
+
+   The two off-brand hexes went with it: #16A34A and #1D4ED8 were the last
+   hard-coded colours on the dashboard, now --adi-ok and --adi-blue. #}
+<div class="mb-4" style="display:grid;grid-template-columns:repeat(4,1fr);
+     border:1px solid var(--adi-border-strong);background:var(--adi-card);">
+  <div style="padding:14px 18px;border-right:1px solid var(--adi-border);">
+    <div style="font:700 11px/1 'Barlow',sans-serif;letter-spacing:.14em;
+                text-transform:uppercase;color:var(--adi-mineral-dk);">Total shows</div>
+    <div style="font:600 28px/1.1 'Barlow Condensed',sans-serif;color:var(--adi-dark);
+                font-variant-numeric:tabular-nums;margin-top:5px;">{{ shows|length }}</div>
+  </div>
+  <div style="padding:14px 18px;border-right:1px solid var(--adi-border);">
+    <div style="font:700 11px/1 'Barlow',sans-serif;letter-spacing:.14em;
+                text-transform:uppercase;color:var(--adi-mineral-dk);">Active</div>
+    <div style="font:600 28px/1.1 'Barlow Condensed',sans-serif;color:var(--adi-ok);
+                font-variant-numeric:tabular-nums;margin-top:5px;">
+      {{ shows|selectattr('status','equalto','Active')|list|length }}
     </div>
   </div>
-  <div class="col-md-3">
-    <div class="card p-3 text-center">
-      <div style="font-size:1.8rem;font-weight:700;color:#16A34A">
-        {{ shows|selectattr('status','equalto','Active')|list|length }}
-      </div>
-      <div class="text-muted" style="font-size:0.8rem">Active Shows</div>
+  <div style="padding:14px 18px;border-right:1px solid var(--adi-border);">
+    <div style="font:700 11px/1 'Barlow',sans-serif;letter-spacing:.14em;
+                text-transform:uppercase;color:var(--adi-mineral-dk);">In planning</div>
+    <div style="font:600 28px/1.1 'Barlow Condensed',sans-serif;color:var(--adi-blue);
+                font-variant-numeric:tabular-nums;margin-top:5px;">
+      {{ shows|selectattr('status','equalto','Planning')|list|length }}
     </div>
   </div>
-  <div class="col-md-3">
-    <div class="card p-3 text-center">
-      <div style="font-size:1.8rem;font-weight:700;color:#1D4ED8">
-        {{ shows|selectattr('status','equalto','Planning')|list|length }}
-      </div>
-      <div class="text-muted" style="font-size:0.8rem">In Planning</div>
-    </div>
-  </div>
-  <div class="col-md-3">
-    <div class="card p-3 text-center">
-      <div style="font-size:1.8rem;font-weight:700;color:var(--adi-dark)">
-        {% set total_days = namespace(n=0) %}{% for s in shows %}{% set total_days.n = total_days.n + s.days|list|length %}{% endfor %}{{ total_days.n }}
-      </div>
-      <div class="text-muted" style="font-size:0.8rem">Schedule Days</div>
+  <div style="padding:14px 18px;">
+    <div style="font:700 11px/1 'Barlow',sans-serif;letter-spacing:.14em;
+                text-transform:uppercase;color:var(--adi-mineral-dk);">Schedule days</div>
+    <div style="font:600 28px/1.1 'Barlow Condensed',sans-serif;color:var(--adi-dark);
+                font-variant-numeric:tabular-nums;margin-top:5px;">
+      {% set total_days = namespace(n=0) %}{% for s in shows %}{% set total_days.n = total_days.n + s.days|list|length %}{% endfor %}{{ total_days.n }}
     </div>
   </div>
 </div>

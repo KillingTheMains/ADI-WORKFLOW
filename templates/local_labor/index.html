@@ -26,18 +26,18 @@
     <form method="POST" action="{{ url_for('local_labor.add') }}"
           class="row g-2 align-items-end">
       <div class="col-md-3">
-        <label class="form-label" style="font-size:.75rem;">Title</label>
+        <label class="form-label" style="font:700 11px/1 'Barlow',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--adi-mineral-dk);margin-bottom:4px;">Title</label>
         <input type="text" name="title" class="form-control form-control-sm"
                placeholder="e.g. High Rigger" required>
       </div>
       <div class="col-md-2">
-        <label class="form-label" style="font-size:.75rem;">Department</label>
+        <label class="form-label" style="font:700 11px/1 'Barlow',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--adi-mineral-dk);margin-bottom:4px;">Department</label>
         <select name="department" class="form-select form-select-sm">
           {% for d in departments %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
         </select>
       </div>
       <div class="col-md-2">
-        <label class="form-label" style="font-size:.75rem;">Type</label>
+        <label class="form-label" style="font:700 11px/1 'Barlow',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--adi-mineral-dk);margin-bottom:4px;">Type</label>
         <select name="type" class="form-select form-select-sm">
           <option value="hand">hand — hired in multiples</option>
           <option value="lead">lead — runs the crew</option>
@@ -45,7 +45,7 @@
         </select>
       </div>
       <div class="col-md-3">
-        <label class="form-label" style="font-size:.75rem;">Notes</label>
+        <label class="form-label" style="font:700 11px/1 'Barlow',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--adi-mineral-dk);margin-bottom:4px;">Notes</label>
         <input type="text" name="notes" class="form-control form-control-sm"
                placeholder="Optional">
       </div>
@@ -87,7 +87,7 @@
         <th style="width:34%;">Position</th>
         <th style="width:10%;">Type</th>
         <th style="width:8%;">Union</th>
-        <th style="width:14%;">On calls</th>
+        <th style="width:14%;text-align:right;">On calls</th>
         <th>Notes</th>
         <th style="width:150px;"></th>
       </tr>

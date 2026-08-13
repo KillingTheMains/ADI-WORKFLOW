@@ -24,7 +24,7 @@
     <!-- Search -->
     <div class="col-md-4">
       <div class="input-group input-group-sm">
-        <span class="input-group-text" style="background:var(--adi-surface);border-color:#dee2e6;">
+        <span class="input-group-text" style="background:var(--adi-surface);border-color:var(--adi-border-strong);">
           🔍
         </span>
         <input type="text" id="crew-search" class="form-control form-control-sm"
@@ -79,7 +79,7 @@
   </div>
 
   <!-- Active filter summary -->
-  <div class="mt-2" id="filter-summary" style="font-size:.75rem;color:#6c757d;display:none;">
+  <div class="mt-2" id="filter-summary" style="font-size:13px;color:var(--adi-mineral-dk);display:none;">
     Showing <strong id="visible-count">0</strong> of {{ members|length }} crew members
     <button class="btn btn-link btn-sm p-0 ms-2" id="reset-filters" style="font-size:.75rem;">
       Clear all filters
@@ -130,7 +130,7 @@
             data-sort-dept="{{ (m.position.department if m.position else 'zzz') | lower }}"
             data-sort-company="{{ (m.company.name if m.company else 'zzz') | lower }}">
           <td class="drag-handle"
-              style="cursor:grab;text-align:center;color:#999;font-size:1rem;user-select:none;"
+              style="cursor:grab;text-align:center;color:var(--adi-mineral);font-size:1rem;user-select:none;"
               title="Drag to reorder">⋮⋮</td>
           <td style="text-align:center;">
             <input type="checkbox" class="crew-select" value="{{ m.id }}">
@@ -188,10 +188,18 @@
       </tbody>
     </table>
     <!-- Empty state when filters return nothing -->
-    <div id="no-results" class="text-center py-5" style="display:none;">
-      <div style="font-size:1.5rem;">🔍</div>
-      <div class="text-muted mt-2" style="font-size:.875rem;">No crew members match your filters.</div>
-      <button class="btn btn-sm btn-outline-secondary mt-2" id="reset-filters-2">Clear filters</button>
+    {# §08. A floating emoji and a grey line read as a rendering failure. The
+       dashed plate says "this is a state, deliberately" and matches the empty
+       state everywhere else in the app. #}
+    <div id="no-results" class="text-center" style="display:none;padding:40px 20px;
+         border:1px dashed var(--adi-border-strong);background:var(--adi-card);">
+      <div style="font:600 15px/1.2 'Barlow Condensed',sans-serif;letter-spacing:.07em;
+                  text-transform:uppercase;color:var(--adi-dark);">No crew match these filters</div>
+      <div style="font-size:14px;line-height:1.55;color:var(--adi-mineral-dk);
+                  max-width:60ch;margin:8px auto 14px;">
+        Every crew member is still here — the filters above are just hiding them.
+      </div>
+      <button class="btn btn-sm btn-outline-secondary" id="reset-filters-2">Clear filters</button>
     </div>
   </div>
 </div>

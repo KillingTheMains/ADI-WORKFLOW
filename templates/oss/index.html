@@ -16,23 +16,32 @@
 
 {% block extra_css %}
 <style>
+  /* §08. A filled Midnight pill with gold text was the loudest object on the
+     page and put gold in a third place, against the "keep gold rare"
+     guardrail. A tab is a position indicator, not a button: the active one is
+     now marked by a 2px ink-cyan underline and weight, nothing else. */
   .oss-tabs .nav-link {
-    color: #444;
-    font-size: .82rem;
-    padding: .45rem .9rem;
-    border-radius: 6px 6px 0 0;
-    border: 1px solid transparent;
+    color: var(--adi-mineral-dk);
+    font: 500 13px/1 'Barlow', sans-serif;
+    padding: .5rem .9rem;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
   }
   .oss-tabs .nav-link.active {
-    background: var(--adi-dark);
-    color: var(--adi-gold-lt);
-    border-color: var(--adi-dark);
-    font-weight: 600;
+    background: transparent;
+    color: var(--adi-dark);
+    border-bottom-color: var(--adi-blue);
+    font-weight: 700;   /* active is never colour-only */
   }
-  .oss-tabs .nav-link:hover:not(.active) { background: #f3f3f3; }
+  .oss-tabs .nav-link:hover:not(.active) {
+    background: var(--adi-hover);
+    color: var(--adi-dark);
+  }
   .oss-tabs .nav-link .icon { margin-right: 4px; }
-  .oss-tab-pane { background: #fff; border: 1px solid #ddd; border-top: none;
-                  padding: 16px; border-radius: 0 0 6px 6px; }
+  .oss-tab-pane { background: var(--adi-card);
+                  border: 1px solid var(--adi-border-strong); border-top: none;
+                  padding: 16px; border-radius: 0; }
   .oss-table th { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em;
                   color: #666; font-weight: 600; background: #fafafa; }
   .oss-table td { font-size: .85rem; vertical-align: middle; }
