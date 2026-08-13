@@ -54,16 +54,24 @@
   /* Same problem the F&B tab had: at .78rem the day was the same size as the
      rows under it, so the master timeline read as one undifferentiated list.
      The day is the structure of this page — it should be unmissable. */
-  .oss-master-day-header td { background: #0B2545; color: #F7F4EE;
+  .oss-master-day-header td,
+  .oss-day-header td { background: var(--adi-dark); color: var(--adi-surface);
     font-weight: 700; font-size: 1rem; letter-spacing: .01em;
     padding: 10px 12px; border-top: 3px solid #fff; }
-  .oss-master-day-header:first-child td { border-top: 0; }
+  .oss-master-day-header:first-child td,
+  .oss-day-header:first-child td { border-top: 0; }
+  /* A department tab is the same page as the master, one department deep, so
+     the day band is the same band. Slightly quieter — the master is the whole
+     show and has more to separate. */
+  .oss-day-header td { font-size: .92rem; padding: 8px 12px; }
   .oss-pill { display: inline-block; font-size: .68rem; font-weight: 600;
               padding: 2px 8px; border-radius: 10px; background: #eee; color: #333; }
 </style>
 {% endblock %}
 
 {% block content %}
+{# Row kinds — chip and rail — shared with the day page. §07. #}
+{% import '_row_kinds.html' as rk %}
 {% if not show.days %}
 <div class="alert alert-warning">
   <strong>No schedule days yet.</strong>
@@ -194,19 +202,17 @@
   {% set entries = grouped[t] %}
   <div class="tab-pane oss-tab-pane {% if active_tab == t %}show active{% endif %}"
        id="tab-{{ loop.index }}" role="tabpanel">
-    {% if hardcoded_by_dept[t] %}
-    <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:6px;padding:8px 12px;margin-bottom:12px;">
-      <div style="font-size:.75rem;font-weight:700;color:#92400E;margin-bottom:4px;">
-        🔁 Recurring Events <span style="font-weight:400;">(auto from SOD/EOD · read-only · defined on the Recurring Events page)</span>
-      </div>
-      {% for ev in hardcoded_by_dept[t] %}
-      <div style="font-size:.82rem;display:flex;gap:8px;padding:1px 0;">
-        <span style="color:#92400E;min-width:96px;">{{ ev.day.date.strftime('%a %-m/%-d') if ev.day and ev.day.date else '—' }}</span>
-        <span style="font-weight:600;min-width:74px;">{{ ev.time or '—' }}</span>
-        <span>{{ ev.name }}{% if ev.end_time %} → {{ ev.end_time }}{% endif %}</span>
-      </div>
-      {% endfor %}
-    </div>
+    {# Recurring events used to be listed here for EVERY tab, in a box styled
+       #FEF3C7 / #FCD34D / #92400E — the app's warning colour, the same
+       treatment as "⚠ no F&B". Doors carries 21 of them and no other tab
+       carries any, so the one tab where they matter read as a warning about
+       its own schedule, above its own six entries, with no day grouping.
+
+       They are now merged into each department's table by build_dept_rows().
+       The three tabs that render their own body have no table to merge into,
+       so they keep a block — restyled into the same language. #}
+    {% if hardcoded_by_dept[t] and t in ('Wristbands', 'COMS', 'F&B') %}
+      {% include 'oss/_recurring_block.html' %}
     {% endif %}
     {% if t == 'Wristbands' %}
       {% include 'oss/_wristbands_tab.html' %}
@@ -246,11 +252,27 @@
       {% if t == 'Cleaning' %}Cleaning crew schedule and turnaround times.{% endif %}
     </div>
 
+    {# ── The department's day ──────────────────────────────────────────
+       One table, grouped by day, ordered by the clock — the shape the day
+       page and the master schedule already use. Recurring events (RC) and
+       the department's own entries (AC) sit in the same stream because on
+       the night they happen in one stream; the chip and the rail say which
+       is which, and only AC rows carry Edit/Del.
+
+       The Day column is gone: the day is now the header band, which is what
+       made twenty-one Doors events unreadable as a flat list. #}
+    {% if hardcoded_by_dept[t] %}
+    <div class="oss-section-help" style="margin-top:-4px;">
+      <strong>RC</strong> rows are Recurring Events — computed from each day's
+      SOD/EOD and read-only here. Edit them on the Recurring Events page.
+    </div>
+    {% endif %}
+
     <table class="table table-sm oss-table">
       <thead>
         <tr>
-          <th style="width:170px;">Day</th>
-          <th style="width:80px;">Time</th>
+          <th style="width:34px;"></th>
+          <th style="width:120px;">Time</th>
           <th>Activity</th>
           <th style="width:70px;">Count</th>
           <th style="width:70px;">Hrs</th>
@@ -259,54 +281,73 @@
         </tr>
       </thead>
       <tbody>
-        {% if entries %}
-          {% for e in entries %}
-          <tr>
-            <td>
-              {{ e.schedule_day.date.strftime('%a %-m/%-d') }}
-              {% if e.schedule_day.phase %}
-                <div style="font-size:.7rem;color:#888;">{{ e.schedule_day.phase }}</div>
-              {% endif %}
-            </td>
-            <td>
-              {{ e.effective_time or '—' }}
-              {% if e.is_linked %}<span title="Linked to a schedule activity — time follows the activity"
-                                        style="color:var(--adi-gold);font-size:.72rem;">🔗</span>{% endif %}
-            </td>
-            <td>
-              {{ e.activity or '—' }}
-              {% if e.is_linked and e.linked_activity %}
-                <div style="font-size:.7rem;color:#888;">↳ {{ e.linked_activity.description }}</div>
-              {% endif %}
-            </td>
-            <td>{{ e.count if e.count is not none else '—' }}</td>
-            <td>{{ e.duration_hrs if e.duration_hrs is not none else '—' }}</td>
-            <td class="text-muted" style="font-size:.78rem;">{{ e.notes or '' }}</td>
-            <td>
-              <button class="btn btn-sm btn-outline-secondary py-0 px-2"
-                      data-bs-toggle="modal" data-bs-target="#editModal"
-                      data-id="{{ e.id }}"
-                      data-type="{{ e.type }}"
-                      data-day="{{ e.schedule_day_id }}"
-                      data-activity-id="{{ e.activity_id or '' }}"
-                      data-time="{{ e.time|to_24hr }}"
-                      data-activity="{{ e.activity or '' }}"
-                      data-count="{{ e.count if e.count is not none else '' }}"
-                      data-hrs="{{ e.duration_hrs if e.duration_hrs is not none else '' }}"
-                      data-notes="{{ e.notes or '' }}"
-                      style="font-size:.72rem;">Edit</button>
-              <form method="POST"
-                    action="{{ url_for('oss.delete_entry', show_id=show.id, entry_id=e.id) }}"
-                    style="display:inline;"
-                    onsubmit="return confirm('Delete this entry?');">
-                <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2"
-                        style="font-size:.72rem;">Del</button>
-              </form>
-            </td>
-          </tr>
+        {% for day, rows in dept_rows[t] %}
+        <tr class="oss-day-header">
+          <td colspan="7">
+            {{ day.date.strftime('%A, %B %-d, %Y') if day and day.date else 'No day' }}
+            {% if day and day.label %} · {{ day.label }}{% endif %}
+            {% if day and day.phase %} · {{ day.phase }}{% endif %}
+          </td>
+        </tr>
+          {% for r in rows %}
+            {% if r.kind == 'recur' %}
+            <tr>
+              <td style="{{ rk.row_shell('recur') }}">{{ rk.kind_chip('recur') }}</td>
+              <td style="{{ rk.row_fill('recur') }}white-space:nowrap;font-weight:600;
+                         font-variant-numeric:tabular-nums;">
+                {{ r.time or '—' }}{% if r.end_time %} – {{ r.end_time }}{% endif %}
+              </td>
+              <td style="{{ rk.row_fill('recur') }}">{{ r.event.name }}</td>
+              <td style="{{ rk.row_fill('recur') }}">—</td>
+              <td style="{{ rk.row_fill('recur') }}">—</td>
+              <td style="{{ rk.row_fill('recur') }}"></td>
+              <td style="{{ rk.row_fill('recur') }}"></td>
+            </tr>
+            {% else %}
+            {% set e = r.entry %}
+            <tr>
+              <td style="{{ rk.row_shell('act') }}">{{ rk.kind_chip('act') }}</td>
+              <td style="{{ rk.row_fill('act') }}white-space:nowrap;
+                         font-variant-numeric:tabular-nums;">
+                {{ e.effective_time or '—' }}
+                {% if e.is_linked %}<span title="Linked to a schedule activity — time follows the activity"
+                                          style="color:var(--adi-gold);font-size:.72rem;">🔗</span>{% endif %}
+              </td>
+              <td style="{{ rk.row_fill('act') }}">
+                {{ e.activity or '—' }}
+                {% if e.is_linked and e.linked_activity %}
+                  <div style="font-size:.7rem;color:var(--adi-mineral-dk);">↳ {{ e.linked_activity.description }}</div>
+                {% endif %}
+              </td>
+              <td style="{{ rk.row_fill('act') }}">{{ e.count if e.count is not none else '—' }}</td>
+              <td style="{{ rk.row_fill('act') }}">{{ e.duration_hrs if e.duration_hrs is not none else '—' }}</td>
+              <td style="{{ rk.row_fill('act') }}font-size:.78rem;"
+                  class="text-muted">{{ e.notes or '' }}</td>
+              <td style="{{ rk.row_fill('act') }}">
+                <button class="btn btn-sm btn-outline-secondary py-0 px-2"
+                        data-bs-toggle="modal" data-bs-target="#editModal"
+                        data-id="{{ e.id }}"
+                        data-type="{{ e.type }}"
+                        data-day="{{ e.schedule_day_id }}"
+                        data-activity-id="{{ e.activity_id or '' }}"
+                        data-time="{{ e.time|to_24hr }}"
+                        data-activity="{{ e.activity or '' }}"
+                        data-count="{{ e.count if e.count is not none else '' }}"
+                        data-hrs="{{ e.duration_hrs if e.duration_hrs is not none else '' }}"
+                        data-notes="{{ e.notes or '' }}"
+                        style="font-size:.72rem;">Edit</button>
+                <form method="POST"
+                      action="{{ url_for('oss.delete_entry', show_id=show.id, entry_id=e.id) }}"
+                      style="display:inline;"
+                      onsubmit="return confirm('Delete this entry?');">
+                  <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2"
+                          style="font-size:.72rem;">Del</button>
+                </form>
+              </td>
+            </tr>
+            {% endif %}
           {% endfor %}
-        {% endif %}
-
+        {% endfor %}
       </tbody>
     </table>
 

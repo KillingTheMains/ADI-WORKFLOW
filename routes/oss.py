@@ -28,7 +28,7 @@ from models import (
     MealService, MealServiceLocation, ShowDietaryNote, MEAL_KINDS,
 )
 from time_utils import sort_minutes, hhmm_or_blank
-from oss_export import build_master_items
+from oss_export import build_dept_rows, build_master_items
 from datetime import date as _date_cls, datetime
 import re
 
@@ -213,6 +213,16 @@ def oss_hub(show_id):
     # copies drift, which is how the master and the F&B tab came to disagree.
     master_items, hardcoded_by_dept = build_master_items(
         show, all_entries, meal_services)
+
+    # ── Department tabs: entries and their recurring events, merged and
+    # grouped by day. Built here rather than in the template because
+    # interleaving two differently-shaped lists in Jinja is where the
+    # ordering quietly goes wrong. Doors is the tab this exists for: 21
+    # recurring events against 6 entries of its own.
+    dept_rows = {
+        t: build_dept_rows(grouped.get(t, []), hardcoded_by_dept.get(t, []))
+        for t in _ordered_types()
+    }
     dietary_notes = (ShowDietaryNote.query
                      .filter_by(show_id=show_id)
                      .order_by(ShowDietaryNote.sort_order, ShowDietaryNote.id)
@@ -279,6 +289,7 @@ def oss_hub(show_id):
         meta                  = SUB_SCHEDULE_META,
         grouped               = grouped,
         hardcoded_by_dept     = hardcoded_by_dept,
+        dept_rows             = dept_rows,
         all_entries           = all_entries,
         days                  = show.days,
         unscheduled_meals     = unscheduled_meals,

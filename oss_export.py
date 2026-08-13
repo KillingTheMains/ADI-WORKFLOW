@@ -421,6 +421,82 @@ def build_master_items(show, entries, meal_services):
     items = _collapse_crew_breaks(items)
     items.sort(key=_sort_key)
     return items, hardcoded_by_dept
+
+
+def build_dept_rows(entries, hardcoded):
+    """One department tab's rows: its own OSS entries and the recurring
+    events tagged to it, merged into a single day-grouped stream.
+
+    Returns [(day, [row, ...]), ...] in schedule order, undated last. Each
+    row is a dict carrying "kind" ("recur" or "act"), the clock fields, and
+    exactly one of "entry" (a SubScheduleEntry, editable) or "event" (a
+    computed recurring occurrence, read-only).
+
+    These used to be two stacked lists — a block of recurring events above
+    the department's own table. That reads fine when a department has one or
+    two worth mentioning as a footnote. Doors has twenty-one and they ARE
+    its schedule, so its own six entries sat below a wall of unrelated lines
+    and the recurring events themselves had no day grouping at all.
+
+    Ordering within a day is the clock, then recurring before entered. A
+    recurring event is a fixed fact of the venue's day — doors open at
+    18:00 whatever anyone schedules against it — so when the two land on the
+    same minute the fixed one reads first and the department's response to
+    it reads second.
+    """
+    rows = []
+    for e in entries or []:
+        rows.append({
+            "kind":      "act",
+            "day":       getattr(e, "schedule_day", None),
+            "day_id":    getattr(e, "schedule_day_id", None),
+            "time":      e.effective_time or "",
+            "end_time":  None,
+            "sort_time": sort_minutes(e.effective_time),
+            # Recurring first on a tie; see the docstring.
+            "tie":       1,
+            "order":     getattr(e, "sort_order", 0) or 0,
+            "entry":     e,
+            "event":     None,
+        })
+    for ev in hardcoded or []:
+        day = ev.get("day")
+        # sort_min is already minutes-since-midnight off the day's SOD/EOD.
+        # Falling back to sort_minutes() keeps a malformed overlay from
+        # throwing the whole tab rather than one row.
+        sort_min = ev.get("sort_min")
+        rows.append({
+            "kind":      "recur",
+            "day":       day,
+            "day_id":    getattr(day, "id", None),
+            "time":      ev.get("time") or "",
+            "end_time":  ev.get("end_time"),
+            "sort_time": sort_min if sort_min is not None
+                         else sort_minutes(ev.get("time")),
+            "tie":       0,
+            "order":     0,
+            "entry":     None,
+            "event":     ev,
+        })
+
+    def _key(r):
+        day = r["day"]
+        return (day.date if day and day.date else DATE_MAX,
+                r["sort_time"], r["tie"], r["order"])
+    rows.sort(key=_key)
+
+    # Grouped the way group_by_day() groups the master timeline, so a day is
+    # one contiguous run and never splits into two headed blocks.
+    ordered, seen = [], {}
+    for r in rows:
+        key = r["day_id"]
+        if key not in seen:
+            seen[key] = []
+            ordered.append((r["day"], seen[key]))
+        seen[key].append(r)
+    return ordered
+
+
 def group_by_day(master_items):
     """[(day, [items]), ...] in schedule order, undated last.
 

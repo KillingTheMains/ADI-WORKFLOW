@@ -1,0 +1,49 @@
+{# Recurring events for a tab that renders its own body (Wristbands, COMS,
+   F&B) and therefore has no shared entries table to merge them into.
+
+   Every other department tab merges them straight into its table — see
+   build_dept_rows(). This block exists so a recurring event tagged to one of
+   the three specialised tabs still surfaces, in the same language: RC chip,
+   dotted gold rail, grouped by day. It used to be an amber box — the app's
+   warning colour — which said "something is wrong here" about events that
+   are simply scheduled.
+
+   Reads `t`, `dept_rows` and `meta` from the including template's context. #}
+{% import '_row_kinds.html' as rk %}
+<div style="border:1px solid var(--adi-border);margin-bottom:14px;">
+  <div style="font:600 .75rem/1 'Barlow',sans-serif;text-transform:uppercase;
+              letter-spacing:.04em;color:var(--adi-mineral-dk);
+              padding:8px 12px;border-bottom:1px solid var(--adi-border);">
+    Recurring Events
+  </div>
+  <div class="oss-section-help" style="padding:8px 12px 0;margin-bottom:0;">
+    Computed from each day's SOD/EOD. Read-only here — edit them on the
+    Recurring Events page.
+  </div>
+  <table class="table table-sm oss-table mb-0">
+    <tbody>
+      {% for day, rows in dept_rows[t] %}
+        {% set recurring = rows | selectattr('kind', 'equalto', 'recur') | list %}
+        {% if recurring %}
+        <tr class="oss-day-header">
+          <td colspan="3">
+            {{ day.date.strftime('%A, %B %-d, %Y') if day and day.date else 'No day' }}
+            {% if day and day.label %} · {{ day.label }}{% endif %}
+            {% if day and day.phase %} · {{ day.phase }}{% endif %}
+          </td>
+        </tr>
+        {% for r in recurring %}
+        <tr>
+          <td style="{{ rk.row_shell('recur') }}width:34px;">{{ rk.kind_chip('recur') }}</td>
+          <td style="{{ rk.row_fill('recur') }}width:120px;white-space:nowrap;
+                     font-weight:600;font-variant-numeric:tabular-nums;">
+            {{ r.time or '—' }}{% if r.end_time %} – {{ r.end_time }}{% endif %}
+          </td>
+          <td style="{{ rk.row_fill('recur') }}">{{ r.event.name }}</td>
+        </tr>
+        {% endfor %}
+        {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
