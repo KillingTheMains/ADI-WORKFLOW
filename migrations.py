@@ -69,6 +69,16 @@ MIGRATIONS = [
     # and strikes catwalks the next. See local_labor.py.
     ("positions",             "is_local_labor",     "BOOLEAN DEFAULT 0"),
     ("crew_rows",             "task",               "VARCHAR(120)"),
+    # 2026-08-13 — Stage 2 of the OSS unification. An activity can now say
+    # which department it belongs to, which is the thing it could never say
+    # and the reason the OSS had to be a second schedule to hold the
+    # taxonomy. Purely additive: nothing writes or reads these yet. All three
+    # nullable, because 210 of the 288 activities on production are ordinary
+    # schedule items with no department at all. See
+    # ADI_OSS_Unification_Plan.md.
+    ("schedule_activities",   "department",         "VARCHAR(50)"),
+    ("schedule_activities",   "count",              "INTEGER"),
+    ("schedule_activities",   "duration_hrs",       "FLOAT"),
     # 2026-06-30 — Phase B: per-crew-per-show travel detail
     ("show_crew_assignments", "hotel_name",         "VARCHAR(200)"),
     ("show_crew_assignments", "hotel_check_in",     "DATE"),

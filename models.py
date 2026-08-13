@@ -445,6 +445,43 @@ class ScheduleActivity(db.Model):
     notes       = db.Column(db.Text)
     sort_order  = db.Column(db.Integer, default=0)
 
+    # ── Department, and the two fields that go with it ───────────────────
+    #
+    # STAGE 2 of making the OSS a view of the daily schedule. Additive and
+    # unread: nothing populates or renders these yet. See
+    # ADI_OSS_Unification_Plan.md.
+    #
+    # Jason, 2026-08-13: "The OSS and all the tabs are purely intended to be a
+    # summary of things that exist on the daily schedules ... they are not
+    # their own schedules themselves."
+    #
+    # They currently are, and this absence is why. An activity had six columns
+    # and none of them could say "I am a Dock event", so the department
+    # taxonomy could only live on SubScheduleEntry — which then needed its own
+    # day, time, count and notes to hang it on, and became a second schedule.
+    # `schedule_day_id` NOT NULL against a nullable `activity_id` is that
+    # decision written into the schema.
+    #
+    # With a department here, an OSS entry IS an activity that happens to be
+    # tagged Dock, the OSS tabs are a grouped read, and SubScheduleEntry
+    # retires. `oss_export`'s `claimed` de-duplication pass — written after a
+    # real 11-day show printed 18% of its rows twice, 33 of them
+    # character-identical — gets deleted rather than maintained, because there
+    # stops being a second source to de-duplicate against.
+    #
+    # `department` stores the TYPE KEY from SUB_SCHEDULE_TYPES ("House LX",
+    # "Hazer"), not the label — the same vocabulary HardCodedEvent.department
+    # already uses. Three of them differ from what users see, so read it
+    # through `oss_export.dept_label`. NULL means an ordinary activity, which
+    # is most of them: 210 of 288 on production.
+    department    = db.Column(db.String(50))
+    # Both nullable and both meaningless on an ordinary activity. `count` is
+    # radios, wristbands, packs — whatever that department counts. F&B is NOT
+    # one of them: a meal's headcount comes off the crew call it feeds, and
+    # guessing it from a typed number is the bug MealService exists to fix.
+    count         = db.Column(db.Integer)
+    duration_hrs  = db.Column(db.Float)
+
     day         = db.relationship("ScheduleDay", back_populates="activities")
     crew_rows   = db.relationship("CrewRow", back_populates="activity",
                                   order_by="CrewRow.sort_order",
@@ -466,6 +503,23 @@ class ScheduleActivity(db.Model):
                                   foreign_keys="CrewBreak.activity_id",
                                   back_populates="activity",
                                   cascade="all, delete-orphan")
+
+    @property
+    def dept_meta(self):
+        """UI metadata for this activity's department, or None if it has none.
+
+        Deliberately the SAME lookup `SubScheduleEntry.meta` uses, so the two
+        cannot end up with two spellings of one department while both exist.
+        Three keys differ from the label users see — Hazer/Haze,
+        House LX/House Lights, HVAC/HVAC / AC — and rendering the key on one
+        surface and the label on another is how the same department appears
+        twice on the master and produces two sheets in the export.
+        """
+        if not self.department:
+            return None
+        return SUB_SCHEDULE_META.get(
+            self.department,
+            {"label": self.department, "icon": "•", "sort": 99})
 
     @property
     def ordered_crew_rows(self):
