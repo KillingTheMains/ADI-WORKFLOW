@@ -466,12 +466,57 @@
     <!-- ── Activities List ───────────────────────────────────────────── -->
     {# Note 6: a recurring event belongs IN the timeline at its own time, not
        in a block of its own at the top. #}
+    {# ── Row kind: chip + rail ──────────────────────────────────────────
+       Interface Spec §07. Seven kinds sit in one clock-ordered stream and
+       used to look nearly identical. Three independent channels now carry
+       "what kind of thing is this", so no single one has to survive alone:
+
+         1. THE CHIP — two capitals in a fixed 26px box. Completely free of
+            colour, and identical on screen, in the PDF and in the sheet.
+         2. THE RAIL — 4px on the left that differs by PATTERN before it
+            differs by hue: solid, dashed, double, dotted, hatched. This is
+            the one that matters. Cyan greys to 156 and gold to 167 — ten
+            levels apart, invisible on the mono laser these get printed on
+            constantly. A dash against a dot is unmistakable at any grey.
+         3. THE SILHOUETTE — a crew call is a framed plate, a break is a
+            tinted band, an anchor is a rule. Readable from six feet.
+
+       Colour is the fourth channel and the only optional one. Nothing here
+       depends on it, which is also what makes it work for a colour-blind
+       reader. #}
+    {% macro kind_chip(kind) %}
+      {%- set K = {
+        'crew':  ('CC', '#0B2545', '#FFFFFF', '#0B2545'),
+        'act':   ('AC', '#FFFFFF', '#414A54', '#7E8794'),
+        'break': ('BR', '#0B2545', '#FFFFFF', '#0B2545'),
+        'bev':   ('BV', '#FFFFFF', '#0B2545', '#0B2545'),
+        'local': ('LL', '#24405F', '#FFFFFF', '#24405F'),
+        'recur': ('RC', '#F7F1E4', '#7A5C1E', '#7A5C1E'),
+        'sod':   ('SD', '#FFFFFF', '#59636E', '#59636E'),
+        'eod':   ('ED', '#FFFFFF', '#59636E', '#59636E')
+      }[kind] -%}
+      <span title="{{ kind }}" style="display:inline-flex;align-items:center;
+            justify-content:center;width:26px;height:18px;flex:0 0 26px;
+            background:{{ K[1] }};color:{{ K[2] }};border:1px solid {{ K[3] }};
+            font:700 10px/1 'Barlow',sans-serif;letter-spacing:.06em;">{{ K[0] }}</span>
+    {%- endmacro %}
+
+    {% macro row_shell(kind) %}
+      {%- set S = {
+        'act':   'border-left:2px solid var(--adi-kind-act);background:#fff;',
+        'break': 'border-left:4px dashed var(--adi-kind-break);background:var(--adi-tint-break);',
+        'bev':   'border-left:6px double var(--adi-blue);background:var(--adi-tint-bev);',
+        'recur': 'border-left:4px dotted var(--adi-gold-lt);background:var(--adi-tint-recur);',
+        'local': 'border-left:2px solid var(--adi-kind-local);background:var(--adi-tint-local);'
+      }[kind] -%}{{ S }}
+    {%- endmacro %}
+
     {% macro recurring_row(hc) %}
-    <div class="mb-2 px-3 py-1 d-flex align-items-center gap-2"
-         style="font-size:.82rem;border-left:3px solid var(--adi-gold);
-                background:#FCFAF4;border-radius:3px;">
-      <span title="Recurring event" style="opacity:.6;">🔁</span>
-      <span style="min-width:74px;font-weight:700;color:var(--adi-blue);">
+    <div class="mb-2 d-flex align-items-center gap-2"
+         style="font-size:13px;{{ row_shell('recur') }}padding:6px 12px;">
+      {{ kind_chip('recur') }}
+      <span style="min-width:64px;font-weight:600;color:var(--adi-blue);
+                   font-variant-numeric:tabular-nums;">
         {{ hc.time }}{% if hc.end_time %} – {{ hc.end_time }}{% endif %}
       </span>
       <span style="flex:1;">{{ hc.name }}</span>
@@ -513,12 +558,15 @@
        on every read from the day's SOD and EOD — so it moves when they do
        instead of going stale the way a generated row would. The crew never
        stops for it, which is why it is not a break. #}
-    <div class="mb-2 px-3 py-1 d-flex align-items-center gap-2"
+    {# The DOUBLE rail is the whole point of this row's styling. A beverage
+       service and a break period are the same shape and nearly the same
+       colour, and they mean opposite things to a crew: one is a stop, one is
+       not. Dashed vs double says that in greyscale. #}
+    <div class="mb-2 d-flex align-items-center gap-2"
          data-row-time="{{ b.time }}"
-         style="font-size:.82rem;border-left:3px solid #35C4D8;background:#F4FCFD;
-                border-radius:3px;">
-      <span title="Standing beverage service" style="opacity:.7;">🥤</span>
-      <span style="min-width:74px;font-weight:700;color:#0B2545;
+         style="font-size:13px;{{ row_shell('bev') }}padding:6px 12px;">
+      {{ kind_chip('bev') }}
+      <span style="min-width:64px;font-weight:600;color:var(--adi-dark);
                    font-variant-numeric:tabular-nums;">{{ b.time|to_12hr }}</span>
       <span style="flex:1;">
         {{ b.label }}
@@ -538,13 +586,14 @@
        "LUNCH, three sittings", not as three lunches. Read-only on purpose:
        a break is edited on the crew call it hangs off, because that is the
        only place its offset means anything. #}
-    <div class="mb-2 px-3 py-1" data-row-time="{{ p.time }}"
-         style="font-size:.82rem;border-left:3px solid #0B2545;background:#F7F9FB;
-                border-radius:3px;">
+    <div class="mb-2" data-row-time="{{ p.time }}"
+         style="font-size:13px;{{ row_shell('break') }}padding:7px 12px;">
       <div class="d-flex align-items-center gap-2">
+        {{ kind_chip('break') }}
         {# Start AND end. "When am I back?" is the question a crew actually
-           asks of a break, and the duration alone does not answer it. #}
-        <span style="min-width:132px;font-weight:700;color:#0B2545;
+           asks of a break, and the duration alone does not answer it. The
+           slot is 132px rather than 64 because it carries a RANGE. #}
+        <span style="min-width:132px;font-weight:600;color:var(--adi-dark);
                      font-variant-numeric:tabular-nums;">
           {%- if p.time %}{{ p.time|to_12hr }}{% if p.end_time %} – {{ p.end_time|to_12hr }}{% endif %}
           {%- else %}—{% endif %}
@@ -567,7 +616,7 @@
       {# Linked to F&B — said plainly, under the event, so you can see it
          without opening another tab. #}
       {% for b in p.sittings if b.meal_service %}
-      <div style="font-size:.74rem;margin-left:132px;color:#166534;">
+      <div style="font-size:.74rem;margin-left:170px;color:#166534;">
         🍽 This event is linked to the F&amp;B service
         <a href="{{ url_for('oss.oss_hub', show_id=show.id, tab='F&B') }}"
            style="color:inherit;font-weight:600;text-decoration:underline;"
@@ -577,7 +626,7 @@
       </div>
       {% endfor %}
       {% if p.sittings|length > 1 %}
-      <div class="text-muted" style="font-size:.74rem;margin-left:132px;">
+      <div class="text-muted" style="font-size:.74rem;margin-left:170px;">
         {% for b in p.sittings %}
         <a href="#breaks-{{ b.crew_call_id }}" data-bs-toggle="collapse"
            style="color:inherit;margin-right:14px;white-space:nowrap;text-decoration:none;
@@ -600,25 +649,31 @@
        second copy of the same number and drifted from it on 17 of the 31 days
        that had one. An unset anchor still draws: "nobody has set this" is the
        message, and an absent row would read as "no end needed". #}
-    <div class="mb-2 px-3 py-1 d-flex align-items-center gap-2"
+    {# An anchor is DERIVED, so §07 draws it as the day's EDGE rather than as
+       another row in the list: a full-width rule with a label riding it. That
+       is the silhouette channel doing the work — you can tell an anchor from
+       an activity across the room, before reading a word of either, and it
+       stops a derived value from looking like something you can edit here. #}
+    <div class="mb-2 d-flex align-items-center gap-2"
          {% if not a.unset %}data-row-time="{{ a.time }}"{% endif %}
          data-anchor="{{ a.anchor }}"
-         style="font-size:.82rem;border-left:3px solid #59636E;background:#F6F7F8;
-                border-radius:3px;">
-      <span title="Day anchor" style="opacity:.7;">{{ '🟢' if a.anchor == 'sod' else '🏁' }}</span>
-      <span style="min-width:74px;font-weight:700;color:#59636E;
+         style="font-size:13px;border-top:1px solid var(--adi-dark);
+                padding-top:7px;margin-top:14px;">
+      {{ kind_chip(a.anchor) }}
+      <span style="min-width:64px;font-weight:600;color:var(--adi-mineral-dk);
                    font-variant-numeric:tabular-nums;">
         {{ a.time|to_12hr if not a.unset else '—' }}
       </span>
-      <span style="flex:1;font-weight:600;letter-spacing:.02em;color:#59636E;">
+      <span style="flex:1;font:700 11px/1 'Barlow',sans-serif;letter-spacing:.14em;
+                   text-transform:uppercase;color:var(--adi-mineral-dk);">
         {{ a.label }}
       </span>
       {% if a.unset %}
-      <span style="font-size:.72rem;color:#B45309;">
+      <span style="font-size:13px;color:var(--adi-warn);">
         Set the {{ a.anchor|upper }} time in Day Settings
       </span>
       {% else %}
-      <span style="font-size:.72rem;color:var(--adi-muted);opacity:.75;">
+      <span style="font-size:13px;color:var(--adi-mineral-dk);opacity:.8;">
         To change this, edit SOD / EOD in Day Settings
       </span>
       {% endif %}
@@ -650,10 +705,19 @@
       <div class="card-body p-0">
 
         <!-- Activity header -->
+        {# A crew call and a plain activity are the same object to the model
+           and were the same object on screen. They are not the same thing to
+           a person reading the day: one is a table of 40 people, the other is
+           a line. CC vs AC, and a 4px Midnight rail vs a 2px Mineral one.
+           The chip goes on the HEADER, never inside a crew row — §01's "do
+           not touch" list, and the reason is the <tr>/<form>/<td> chain. #}
         <div class="d-flex align-items-center px-3 py-2"
-             style="border-bottom:1px solid var(--adi-border);background:#FAFAFA;">
+             style="border-bottom:1px solid var(--adi-border);background:#F4F1EA;
+                    border-left:{{ '4px solid var(--adi-kind-crew)' if is_crew_start(act.description) else '2px solid var(--adi-kind-act)' }};">
           <span class="act-drag-handle" title="Drag to reorder">⠿</span>
-          <span style="min-width:74px;font-weight:700;color:var(--adi-blue);font-size:.85rem;">
+          {{ kind_chip('crew' if is_crew_start(act.description) else 'act') }}
+          <span style="min-width:64px;font-weight:600;color:var(--adi-blue);font-size:13px;
+                       font-variant-numeric:tabular-nums;margin-left:8px;">
             {{ act.time|to_12hr if act.time else '—' }}
           </span>
           <span style="font-weight:600;font-size:.9rem;flex:1;">
@@ -1039,12 +1103,20 @@
         {% set ll = act.local_labor_rows %}
         {% if ll %}
         {% set ll_people = ll | sum(attribute='people') %}
-        <div class="px-3 pb-2">
-          <div class="d-flex align-items-center gap-2 mb-1"
-               style="font-size:.7rem;font-weight:700;text-transform:uppercase;
-                      letter-spacing:.06em;color:#59636E;">
-            <span>👷 Local Labour</span>
-            <span style="font-weight:400;text-transform:none;">
+        {# The 45° hatch is not decoration. It says "these lines are multiples
+           of a POSITION, not individual people" — one Lighting Hand row is
+           seven humans. That distinction is what the headcount bug turned on,
+           and it needs to be visible without reading the qty column. #}
+        <div class="px-3 pb-2" style="border-left:2px solid var(--adi-kind-local);
+             background:repeating-linear-gradient(45deg,var(--adi-kind-local) 0 2px,
+                        transparent 2px 5px) left/6px 100% no-repeat,
+                        var(--adi-tint-local);">
+          <div class="d-flex align-items-center gap-2 mb-1 pt-1"
+               style="font-size:11px;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.12em;color:var(--adi-mineral-dk);">
+            {{ kind_chip('local') }}
+            <span>Local Labour</span>
+            <span style="font-weight:400;text-transform:none;letter-spacing:0;">
               {{ ll|length }} line{{ '' if ll|length == 1 else 's' }} ·
               <strong>{{ ll_people }} {{ 'person' if ll_people == 1 else 'people' }}</strong>
             </span>

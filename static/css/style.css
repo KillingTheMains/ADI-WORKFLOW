@@ -441,8 +441,15 @@ h1, h2, h3, h4, h5, h6,
   font-weight: 600;
 }
 
+/* The SOD–EOD window. Set in the same 11px caps as the day page's anchor
+   label, so an anchor reads the same on both screens instead of being a
+   caption here and a rule there. */
 .day-card .day-time {
-  font-size: 0.75rem;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
   color: var(--adi-blue-lt);
 }
 
@@ -450,7 +457,7 @@ h1, h2, h3, h4, h5, h6,
   margin-left: auto;
   background: rgba(53,196,216,0.18);
   color: var(--adi-blue-lt);
-  border-radius: 10px;
+  border-radius: var(--r-pill);
   padding: 2px 10px;
   font-size: 0.7rem;
   font-weight: 600;
