@@ -1,7 +1,7 @@
 """The show book gets a Local Labor section.
 
 `show_book.html` rendered `act.ordered_crew_rows` in ONE table with a Name
-column, so a local-labour line — "14 × Rigger", a count of a position that has
+column, so a local-labor line — "14 × Rigger", a count of a position that has
 no name and never will — sat interleaved among the named crew with that column
 blank. Blank in the Name column already means something else in this document:
 an unfilled slot, a called position with nobody in it yet, which Larry
@@ -12,7 +12,7 @@ The headcount was never affected — the quantities print, so nobody was
 under-fed. This is a legibility defect in a CLIENT-FACING document, which is
 where it matters most.
 
-The day page has done this correctly since 2026-08-12: local labour is its own
+The day page has done this correctly since 2026-08-12: local labor is its own
 block, no Name column, grouped by department in Local Labor Database order,
 headcount stated in the header. This is the same treatment, for paper.
 """
@@ -66,12 +66,12 @@ def _book(client, show):
     return r.get_data(as_text=True)
 
 
-def test_local_labour_gets_its_own_block(app, client, db):
+def test_local_labor_gets_its_own_block(app, client, db):
     show, day, act = _show(db)
     _person(db, show, act)
     _local(db, act, "Rigger", "Rigging", 14, task="Pin / Bolt Truss")
     body = _book(client, show)
-    assert "Local Labour" in body
+    assert "Local Labor" in body
     assert 'class="ll-block"' in body
 
 
@@ -120,7 +120,7 @@ def test_it_groups_by_department(app, client, db):
     assert "Lighting" in block
 
 
-def test_a_call_of_only_local_labour_renders_no_empty_named_table(app, client, db):
+def test_a_call_of_only_local_labor_renders_no_empty_named_table(app, client, db):
     """Four riggers and no named lead. An empty five-column table with a Name
     header and nothing under it reads as a mistake."""
     show, day, act = _show(db)

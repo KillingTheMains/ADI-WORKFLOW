@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""READ-ONLY audit: which crew records are really local-labour positions?
+"""READ-ONLY audit: which crew records are really local-labor positions?
 
 Larry's roster has position names sitting in it as people. Two different
 things got in there by two different doors, and only one of them is
@@ -112,7 +112,7 @@ def main():
     with app.app_context():
         url = str(db.engine.url)
         print("=" * 78)
-        print("CREW / LOCAL LABOUR AUDIT — read-only, nothing is written")
+        print("CREW / LOCAL LABOR AUDIT — read-only, nothing is written")
         print("database: %s" % url)
         if "memory" in url:
             print("\n!! This is an in-memory database. Set DATABASE_URL and run again.")
@@ -122,7 +122,7 @@ def main():
         positions = Position.query.all()
         position_titles = {_norm(p.title) for p in positions if p.title}
         local_titles = {_norm(p.title) for p in positions if p.title and p.is_local_labor}
-        print("\npositions catalogue: %d total, %d flagged as local labour"
+        print("\npositions catalogue: %d total, %d flagged as local labor"
               % (len(positions), len(local_titles)))
 
         members = CrewMember.query.all()

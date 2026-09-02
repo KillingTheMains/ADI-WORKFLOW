@@ -383,10 +383,10 @@ def _day_rows(day, items, st):
             ])
             i += 1
 
-        # LOCAL LABOUR. These used to be in `crew_names`, so "14 × Rigger"
+        # LOCAL LABOR. These used to be in `crew_names`, so "14 × Rigger"
         # printed as one more indented name with an empty code column —
         # identical on the page to one human. They carry LL and the
-        # local-labour fill, and the headcount goes in the detail column
+        # local-labor fill, and the headcount goes in the detail column
         # because the number is the whole point of the line.
         for line in item.get("local_lines") or []:
             rows.append([

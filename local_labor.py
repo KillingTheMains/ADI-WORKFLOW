@@ -1,7 +1,7 @@
 """
-Local labour — positions hired in MULTIPLES, tracked by title not by name.
+Local labor — positions hired in MULTIPLES, tracked by title not by name.
 
-"5 Riggers", "18 Lighting Hands". These come from a labour provider, a house
+"5 Riggers", "18 Lighting Hands". These come from a labor provider, a house
 crew or a local union; they are not the same people every day, they are not
 from a production vendor, and they are not lead crew. The whole point is that
 the position is the unit, and there are N of it.
@@ -10,7 +10,7 @@ Pure data and arithmetic — no ORM, no Flask — same as breaks.py, so the rule
 can be tested without a database and cannot drift between the catalogue, the
 crew call and the exports.
 
-Everything here is taken from Jason's real SAP Sapphire labour workbooks
+Everything here is taken from Jason's real SAP Sapphire labor workbooks
 rather than invented. See `ADI_Local_Labor_Findings.md` for the source and for
 the decisions behind the shape.
 
@@ -149,7 +149,7 @@ def group_by_department(positions):
 def group_rows_by_department(rows):
     """The same grouping and order, for CREW ROWS on a call.
 
-    ONE ordering, so the Local Labor Database and the local labour section of
+    ONE ordering, so the Local Labor Database and the local labor section of
     a crew call cannot disagree about where Rigging sits or whether the head
     reads above the hands. Jason, 2026-08-12 — the crew call follows the
     catalogue.
@@ -177,7 +177,7 @@ def group_rows_by_department(rows):
 
 
 def line_label(position_title, qty, task=None):
-    """How one local-labour line reads: ``18 × Lighting Hand — Catwalk Strike``.
+    """How one local-labor line reads: ``18 × Lighting Hand — Catwalk Strike``.
 
     ONE definition, so the crew call, the call sheet and the master export
     cannot describe the same line three ways. The multiplication sign is the
@@ -197,7 +197,7 @@ def line_label(position_title, qty, task=None):
 
 
 def headcount(rows):
-    """Total bodies across local-labour rows. ``qty``, not row count.
+    """Total bodies across local-labor rows. ``qty``, not row count.
 
     Deliberately the same rule `ScheduleActivity.crew_headcount` already
     applies, restated here so a caller that only has the rows can ask without

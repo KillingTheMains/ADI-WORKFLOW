@@ -1,6 +1,6 @@
 """The Local Labor Database — a catalogue of positions hired in multiples.
 
-Not a roster. There are no people here: a local labour position is a title and
+Not a roster. There are no people here: a local labor position is a title and
 a department, and the number of them is decided per crew call. That is the
 whole difference from the Crew Database next to it in the nav.
 """
@@ -47,20 +47,20 @@ def add():
         flash("A position needs a title.", "warning")
         return redirect(url_for("local_labor.index"))
 
-    # Case-insensitive, across the WHOLE table — not just local labour. Two
+    # Case-insensitive, across the WHOLE table — not just local labor. Two
     # positions called "Rigger" would split every count that matters, and the
     # second one would be invisible to whoever created the first.
     clash = Position.query.filter(
         db.func.lower(Position.title) == title.lower()).first()
     if clash is not None:
         if clash.is_local_labor:
-            flash(f"“{clash.title}” is already in the local labour "
+            flash(f"“{clash.title}” is already in the local labor "
                   "catalogue.", "info")
         else:
             clash.is_local_labor = True
             db.session.commit()
             flash(f"“{clash.title}” already existed as a crew position — "
-                  "marked it as local labour rather than making a second one.",
+                  "marked it as local labor rather than making a second one.",
                   "success")
         return redirect(url_for("local_labor.index"))
 
@@ -106,7 +106,7 @@ def remove(pos_id):
     used = CrewRow.query.filter_by(position_id=p.id).count()
     p.is_local_labor = False
     db.session.commit()
-    msg = f"Removed {p.title} from the local labour catalogue."
+    msg = f"Removed {p.title} from the local labor catalogue."
     if used:
         msg += (f" It stays on {used} existing crew row"
                 f"{'' if used == 1 else 's'} — nothing was deleted.")

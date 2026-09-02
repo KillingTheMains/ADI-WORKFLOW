@@ -1032,7 +1032,7 @@
             </thead>
             <tbody class="crew-tbody" data-act="{{ act.id }}"
                    data-reorder-url="{{ url_for('schedule.reorder_crew_rows', show_id=show.id, day_id=day.id, act_id=act.id) }}">
-              {# Local labour is drawn in its own section below — it is a
+              {# Local labor is drawn in its own section below — it is a
                  count of a position, not a person, and it does not want a
                  Name column at all. Jason, 2026-08-12. #}
               {% for row in act.ordered_crew_rows if not row.is_local_labor %}
@@ -1179,8 +1179,8 @@
         </div>
         {% endif %}
 
-        <!-- ── Local labour on this call ──────────────────────────────────
-             Its own section, and its own columns. A local labour line is a
+        <!-- ── Local labor on this call ──────────────────────────────────
+             Its own section, and its own columns. A local labor line is a
              COUNT of a position — there is no name to show, and a Name column
              full of "Sparks Lighting Hand" was reading as fifty-three people
              called Sparks. The header states the headcount because that is
@@ -1200,7 +1200,7 @@
                style="font-size:11px;font-weight:700;text-transform:uppercase;
                       letter-spacing:.12em;color:var(--adi-mineral-dk);">
             {{ rk.kind_chip('local') }}
-            <span>Local Labour</span>
+            <span>Local Labor</span>
             <span style="font-weight:400;text-transform:none;letter-spacing:0;">
               {{ ll|length }} line{{ '' if ll|length == 1 else 's' }} ·
               <strong>{{ ll_people }} {{ 'person' if ll_people == 1 else 'people' }}</strong>
@@ -1267,7 +1267,7 @@
                 </form>
                     <form method="POST" style="display:inline;"
                           action="{{ url_for('schedule.delete_crew_row', show_id=show.id, day_id=day.id, row_id=row.id) }}"
-                          onsubmit="return confirm('Delete this local labour line?');">
+                          onsubmit="return confirm('Delete this local labor line?');">
                       <button type="submit" class="btn btn-sm btn-link text-danger p-0"
                               style="font-size:.7rem;">{{ ico.icon('x') }}</button>
                     </form>
@@ -1517,7 +1517,7 @@
               </div>
             </form>
 
-            {# ── Local labour ──────────────────────────────────────────────
+            {# ── Local labor ──────────────────────────────────────────────
                A SEPARATE form, not a mode of the one above. What you supply
                is different in kind: a number and a position, never a name.
                Mixing them into one form would mean a Name box that must be
@@ -1538,7 +1538,7 @@
                            value="1" min="1" step="1" required>
                   </div>
                   <div class="col-md-3">
-                    <label style="font-size:.72rem;" class="form-label">Local labour position</label>
+                    <label style="font-size:.72rem;" class="form-label">Local labor position</label>
                     <select name="position_id" class="form-select form-select-sm" required
                             onchange="this.form.position.value =
                                       this.options[this.selectedIndex].dataset.title || '';">
@@ -1999,7 +1999,7 @@
                   <span>{{ cm.display_label }}</span>
                   {% if cm.position %}<span style="color:var(--adi-muted);font-size:.72rem;">{{ cm.position.title }}</span>{% endif %}
                   {# Already on a call today. NAMED people from a COMPANY only
-                     — a local-labour row is a called position rather than a
+                     — a local-labor row is a called position rather than a
                      person, often the same position twice, so flagging it
                      would cry wolf on most of the list. #}
                   {% if cm.id in already_called %}

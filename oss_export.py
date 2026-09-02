@@ -143,7 +143,7 @@ def _sort_key(item):
 
 
 def _qty(value):
-    """A local-labour line's headcount, read the way line_label() reads it.
+    """A local-labor line's headcount, read the way line_label() reads it.
 
     Same coercion, deliberately — the number in "14 × Rigger" and the number
     added into the call's headcount must be the same number, and they came
@@ -345,7 +345,7 @@ def build_master_items(show, entries, meal_services):
     # by a linked department row is skipped — it was merged in above.
     for d in show.days:
         crew_by_time = {}
-        # Local labour is kept in a SEPARATE list from the moment it is read.
+        # Local labor is kept in a SEPARATE list from the moment it is read.
         # It used to be appended to `names`, so "14 × Rigger" and "Ann One"
         # were the same shape everywhere downstream — one indented row under
         # "N crew called" on the master, in the PDF and in the XLSX. Fourteen
@@ -385,7 +385,7 @@ def build_master_items(show, entries, meal_services):
                         if who not in names:
                             names.append(who)
                         continue
-                    # LOCAL LABOUR (2026-08-12). A row with no crew member is
+                    # LOCAL LABOR (2026-08-12). A row with no crew member is
                     # a COUNT of a position — "14 × Rigger". It used to be
                     # skipped entirely, so eighteen lighting hands appeared
                     # nowhere on the client master and the headcount beside
@@ -408,12 +408,12 @@ def build_master_items(show, entries, meal_services):
         # #47 — one grouped Crew row per distinct call time, not one per person.
         for t, names in crew_by_time.items():
             local = local_by_time.get(t, [])
-            # A call can be ENTIRELY local labour — four riggers and no named
+            # A call can be ENTIRELY local labor — four riggers and no named
             # lead. Testing `names` alone used to be enough only because the
             # local lines were in it.
             if not names and not local:
                 continue
-            # HEADCOUNT, not line count. A local labour line is one row but N
+            # HEADCOUNT, not line count. A local labor line is one row but N
             # people on site, and this number is what the client master prints
             # and what a caterer reads.
             head = 0
@@ -435,7 +435,7 @@ def build_master_items(show, entries, meal_services):
             # 40 names in one cell is unreadable and wrecks PDF pagination.
             item["crew_names"] = list(names)
             # Counts of a POSITION, never mixed in with the people. Rendered
-            # with the LL code and the local-labour fill, so one line reading
+            # with the LL code and the local-labor fill, so one line reading
             # "14 × Rigger" cannot be mistaken for one person.
             item["local_lines"] = list(local)
             items.append(item)

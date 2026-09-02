@@ -1,7 +1,7 @@
 """
 The Create Crew Call picker flags somebody already on a call that day.
 
-Jason, 2026-08-12: **named people from a company only.** Local labour — an
+Jason, 2026-08-12: **named people from a company only.** Local labor — an
 Encore-style row — is a called POSITION rather than a person, often several of
 them and often the same position twice, so seeing it on two calls is normal
 work and flagging it would cry wolf on most of the list. The test is
@@ -72,7 +72,7 @@ def test_somebody_on_no_call_is_not_flagged(app, client, db):
 
 
 def test_an_unnamed_slot_is_never_flagged(app, client, db):
-    """Local labour. A called position, not a person — and the same position
+    """Local labor. A called position, not a person — and the same position
     appearing on two calls is the normal way a show is staffed.
     """
     show, day, co = _fixture(db)

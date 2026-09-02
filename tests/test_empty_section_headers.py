@@ -5,8 +5,8 @@ A header owns everything between it and the next header at or above its own
 level. Production carries 136 headers, all level 1, and 29 of them have
 nothing underneath.
 
-The subtle one: the day page's main crew table hides local-labour rows now, so
-a header whose crew are all local labour LOOKS empty there. It is not, and
+The subtle one: the day page's main crew table hides local-labor rows now, so
+a header whose crew are all local labor LOOKS empty there. It is not, and
 deleting it would throw away a real section (ENCORE RIGGING, ENCORE CARPS).
 There is a test for exactly that below.
 """
@@ -97,8 +97,8 @@ def test_only_the_empty_one_goes(app, db):
     assert _empties(act) == ["EMPTY"]
 
 
-def test_local_labour_counts_as_crew(app, db):
-    """⚠ THE ONE THAT MATTERS. The day page's main table hides local-labour
+def test_local_labor_counts_as_crew(app, db):
+    """⚠ THE ONE THAT MATTERS. The day page's main table hides local-labor
     rows, so ENCORE RIGGING looks empty there while holding four riggers.
     Judging emptiness from that view would delete real sections.
     """

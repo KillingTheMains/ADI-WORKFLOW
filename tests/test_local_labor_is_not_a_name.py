@@ -1,6 +1,6 @@
 """Fourteen riggers must not look like one person named "14 × Rigger".
 
-oss_export appended a local-labour line to the SAME `names` list as a person:
+oss_export appended a local-labor line to the SAME `names` list as a person:
 
     if row.crew_member_id:
         names.append(who)          # "Ann One"
@@ -12,7 +12,7 @@ and in the XLSX, "14 × Rigger" rendered identically to a person's name — one
 indented row under "N crew called", no code, no count of its own. Fourteen
 humans and one human were the same shape on the page.
 
-The day page fixed this in e076de1 and again in sitting 3, where local labour
+The day page fixed this in e076de1 and again in sitting 3, where local labor
 is its own block with the LL chip, a 45° hatch and a headcount in the header.
 The exports never got it. These tests are that fix.
 
@@ -109,7 +109,7 @@ def test_the_qty_agrees_with_the_label(app, db):
     assert line["label"].startswith("%d × " % line["qty"])
 
 
-def test_a_call_that_is_entirely_local_labour_still_appears(app, db):
+def test_a_call_that_is_entirely_local_labor_still_appears(app, db):
     """Four riggers and no named lead. The guard used to be `if not names:
     continue`, which only worked because the local lines were IN names —
     splitting them out without moving the guard would have deleted the whole
@@ -143,7 +143,7 @@ def test_the_one_line_summary_still_names_both(app, db):
 
 # ── What each surface renders ────────────────────────────────────────────
 
-def test_the_master_tab_gives_it_the_local_labour_treatment(app, client, db):
+def test_the_master_tab_gives_it_the_local_labor_treatment(app, client, db):
     show, day, act = _show(db)
     _person(db, show, act)
     _local(db, act, "Rigger", 14, task="Pin / Bolt")

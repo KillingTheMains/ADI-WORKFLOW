@@ -1,5 +1,5 @@
 """
-Local labour — positions hired in multiples, tracked by title not by name.
+Local labor — positions hired in multiples, tracked by title not by name.
 
 "5 Riggers", "18 Lighting Hands". The unit is the POSITION and there are N of
 it. Everything downstream — headcounts, meals, the client master — has to

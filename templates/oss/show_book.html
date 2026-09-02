@@ -89,7 +89,7 @@
        it is a normal state, just one Larry wants to be able to scan for. */
     .crew-tbl td.unfilled { font-style: italic; color: #6b7280; }
 
-    /* Local labour block. Interface Spec §07, the print half of it: this gets
+    /* Local labor block. Interface Spec §07, the print half of it: this gets
        printed on a mono laser and read at arm's length, so the block is told
        apart by SHAPE and TEXTURE, not by hue. The 45° hatch is the same mark
        the day page uses and it is not decoration — it says "these lines are
@@ -245,9 +245,9 @@
       <div class="activity-notes">{{ act.notes }}</div>
       {% endif %}
 
-      {# Named crew and local labour are TWO tables, the way the day page
+      {# Named crew and local labor are TWO tables, the way the day page
          renders them. One table with a Name column cannot describe both: a
-         local-labour line has no name and never will — it is a count of a
+         local-labor line has no name and never will — it is a count of a
          position — so it left the column blank and read as an unfilled slot
          for a person, which is a different and much more alarming thing. #}
       {% set named = act.ordered_crew_rows | rejectattr('is_local_labor') | list %}
@@ -281,7 +281,7 @@
       </table>
       {% endif %}
 
-      {# LOCAL LABOUR. Its own block, with the headcount stated in the header
+      {# LOCAL LABOR. Its own block, with the headcount stated in the header
          because that is the number this block exists to get right, and no
          Name column at all. Grouped and ordered by the same function the
          Local Labor Database and the day page use, so the show book cannot
@@ -291,7 +291,7 @@
       {% set ll_people = ll | sum(attribute='people') %}
       <div class="ll-block">
         <div class="ll-title">
-          Local Labour
+          Local Labor
           <span class="ll-count">
             {{ ll|length }} line{{ '' if ll|length == 1 else 's' }} ·
             {{ ll_people }} {{ 'person' if ll_people == 1 else 'people' }}

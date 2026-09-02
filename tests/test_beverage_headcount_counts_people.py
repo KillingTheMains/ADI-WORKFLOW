@@ -14,7 +14,7 @@ landed in one file and not the other:
     else:
         qty = row.qty or 1
 
-Measured on the shape production has — three named leads plus local labour
+Measured on the shape production has — three named leads plus local labor
 lines of 14, 7 and 6 — `count_people` said **30** and the beverage refresh
 said **SIX**. Six lines counted as six bodies. That number is what a beverage
 order is placed against.
@@ -36,7 +36,7 @@ from models import count_people, iter_people
 
 @pytest.fixture
 def call_of_thirty(db):
-    """Three named leads and three local-labour lines of 14, 7 and 6.
+    """Three named leads and three local-labor lines of 14, 7 and 6.
 
     The local rows are PLACEHOLDER-BACKED — they carry a crew_member_id
     pointing at an unfilled slot — because that is what production has and it

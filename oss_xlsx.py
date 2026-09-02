@@ -245,11 +245,11 @@ def _master(wb, show, agency, master_items):
                         cell.fill = kind_fill
                 row += 1
 
-            # LOCAL LABOUR, split out of the name list. A line reading
+            # LOCAL LABOR, split out of the name list. A line reading
             # "14 × Rigger" used to be written into the same column with the
             # same font and an empty code cell — one filter on this sheet
             # could not tell fourteen people from one. It now carries LL and
-            # the local-labour fill, and its headcount goes in the detail
+            # the local-labor fill, and its headcount goes in the detail
             # column so the number is filterable.
             local_fill = KIND_FILLS.get("local")
             for line in item.get("local_lines") or []:
@@ -319,10 +319,10 @@ def _department_sheets(wb, show, agency, master_items):
         for n, item in enumerate(items):
             day = item["day"]
             # The Crew sheet is where the names live — the Master shows a count.
-            # Local labour is joined in after the people rather than dropped:
+            # Local labor is joined in after the people rather than dropped:
             # this is a flat, filterable sheet with one row per item and no
             # room for a second row per line, so the alternative would be a
-            # Crew tab that silently omits every local-labour call.
+            # Crew tab that silently omits every local-labor call.
             names = list(item.get("crew_names") or [])
             names += [l.get("label") for l in item.get("local_lines") or []]
             label = (", ".join(names) if names else item["activity"])

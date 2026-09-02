@@ -1,5 +1,5 @@
 """
-The local labour section of a crew call follows the Local Labor Database.
+The local labor section of a crew call follows the Local Labor Database.
 
 Jason, 2026-08-12. One ordering function serves both, so the catalogue and the
 crew call cannot disagree about where Rigging sits or whether the head reads
@@ -137,7 +137,7 @@ def _ll_row(db, act, title, dept, typ, qty=1, order=10):
     return r
 
 
-def test_the_call_groups_local_labour_by_department(app, db):
+def test_the_call_groups_local_labor_by_department(app, db):
     show, day, act, co = _call(db)
     _ll_row(db, act, "LED Hand", "LED", "hand", qty=3, order=10)
     _ll_row(db, act, "Rigger High", "Rigging", "hand", qty=4, order=20)
@@ -202,6 +202,6 @@ def test_the_day_page_draws_the_department_headings(app, client, db):
     _ll_row(db, act, "Rigger High", "Rigging", "hand", qty=4, order=10)
     _ll_row(db, act, "Crew Chief", "General", "lead", qty=1, order=20)
     html = client.get(f"/shows/{show.id}/schedule/{day.id}").get_data(as_text=True)
-    body = html[html.index("Local Labour"):]
+    body = html[html.index("Local Labor"):]
     assert body.index("General") < body.index("Rigging")
     assert "4 people" in body

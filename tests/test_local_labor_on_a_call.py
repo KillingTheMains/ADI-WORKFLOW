@@ -1,5 +1,5 @@
 """
-Putting local labour on a crew call, and the whole site counting the people.
+Putting local labor on a crew call, and the whole site counting the people.
 
 The requirement in Jason's words: "the whole site would recognize that there
 were multiple people involved for the purposes of hours calculations and
@@ -178,7 +178,7 @@ def test_the_master_count_adds_leads_to_hands(app, client, db):
 
 # ── The catalogue page ───────────────────────────────────────────────────────
 
-def test_the_catalogue_lists_only_local_labour(app, client, db):
+def test_the_catalogue_lists_only_local_labor(app, client, db):
     _position(db, "Lighting Hand", "Lighting", local=True)
     _position(db, "A1", "Audio", local=False)
     html = client.get("/local-labor").get_data(as_text=True)

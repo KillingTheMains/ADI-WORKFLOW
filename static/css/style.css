@@ -63,8 +63,8 @@
   --adi-mineral-dk:    #414A54;   /* 9.00:1 on white — small text, text on tints */
   --adi-row-rule:      #EDE9E1;   /* the rule between dense rows, replacing zebra */
   --adi-hover:         #EAF4F6;   /* OPAQUE row hover — prints as tint, not smear */
-  --adi-tint-local:    #EDF0F4;   /* local-labour block */
-  --adi-kind-local:    #24405F;   /* local-labour rail */
+  --adi-tint-local:    #EDF0F4;   /* local-labor block */
+  --adi-kind-local:    #24405F;   /* local-labor rail */
   --adi-kind-crew:     #0B2545;   /* crew-call rail */
   --adi-kind-act:      #59636E;   /* activity rail */
 

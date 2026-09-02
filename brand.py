@@ -201,7 +201,7 @@ KIND_FILL = {
     "recur": "#EFE7D6",
 }
 
-KIND_LEGEND = "CC crew call · AC activity · BR break · BV beverage · LL local labour · RC recurring · SD/ED day anchors"
+KIND_LEGEND = "CC crew call · AC activity · BR break · BV beverage · LL local labor · RC recurring · SD/ED day anchors"
 
 # Naming: public signature is "ADI"; "ADI Experience Group" is reserved for
 # legal, formal and first-reference contexts. The legal entity is

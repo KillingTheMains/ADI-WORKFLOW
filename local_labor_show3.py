@@ -1,5 +1,5 @@
 """
-The one-off conversion of show 3 (MCDC26) to local labour.
+The one-off conversion of show 3 (MCDC26) to local labor.
 
 Separate from `local_labor.py` on purpose: that module is the house rules and
 outlives everything, this one is a list of what was on ONE show on ONE day and

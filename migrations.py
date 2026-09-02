@@ -63,7 +63,7 @@ MIGRATIONS = [
     ("show_open_slots",       "sort_order",         "INTEGER"),
     # 2026-07-01 — Actual hours per crew row (planned vs actual)
     ("crew_rows",             "actual_hours",       "FLOAT"),
-    # 2026-08-12 — Local labour. A position hired in multiples and tracked by
+    # 2026-08-12 — Local labor. A position hired in multiples and tracked by
     # title rather than by name; and what that crew is doing on this call,
     # which lives on the ROW because the same stagehand hangs lights one day
     # and strikes catwalks the next. See local_labor.py.
@@ -637,11 +637,11 @@ def _report_orphaned_crew_breaks(session):
 
 
 def _seed_local_labor_positions(session):
-    """Seed the local-labour catalogue. Additive, never destructive.
+    """Seed the local-labor catalogue. Additive, never destructive.
 
     A position hired in multiples — "18 Lighting Hands" — rather than held by
     one named person. The list is Jason's real vocabulary, lifted from the SAP
-    Sapphire labour workbooks, not invented; see ADI_Local_Labor_Findings.md.
+    Sapphire labor workbooks, not invented; see ADI_Local_Labor_Findings.md.
 
     PREDICTION: on a database that has never seen this, **22 created**. On
     production some titles may already exist as ordinary positions (there are
@@ -672,13 +672,13 @@ def _seed_local_labor_positions(session):
         session.add(Position(title=title, department=dept, type=typ,
                              is_local_labor=True))
         created += 1
-    print(f"[migration] local labour: {created} position(s) created, "
-          f"{flagged} existing position(s) marked as local labour "
+    print(f"[migration] local labor: {created} position(s) created, "
+          f"{flagged} existing position(s) marked as local labor "
           f"(predicted 22 created on a fresh database)")
 
 
 def _convert_show3_to_local_labor(session):
-    """Show 3 (MCDC26): every crew row with no real person becomes local labour.
+    """Show 3 (MCDC26): every crew row with no real person becomes local labor.
 
     PREDICTED: **160 rows, 340 people**, across 47 position titles. Measured
     off production 2026-08-12 and approved title by title — the table is in
@@ -721,7 +721,7 @@ def _convert_show3_to_local_labor(session):
             created += 1
         elif not p.is_local_labor:
             p.is_local_labor = True
-    print(f"[migration] show 3 local labour: {created} catalogue position(s) "
+    print(f"[migration] show 3 local labor: {created} catalogue position(s) "
           f"created, {len(SHOW3_POSITIONS)} in the approved list")
 
     # ── the rows ────────────────────────────────────────────────────────────
@@ -734,7 +734,7 @@ def _convert_show3_to_local_labor(session):
     seen, converted, mislabelled, no_position, unknown = {}, [], [], [], {}
     for row in rows:
         if not row.is_unfilled:
-            continue                      # a real person; not local labour
+            continue                      # a real person; not local labor
         pos = (row.position or "").strip()
         if not pos:
             no_position.append(row)
@@ -769,7 +769,7 @@ def _convert_show3_to_local_labor(session):
     if no_position:
         print(f"[migration]   {len(no_position)} row(s) have NO position at "
               f"all ({count_people(no_position)} people) — marked local "
-              "labour so they are still fed, but nothing says what they do:")
+              "labor so they are still fed, but nothing says what they do:")
         for r in no_position:
             print(f"[migration]     row {r.id} qty {r.qty} on activity "
                   f"{r.activity_id}")
@@ -830,9 +830,9 @@ def _delete_empty_section_headers(session):
 
     PREDICTED ON PRODUCTION 2026-08-12: **29** — show 3: 24, show 4: 5, show
     2: 0. Counted off the show book, which renders the complete ordered crew
-    list; the day page's main table now hides local-labour rows, so a header
+    list; the day page's main table now hides local-labor rows, so a header
     judged from THAT view would look empty when its crew had simply moved to
-    the local labour section. Local labour counts as crew here.
+    the local labor section. Local labor counts as crew here.
 
     Labels going: ENCORE ×9, ENCORE LOCAL CREW ×4, LEAD CREW ×4, OWENS ×3,
     MRPM ×2, and one each of VENUE SETUP CREW, LUMENARCHY, ACCELERATOR,
@@ -999,11 +999,11 @@ DATA_MIGRATIONS = [
     # order in the console: what was there, then what was removed.
     ("2026-08-12-delete-orphans-from-deleted-shows",
      _delete_orphans_from_deleted_shows),
-    # 2026-08-12 — the local labour catalogue, seeded from Jason's real SAP
+    # 2026-08-12 — the local labor catalogue, seeded from Jason's real SAP
     # workbook vocabulary. Additive: an existing position with the same title
     # is flagged, never duplicated.
     ("2026-08-12-seed-local-labor-positions", _seed_local_labor_positions),
-    # 2026-08-12 — show 3 (MCDC26) converted to local labour, title by title
+    # 2026-08-12 — show 3 (MCDC26) converted to local labor, title by title
     # against a mapping Jason approved. Runs AFTER the seed so it can reuse
     # the five titles that already match. Predicted 160 rows / 340 people.
     ("2026-08-12-convert-show3-to-local-labor", _convert_show3_to_local_labor),

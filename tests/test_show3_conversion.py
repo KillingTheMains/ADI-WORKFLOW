@@ -1,5 +1,5 @@
 """
-Show 3 (MCDC26) → local labour.
+Show 3 (MCDC26) → local labor.
 
 A one-off conversion against a mapping measured off production and approved
 title by title. These tests build the production SHAPE — placeholder crew

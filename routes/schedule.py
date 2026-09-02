@@ -241,7 +241,7 @@ def day_detail(show_id, day_id):
     show      = Show.query.get_or_404(show_id)
     day       = ScheduleDay.query.get_or_404(day_id)
     positions = Position.query.order_by(Position.department, Position.title).all()
-    # The local labour catalogue, for the "add N of a position" form on each
+    # The local labor catalogue, for the "add N of a position" form on each
     # crew call. Grouped in house department order rather than alphabetically
     # so it reads the way a call sheet does.
     from local_labor import SEED_TASKS, group_by_department
@@ -333,7 +333,7 @@ def day_detail(show_id, day_id):
     # Who is ALREADY on a crew call today, for the wizard's double-booking
     # flag. Jason, 2026-08-12: flag only a NAMED person from a COMPANY.
     #
-    # Local labour is the reason for the rule. An Encore-style row is a called
+    # Local labor is the reason for the rule. An Encore-style row is a called
     # POSITION rather than a person — often several of them, often the same
     # position twice — so seeing it on two calls is normal work, not a
     # mistake, and flagging it would cry wolf on the majority of rows. The
@@ -929,7 +929,7 @@ def add_crew_row(show_id, day_id, act_id):
         crew_member_id=crew_member_id,
         name_override=f.get("name_override", "") if not is_header else "",
         crew_type=f.get("crew_type", "Lead Crew") if not is_header else "",
-        # What this crew is doing on this call. Local labour in practice —
+        # What this crew is doing on this call. Local labor in practice —
         # "Hang / Circuit Lights", "Catwalk Strike". On the row rather than
         # the position, because the same stagehand does a different job on
         # Friday. See local_labor.py.

@@ -69,7 +69,7 @@ class Position(db.Model):
     department     = db.Column(db.String(50))    # Audio / Video / Lighting / LED / Rigging / Scenic / Power / General
     type           = db.Column(db.String(30))    # lead / head / hand / utility / specialty
     union_eligible = db.Column(db.Boolean, default=False)
-    # LOCAL LABOUR (2026-08-12) — hired in MULTIPLES and tracked by position
+    # LOCAL LABOR (2026-08-12) — hired in MULTIPLES and tracked by position
     # rather than by name: "18 Lighting Hands", not eighteen people.
     #
     # One table, not two. Departments, ordering, union_eligible and the rate
@@ -540,12 +540,12 @@ class ScheduleActivity(db.Model):
 
     @property
     def local_labor_rows(self):
-        """The local labour on this call, in roster order."""
+        """The local labor on this call, in roster order."""
         return [r for r in self.ordered_crew_rows if r.is_local_labor]
 
     @property
     def local_labor_groups(self):
-        """Local labour grouped by department, ordered like the catalogue.
+        """Local labor grouped by department, ordered like the catalogue.
 
         Jason, 2026-08-12: the crew call follows the Local Labor Database. The
         ordering lives in `local_labor.group_rows_by_department` and is the
@@ -690,7 +690,7 @@ class CrewRow(db.Model):
     crew_member_id  = db.Column(db.Integer, db.ForeignKey("crew_members.id"), nullable=True)
     name_override   = db.Column(db.String(200))      # if not linked to crew_member
     crew_type       = db.Column(db.String(50), default="Lead Crew")
-    # What this crew is DOING on this call (2026-08-12). Local labour only, in
+    # What this crew is DOING on this call (2026-08-12). Local labor only, in
     # practice: "Hang / Circuit Lights", "Catwalk Strike", "Pin/Bolt Truss".
     #
     # It lives on the ROW, not on the Position, and that is the whole design.
@@ -719,7 +719,7 @@ class CrewRow(db.Model):
         """True when this row is a COUNT of a position rather than a person.
 
         Two ways in, because both are true in the data: the row's position is
-        in the local labour catalogue, or somebody typed the crew type. The
+        in the local labor catalogue, or somebody typed the crew type. The
         catalogue wins where they disagree — it is the deliberate statement.
         """
         if self.is_group_header:

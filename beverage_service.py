@@ -60,7 +60,7 @@ def crew_windows_for_day(day):
         #
         # An UNFILLED SLOT carries a crew_member_id (it points at a
         # placeholder record like "Sparks Lighting Hand"), so every local
-        # labour line counted as ONE body: a crew call of three leads and
+        # labor line counted as ONE body: a crew call of three leads and
         # 14 + 7 + 6 local reported SIX people on site instead of thirty, and
         # that number is what a beverage refresh is ordered against.
         #
