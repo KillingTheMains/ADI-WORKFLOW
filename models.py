@@ -767,6 +767,19 @@ class CrewRow(db.Model):
 
 # ── Production Phases (date ranges per show) ─────────────────────────────────
 
+# ── Phase types ──────────────────────────────────────────────────────────────
+# Note 14, 2026-09-03. These five were a Python constant, so adding a sixth
+# meant a developer. They are now SEED VALUES for the `phase_types` table and
+# a fallback if that table is empty or missing — every reader goes through the
+# helpers below, so nothing breaks if the migration has not run yet.
+#
+# ⚠️ THREE OF THESE NAMES ARE LOAD-BEARING STRINGS, which is why the table
+# marks them builtin and refuses renames and deletes:
+#   · "Show"    — `routes.shows._sync_legacy_dates` reads it to set
+#                 show.show_start / show.show_end, which generate_days needs.
+#   · "Load In" and "Strike" — `Show._phase_date` looks them up by literal.
+# Renaming one silently stops a show knowing its own dates. Larry can add,
+# reorder, recolour and hide; he cannot rename or delete the load-bearing ones.
 PHASE_TYPES = ["Prep", "Load In", "Show", "Strike", "Custom"]
 
 PHASE_COLORS = {
@@ -776,6 +789,81 @@ PHASE_COLORS = {
     "Strike":  "#9F1239",
     "Custom":  "#0F766E",
 }
+
+# What Auto-Generate Days labels a day of each phase type. This used to be
+# PHASE_LABEL_MAP, a closed dict living inside `routes.schedule.generate_days`
+# — so a phase type outside these five fell through to the else branch and the
+# day was labelled "Setup" with type "Load In". With templates ticked it would
+# then apply the LOAD IN template to it. That is the collision found in note
+# 18, and it is why `day_label` is a column rather than another dict.
+PHASE_DAY_LABELS = {
+    "Prep": "Setup", "Load In": "Load In", "Show": "Show Day",
+    "Strike": "Strike", "Custom": "Setup",
+}
+
+# Names that other code looks up as literal strings. Never renamable.
+LOAD_BEARING_PHASE_TYPES = ("Load In", "Show", "Strike")
+
+
+class PhaseType(db.Model):
+    """A production-phase type Larry can manage, shared by every show.
+
+    Note 14. Adding "Pre-Rig" or "Rehearsals" used to need a developer.
+    """
+    __tablename__ = "phase_types"
+    id         = db.Column(db.Integer, primary_key=True)
+    name       = db.Column(db.String(50), nullable=False, unique=True)
+    # What a generated day of this type is called. Free text, because a new
+    # type has no business being forced into one of the old five labels.
+    day_label  = db.Column(db.String(50))
+    color      = db.Column(db.String(9))
+    sort_order = db.Column(db.Integer, default=0)
+    is_active  = db.Column(db.Boolean, default=True, nullable=False,
+                           server_default="1")
+    # Builtin means "another module reads this name as a literal". Reorder,
+    # recolour and relabel freely; rename or delete and a show stops knowing
+    # its own dates.
+    is_builtin = db.Column(db.Boolean, default=False, nullable=False,
+                           server_default="0")
+
+    def __repr__(self):
+        return f"<PhaseType {self.name}>"
+
+
+# ── Accessors ────────────────────────────────────────────────────────────────
+# Everything reads through these. Each falls back to the constants above, so
+# the app behaves exactly as it did before if the table is missing (fresh
+# checkout, migration not yet run) or empty.
+
+def _phase_rows():
+    try:
+        return (PhaseType.query.order_by(PhaseType.sort_order, PhaseType.name)
+                .all())
+    except Exception:              # table not created yet
+        return []
+
+
+def phase_type_names(active_only=True):
+    rows = _phase_rows()
+    if not rows:
+        return list(PHASE_TYPES)
+    return [r.name for r in rows if r.is_active or not active_only]
+
+
+def phase_day_label(phase_type):
+    """The day label for a phase type — the thing generate_days needs and
+    could not previously answer for anything outside the original five."""
+    for r in _phase_rows():
+        if r.name == phase_type:
+            return r.day_label or r.name
+    return PHASE_DAY_LABELS.get(phase_type) or phase_type or "Setup"
+
+
+def phase_type_color(phase_type):
+    for r in _phase_rows():
+        if r.name == phase_type and r.color:
+            return r.color
+    return PHASE_COLORS.get(phase_type, "#0F766E")
 
 
 class ProductionPhase(db.Model):
@@ -793,7 +881,7 @@ class ProductionPhase(db.Model):
 
     @property
     def color(self):
-        return PHASE_COLORS.get(self.phase_type, "#0F766E")
+        return phase_type_color(self.phase_type)
 
     @property
     def date_range_display(self):

@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, abort
 from extensions import db
 from models import (Show, Client, Venue, ProductionPhase, SHOW_STATUS, PHASE_TYPES,
+                    phase_type_names,
                     ScheduleDay, ScheduleActivity, CrewRow)
 from datetime import date, timedelta
 from werkzeug.utils import secure_filename
@@ -148,7 +149,7 @@ def new():
         return redirect(url_for("shows.detail", show_id=show.id))
 
     return render_template("shows/new.html", clients=clients, venues=venues,
-                           statuses=SHOW_STATUS, phase_types=PHASE_TYPES)
+                           statuses=SHOW_STATUS, phase_types=phase_type_names())
 
 
 # ── Show detail ───────────────────────────────────────────────────────────────
@@ -198,7 +199,7 @@ def edit(show_id):
         return redirect(url_for("shows.detail", show_id=show.id))
 
     return render_template("shows/edit.html", show=show, clients=clients,
-                           venues=venues, statuses=SHOW_STATUS, phase_types=PHASE_TYPES)
+                           venues=venues, statuses=SHOW_STATUS, phase_types=phase_type_names())
 
 
 # ── Phases API (add/delete via AJAX) ─────────────────────────────────────────

@@ -105,11 +105,7 @@
                 </div>
                 <div class="col-md-2">
                   <select name="phase_type[]" class="form-select form-select-sm phase-type">
-                    <option value="Prep">Prep</option>
-                    <option value="Load In" selected>Load In</option>
-                    <option value="Show">Show</option>
-                    <option value="Strike">Strike</option>
-                    <option value="Custom">Custom</option>
+                    {% for t in phase_types %}<option value="{{ t }}"{% if t == 'Load In' %} selected{% endif %}>{{ t }}</option>{% endfor %}
                   </select>
                 </div>
                 <div class="col">
@@ -136,11 +132,7 @@
                 </div>
                 <div class="col-md-2">
                   <select name="phase_type[]" class="form-select form-select-sm phase-type">
-                    <option value="Prep">Prep</option>
-                    <option value="Load In">Load In</option>
-                    <option value="Show" selected>Show</option>
-                    <option value="Strike">Strike</option>
-                    <option value="Custom">Custom</option>
+                    {% for t in phase_types %}<option value="{{ t }}"{% if t == 'Show' %} selected{% endif %}>{{ t }}</option>{% endfor %}
                   </select>
                 </div>
                 <div class="col">
@@ -167,11 +159,7 @@
                 </div>
                 <div class="col-md-2">
                   <select name="phase_type[]" class="form-select form-select-sm phase-type">
-                    <option value="Prep">Prep</option>
-                    <option value="Load In">Load In</option>
-                    <option value="Show">Show</option>
-                    <option value="Strike" selected>Strike</option>
-                    <option value="Custom">Custom</option>
+                    {% for t in phase_types %}<option value="{{ t }}"{% if t == 'Strike' %} selected{% endif %}>{{ t }}</option>{% endfor %}
                   </select>
                 </div>
                 <div class="col">
@@ -297,12 +285,8 @@
       </div>
       <div class="col-md-2">
         <select name="phase_type[]" class="form-select form-select-sm phase-type">
-          <option value="Prep">Prep</option>
-          <option value="Load In">Load In</option>
-          <option value="Show">Show</option>
-          <option value="Strike">Strike</option>
-          <option value="Custom" selected>Custom</option>
-        </select>
+                    {% for t in phase_types %}<option value="{{ t }}"{% if t == 'Custom' %} selected{% endif %}>{{ t }}</option>{% endfor %}
+                  </select>
       </div>
       <div class="col">
         <input type="date" name="phase_start[]" class="form-control form-control-sm phase-start">

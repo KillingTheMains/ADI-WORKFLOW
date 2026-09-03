@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% import '_icons.html' as ico %}
+{% block title %}Phase Types{% endblock %}
+{% block page_title %}Production Phase Types{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> / Phase Types
+{% endblock %}
+
+{% block content %}
+{# Note 14, 2026-09-03. These five were a Python constant; adding a sixth
+   needed a developer. The list is shared by every show, so a type added here
+   appears on every show's phase dropdown from then on.
+
+   The lock marker is load-bearing, not decoration: "Load In", "Show" and
+   "Strike" are read as literal strings elsewhere, and renaming one silently
+   stops a show knowing its own dates. #}
+
+<div class="card mb-3">
+  <div class="card-body">
+    <div style="font-size:.82rem;font-weight:600;margin-bottom:8px;">Add a phase type</div>
+    <form method="POST" action="{{ url_for('phase_types.create') }}" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label">Name</label>
+        <input type="text" name="name" class="form-control form-control-sm"
+               placeholder="e.g. Pre-Rig" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Day label</label>
+        <input type="text" name="day_label" class="form-control form-control-sm"
+               placeholder="What a generated day is called">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Colour</label>
+        <input type="color" name="color" value="#0F766E"
+               class="form-control form-control-sm form-control-color">
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-sm btn-adi w-100">Add type</button>
+      </div>
+    </form>
+    <div class="form-text mt-2">
+      Order is chronological, not alphabetical — use the arrows. The day label
+      is what Auto-Generate Days calls a day in this phase.
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <table class="table table-sm mb-0 crew-table">
+    <thead>
+      <tr>
+        <th style="width:70px;"></th><th>Type</th><th>Day label</th>
+        <th class="text-center">Used by</th><th style="width:230px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in types %}
+      <tr {% if not t.is_active %}style="opacity:.55;"{% endif %}>
+        <td style="white-space:nowrap;">
+          <form method="POST" style="display:inline;"
+                action="{{ url_for('phase_types.move', type_id=t.id) }}">
+            <input type="hidden" name="dir" value="up">
+            <button class="btn btn-sm btn-link p-0" style="font-size:.7rem;"
+                    {% if loop.first %}disabled{% endif %} title="Move up">▲</button>
+          </form>
+          <form method="POST" style="display:inline;"
+                action="{{ url_for('phase_types.move', type_id=t.id) }}">
+            <input type="hidden" name="dir" value="down">
+            <button class="btn btn-sm btn-link p-0" style="font-size:.7rem;"
+                    {% if loop.last %}disabled{% endif %} title="Move down">▼</button>
+          </form>
+        </td>
+        <td>
+          <span style="display:inline-block;width:10px;height:10px;border-radius:2px;
+                       background:{{ t.color or '#0F766E' }};margin-right:6px;"></span>
+          <strong>{{ t.name }}</strong>
+          {% if t.is_builtin %}
+            <span class="client-hidden-tag"
+                  title="Other parts of the app look this name up as a literal string. It can be recoloured, reordered and relabelled, but not renamed or deleted.">locked name</span>
+          {% endif %}
+          {% if not t.is_active %}
+            <span class="client-hidden-tag" title="Hidden from the phase dropdown on shows.">hidden</span>
+          {% endif %}
+        </td>
+        <td>{{ t.day_label or t.name }}</td>
+        <td class="text-center">{{ usage.get(t.name) or '' }}</td>
+        <td class="text-end" style="white-space:nowrap;">
+          <a href="#" onclick="togglePhaseEdit({{ t.id }});return false;"
+             title="Edit">{{ ico.icon('pencil') }}</a>
+          <form method="POST" style="display:inline;"
+                action="{{ url_for('phase_types.toggle', type_id=t.id) }}">
+            <button class="btn btn-sm btn-link p-0 ms-2" style="font-size:.72rem;">
+              {{ 'Show' if not t.is_active else 'Hide' }}
+            </button>
+          </form>
+          {% if not t.is_builtin and not usage.get(t.name) %}
+          <form method="POST" style="display:inline;"
+                action="{{ url_for('phase_types.delete', type_id=t.id) }}"
+                onsubmit="return confirm('Delete “{{ t.name|e }}”? Nothing is using it.');">
+            <button class="btn btn-sm btn-link p-0 ms-2"
+                    style="font-size:.72rem;color:var(--adi-danger);">Delete</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      <tr id="phase-edit-{{ t.id }}" style="display:none;">
+        <td colspan="5" style="background:#FAFAFA;">
+          <form method="POST" class="row g-1 align-items-end"
+                action="{{ url_for('phase_types.edit', type_id=t.id) }}">
+            <div class="col-md-3">
+              <input type="text" name="name" value="{{ t.name }}"
+                     class="form-control form-control-sm"
+                     {% if t.is_builtin %}readonly title="This name is read as a literal string elsewhere in the app."{% endif %}>
+            </div>
+            <div class="col-md-3">
+              <input type="text" name="day_label" value="{{ t.day_label or '' }}"
+                     class="form-control form-control-sm" placeholder="Day label">
+            </div>
+            <div class="col-md-2">
+              <input type="color" name="color" value="{{ t.color or '#0F766E' }}"
+                     class="form-control form-control-sm form-control-color">
+            </div>
+            <div class="col-md-2">
+              <button class="btn btn-sm btn-adi w-100">Save</button>
+            </div>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+function togglePhaseEdit(id) {
+  const r = document.getElementById('phase-edit-' + id);
+  r.style.display = r.style.display === 'none' ? '' : 'none';
+}
+</script>
+{% endblock %}

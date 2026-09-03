@@ -88,6 +88,11 @@
     <div class="nav-section">Schedule Builder</div>
     {# Per-show links → schedule overview #}
     {{ show_sub_list('schedule.overview') }}
+    {# href hardcoded — see the note on /clients below. #}
+    <a href="/phase-types"
+       class="{% if request.endpoint and request.endpoint.startswith('phase_types.') %}active{% endif %}">
+      <span class="nav-icon">{{ ico.icon('flag') }}</span> Phase Types
+    </a>
     <a href="{{ url_for('schedule.template_list') }}"
        class="{% if request.endpoint and 'template' in request.endpoint %}active{% endif %}">
       <span class="nav-icon">{{ ico.icon('copy') }}</span> Day Templates

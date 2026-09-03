@@ -7,7 +7,7 @@ from models import Show, ScheduleDay, ScheduleActivity, CrewRow, Position, CrewM
                    PHASES, CREW_TYPES, DayTemplate, PHASE_TYPES, ShowCrewAssignment, Company, \
                    SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break, DayPhase, \
                    MealService, MealServiceLocation, HardCodedEventDayOff, \
-                   MEAL_KINDS
+                   MEAL_KINDS, phase_type_names
 from datetime import date, timedelta
 from time_utils import sort_minutes, parse_minutes, hhmm_or_blank
 import re, json
@@ -167,8 +167,14 @@ def generate_days(show_id):
     existing = {d.date: d for d in show.days}
     with_templates = request.form.get("with_templates") == "1"
 
-    PHASE_LABEL_MAP = {"Prep": "Setup", "Load In": "Load In", "Show": "Show Day",
-                       "Strike": "Strike", "Custom": "Setup"}
+    # Note 14 + note 18. This was a CLOSED dict of five, so a phase type
+    # outside it fell through to the else branch below and the day was
+    # labelled "Setup" with type "Load In" — and with templates ticked it
+    # would then apply the LOAD IN template to it. The moment Larry can add a
+    # phase type, that stops being theoretical, so the label now comes from
+    # the phase type itself. `phase_day_label` falls back to the old five, so
+    # behaviour is unchanged for every existing show.
+    from models import phase_day_label
     # date → phase_type for the single-string backward-compat `phase` label
     phase_lookup = {}
     for p in dated_phases:
@@ -182,8 +188,11 @@ def generate_days(show_id):
     while current <= span_end:
         if current not in existing:
             raw = phase_lookup.get(current)
-            if raw and raw in PHASE_LABEL_MAP:
-                phase_label, phase_type = PHASE_LABEL_MAP[raw], raw
+            if raw:
+                # Any phase type, not just the original five. A type Larry
+                # added keeps its own name and its own day label instead of
+                # being quietly relabelled "Setup" and treated as a load-in.
+                phase_label, phase_type = phase_day_label(raw), raw
             elif show.load_in_date and current == show.load_in_date:
                 phase_label, phase_type = "Load In", "Load In"
             elif show.strike_date and current == show.strike_date:
@@ -1382,7 +1391,7 @@ def call_sheet(show_id, day_id):
 def template_list():
     templates = DayTemplate.query.order_by(DayTemplate.sort_order, DayTemplate.label).all()
     return render_template("schedule/day_templates.html",
-                           templates=templates, phase_types=PHASE_TYPES)
+                           templates=templates, phase_types=phase_type_names())
 
 
 @schedule_bp.route("/templates/new", methods=["GET", "POST"])
@@ -1413,7 +1422,7 @@ def template_new():
         return redirect(url_for("schedule.template_list"))
     return render_template("schedule/day_templates.html",
                            templates=DayTemplate.query.order_by(DayTemplate.sort_order).all(),
-                           phase_types=PHASE_TYPES, editing=None, creating=True)
+                           phase_types=phase_type_names(), editing=None, creating=True)
 
 
 @schedule_bp.route("/templates/<int:tpl_id>/edit", methods=["GET", "POST"])
@@ -1431,7 +1440,7 @@ def template_edit(tpl_id):
         return redirect(url_for("schedule.template_list"))
     return render_template("schedule/day_templates.html",
                            templates=DayTemplate.query.order_by(DayTemplate.sort_order).all(),
-                           phase_types=PHASE_TYPES, editing=tpl, creating=False)
+                           phase_types=phase_type_names(), editing=tpl, creating=False)
 
 
 @schedule_bp.route("/templates/<int:tpl_id>/delete", methods=["POST"])

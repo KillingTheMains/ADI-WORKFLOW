@@ -952,6 +952,43 @@ def _delete_orphans_from_deleted_shows(session):
         print("[migration] ⚠ not the predicted total — check before moving on.")
 
 
+def _seed_phase_types(session):
+    """Note 14 — move the five phase types out of a Python constant and into a
+    table Larry can manage.
+
+    Additive and idempotent: a type whose name already exists is left alone,
+    never duplicated. Predicted on any database that has not run this before:
+    5 created, 0 skipped. If it reports anything else, a phase type was
+    already seeded and the number says how many.
+
+    "Load In", "Show" and "Strike" are marked BUILTIN because other modules
+    read those names as literal strings — `_sync_legacy_dates` sets
+    show.show_start from the phase named "Show", and `Show._phase_date` looks
+    up "Load In" and "Strike". Renaming one stops a show knowing its own
+    dates, silently. The management screen refuses to rename or delete them.
+    """
+    from models import (PhaseType, PHASE_TYPES, PHASE_COLORS,
+                        PHASE_DAY_LABELS, LOAD_BEARING_PHASE_TYPES)
+
+    created = skipped = 0
+    for i, name in enumerate(PHASE_TYPES):
+        if PhaseType.query.filter_by(name=name).first():
+            skipped += 1
+            continue
+        session.add(PhaseType(
+            name=name,
+            day_label=PHASE_DAY_LABELS.get(name, name),
+            color=PHASE_COLORS.get(name),
+            sort_order=(i + 1) * 10,
+            is_active=True,
+            is_builtin=(name in LOAD_BEARING_PHASE_TYPES),
+        ))
+        created += 1
+    session.flush()
+    print("[migration] phase types: %d created, %d already present"
+          % (created, skipped))
+
+
 DATA_MIGRATIONS = [
     ("2026-06-30-fb-v2-migrate-entries", _migrate_fb_entries_to_meal_services),
     ("2026-07-02-add-prompter-position", _seed_position_prompter),
@@ -1019,6 +1056,10 @@ DATA_MIGRATIONS = [
     # the UI but not in the data, so emptiness is the same either way — and
     # running last means the count reflects the finished state. Predicted 29.
     ("2026-08-12-delete-empty-section-headers", _delete_empty_section_headers),
+    # 2026-09-03 — Note 14. The phase Type dropdown becomes a managed list so
+    # Larry can add to it without a developer, and so it carries across every
+    # show. Seeds the five that were hard-coded. Predicted: 5 created.
+    ("2026-09-03-seed-phase-types", _seed_phase_types),
 ]
 
 
