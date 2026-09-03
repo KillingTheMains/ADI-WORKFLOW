@@ -68,6 +68,13 @@ MIGRATIONS = [
     # which lives on the ROW because the same stagehand hangs lights one day
     # and strikes catwalks the next. See local_labor.py.
     ("positions",             "is_local_labor",     "BOOLEAN DEFAULT 0"),
+    # 2026-09-03 — Note 15. Clients had no management surface at all: one is
+    # created as a side effect of building a show and nothing could ever edit
+    # or remove it, so the "Add existing Client" list only ever grew.
+    # Deactivate rather than delete — shows.client_id has no cascade and
+    # SQLite reuses row ids. DEFAULT 1, so every existing client stays
+    # visible; this migration changes no behaviour on its own.
+    ("clients",               "is_active",          "BOOLEAN DEFAULT 1"),
     ("crew_rows",             "task",               "VARCHAR(120)"),
     # 2026-08-13 — Stage 2 of the OSS unification. An activity can now say
     # which department it belongs to, which is the thing it could never say

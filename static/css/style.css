@@ -625,6 +625,22 @@ h1, h2, h3, h4, h5, h6,
   line-height: 1.45;
 }
 
+/* Note 15: a hidden client is still listed on its own management page, just
+   marked. Mineral rather than a status colour — hidden is not a warning, it is
+   a state. */
+.client-hidden-tag {
+  font-size: .62rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-weight: 700;
+  color: var(--adi-mineral, #59636E);
+  border: 1px solid var(--adi-border, #D8DDE3);
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+
 /* Times and counts align down the page. The single highest-value typographic
    change here — a 40-row call becomes scannable. */
 .crew-table td, .crew-table th, .top-bar .page-title,

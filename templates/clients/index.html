@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% import '_icons.html' as ico %}
+{% block title %}Clients{% endblock %}
+{% block page_title %}Client Database{% endblock %}
+
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> / Clients
+{% endblock %}
+
+{% block content %}
+{# Note 15, 2026-09-03. The screen Position and Company already had and Client
+   never got. Before this, a client could only be CREATED — as a side effect of
+   building a show — so the "Add existing Client" dropdown only ever grew.
+
+   Hide is the ordinary action and delete is the exception, not the other way
+   round: shows.client_id has no cascade and SQLite reuses row ids, so deleting
+   a client with shows is how you get orphans and, later, a different client
+   silently inheriting them. #}
+
+<div class="card mb-3">
+  <div class="card-body">
+    <div style="font-size:.82rem;font-weight:600;margin-bottom:8px;">Add a client</div>
+    <form method="POST" action="{{ url_for('clients.create') }}" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label">Name</label>
+        <input type="text" name="name" class="form-control form-control-sm" required>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Contact</label>
+        <input type="text" name="contact" class="form-control form-control-sm">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Email</label>
+        <input type="email" name="email" class="form-control form-control-sm">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Phone</label>
+        <input type="text" name="phone" class="form-control form-control-sm">
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-sm btn-adi w-100">Add client</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if not clients %}
+  <div class="card"><div class="card-body text-center text-muted" style="padding:32px;">
+    No clients yet. One is also created automatically the first time you type a
+    new client name while building a show.
+  </div></div>
+{% else %}
+<div class="card">
+  <table class="table table-sm mb-0 crew-table">
+    <thead>
+      <tr>
+        <th>Client</th><th>Contact</th><th>Email</th><th>Phone</th>
+        <th class="text-center">Shows</th><th style="width:200px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in clients %}
+      <tr {% if not c.is_active %}style="opacity:.55;"{% endif %}>
+        <td>
+          <strong>{{ c.name }}</strong>
+          {% if not c.is_active %}
+            <span class="client-hidden-tag"
+                  title="Hidden from the client picker. Existing shows are unaffected.">hidden</span>
+          {% endif %}
+        </td>
+        <td>{{ c.contact or '' }}</td>
+        <td>{{ c.email or '' }}</td>
+        <td>{{ c.phone or '' }}</td>
+        <td class="text-center">{{ usage[c.id] or '' }}</td>
+        <td class="text-end" style="white-space:nowrap;">
+          <a href="#" onclick="toggleClientEdit({{ c.id }});return false;"
+             title="Edit">{{ ico.icon('pencil') }}</a>
+
+          <form method="POST" style="display:inline;"
+                action="{{ url_for('clients.toggle', client_id=c.id) }}">
+            <button type="submit" class="btn btn-sm btn-link p-0 ms-2"
+                    style="font-size:.72rem;">
+              {{ 'Show' if not c.is_active else 'Hide' }}
+            </button>
+          </form>
+
+          {# Delete is offered ONLY at zero shows. The route refuses anyway —
+             this just stops the button existing when it would only ever
+             produce a warning. #}
+          {% if not usage[c.id] %}
+          <form method="POST" style="display:inline;"
+                action="{{ url_for('clients.delete', client_id=c.id) }}"
+                onsubmit="return confirm('Delete “{{ c.name|e }}” permanently? It has no shows, so nothing else changes.');">
+            <button type="submit" class="btn btn-sm btn-link p-0 ms-2"
+                    style="font-size:.72rem;color:var(--adi-danger);">Delete</button>
+          </form>
+          {% else %}
+          <span class="text-muted ms-2" style="font-size:.68rem;"
+                title="Used by {{ usage[c.id] }} show(s). Hide it instead — the shows keep their client.">
+            in use
+          </span>
+          {% endif %}
+        </td>
+      </tr>
+      <tr id="client-edit-{{ c.id }}" style="display:none;">
+        <td colspan="6" style="background:#FAFAFA;">
+          <form method="POST" class="row g-1 align-items-end"
+                action="{{ url_for('clients.edit', client_id=c.id) }}">
+            <div class="col-md-3">
+              <input type="text" name="name" value="{{ c.name }}"
+                     class="form-control form-control-sm" placeholder="Name" required>
+            </div>
+            <div class="col-md-2">
+              <input type="text" name="contact" value="{{ c.contact or '' }}"
+                     class="form-control form-control-sm" placeholder="Contact">
+            </div>
+            <div class="col-md-3">
+              <input type="email" name="email" value="{{ c.email or '' }}"
+                     class="form-control form-control-sm" placeholder="Email">
+            </div>
+            <div class="col-md-2">
+              <input type="text" name="phone" value="{{ c.phone or '' }}"
+                     class="form-control form-control-sm" placeholder="Phone">
+            </div>
+            <div class="col-md-2">
+              <button class="btn btn-sm btn-adi w-100">Save</button>
+            </div>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<script>
+function toggleClientEdit(id) {
+  const row = document.getElementById('client-edit-' + id);
+  row.style.display = row.style.display === 'none' ? '' : 'none';
+}
+</script>
+{% endblock %}

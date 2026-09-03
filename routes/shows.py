@@ -100,7 +100,10 @@ def index():
 
 @shows_bp.route("/new", methods=["GET", "POST"])
 def new():
-    clients = Client.query.order_by(Client.name).all()
+    # Note 15: hidden clients drop out of the picker on a NEW show. Nothing
+    # else changes — the list is the only place `is_active` is consulted.
+    clients = (Client.query.filter_by(is_active=True)
+               .order_by(Client.name).all())
     venues  = Venue.query.order_by(Venue.name).all()
 
     if request.method == "POST":
@@ -163,7 +166,16 @@ def detail(show_id):
 @shows_bp.route("/<int:show_id>/edit", methods=["GET", "POST"])
 def edit(show_id):
     show    = Show.query.get_or_404(show_id)
-    clients = Client.query.order_by(Client.name).all()
+    # Note 15, and this is the half that matters. Active clients PLUS this
+    # show's own, even when hidden — otherwise opening an old show whose
+    # client was later hidden silently drops the selection, and saving the
+    # form would clear a client nobody meant to touch. Hiding is supposed to
+    # be reversible and invisible to existing work; that only holds if the
+    # edit form can still show what the show already points at.
+    clients = (Client.query
+               .filter(db.or_(Client.is_active.is_(True),
+                              Client.id == show.client_id))
+               .order_by(Client.name).all())
     venues  = Venue.query.order_by(Venue.name).all()
 
     if request.method == "POST":

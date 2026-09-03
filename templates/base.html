@@ -104,6 +104,21 @@
        class="{% if request.endpoint and request.endpoint.startswith('local_labor.') %}active{% endif %}">
       <span class="nav-icon">{{ ico.icon('hard-hat') }}</span> Local Labor
     </a>
+    {# href hardcoded, like /agency above it. The blueprint loader is
+       deliberately resilient — a blueprint that fails to import is captured
+       and the rest of the site still serves — but `url_for` on a route that
+       never registered raises during template render and takes EVERY page
+       down with it. That is the July 2 hotfix, and it applies to any nav
+       entry added afterwards. #}
+    <a href="/clients"
+       class="{% if request.endpoint and request.endpoint.startswith('clients.') %}active{% endif %}">
+      {# building-2, not briefcase — briefcase is not in the generated set and
+         test_icon_names_resolve would fail on it. It is shared with the
+         disabled Vendors placeholder below for now; whoever builds that page
+         should pick another, and per the #2 proposal Vendors is really the
+         Companies table filtered by type, so it may not need its own entry. #}
+      <span class="nav-icon">{{ ico.icon('building-2') }}</span> Clients
+    </a>
     <a href="#" class="disabled" style="opacity:0.4; cursor:not-allowed;">
       <span class="nav-icon">{{ ico.icon('building-2') }}</span> Vendors
     </a>

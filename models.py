@@ -18,7 +18,21 @@ class Client(db.Model):
     phone       = db.Column(db.String(50))
     address     = db.Column(db.Text)
     notes       = db.Column(db.Text)
+    # Note 15, 2026-09-03. Deactivate rather than delete. `shows.client_id`
+    # points here, NOTHING cascades, and SQLite reuses row ids — so a deleted
+    # client's id can be handed to the next one, which then inherits its
+    # shows. Deleting show 5 in August left 216 orphan rows by that exact
+    # route. Inactive drops a client out of the picker while every existing
+    # show keeps rendering its client correctly.
+    is_active   = db.Column(db.Boolean, default=True, nullable=False,
+                            server_default="1")
     shows       = db.relationship("Show", back_populates="client", lazy="dynamic")
+
+    @property
+    def show_count(self):
+        """How many shows point at this client. Drives whether a hard delete
+        is offered at all."""
+        return self.shows.count()
 
     def __repr__(self):
         return f"<Client {self.name}>"
