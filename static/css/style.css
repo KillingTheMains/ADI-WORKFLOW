@@ -148,7 +148,12 @@ h1, h2, h3, h4, h5, h6,
      hairline cannot do. */
   width: 216px;
   border-right: 1px solid rgba(255,255,255,0.10);
-  min-height: 100vh;
+  /* Note 6: was `min-height: 100vh`. A POSITION:FIXED element taller than the
+     viewport has nowhere to scroll to — the wheel falls through to the page
+     behind it, so the main pane moved and the sidebar did not. You only see it
+     when the nav no longer fits, which is why it showed up zoomed in. Bind the
+     height to the viewport and let the nav scroll INSIDE it (below). */
+  height: 100vh;
   background: var(--adi-dark);
   position: fixed;
   top: 0; left: 0;
@@ -184,6 +189,14 @@ h1, h2, h3, h4, h5, h6,
 #sidebar nav {
   padding: 16px 0;
   flex: 1;
+  /* Note 6, the other half. `flex:1` alone will not let this shrink below its
+     own content, so without min-height:0 it grows past the sidebar and the
+     overflow never engages. `contain` stops the wheel chaining to the main
+     pane once the nav has hit its end, which is the behaviour being reported.
+     The footer stays pinned because only the nav scrolls. */
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 #sidebar nav .nav-section {
@@ -567,6 +580,30 @@ h1, h2, h3, h4, h5, h6,
   content: "└ ";
   opacity: .6;
   font-weight: 400;
+}
+
+/* Note 1a: the edit and remove controls on a section header rendered DARK on
+   the Midnight band. `.group-header td` sets color:#fff, but NEITHER control
+   inherits it — an <a> takes the link colour and a <button> takes the UA's
+   `buttontext`, and both are near-black against #0B2545. The Lucide macro
+   draws with stroke="currentColor", so setting colour here fixes the glyph as
+   well as the text.
+
+   The opacity lives here rather than inline for the reason already written
+   into day.html: an inline style beats the stylesheet, and the last thing to
+   fight that on this exact row washed the band out to a grey nobody chose.
+   .72 white over Midnight lands near #B6BDC7 — well clear of 4.5:1 — and
+   hover/focus takes it to full. */
+.crew-table .group-header .sect-actions a,
+.crew-table .group-header .sect-actions button {
+  color: #fff;
+  opacity: .72;
+}
+.crew-table .group-header .sect-actions a:hover,
+.crew-table .group-header .sect-actions a:focus-visible,
+.crew-table .group-header .sect-actions button:hover,
+.crew-table .group-header .sect-actions button:focus-visible {
+  opacity: 1;
 }
 
 /* Times and counts align down the page. The single highest-value typographic

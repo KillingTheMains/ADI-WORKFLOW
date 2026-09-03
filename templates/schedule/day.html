@@ -1054,15 +1054,22 @@
                         onclick="toggleSection(this)"
                         style="cursor:pointer;display:inline-block;width:12px;">▾</span>
                   <span class="sect-label">{{ row.group_label }}</span>
-                  <span style="float:right;">
+                  {# Note 1a: colour and opacity for these two live in
+                     style.css under `.group-header .sect-actions`, NOT inline.
+                     They used to carry `opacity:.6` here and no colour at all,
+                     which left the <a> on the link colour and the <button> on
+                     the UA's buttontext — both near-black on the Midnight
+                     band. An inline style would beat the stylesheet, so the
+                     class is the whole hook. #}
+                  <span class="sect-actions" style="float:right;">
                     <a href="#" onclick="openHeaderEdit({{ row.id }});return false;"
-                       style="font-size:.68rem;opacity:.6;text-decoration:none;"
+                       style="font-size:.68rem;text-decoration:none;"
                        title="Edit this section">{{ ico.icon('pencil') }}</a>
-                    <form method="POST" style="display:inline;"
+                    <form method="POST" style="display:inline;" class="js-section-delete"
                           action="{{ url_for('schedule.delete_crew_row', show_id=show.id, day_id=day.id, row_id=row.id) }}"
                           onsubmit="return confirm('Remove the section “{{ row.group_label|e }}”? The crew rows under it stay on the call.');">
                       <button type="submit"
-                              style="border:none;background:none;font-size:.68rem;opacity:.6;padding:0 2px;"
+                              style="border:none;background:none;font-size:.68rem;padding:0 2px;"
                               title="Remove this section">{{ ico.icon('x') }}</button>
                     </form>
                   </span>
@@ -2733,6 +2740,47 @@ function submitAddToRoster() {
       err.style.display = '';
     });
 }
+
+// ── Note 1b: removing a section header should not reload the page ──────────
+// It stays an ordinary POST form, so it still works with JS off and the route
+// is unchanged — this only upgrades the successful case.
+//
+// The inline confirm() is registered first, so it runs first. When the user
+// cancels, it returns false and the submit is already defaultPrevented by the
+// time this listener sees it — bail on that rather than asking a second time.
+//
+// On failure fall back to a real submit: a delete that silently does nothing
+// is worse than one that reloads.
+document.addEventListener('submit', function (e) {
+  const form = e.target;
+  if (!form.classList || !form.classList.contains('js-section-delete')) return;
+  if (e.defaultPrevented) return;
+  e.preventDefault();
+
+  const hdr = form.closest('tr.group-header');
+  const btn = form.querySelector('button');
+  if (btn) btn.disabled = true;
+
+  fetch(form.action, {
+    method: 'POST',
+    headers: { 'X-Requested-With': 'fetch' },
+    credentials: 'same-origin',
+  }).then(function (res) {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if (!hdr) return;
+    // The edit panel is a SEPARATE sibling <tr>. Leaving it behind orphans a
+    // form pointing at a row id that no longer exists, and it can still be
+    // opened by a stale openHeaderEdit() call.
+    const edit = document.getElementById('hdr-edit-' + hdr.dataset.row);
+    if (edit) edit.remove();
+    hdr.remove();
+    // The crew rows under it deliberately stay — that is what the confirm
+    // promises, and what the server does.
+  }).catch(function () {
+    if (btn) btn.disabled = false;
+    form.submit();   // bypasses onsubmit, so no second confirm
+  });
+});
 
 // ── Note 1: collapsible sections ─────────────────────────────────────────────
 // A collapsed section hides its rows AND its sub-sections, so folding ENCORE
