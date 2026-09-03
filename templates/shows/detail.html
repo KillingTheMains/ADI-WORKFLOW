@@ -141,6 +141,61 @@
       </div>
     </div>
 
+    {# ── Note 2 + note 10: local labor vendors ──────────────────────────────
+       Larry: "we think we wanna put this on the main page under the show info,
+       where we can select where each department of local labor is coming from
+       a different vendor, and we can enter that information."
+
+       One row per department per show — not per day, not per crew line. The
+       department list is local_labor's DEPARTMENT_ORDER, the same ordering the
+       Local Labor Database and every crew call already use.
+
+       Reading this on the crew call headers and in the schedule export is
+       steps 4 and 5 of the proposal, deliberately not built yet: both touch
+       the day page and the exporters, and MCDC26 loads in on 2026-09-08. #}
+    <div class="card mt-3">
+      <div class="card-header">Local Labor Vendors</div>
+      <div class="card-body p-3">
+        <form method="POST" action="{{ url_for('shows.save_vendors', show_id=show.id) }}">
+          <table style="width:100%;font-size:.8rem;">
+            <tr class="text-muted" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;">
+              <td style="padding-bottom:4px;">Department</td>
+              <td style="padding-bottom:4px;">Supplied by</td>
+              <td style="padding-bottom:4px;width:80px;">Job #</td>
+            </tr>
+            {% for dept in departments %}
+            {% set v = vendors.get(dept) %}
+            <tr>
+              <td class="text-muted pe-2" style="padding:2px 0;">{{ dept }}</td>
+              <td style="padding:2px 4px 2px 0;">
+                <select name="company_{{ dept }}" class="form-select form-select-sm"
+                        style="font-size:.75rem;padding:1px 4px;">
+                  <option value="">—</option>
+                  {% for co in companies %}
+                  <option value="{{ co.id }}"
+                    {% if v and v.company_id == co.id %}selected{% endif %}>{{ co.name }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td style="padding:2px 0;">
+                <input type="text" name="job_{{ dept }}"
+                       value="{{ v.job_number if v and v.job_number else '' }}"
+                       class="form-control form-control-sm"
+                       style="font-size:.75rem;padding:1px 4px;"
+                       title="This vendor's own job number for this show">
+              </td>
+            </tr>
+            {% endfor %}
+          </table>
+          <button class="btn btn-sm btn-adi mt-2 w-100">Save vendors</button>
+          <div class="form-text" style="font-size:.7rem;">
+            Leave a department blank if its labor is not bought in. The job
+            number is the vendor's own reference for this show.
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- Danger zone -->
     <div class="card mt-3 border-danger">
       <div class="card-body p-3">

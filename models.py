@@ -866,6 +866,59 @@ def phase_type_color(phase_type):
     return PHASE_COLORS.get(phase_type, "#0F766E")
 
 
+class ShowDepartmentVendor(db.Model):
+    """Which company supplies a show's local labor for one department.
+
+    Note 2, 2026-09-03. Larry: rigging from one company, lighting from another,
+    audio from another. Before this there was nowhere to say it.
+
+    ONE ROW PER DEPARTMENT PER SHOW — not per day and not per crew line. That
+    is the whole design: the vendor is resolved for any local labor row through
+    `position_ref.department`, which is the same department
+    `local_labor.group_rows_by_department` already groups that row under. So
+    the answer lands exactly where the section header is already drawn, with no
+    second grouping to keep in step, and changing a vendor once updates every
+    day at once.
+
+    `job_number` is note 10, and it lives HERE rather than on the show because
+    a job number is issued BY a vendor — a show with three vendors has three of
+    them, so a single field on the show would have been wrong the first time
+    two suppliers were used.
+
+    See ADI_Vendor_Attribution_Proposal.md. Two questions are still open with
+    Larry and both would change this shape: whether one department can have two
+    vendors on a show (the unique constraint says no), and whether a vendor
+    ever changes mid-show (which would need date ranges).
+    """
+    __tablename__ = "show_department_vendors"
+    __table_args__ = (
+        db.UniqueConstraint("show_id", "department", name="uq_show_department"),
+    )
+    id         = db.Column(db.Integer, primary_key=True)
+    show_id    = db.Column(db.Integer, db.ForeignKey("shows.id"), nullable=False)
+    # A value from local_labor.DEPARTMENT_ORDER — the crew-DISCIPLINE
+    # vocabulary (Rigging, Lighting, Audio), NOT the operations sub-schedule
+    # one (Dock, F&B, Haze). Those are two different layers and this is the
+    # first; see the proposal's §"two department vocabularies".
+    department = db.Column(db.String(50), nullable=False)
+    company_id = db.Column(db.Integer, db.ForeignKey("companies.id"))
+    job_number = db.Column(db.String(80))
+
+    show    = db.relationship("Show")
+    company = db.relationship("Company")
+
+    def __repr__(self):
+        return f"<ShowDepartmentVendor {self.department}>"
+
+
+def vendor_map_for_show(show_id):
+    """{department: ShowDepartmentVendor} for one show. The single resolver —
+    every surface that wants to know who supplies a department goes through
+    this, so they cannot disagree."""
+    return {v.department: v for v in
+            ShowDepartmentVendor.query.filter_by(show_id=show_id).all()}
+
+
 class ProductionPhase(db.Model):
     """A named date range within a show (Prep, Load In, Show, Strike, Custom)."""
     __tablename__ = "production_phases"

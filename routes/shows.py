@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, abort
 from extensions import db
 from models import (Show, Client, Venue, ProductionPhase, SHOW_STATUS, PHASE_TYPES,
-                    phase_type_names,
+                    phase_type_names, ShowDepartmentVendor,
+                    vendor_map_for_show, Company,
                     ScheduleDay, ScheduleActivity, CrewRow)
 from datetime import date, timedelta
 from werkzeug.utils import secure_filename
@@ -159,7 +160,60 @@ def detail(show_id):
     show = Show.query.get_or_404(show_id)
     phases = ProductionPhase.query.filter_by(show_id=show.id)\
                .order_by(ProductionPhase.start_date).all()
-    return render_template("shows/detail.html", show=show, phases=phases)
+    # Note 2: who supplies this show's local labor, per department. The
+    # department list is local_labor's DEPARTMENT_ORDER — the same ordering
+    # the Local Labor Database and every crew call already use, so this block
+    # cannot disagree with them about what a department is or where it sits.
+    from local_labor import DEPARTMENT_ORDER
+    return render_template("shows/detail.html", show=show, phases=phases,
+                           departments=DEPARTMENT_ORDER,
+                           vendors=vendor_map_for_show(show.id),
+                           companies=Company.query.order_by(Company.name).all())
+
+
+@shows_bp.route("/<int:show_id>/vendors", methods=["POST"])
+def save_vendors(show_id):
+    """Note 2 + note 10 — which company supplies each department, and its job
+    number for this show.
+
+    Saves the whole block in one post. A department with no company selected
+    and no job number is DELETED rather than stored empty, so the table only
+    ever holds real assignments and "no vendor set" has exactly one
+    representation instead of two.
+    """
+    show = Show.query.get_or_404(show_id)
+    from local_labor import DEPARTMENT_ORDER
+
+    existing = vendor_map_for_show(show.id)
+    changed = cleared = 0
+
+    for dept in DEPARTMENT_ORDER:
+        company_id = (request.form.get(f"company_{dept}") or "").strip()
+        job_number = (request.form.get(f"job_{dept}") or "").strip()
+        row = existing.get(dept)
+
+        if not company_id and not job_number:
+            if row:
+                db.session.delete(row)
+                cleared += 1
+            continue
+
+        if not row:
+            row = ShowDepartmentVendor(show_id=show.id, department=dept)
+            db.session.add(row)
+        row.company_id = int(company_id) if company_id else None
+        row.job_number = job_number or None
+        changed += 1
+
+    db.session.commit()
+    bits = []
+    if changed:
+        bits.append(f"{changed} department(s) set")
+    if cleared:
+        bits.append(f"{cleared} cleared")
+    flash("Vendors saved" + (" — " + ", ".join(bits) if bits else "") + ".",
+          "success")
+    return redirect(url_for("shows.detail", show_id=show.id))
 
 
 # ── Edit show ─────────────────────────────────────────────────────────────────
