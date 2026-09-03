@@ -1206,3 +1206,25 @@ def _pre_migration_snapshot(pending, verbose=True):
     if verbose:
         pending_keys = ", ".join(k for k, _ in pending)
         print(f"[migration] pre-snapshot saved: {dest}  (before applying: {pending_keys})")
+
+
+if __name__ == "__main__":
+    # `python3 migrations.py` used to import this module and EXIT SILENTLY.
+    # No migrations, no output, no error — the worst possible shape for a
+    # deploy command, because it looks exactly like a successful no-op. It is
+    # also the command that ended up in a handoff doc and got pasted at least
+    # once (2026-09-03), which is how a deploy "ran" and printed nothing.
+    #
+    # Migrations really run inside the app: create_app() → _run_db_startup()
+    # → run_migrations(), so on a normal boot their output goes to the SERVER
+    # LOG rather than to a console. That is also why the five migration-bearing
+    # deploys on 2026-08-12 "captured no console output" — there was never any
+    # to capture.
+    #
+    # Delegates to the existing documented entry point rather than
+    # re-implementing it: app.run_db_startup() forces SKIP_DB_STARTUP off, so
+    # the work happens even when the WSGI environment disables it, and the
+    # counts print HERE where they can be read and checked against a
+    # prediction.
+    from app import run_db_startup
+    run_db_startup()
