@@ -2347,6 +2347,18 @@
             Drops a standard set of activities onto this day. Leave the switch
             off and they are added to whatever is already here.
           </p>
+          {# Note 18, 2026-09-03. Same defect as the Auto-Generate checkbox on
+             the overview: every template still writes breaks as plain
+             activities. Warned here too, because this is the OTHER door to
+             the same six templates — and the only door to Tech Rehearsal and
+             Presenter Rehearsal, which carry no phase hint. #}
+          <div class="tpl-warn-box mb-3">
+            <span class="tpl-warn">{{ ico.icon('alert-triangle', 13) }}</span>
+            These templates still add breaks as ordinary schedule lines
+            (&ldquo;LUNCH BREAK &mdash; 30 min&rdquo;) rather than real breaks
+            attached to a crew call. Add breaks on the crew call instead, and
+            delete any the template leaves behind.
+          </div>
           <div class="mb-3">
             <label class="form-label">Template</label>
             <select name="template" class="form-select form-select-sm">

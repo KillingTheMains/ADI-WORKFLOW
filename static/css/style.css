@@ -606,6 +606,25 @@ h1, h2, h3, h4, h5, h6,
   opacity: 1;
 }
 
+/* Note 18, 2026-09-03 — TEMPORARY, and it should be deleted with the fix.
+   Every day template still writes breaks as plain activities. Until the
+   `day_templates` data migration lands, both doors to those templates carry a
+   warning, and these are its two pieces.
+
+   Uses --adi-warn / --adi-warn-bg rather than Bootstrap's .alert-warning, so
+   this does not add another off-brand amber to the ~500 already queued for
+   the token pass. #8A5A00 on #FDF3D8 measures ≈5.8:1. */
+.tpl-warn { color: var(--adi-warn); font-weight: 700; }
+.tpl-warn-box {
+  background: var(--adi-warn-bg);
+  color: var(--adi-warn);
+  border: 1px solid #E8D9A8;
+  border-radius: var(--radius, 4px);
+  padding: 8px 10px;
+  font-size: .74rem;
+  line-height: 1.45;
+}
+
 /* Times and counts align down the page. The single highest-value typographic
    change here — a 40-row call becomes scannable. */
 .crew-table td, .crew-table th, .top-bar .page-title,
