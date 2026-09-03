@@ -1535,61 +1535,90 @@
                tag rather than inside it. #}
             {% if local_labor_catalogue %}
             <div style="border-top:1px dashed var(--adi-border);margin-top:10px;padding-top:8px;">
+              {# Note 4, 2026-09-03. Larry: "the ability to add multiple lines
+                 at once ... a plus sign to the right where you could add a
+                 line for lighting hands, a line for audio hands, a line for
+                 video hands, and then click add crew to the crew call button,
+                 and then it would refresh and everything would be in the right
+                 place instead of doing that multiple times."
+
+                 Every field is an ARRAY. The plus clones the last row; the ×
+                 removes one. One refresh at the end is what he asked for and
+                 is fine here — unlike note 1's delete, where he wanted none.
+
+                 "In the right place" needs no work: local labor rows render
+                 through `local_labor_groups` → `group_rows_by_department`, so
+                 the grouping is DERIVED at render. Appending in order is
+                 already correct, and inventing placement here would be a
+                 second ordering to keep in step with the catalogue. #}
               <form method="POST"
-                    action="{{ url_for('schedule.add_crew_row', show_id=show.id, day_id=day.id, act_id=act.id) }}">
-                <input type="hidden" name="crew_type" value="Local Crew">
-                <div class="row g-2 align-items-end">
-                  <div class="col-md-1">
-                    <label style="font-size:.72rem;" class="form-label">How many</label>
-                    <input type="number" name="qty" class="form-control form-control-sm"
-                           value="1" min="1" step="1" required>
-                  </div>
-                  <div class="col-md-3">
-                    <label style="font-size:.72rem;" class="form-label">Local labor position</label>
-                    <select name="position_id" class="form-select form-select-sm" required
-                            onchange="this.form.position.value =
-                                      this.options[this.selectedIndex].dataset.title || '';">
-                      <option value="">— position —</option>
-                      {% for dept, rows in local_labor_catalogue %}
-                      <optgroup label="{{ dept }}">
-                        {% for p in rows %}
-                        <option value="{{ p.id }}" data-title="{{ p.title }}">{{ p.title }}</option>
+                    action="{{ url_for('schedule.add_local_labor_rows', show_id=show.id, day_id=day.id, act_id=act.id) }}">
+                <div class="ll-rows" data-act="{{ act.id }}">
+                  <div class="row g-2 align-items-end ll-row">
+                    <div class="col-md-1">
+                      <label style="font-size:.72rem;" class="form-label">How many</label>
+                      <input type="number" name="qty[]" class="form-control form-control-sm"
+                             value="1" min="1" step="1" required>
+                    </div>
+                    <div class="col-md-3">
+                      <label style="font-size:.72rem;" class="form-label">Local labor position</label>
+                      <select name="position_id[]" class="form-select form-select-sm" required
+                              onchange="llMirrorTitle(this);">
+                        <option value="">— position —</option>
+                        {% for dept, rows in local_labor_catalogue %}
+                        <optgroup label="{{ dept }}">
+                          {% for p in rows %}
+                          <option value="{{ p.id }}" data-title="{{ p.title }}">{{ p.title }}</option>
+                          {% endfor %}
+                        </optgroup>
                         {% endfor %}
-                      </optgroup>
-                      {% endfor %}
-                    </select>
-                    {# The title is mirrored into `position` because the call
-                       sheet and the master export read that string. #}
-                    <input type="hidden" name="position" value="">
-                  </div>
-                  <div class="col-md-3">
-                    <label style="font-size:.72rem;" class="form-label">
-                      Task <span class="text-muted" style="font-weight:400;">· optional</span>
-                    </label>
-                    <input type="text" name="task" class="form-control form-control-sm"
-                           list="task-list-{{ act.id }}" placeholder="e.g. Hang / Circuit Lights">
-                    <datalist id="task-list-{{ act.id }}">
-                      {% for t in task_options %}<option value="{{ t }}">{% endfor %}
-                    </datalist>
-                  </div>
-                  <div class="col-md-2">
-                    <label style="font-size:.72rem;" class="form-label">Hrs</label>
-                    <input type="number" name="hours" class="form-control form-control-sm"
-                           step="0.5" placeholder="hrs">
-                  </div>
-                  <div class="col-md-2">
-                    <label style="font-size:.72rem;" class="form-label">Notes</label>
-                    <input type="text" name="notes" class="form-control form-control-sm">
-                  </div>
-                  <div class="col-auto">
-                    <button type="submit" class="btn btn-sm btn-outline-secondary">
-                      {{ ico.icon('hard-hat') }} Add crew
-                    </button>
+                      </select>
+                      {# The title is mirrored into `position` because the call
+                         sheet and the master export read that string. Per-row
+                         now, so a clone cannot write into its sibling's. #}
+                      <input type="hidden" name="position[]" value="">
+                    </div>
+                    <div class="col-md-3">
+                      <label style="font-size:.72rem;" class="form-label">
+                        Task <span class="text-muted" style="font-weight:400;">· optional</span>
+                      </label>
+                      <input type="text" name="task[]" class="form-control form-control-sm"
+                             list="task-list-{{ act.id }}" placeholder="e.g. Hang / Circuit Lights">
+                      <datalist id="task-list-{{ act.id }}">
+                        {% for t in task_options %}<option value="{{ t }}">{% endfor %}
+                      </datalist>
+                    </div>
+                    <div class="col-md-2">
+                      <label style="font-size:.72rem;" class="form-label">Hrs</label>
+                      <input type="number" name="hours[]" class="form-control form-control-sm"
+                             step="0.5" placeholder="hrs">
+                    </div>
+                    <div class="col-md-2">
+                      <label style="font-size:.72rem;" class="form-label">Notes</label>
+                      <input type="text" name="notes[]" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-auto">
+                      <button type="button" class="btn btn-sm btn-outline-secondary ll-add"
+                              onclick="llAddRow(this);" title="Add another line">
+                        {{ ico.icon('plus') }}
+                      </button>
+                      <button type="button" class="btn btn-sm btn-link p-0 ms-1 ll-remove"
+                              onclick="llRemoveRow(this);" title="Remove this line"
+                              style="display:none;color:var(--adi-danger);">
+                        {{ ico.icon('x') }}
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div style="font-size:.68rem;color:var(--adi-muted);margin-top:4px;">
-                  One line, however many people — they are counted individually
-                  for headcounts and meals.
+                <div class="d-flex align-items-center gap-2 mt-2">
+                  <button type="submit" class="btn btn-sm btn-outline-secondary">
+                    {{ ico.icon('hard-hat') }} Add crew to the crew call
+                  </button>
+                  <span style="font-size:.68rem;color:var(--adi-muted);">
+                    One line, however many people — they are counted
+                    individually for headcounts and meals. Use + for another
+                    position.
+                  </span>
                 </div>
               </form>
             </div>
@@ -2751,6 +2780,65 @@ function submitAddToRoster() {
       err.textContent = 'Network error — the person was not added.';
       err.style.display = '';
     });
+}
+
+// ── Note 4: stage several local labor lines, submit them together ──────────
+// Every field is an array, so a clone needs no renaming — the server zips the
+// lists by index. The hidden `position[]` is mirrored PER ROW rather than
+// through this.form, which with several rows would have written into a
+// sibling's field.
+function llMirrorTitle(sel) {
+  const row = sel.closest('.ll-row');
+  const hidden = row.querySelector('input[name="position[]"]');
+  const opt = sel.options[sel.selectedIndex];
+  if (hidden) hidden.value = (opt && opt.dataset.title) || '';
+}
+
+function llSyncRemoveButtons(box) {
+  // The × is pointless on a lone row: removing it would leave nothing to
+  // submit and the required select would block the form anyway.
+  const rows = box.querySelectorAll('.ll-row');
+  rows.forEach(function (r) {
+    const btn = r.querySelector('.ll-remove');
+    if (btn) btn.style.display = rows.length > 1 ? '' : 'none';
+  });
+  // Only the last row offers +, so the control sits where the next line will.
+  rows.forEach(function (r, i) {
+    const add = r.querySelector('.ll-add');
+    if (add) add.style.display = (i === rows.length - 1) ? '' : 'none';
+  });
+}
+
+function llAddRow(btn) {
+  const box = btn.closest('.ll-rows');
+  const last = box.querySelector('.ll-row:last-child');
+  const copy = last.cloneNode(true);
+
+  // A clone carries the previous row's VALUES, which would silently duplicate
+  // a line. Clear the inputs; keep qty at 1 because that is the common case.
+  copy.querySelectorAll('input').forEach(function (i) {
+    if (i.type === 'number' && i.name === 'qty[]') { i.value = '1'; }
+    else { i.value = ''; }
+  });
+  copy.querySelectorAll('select').forEach(function (s) { s.selectedIndex = 0; });
+
+  // Labels only earn their space once. Repeating them down a stack of lines
+  // is noise, and the columns line up regardless.
+  copy.querySelectorAll('label.form-label').forEach(function (l) { l.remove(); });
+
+  box.appendChild(copy);
+  llSyncRemoveButtons(box);
+  const sel = copy.querySelector('select');
+  if (sel) sel.focus();
+}
+
+function llRemoveRow(btn) {
+  const box = btn.closest('.ll-rows');
+  const row = btn.closest('.ll-row');
+  if (box.querySelectorAll('.ll-row').length > 1) {
+    row.remove();
+    llSyncRemoveButtons(box);
+  }
 }
 
 // ── Note 1b: removing a section header should not reload the page ──────────

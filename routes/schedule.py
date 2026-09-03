@@ -1015,6 +1015,85 @@ def add_crew_row(show_id, day_id, act_id):
     return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
 
 
+@schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/activities/"
+                   "<int:act_id>/crew/add-local-labor", methods=["POST"])
+def add_local_labor_rows(show_id, day_id, act_id):
+    """Note 4 — several local labor lines in one submit.
+
+    Larry was adding one line, waiting for a refresh, and starting again. The
+    form now posts parallel arrays and this zips them by index.
+
+    PLACEMENT IS DELIBERATELY NOT DONE HERE. Local labor renders through
+    `ScheduleActivity.local_labor_groups` → `local_labor.group_rows_by_department`,
+    so the grouping is DERIVED at render from the catalogue's own department
+    order. Appending in submit order is already "the right place", and
+    computing an order here would be a second one to keep in step — the exact
+    drift `group_rows_by_department` exists to prevent.
+
+    A line with no position is SKIPPED rather than rejected: the last row of a
+    stack is often left blank, and failing the whole submit over it would lose
+    the lines above that are perfectly good.
+    """
+    act = ScheduleActivity.query.get_or_404(act_id)
+    f = request.form
+
+    position_ids = f.getlist("position_id[]")
+    positions    = f.getlist("position[]")
+    qtys         = f.getlist("qty[]")
+    tasks        = f.getlist("task[]")
+    hours        = f.getlist("hours[]")
+    notes        = f.getlist("notes[]")
+
+    def at(lst, i):
+        return lst[i] if i < len(lst) else ""
+
+    sort_order = db.session.query(
+        db.func.max(CrewRow.sort_order)).filter_by(
+            activity_id=act_id).scalar() or 0
+
+    added = skipped = 0
+    for i, pid in enumerate(position_ids):
+        pid = (pid or "").strip()
+        if not pid:
+            skipped += 1
+            continue
+        try:
+            qty = max(1, int(at(qtys, i) or 1))
+        except ValueError:
+            qty = 1
+        try:
+            hrs = float(at(hours, i)) if at(hours, i) else None
+        except ValueError:
+            hrs = None
+
+        sort_order += 10
+        db.session.add(CrewRow(
+            activity_id=act_id,
+            sort_order=sort_order,
+            crew_type="Local Crew",
+            qty=qty,
+            hours=hrs,
+            position_id=int(pid),
+            # Mirrored because the call sheet and the master export read the
+            # STRING, not the relationship.
+            position=(at(positions, i) or "").strip(),
+            task=(at(tasks, i) or "").strip()[:120] or None,
+            notes=(at(notes, i) or "").strip(),
+        ))
+        added += 1
+
+    db.session.commit()
+    if added:
+        msg = f"{added} local labor line(s) added."
+        if skipped:
+            msg += f" {skipped} blank line(s) ignored."
+        flash(msg, "success")
+    else:
+        flash("Nothing added — pick a position first.", "warning")
+    return redirect(url_for("schedule.day_detail", show_id=show_id,
+                            day_id=day_id))
+
+
 @schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/recurring/"
                    "<int:hce_id>/remove", methods=["POST"])
 def remove_recurring_from_day(show_id, day_id, hce_id):
