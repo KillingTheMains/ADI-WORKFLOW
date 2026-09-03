@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from extensions import db
 from crew_ordering import (apply_partial_order, crew_order_by, crew_sort_key,
                            roster_index)
-from crew_sections import insert_index_for, renumber
+from crew_sections import company_header_for, insert_index_for, renumber
 from models import Show, ScheduleDay, ScheduleActivity, CrewRow, Position, CrewMember, \
                    PHASES, CREW_TYPES, DayTemplate, PHASE_TYPES, ShowCrewAssignment, Company, \
                    SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break, DayPhase, \
@@ -893,6 +893,44 @@ def delete_activity(show_id, day_id, act_id):
 
 # ── Crew Rows ────────────────────────────────────────────────────────────────
 
+def _ensure_company_header(activity, crew_member):
+    """Note 3 — every company with people on a call gets a header, created
+    automatically when the first of its people is added.
+
+    Returns the header row, or None when the person has no company (an
+    unfilled slot, or a local labor line). Appended at the end: a NEW company
+    section starts after the sections already there, and existing rows are
+    never moved to make room for it.
+
+    The label is the company's own name. Headers render uppercase through CSS,
+    so it is stored as written rather than shouted into the database.
+    """
+    if crew_member is None or not crew_member.company_id:
+        return None
+    # Queried rather than read off `activity.crew_rows`: that relationship is
+    # cached and does NOT see rows flushed since it was loaded, which is how
+    # the first version of this put a header after the person it belonged
+    # above — the header simply was not in the list being renumbered.
+    rows = sorted(CrewRow.query.filter_by(activity_id=activity.id).all(),
+                  key=lambda r: (r.sort_order or 0, r.id))
+    existing = company_header_for(rows, crew_member)
+    if existing is not None:
+        return existing
+    last = max([r.sort_order or 0 for r in rows] or [0])
+    hdr = CrewRow(
+        activity_id=activity.id,
+        is_group_header=True,
+        header_level=1,
+        company_id=crew_member.company_id,
+        group_label=(crew_member.company.name or "").strip(),
+        qty=0,
+        sort_order=last + 10,
+    )
+    db.session.add(hdr)
+    db.session.flush()
+    return hdr
+
+
 @schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/activities/<int:act_id>/crew/add",
                    methods=["POST"])
 def add_crew_row(show_id, day_id, act_id):
@@ -953,7 +991,22 @@ def add_crew_row(show_id, day_id, act_id):
     # themselves are always appended — the user placed them deliberately.
     if not is_header and crew_member_id:
         act = ScheduleActivity.query.get(act_id)
-        others = [r for r in act.crew_rows if r.id != row.id]
+        # Note 3: make sure this person's company HAS a section before asking
+        # where they go in it. Without this the placement below falls through
+        # to "end of list" for the first person from any company, which is
+        # exactly how a call ends up with people and no headers.
+        _ensure_company_header(act, row.crew_member)
+        # DISPLAY ORDER, not PK order. `insert_index_for` and `walk` both
+        # require it, and `act.crew_rows` has no order_by — so it arrives in
+        # insertion order. That was harmless while headers were always created
+        # by hand and therefore earlier than their people; it stops being
+        # harmless now that a header can be created AFTER the row it belongs
+        # above. Sorting here put a person before their own header exactly
+        # once, in a test, which is where it should happen.
+        others = sorted(
+            CrewRow.query.filter(CrewRow.activity_id == act_id,
+                                 CrewRow.id != row.id).all(),
+            key=lambda r: (r.sort_order or 0, r.id))
         idx = insert_index_for(others, row.crew_member)
         others.insert(idx, row)
         renumber(others)
@@ -1038,13 +1091,18 @@ def _assign_crew_to_activity(activity, crew_ids, hours=None):
         db.func.max(CrewRow.sort_order)).filter_by(
             activity_id=activity.id).scalar() or 0
     added = skipped = 0
+    fresh = []
     for cm in CrewMember.query.filter(CrewMember.id.in_(crew_ids)).all():
         if CrewRow.query.filter_by(activity_id=activity.id,
                                    crew_member_id=cm.id).first():
             skipped += 1
             continue
+        # Note 3: the company gets its section before its people arrive. Done
+        # inside the loop rather than after it, so a batch drawn from three
+        # companies produces three headers in the order the people appear.
+        _ensure_company_header(activity, cm)
         sort_order += 10
-        db.session.add(CrewRow(
+        row = CrewRow(
             activity_id=activity.id,
             crew_member_id=cm.id,
             position=cm.position.title if cm.position else "",
@@ -1053,8 +1111,27 @@ def _assign_crew_to_activity(activity, crew_ids, hours=None):
             qty=1,
             hours=hours,
             sort_order=sort_order,
-        ))
+        )
+        db.session.add(row)
+        fresh.append(row)
         added += 1
+
+    # Note 3, second half. This helper used to APPEND, so a select-all from the
+    # wizard landed everyone in one undifferentiated block at the bottom —
+    # under whatever header happened to be last, which is the bug the day-page
+    # add already fixed. Place each new row the same way that door does, so
+    # both agree about where a person belongs.
+    if fresh:
+        db.session.flush()
+        for row in fresh:
+            others = sorted(
+                CrewRow.query.filter(CrewRow.activity_id == activity.id,
+                                     CrewRow.id != row.id).all(),
+                key=lambda r: (r.sort_order or 0, r.id))
+            idx = insert_index_for(others, row.crew_member)
+            others.insert(idx, row)
+            renumber(others)
+        db.session.flush()
     return added, skipped
 
 

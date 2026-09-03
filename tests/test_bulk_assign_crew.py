@@ -62,10 +62,24 @@ def test_additive_preserves_existing_and_skips_dupes(app, client, db):
         "crew_member_ids": [str(crew[0].id), str(crew[1].id)],    # crew[0] is a dupe
     })
     rows = CrewRow.query.filter_by(activity_id=cs.id).all()
-    assert any(r.is_group_header for r in rows)                   # header untouched
+    assert any(r.group_label == "LEAD" for r in rows)             # manual header untouched
     assert sum(1 for r in rows if r.crew_member_id == crew[0].id) == 1  # no dupe
     assert any(r.crew_member_id == crew[1].id for r in rows)      # crew[1] added
-    assert len(rows) == before + 1                               # exactly one new row
+
+    # UPDATED for note 3 (2026-09-03), not relaxed. This used to assert
+    # "exactly one new row", which was correct when bulk-assign only ever
+    # appended people. Now a company with people on a call gets a header
+    # created for it, so this call adds TWO rows: crew[1], and an "Acme"
+    # header bound to their company. The manual "LEAD" header is left alone —
+    # it is not a company section and nothing should touch it.
+    #
+    # Asserted specifically rather than as `before + 2`, so this still fails
+    # if the header stops being created or starts being created twice.
+    people = [r for r in rows if not r.is_group_header]
+    acme = [r for r in rows if r.is_group_header and r.company_id == crew[1].company_id]
+    assert len(people) == 2                                      # crew[0], crew[1]
+    assert len(acme) == 1                                        # one Acme header
+    assert len(rows) == before + 2
 
 
 def test_ignores_crew_not_assigned_to_show(app, client, db):

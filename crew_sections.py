@@ -75,6 +75,26 @@ def _matches_department(header, crew_member):
     return bool(label) and _norm(dept) in label
 
 
+def company_header_for(rows, crew_member):
+    """The level-1 header representing this person's company, or None.
+
+    Note 3, 2026-09-03: "all companies that have employees on the crew call
+    should be represented by a header in every crew call, and the header
+    should auto populate based on who is added."
+
+    This is the question that has to be answered before adding one — the
+    caller creates a header only when this returns None. Matching is the same
+    `_matches_company` used for placement, so a person can never be sorted
+    under a header this function did not see: one definition of "this header
+    is that company's", not two.
+    """
+    for row in rows:
+        if (row.is_group_header and (row.header_level or 1) <= 1
+                and _matches_company(row, crew_member)):
+            return row
+    return None
+
+
 def insert_index_for(rows, crew_member):
     """Where a new row for ``crew_member`` belongs in ``rows``.
 
