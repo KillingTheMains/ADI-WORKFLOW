@@ -919,7 +919,22 @@
                     data-bs-toggle="collapse" data-bs-target="#edit-act-{{ act.id }}"
                     title="Edit">{{ ico.icon('pencil') }}</button>
             <button class="act-action-btn"
-                    onclick="openCopyModal({{ act.id }}, {{ act.description|tojson }}, {{ (act.time|to_24hr)|tojson }})"
+                    {#- SINGLE quotes on this attribute, deliberately. `tojson`
+                        escapes <, >, & and ' — so its output is safe inside a
+                        <script> block and inside a SINGLE-quoted attribute,
+                        but it does NOT escape the double quote. In a
+                        double-quoted attribute the value terminates the
+                        attribute at its own first quote:
+
+                          onclick="openCopyModal(159, "CREW START", "08:00")"
+
+                        which the browser reads as `openCopyModal(159,` and
+                        reports as "Uncaught SyntaxError: Unexpected end of
+                        input" — killing this handler. The button did nothing
+                        at all from the day it shipped until 2026-09-04, and
+                        the route's 11 tests all passed the whole time,
+                        because nothing had ever clicked the button. -#}
+                    onclick='openCopyModal({{ act.id }}, {{ act.description|tojson }}, {{ (act.time|to_24hr)|tojson }})'
                     title="Copy to other days">{{ ico.icon('copy') }}</button>
             {% if day.phase %}
             <form method="POST"
