@@ -1,0 +1,173 @@
+{% import "_icons.html" as ico %}
+{# One day of a call sheet. Note 17 made the packet and the single-day
+   sheet the same thing — a single day is a batch of one — so this body is
+   the ONLY place a call sheet day is described, and the two cannot drift.
+
+   Expects: day, crew_lines, by_dept, total_crew, conflicts. #}
+  <div class="call-sheet">
+
+    {% include "_paperwork_header.html" %}
+    <!-- Show + day header -->
+    <div class="cs-header">
+      <div class="cs-show-code">{{ show.code or 'SHOW' }} · DAILY CALL SHEET</div>
+      <div class="cs-show-name">{{ show.name }}</div>
+      {% if show.venue %}
+      <div class="cs-venue">{{ show.venue.name }}{% if show.venue.city %}, {{ show.venue.city }}{% endif %}{% if show.venue.state %}, {{ show.venue.state }}{% endif %}</div>
+      {% endif %}
+    </div>
+
+    <!-- Day info strip -->
+    <div class="cs-day-strip">
+      <div class="cs-day-cell">
+        <div class="cs-day-label">Date</div>
+        <div class="cs-day-value">{{ day.date.strftime('%A, %B %-d, %Y') }}</div>
+      </div>
+      {% if day.label %}
+      <div class="cs-day-cell">
+        <div class="cs-day-label">Day Label</div>
+        <div class="cs-day-value">{{ day.label }}</div>
+      </div>
+      {% endif %}
+      {% if day.phase %}
+      <div class="cs-day-cell">
+        <div class="cs-day-label">Phase</div>
+        <div class="cs-day-value blue">{{ day.phase }}</div>
+      </div>
+      {% endif %}
+      {% if day.sod %}
+      <div class="cs-day-cell">
+        <div class="cs-day-label">Start of Day</div>
+        <div class="cs-day-value blue">{{ day.sod }}</div>
+      </div>
+      {% endif %}
+      {% if day.eod %}
+      <div class="cs-day-cell">
+        <div class="cs-day-label">End of Day</div>
+        <div class="cs-day-value">{{ day.eod }}</div>
+      </div>
+      {% endif %}
+      <div class="cs-day-cell">
+        <div class="cs-day-label">Total Crew</div>
+        <div class="cs-day-value">{{ total_crew }} people</div>
+      </div>
+    </div>
+
+    {% if conflicts %}
+    <div class="conflict-banner">
+      {{ ico.icon('alert-triangle') }} Double-booking detected — highlighted rows below contain crew members appearing on multiple activities.
+    </div>
+    {% endif %}
+
+    <!-- Travel info (if travel day) -->
+    {% if day.phase == 'Travel' and (day.travel_flight_number or day.travel_airline or day.travel_hotel_name) %}
+    <div class="travel-card">
+      <div class="travel-card-title">{{ ico.icon('plane') }} Travel Details</div>
+      <div class="travel-grid">
+        {% if day.travel_airline %}
+        <div class="travel-item"><label>Airline</label><span>{{ day.travel_airline }}</span></div>
+        {% endif %}
+        {% if day.travel_flight_number %}
+        <div class="travel-item"><label>Flight</label><span>{{ day.travel_flight_number }}</span></div>
+        {% endif %}
+        {% if day.travel_depart_airport %}
+        <div class="travel-item"><label>Departs</label><span>{{ day.travel_depart_airport }}{% if day.travel_depart_time %} at {{ day.travel_depart_time }}{% endif %}</span></div>
+        {% endif %}
+        {% if day.travel_arrive_airport %}
+        <div class="travel-item"><label>Arrives</label><span>{{ day.travel_arrive_airport }}{% if day.travel_arrive_time %} at {{ day.travel_arrive_time }}{% endif %}</span></div>
+        {% endif %}
+        {% if day.travel_hotel_name %}
+        <div class="travel-item"><label>Hotel</label><span>{{ day.travel_hotel_name }}</span></div>
+        {% endif %}
+        {% if day.travel_hotel_confirm %}
+        <div class="travel-item"><label>Confirmation</label><span>{{ day.travel_hotel_confirm }}</span></div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ── By Call Time view ── -->
+    {# Selected by data-view, not by id — a packet holds one of these per day
+       and ids would collide from the second page on. #}
+    <div class="view-section active" data-view="by-call">
+      {% if crew_lines %}
+      <table class="cs-table">
+        <thead>
+          <tr>
+            <th style="width:80px;">Call</th>
+            <th>Name</th>
+            <th style="width:160px;">Position</th>
+            <th style="width:180px;">Activity</th>
+            <th style="width:40px;text-align:center;">Qty</th>
+            <th style="width:50px;text-align:center;">Hrs</th>
+            <th style="width:100px;">Type</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for line in crew_lines %}
+          <tr {% if line.conflict %}class="conflict-row"{% endif %}>
+            <td class="time-cell">{{ line.act_time or '—' }}</td>
+            <td class="name-cell">
+              {{ line.name }}
+              {% if line.conflict %}<span class="conflict-badge">{{ ico.icon('alert-triangle') }} DBL</span>{% endif %}
+            </td>
+            <td>{{ line.position or '—' }}</td>
+            <td style="font-size:.78rem;color:var(--muted);">{{ line.act_desc[:45] }}</td>
+            <td style="text-align:center;">{{ line.qty }}</td>
+            <td style="text-align:center;">{{ '%.1f'|format(line.hours) if line.hours else '—' }}</td>
+            <td style="font-size:.78rem;">{{ line.crew_type }}</td>
+            <td style="font-size:.78rem;color:var(--muted);">{{ line.notes }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="padding:32px 20px;text-align:center;color:var(--muted);font-size:.85rem;">
+        No crew assigned to this day yet.
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ── By Department view ── -->
+    <div class="view-section" data-view="by-dept">
+      {% for dept, lines in by_dept.items() %}
+      <div class="cs-dept-header">{{ dept }}</div>
+      <table class="cs-table">
+        <thead>
+          <tr>
+            <th style="width:80px;">Call</th>
+            <th>Name</th>
+            <th style="width:160px;">Position</th>
+            <th style="width:180px;">Activity</th>
+            <th style="width:40px;text-align:center;">Qty</th>
+            <th style="width:50px;text-align:center;">Hrs</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for line in lines %}
+          <tr {% if line.conflict %}class="conflict-row"{% endif %}>
+            <td class="time-cell">{{ line.act_time or '—' }}</td>
+            <td class="name-cell">
+              {{ line.name }}
+              {% if line.conflict %}<span class="conflict-badge">{{ ico.icon('alert-triangle') }} DBL</span>{% endif %}
+            </td>
+            <td>{{ line.position or '—' }}</td>
+            <td style="font-size:.78rem;color:var(--muted);">{{ line.act_desc[:45] }}</td>
+            <td style="text-align:center;">{{ line.qty }}</td>
+            <td style="text-align:center;">{{ '%.1f'|format(line.hours) if line.hours else '—' }}</td>
+            <td style="font-size:.78rem;color:var(--muted);">{{ line.notes }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endfor %}
+    </div>
+
+    <!-- Footer -->
+    <div class="cs-footer">
+      <span>{{ show.code or show.name }} · {{ day.date.strftime('%B %-d, %Y') }}</span>
+      <span>{{ show.version_label }} · Generated {{ now.strftime('%b %-d, %Y') }}</span>
+    </div>
+
+  </div><!-- /.call-sheet -->

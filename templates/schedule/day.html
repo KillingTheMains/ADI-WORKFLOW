@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% import '_icons.html' as ico %}
 {% import '_row_kinds.html' as rk %}
+{% import '_multi_picker.html' as mp %}
 {% block title %}{{ day.day_header }} — {{ show.name }}{% endblock %}
 {% block page_title %}{{ day.day_header }}{% endblock %}
 {% block breadcrumb %}
@@ -25,8 +26,12 @@
      class="btn btn-sm btn-outline-dark">{{ ico.icon('map') }} OSS</a>
   <a href="{{ url_for('oss.show_book', show_id=show.id) }}"
      class="btn btn-sm btn-dark" target="_blank">{{ ico.icon('printer') }} Show Book</a>
-  <a href="{{ url_for('schedule.call_sheet', show_id=show.id, day_id=day.id) }}"
-     class="btn btn-sm btn-outline-secondary" target="_blank">{{ ico.icon('file-text') }} Call Sheet</a>
+  {# Note 17 — the Call Sheet stopped being "this one day". It opens a day
+     picker now and comes out as one packet. This day arrives pre-ticked, so
+     the old one-click behaviour is still two clicks and nothing else. #}
+  <button type="button" class="btn btn-sm btn-outline-secondary"
+          data-bs-toggle="modal" data-bs-target="#callSheetDaysModal">
+    {{ ico.icon('file-text') }} Call Sheet</button>
 {% endblock %}
 
 {% block content %}
@@ -2467,55 +2472,47 @@
           <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6c757d;margin-bottom:8px;">
             Select Days
           </div>
-          <div class="mb-2">
-            <button type="button" class="btn btn-xs btn-outline-secondary"
-                    style="font-size:.72rem;padding:2px 8px;" onclick="selectAllDays(true)">Select All</button>
-            <button type="button" class="btn btn-xs btn-outline-secondary ms-1"
-                    style="font-size:.72rem;padding:2px 8px;" onclick="selectAllDays(false)">Deselect All</button>
-          </div>
-          <div id="copy-days-list" style="max-height:280px;overflow-y:auto;">
-            {% set current_phase = namespace(val='') %}
-            {% for d in show.days %}
-              {% if d.id != day.id %}
-                {% if d.phase and d.phase != current_phase.val %}
-                  {% set current_phase.val = d.phase %}
-                  <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;
-                              letter-spacing:.06em;color:#adb5bd;padding:6px 0 2px;
-                              border-top:1px dashed #dee2e6;margin-top:4px;">
-                    {{ d.phase }}
-                  </div>
-                {% endif %}
-                <div class="d-flex align-items-center gap-2" style="padding:2px 0;">
-                  <input class="form-check-input copy-day-check m-0 flex-shrink-0"
-                         type="checkbox"
-                         name="target_day_ids[]" value="{{ d.id }}"
-                         id="copy-day-{{ d.id }}"
-                         data-phase="{{ d.phase or '' }}">
-                  <label class="form-check-label flex-grow-1" for="copy-day-{{ d.id }}"
-                         style="font-size:.82rem;cursor:pointer;">
-                    {{ d.date.strftime('%a %b %-d') }}
-                    {% if d.label %}<span class="text-muted"> — {{ d.label }}</span>{% endif %}
-                    <span class="text-muted" style="font-size:.72rem;">
-                      ({{ d.activities|length }} activities)
-                    </span>
-                  </label>
-                  {# Per-day call time (note 16). Seeded from the source
-                     activity when the modal opens — a 06:00 load-in call
-                     copied onto a show day usually wants a different time.
-                     Left blank it falls back to the source time server-side. #}
-                  <input type="time"
-                         class="form-control form-control-sm copy-day-time flex-shrink-0"
-                         name="target_time_{{ d.id }}"
-                         style="width:108px;font-size:.74rem;padding:1px 5px;"
-                         title="Call time on this day — defaults to the source time">
-                </div>
-              {% endif %}
-            {% endfor %}
-          </div>
+          {# The shared picker (note 16/17/9b). The time boxes are seeded by
+             `openCopyModal` from the source activity, not rendered with a
+             value — one modal serves every activity on the page. #}
+          {{ mp.multi_picker(copy_day_items, 'target_day_ids[]',
+                             'copy-day-check', with_time=True,
+                             time_prefix='target_time_',
+                             time_title='Call time on this day — defaults to the source time') }}
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-sm btn-adi">Copy →</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Call Sheet packet (note 17) -->
+<div class="modal fade" id="callSheetDaysModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title">{{ ico.icon('file-text') }} Call Sheet</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" target="_blank"
+            action="{{ url_for('schedule.call_sheet_batch', show_id=show.id) }}">
+        <div class="modal-body">
+          <div class="mb-3" style="font-size:.76rem;color:#6c757d;line-height:1.45;">
+            One document, a new page per day. Days with nobody called are left
+            out — the same thing you already do to an empty day before a
+            schedule is issued.
+          </div>
+          <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6c757d;margin-bottom:8px;">
+            Select Days
+          </div>
+          {{ mp.multi_picker(sheet_day_items, 'day_ids[]', 'sheet-day-check') }}
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-adi">Open Call Sheet →</button>
         </div>
       </form>
     </div>
@@ -2715,9 +2712,6 @@ function openCopyModal(actId, desc, time) {
   document.querySelectorAll('.copy-day-check').forEach(cb => { cb.checked = false; });
   const modal = new bootstrap.Modal(document.getElementById('copyToDaysModal'));
   modal.show();
-}
-function selectAllDays(checked) {
-  document.querySelectorAll('.copy-day-check').forEach(cb => cb.checked = checked);
 }
 
 // ── Crew form toggle ──────────────────────────────────────────────────────────
@@ -3345,4 +3339,7 @@ document.addEventListener('change', function (e) {
   if (duration) duration.value = want;
 });
 </script>
+{# Ships with the picker macro rather than being retyped per caller, so a
+   second picker on this page cannot arrive without its Select All. #}
+{{ mp.multi_picker_js() }}
 {% endblock %}

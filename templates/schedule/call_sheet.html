@@ -4,7 +4,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Call Sheet — {{ day.date.strftime('%b %-d, %Y') }} — {{ show.name }}</title>
+  {# A packet spans days, so it is named by its range rather than by one date.
+     The tab title is what the printed PDF gets called by default, so it has
+     to say which days are in the file. #}
+  <title>Call Sheet —
+    {%- if sheets|length == 1 %} {{ sheets[0].day.date.strftime('%b %-d, %Y') }}
+    {%- else %} {{ sheets[0].day.date.strftime('%b %-d') }}–{{ sheets[-1].day.date.strftime('%b %-d, %Y') }} ({{ sheets|length }} days)
+    {%- endif %} — {{ show.name }}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -268,18 +274,36 @@
       .cs-show-name { font-size: 14pt; }
       .view-section { display: block !important; }
       .cs-footer { position: fixed; bottom: 0; left: 0; right: 0; }
+      /* Note 17 — a packet starts each day on a fresh page. */
+      .call-sheet + .call-sheet { page-break-before: always; }
+      /* A fixed footer is right for a one-day sheet and wrong for a packet:
+         every day's footer would stack in the same spot on every page. In a
+         packet each footer sits at the end of its own day instead. */
+      body.packet .cs-footer { position: static; }
     }
   </style>
 </head>
-<body>
+<body{% if sheets|length > 1 %} class="packet"{% endif %}>
 
 <div class="screen-wrapper">
 
   <!-- Toolbar (hidden on print) -->
   <div class="toolbar no-print">
+    {% if day %}
     <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=day.id) }}"
        class="back-link">← Back to Day Editor</a>
-    <div class="d-flex gap-2" style="display:flex;gap:8px;">
+    {% else %}
+    <a href="{{ url_for('schedule.overview', show_id=show.id) }}"
+       class="back-link">← Back to Schedule</a>
+    {% endif %}
+    <div class="d-flex gap-2" style="display:flex;gap:8px;align-items:center;">
+      {# Note 17 — the view toggle belongs to the DOCUMENT, not to each day.
+         One set of tabs switches every sheet in the packet at once; a set per
+         day would let page three disagree with page one. #}
+      <div class="view-tabs">
+        <button class="view-tab active" onclick="switchView('by-call', this)">By Call Time</button>
+        <button class="view-tab" onclick="switchView('by-dept', this)">By Department</button>
+      </div>
       <a href="{{ url_for('schedule.overview', show_id=show.id) }}"
          style="font-size:.83rem;color:var(--muted);text-decoration:none;
                 padding:8px 14px;border:1px solid var(--border);border-radius:6px;">
@@ -289,184 +313,25 @@
     </div>
   </div>
 
-  <div class="call-sheet">
-
-    {% include "_paperwork_header.html" %}
-    <!-- Show + day header -->
-    <div class="cs-header">
-      <div class="cs-show-code">{{ show.code or 'SHOW' }} · DAILY CALL SHEET</div>
-      <div class="cs-show-name">{{ show.name }}</div>
-      {% if show.venue %}
-      <div class="cs-venue">{{ show.venue.name }}{% if show.venue.city %}, {{ show.venue.city }}{% endif %}{% if show.venue.state %}, {{ show.venue.state }}{% endif %}</div>
-      {% endif %}
-    </div>
-
-    <!-- Day info strip -->
-    <div class="cs-day-strip">
-      <div class="cs-day-cell">
-        <div class="cs-day-label">Date</div>
-        <div class="cs-day-value">{{ day.date.strftime('%A, %B %-d, %Y') }}</div>
-      </div>
-      {% if day.label %}
-      <div class="cs-day-cell">
-        <div class="cs-day-label">Day Label</div>
-        <div class="cs-day-value">{{ day.label }}</div>
-      </div>
-      {% endif %}
-      {% if day.phase %}
-      <div class="cs-day-cell">
-        <div class="cs-day-label">Phase</div>
-        <div class="cs-day-value blue">{{ day.phase }}</div>
-      </div>
-      {% endif %}
-      {% if day.sod %}
-      <div class="cs-day-cell">
-        <div class="cs-day-label">Start of Day</div>
-        <div class="cs-day-value blue">{{ day.sod }}</div>
-      </div>
-      {% endif %}
-      {% if day.eod %}
-      <div class="cs-day-cell">
-        <div class="cs-day-label">End of Day</div>
-        <div class="cs-day-value">{{ day.eod }}</div>
-      </div>
-      {% endif %}
-      <div class="cs-day-cell">
-        <div class="cs-day-label">Total Crew</div>
-        <div class="cs-day-value">{{ total_crew }} people</div>
-      </div>
-    </div>
-
-    {% if conflicts %}
-    <div class="conflict-banner">
-      {{ ico.icon('alert-triangle') }} Double-booking detected — highlighted rows below contain crew members appearing on multiple activities.
-    </div>
-    {% endif %}
-
-    <!-- Travel info (if travel day) -->
-    {% if day.phase == 'Travel' and (day.travel_flight_number or day.travel_airline or day.travel_hotel_name) %}
-    <div class="travel-card">
-      <div class="travel-card-title">{{ ico.icon('plane') }} Travel Details</div>
-      <div class="travel-grid">
-        {% if day.travel_airline %}
-        <div class="travel-item"><label>Airline</label><span>{{ day.travel_airline }}</span></div>
-        {% endif %}
-        {% if day.travel_flight_number %}
-        <div class="travel-item"><label>Flight</label><span>{{ day.travel_flight_number }}</span></div>
-        {% endif %}
-        {% if day.travel_depart_airport %}
-        <div class="travel-item"><label>Departs</label><span>{{ day.travel_depart_airport }}{% if day.travel_depart_time %} at {{ day.travel_depart_time }}{% endif %}</span></div>
-        {% endif %}
-        {% if day.travel_arrive_airport %}
-        <div class="travel-item"><label>Arrives</label><span>{{ day.travel_arrive_airport }}{% if day.travel_arrive_time %} at {{ day.travel_arrive_time }}{% endif %}</span></div>
-        {% endif %}
-        {% if day.travel_hotel_name %}
-        <div class="travel-item"><label>Hotel</label><span>{{ day.travel_hotel_name }}</span></div>
-        {% endif %}
-        {% if day.travel_hotel_confirm %}
-        <div class="travel-item"><label>Confirmation</label><span>{{ day.travel_hotel_confirm }}</span></div>
-        {% endif %}
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- View toggle tabs -->
-    <div class="view-tabs no-print" style="padding:0 20px;background:#fff;">
-      <button class="view-tab active" onclick="switchView('by-call', this)">By Call Time</button>
-      <button class="view-tab" onclick="switchView('by-dept', this)">By Department</button>
-    </div>
-
-    <!-- ── By Call Time view ── -->
-    <div class="view-section active" id="view-by-call">
-      {% if crew_lines %}
-      <table class="cs-table">
-        <thead>
-          <tr>
-            <th style="width:80px;">Call</th>
-            <th>Name</th>
-            <th style="width:160px;">Position</th>
-            <th style="width:180px;">Activity</th>
-            <th style="width:40px;text-align:center;">Qty</th>
-            <th style="width:50px;text-align:center;">Hrs</th>
-            <th style="width:100px;">Type</th>
-            <th>Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for line in crew_lines %}
-          <tr {% if line.conflict %}class="conflict-row"{% endif %}>
-            <td class="time-cell">{{ line.act_time or '—' }}</td>
-            <td class="name-cell">
-              {{ line.name }}
-              {% if line.conflict %}<span class="conflict-badge">{{ ico.icon('alert-triangle') }} DBL</span>{% endif %}
-            </td>
-            <td>{{ line.position or '—' }}</td>
-            <td style="font-size:.78rem;color:var(--muted);">{{ line.act_desc[:45] }}</td>
-            <td style="text-align:center;">{{ line.qty }}</td>
-            <td style="text-align:center;">{{ '%.1f'|format(line.hours) if line.hours else '—' }}</td>
-            <td style="font-size:.78rem;">{{ line.crew_type }}</td>
-            <td style="font-size:.78rem;color:var(--muted);">{{ line.notes }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <div style="padding:32px 20px;text-align:center;color:var(--muted);font-size:.85rem;">
-        No crew assigned to this day yet.
-      </div>
-      {% endif %}
-    </div>
-
-    <!-- ── By Department view ── -->
-    <div class="view-section" id="view-by-dept">
-      {% for dept, lines in by_dept.items() %}
-      <div class="cs-dept-header">{{ dept }}</div>
-      <table class="cs-table">
-        <thead>
-          <tr>
-            <th style="width:80px;">Call</th>
-            <th>Name</th>
-            <th style="width:160px;">Position</th>
-            <th style="width:180px;">Activity</th>
-            <th style="width:40px;text-align:center;">Qty</th>
-            <th style="width:50px;text-align:center;">Hrs</th>
-            <th>Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for line in lines %}
-          <tr {% if line.conflict %}class="conflict-row"{% endif %}>
-            <td class="time-cell">{{ line.act_time or '—' }}</td>
-            <td class="name-cell">
-              {{ line.name }}
-              {% if line.conflict %}<span class="conflict-badge">{{ ico.icon('alert-triangle') }} DBL</span>{% endif %}
-            </td>
-            <td>{{ line.position or '—' }}</td>
-            <td style="font-size:.78rem;color:var(--muted);">{{ line.act_desc[:45] }}</td>
-            <td style="text-align:center;">{{ line.qty }}</td>
-            <td style="text-align:center;">{{ '%.1f'|format(line.hours) if line.hours else '—' }}</td>
-            <td style="font-size:.78rem;color:var(--muted);">{{ line.notes }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% endfor %}
-    </div>
-
-    <!-- Footer -->
-    <div class="cs-footer">
-      <span>{{ show.code or show.name }} · {{ day.date.strftime('%B %-d, %Y') }}</span>
-      <span>{{ show.version_label }} · Generated {{ now.strftime('%b %-d, %Y') }}</span>
-    </div>
-
-  </div><!-- /.call-sheet -->
+  {# Note 17 — one document, one day per page. A single-day call sheet is a
+     batch of one, so there is exactly one body template and the packet and
+     the single sheet cannot drift apart. #}
+  {% for sheet in sheets %}
+    {% with day=sheet.day, crew_lines=sheet.crew_lines, by_dept=sheet.by_dept,
+            total_crew=sheet.total_crew, conflicts=sheet.conflicts %}
+      {% include "schedule/_call_sheet_body.html" %}
+    {% endwith %}
+  {% endfor %}
 </div><!-- /.screen-wrapper -->
 
 <script>
-function switchView(id, btn) {
-  document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+function switchView(view, btn) {
+  // Every sheet in the packet switches together — matched on data-view rather
+  // than an id, because a packet holds one of each section per day.
+  document.querySelectorAll('.view-section').forEach(s => {
+    s.classList.toggle('active', s.dataset.view === view);
+  });
   document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
-  document.getElementById('view-' + id).classList.add('active');
   btn.classList.add('active');
 }
 </script>

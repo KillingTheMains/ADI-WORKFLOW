@@ -85,6 +85,37 @@ def _get_template_by_phase(phase_type):
 
 # ── Schedule overview for a show ─────────────────────────────────────────────
 
+def day_picker_items(show, exclude_id=None, checked_ids=None):
+    """A show's days as `_multi_picker.html` items.
+
+    ONE mapping. The picker itself is shared between note 16 (copy a crew call
+    onto other days) and note 17 (a call sheet packet), and this is what makes
+    a day READ the same in both — same date format, same label, same activity
+    count, same phase grouping. Two callers formatting their own day rows is
+    how the two modals start to disagree about what a day is called.
+
+    `exclude_id` drops the day you are standing on, which copy-to-days must do
+    and the call sheet must not.
+    """
+    checked_ids = checked_ids or set()
+    items = []
+    for d in show.days:
+        if exclude_id is not None and d.id == exclude_id:
+            continue
+        n = len(d.activities)
+        label = d.date.strftime("%a %b %-d") if d.date else "Date TBD"
+        if d.label:
+            label = f"{label} — {d.label}"
+        items.append({
+            "id": d.id,
+            "label": label,
+            "note": f"({n} activit{'ies' if n != 1 else 'y'})",
+            "group": d.phase or "",
+            "checked": d.id in checked_ids,
+        })
+    return items
+
+
 @schedule_bp.route("/<int:show_id>/schedule")
 def overview(show_id):
     show = Show.query.get_or_404(show_id)
@@ -524,6 +555,14 @@ def day_detail(show_id, day_id):
                            meal_kinds=MEAL_KINDS,
                            crew_by_company=crew_by_company,
                            already_called=already_called,
+                           # The shared multi-select picker (notes 16, 17).
+                           # Copy-to-days cannot target the day you are on;
+                           # a call sheet packet almost always includes it,
+                           # so it arrives pre-ticked.
+                           copy_day_items=day_picker_items(
+                               show, exclude_id=day.id),
+                           sheet_day_items=day_picker_items(
+                               show, checked_ids={day.id}),
                            meal_breaks_missing_fb=meal_breaks_missing_fb)
 
 
@@ -1534,68 +1573,131 @@ def reorder_activities(show_id, day_id):
 
 # ── Daily Call Sheet ──────────────────────────────────────────────────────────
 
-@schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/call-sheet")
-def call_sheet(show_id, day_id):
-    show = Show.query.get_or_404(show_id)
-    day  = ScheduleDay.query.get_or_404(day_id)
+def _call_sheet_sheet(day):
+    """One day's call-sheet context.
 
-    # Build a flat list of all crew rows with their activity context,
-    # sorted by activity sort_order then crew sort_order
-    # Also detect double-bookings for highlighting
+    Note 17 made the packet and the single-day sheet the SAME computation — a
+    single day is a batch of one — rather than growing a second code path that
+    would drift. Two defects were fixed while lifting this out of the route:
+
+      * It read `act.crew_rows`. `ScheduleActivity.ordered_crew_rows` says
+        outright that everything rendering a crew call must use it: the plain
+        relationship is insertion order, so the call sheet listed crew in a
+        different order from the day page they were entered on.
+      * The double-booking back-mark was a no-op. The line dicts never carried
+        `crew_member_id`, so `line.get("crew_member_id") in conflicts` was
+        always False and only the SECOND and later bookings of a person were
+        flagged. A conflict showed one end of itself.
+
+    Conflicts stay scoped to ONE day. Somebody called on Tuesday and again on
+    Wednesday is not double-booked, and a packet must not invent one.
+    """
+    from collections import defaultdict
+
     crew_lines = []
-    seen_ids   = {}  # crew_member_id → first activity description
+    seen_ids   = {}   # crew_member_id → first activity description
     conflicts  = set()
 
     for act in day.activities:
-        for row in act.crew_rows:
+        for row in act.ordered_crew_rows:
             if row.is_group_header:
                 continue
-            line = {
-                "act_time":    act.time or "",
-                "act_desc":    act.description,
-                "name":        row.display_name,
-                "position":    row.position or "",
-                "qty":         row.qty or 1,
-                "hours":       row.hours,
-                "crew_type":   row.crew_type or "",
-                "notes":       row.notes or "",
-                "dept":        row.position_ref.department if row.position_ref else "",
-                "conflict":    False,
-            }
+            crew_lines.append({
+                "act_time":       act.time or "",
+                "act_desc":       act.description,
+                "name":           row.display_name,
+                "position":       row.position or "",
+                "qty":            row.qty or 1,
+                "hours":          row.hours,
+                "crew_type":      row.crew_type or "",
+                "notes":          row.notes or "",
+                "dept":           row.position_ref.department if row.position_ref else "",
+                "crew_member_id": row.crew_member_id,
+                "conflict":       False,
+            })
             if row.crew_member_id:
                 if row.crew_member_id in seen_ids:
                     conflicts.add(row.crew_member_id)
-                    line["conflict"] = True
                 else:
                     seen_ids[row.crew_member_id] = act.description
-            crew_lines.append(line)
 
-    # Mark earlier entries for the same conflicted person
+    # BOTH ends of a double booking, not just the later one.
     for line in crew_lines:
-        if line.get("crew_member_id") in conflicts:
+        if line["crew_member_id"] in conflicts:
             line["conflict"] = True
 
-    # Group by department for the sorted view
-    from collections import defaultdict
     by_dept = defaultdict(list)
     for line in crew_lines:
         by_dept[line["dept"] or "General"].append(line)
 
-    total_crew = sum(l["qty"] for l in crew_lines)
+    return {
+        "day":        day,
+        "crew_lines": crew_lines,
+        "by_dept":    dict(sorted(by_dept.items())),
+        "total_crew": sum(l["qty"] for l in crew_lines),
+        "conflicts":  len(conflicts) > 0,
+    }
 
-    # #46 — names render live (row.display_name -> crew_member.full_name), but the
-    # sheet opens in a new tab / is printed, so a cached copy showed stale names
-    # after an edit. Force a fresh fetch every time so name changes always show.
+
+def _call_sheet_response(show, sheets, day=None):
+    """#46 — names render live (`row.display_name` → `crew_member.full_name`),
+    but the sheet opens in a new tab and gets printed, so a cached copy showed
+    stale names after an edit. Force a fresh fetch every time.
+
+    `day` is the day to go BACK to, and is None for a packet.
+    """
     resp = make_response(render_template("schedule/call_sheet.html",
-                           show=show, day=day,
-                           crew_lines=crew_lines,
-                           by_dept=dict(sorted(by_dept.items())),
-                           total_crew=total_crew,
-                           conflicts=len(conflicts) > 0))
+                                         show=show, sheets=sheets, day=day))
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     resp.headers["Pragma"] = "no-cache"
     resp.headers["Expires"] = "0"
     return resp
+
+
+@schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/call-sheet")
+def call_sheet(show_id, day_id):
+    show = Show.query.get_or_404(show_id)
+    day  = ScheduleDay.query.get_or_404(day_id)
+    return _call_sheet_response(show, [_call_sheet_sheet(day)], day=day)
+
+
+@schedule_bp.route("/<int:show_id>/call-sheet", methods=["POST"])
+def call_sheet_batch(show_id):
+    """Note 17 — several days, one document, a new page per day.
+
+    Larry: the Call Sheet button opens a picker with Select All and the days
+    come out as one batch document. It is what you want when you are handing a
+    crew a printed packet for a run of days rather than a page at a time.
+
+    Empty days are SKIPPED rather than printed blank. Larry's own workbook
+    convention is that an empty day is hidden before issue, and a packet with
+    pages nobody is called on is a packet people stop reading. A selection
+    that turns out to be entirely empty says so instead of returning a
+    document with nothing in it.
+
+    Days come out in DATE order whatever order the checkboxes were ticked in —
+    a packet that runs backwards is a packet that gets handed back.
+    """
+    show = Show.query.get_or_404(show_id)
+
+    wanted = []
+    for raw in request.form.getlist("day_ids[]"):
+        try:
+            d = ScheduleDay.query.get(int(raw))
+        except (TypeError, ValueError):
+            continue
+        if d is not None and d.show_id == show_id:
+            wanted.append(d)
+
+    wanted.sort(key=lambda d: (d.date is None, d.date or date.min))
+    sheets = [s for s in (_call_sheet_sheet(d) for d in wanted) if s["crew_lines"]]
+
+    if not sheets:
+        flash("Nobody is called on the days you picked — nothing to print.",
+              "warning")
+        return redirect(url_for("schedule.overview", show_id=show_id))
+
+    return _call_sheet_response(show, sheets)
 
 
 # ── Day Template Management ───────────────────────────────────────────────────

@@ -1,0 +1,81 @@
+{# Multi-select picker — ONE control, three callers (notes 16, 17, 9b).
+
+   #16 picks days to copy a crew call onto, #17 picks days to put in a call
+   sheet packet, #9b picks OSS sections to export. Larry described all three
+   the same way: check the ones you want, then one button. Built three times
+   they end up looking and behaving three ways, which is the drift the
+   standing "one change, five surfaces" rule exists to stop.
+
+   `items` is a list of plain dicts, so the control does not care what it is
+   picking. The MAPPING lives with the data — `day_picker_items` in
+   routes/schedule.py for days, and whatever #9b needs for sections — because
+   that is the part that differs. The control is the part that must not.
+
+       id       required — the value posted
+       label    required — the main line
+       note     optional — muted text after the label
+       group    optional — a heading, printed when it changes (phase, dept)
+       checked  optional — pre-ticked
+       time     optional — seed for the per-day time box, when with_time
+#}
+{% macro multi_picker(items, field_name, check_class, with_time=False,
+                      time_prefix='target_time_', time_title='') %}
+  <div class="mb-2">
+    <button type="button" class="btn btn-xs btn-outline-secondary"
+            style="font-size:.72rem;padding:2px 8px;"
+            onclick="mpSelectAll('{{ check_class }}', true)">Select All</button>
+    <button type="button" class="btn btn-xs btn-outline-secondary ms-1"
+            style="font-size:.72rem;padding:2px 8px;"
+            onclick="mpSelectAll('{{ check_class }}', false)">Deselect All</button>
+  </div>
+  <div style="max-height:280px;overflow-y:auto;">
+    {% set seen = namespace(group='') %}
+    {% for item in items %}
+      {% if item.group and item.group != seen.group %}
+        {% set seen.group = item.group %}
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;
+                    letter-spacing:.06em;color:#adb5bd;padding:6px 0 2px;
+                    border-top:1px dashed #dee2e6;margin-top:4px;">
+          {{ item.group }}
+        </div>
+      {% endif %}
+      <div class="d-flex align-items-center gap-2" style="padding:2px 0;">
+        <input class="form-check-input {{ check_class }} m-0 flex-shrink-0"
+               type="checkbox" name="{{ field_name }}" value="{{ item.id }}"
+               id="{{ check_class }}-{{ item.id }}"
+               {% if item.checked %}checked{% endif %}>
+        <label class="form-check-label flex-grow-1"
+               for="{{ check_class }}-{{ item.id }}"
+               style="font-size:.82rem;cursor:pointer;">
+          {{ item.label }}
+          {% if item.note %}<span class="text-muted"
+               style="font-size:.72rem;"> {{ item.note }}</span>{% endif %}
+        </label>
+        {% if with_time %}
+        <input type="time"
+               class="form-control form-control-sm {{ check_class }}-time flex-shrink-0"
+               name="{{ time_prefix }}{{ item.id }}"
+               value="{{ item.time or '' }}"
+               style="width:108px;font-size:.74rem;padding:1px 5px;"
+               title="{{ time_title }}">
+        {% endif %}
+      </div>
+    {% endfor %}
+    {% if not items %}
+      <div style="font-size:.8rem;color:#6c757d;padding:8px 0;">
+        Nothing to choose from.
+      </div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+
+{# Emit once per page that uses the picker. Kept beside the macro rather than
+   in a caller's script block so a second caller cannot forget it. #}
+{% macro multi_picker_js() %}
+<script>
+function mpSelectAll(cls, checked) {
+  document.querySelectorAll('.' + cls).forEach(cb => { cb.checked = checked; });
+}
+</script>
+{% endmacro %}
