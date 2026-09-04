@@ -23,10 +23,10 @@
   <div class="mb-2">
     <button type="button" class="btn btn-xs btn-outline-secondary"
             style="font-size:.72rem;padding:2px 8px;"
-            onclick="mpSelectAll('{{ check_class }}', true)">Select All</button>
+            onclick="mpSelectAll('{{ check_class|js_str }}', true)">Select All</button>
     <button type="button" class="btn btn-xs btn-outline-secondary ms-1"
             style="font-size:.72rem;padding:2px 8px;"
-            onclick="mpSelectAll('{{ check_class }}', false)">Deselect All</button>
+            onclick="mpSelectAll('{{ check_class|js_str }}', false)">Deselect All</button>
   </div>
   <div style="max-height:280px;overflow-y:auto;">
     {% set seen = namespace(group='') %}

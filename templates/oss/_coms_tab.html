@@ -73,7 +73,7 @@
             <form method="POST"
                   action="{{ url_for('oss.coms_channel_delete', show_id=show.id, channel_id=ch.id) }}"
                   style="display:inline;"
-                  onsubmit="return confirm('Remove channel {{ ch.name }}? It will be cleared from any crew assignments that reference it.');">
+                  onsubmit="return confirm('Remove channel {{ ch.name|js_str }}? It will be cleared from any crew assignments that reference it.');">
               <button type="submit" class="btn btn-sm btn-link p-0 text-danger"
                       style="font-size:.78rem;line-height:1;" title="Remove">{{ ico.icon('x') }}</button>
             </form>

@@ -169,6 +169,47 @@ def create_app():
         from time_utils import hhmm_or_blank
         return hhmm_or_blank(v)
 
+    @app.template_filter("js_str")
+    def js_str_filter(v):
+        """Escape a value for use INSIDE a JavaScript string literal that
+        itself sits inside an HTML attribute.
+
+        This exists because of a real, shipped bug. Every destructive action in
+        the app guards itself with a confirm() written as an inline handler:
+
+            onsubmit="return confirm('Remove {{ member.full_name }} ...')"
+
+        Jinja's HTML escaping turns an apostrophe into `&#39;`, and the HTML
+        parser turns that straight back into `'` when it reads the attribute
+        value — so a crew member called O'Brien produced:
+
+            return confirm('Remove Allison O'Brien from the roster?')
+
+        which does not compile. And a handler that does not compile is never
+        registered, so `onsubmit` never returns false and **the form submits
+        with no confirmation at all**. The delete guard does not fail loudly;
+        it quietly stops existing, for exactly the people whose names carry an
+        apostrophe. `|e` does not help — it is the same `&#39;`.
+
+        So this emits `\\uXXXX` escapes rather than any character that either
+        parser could act on: no quote of either kind, no backslash, no angle
+        bracket, no ampersand, no raw newline. The result is inert as HTML and
+        valid as JavaScript, which is what a value crossing both parsers has
+        to be.
+
+        Marked safe deliberately — autoescaping it again would put `&#39;`
+        back, which is the bug.
+        """
+        from markupsafe import Markup
+        s = "" if v is None else str(v)
+        out = []
+        for ch in s:
+            if ch in "\\'\"<>&\r\n\u2028\u2029":
+                out.append(f"\\u{ord(ch):04x}")
+            else:
+                out.append(ch)
+        return Markup("".join(out))
+
     # The Master tab, the XLSX and the PDF must all label a crew row the same
     # way (note 5), so the label comes from oss_export rather than being
     # re-implemented in the template.

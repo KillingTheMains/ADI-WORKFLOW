@@ -64,7 +64,7 @@
         </a>
         <form method="POST" action="{{ url_for('schedule.template_delete', tpl_id=tpl.id) }}"
               style="display:inline;"
-              onsubmit="return confirm('Delete template \'{{ tpl.label }}\'? This won\'t affect existing schedule days.');">
+              onsubmit="return confirm('Delete template \'{{ tpl.label|js_str }}\'? This won\'t affect existing schedule days.');">
           <button type="submit" class="btn btn-sm btn-outline-danger"
                   style="font-size:.72rem;padding:2px 8px;">{{ ico.icon('x') }}</button>
         </form>

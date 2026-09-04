@@ -90,7 +90,7 @@
           {% if not usage[c.id] %}
           <form method="POST" style="display:inline;"
                 action="{{ url_for('clients.delete', client_id=c.id) }}"
-                onsubmit="return confirm('Delete “{{ c.name|e }}” permanently? It has no shows, so nothing else changes.');">
+                onsubmit="return confirm('Delete “{{ c.name|js_str }}” permanently? It has no shows, so nothing else changes.');">
             <button type="submit" class="btn btn-sm btn-link p-0 ms-2"
                     style="font-size:.72rem;color:var(--adi-danger);">Delete</button>
           </form>

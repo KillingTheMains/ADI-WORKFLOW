@@ -151,7 +151,7 @@
       action="{{ url_for('local_labor.edit', pos_id=p.id) }}"></form>
 <form id="ll-rm-{{ p.id }}" method="POST"
       action="{{ url_for('local_labor.remove', pos_id=p.id) }}"
-      onsubmit="return confirm('Remove “{{ p.title|e }}” from the local labor catalogue?\n\nNothing is deleted — it stays on any crew row already using it.');"></form>
+      onsubmit="return confirm('Remove “{{ p.title|js_str }}” from the local labor catalogue?\n\nNothing is deleted — it stays on any crew row already using it.');"></form>
 {% endfor %}{% endfor %}
 
 {% endblock %}

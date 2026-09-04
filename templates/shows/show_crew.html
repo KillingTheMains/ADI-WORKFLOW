@@ -396,7 +396,7 @@
       {% if assigned_count > 0 %}
       <form method="POST" action="{{ url_for('show_crew.assign_company', show_id=show.id) }}"
             style="display:inline;"
-            onsubmit="return confirm('Remove all {{ co.name }} crew from this show?');">
+            onsubmit="return confirm('Remove all {{ co.name|js_str }} crew from this show?');">
         <input type="hidden" name="company_id" value="{{ co_id }}">
         <input type="hidden" name="action" value="unassign">
         <button type="submit" class="btn btn-sm"

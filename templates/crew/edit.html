@@ -128,7 +128,7 @@
           <a href="{{ url_for('crew.index') }}" class="btn btn-outline-secondary">Cancel</a>
         </div>
         <form method="POST" action="{{ url_for('crew.delete', member_id=member.id) }}"
-              onsubmit="return confirm('Remove {{ member.full_name }} from the roster?')">
+              onsubmit="return confirm('Remove {{ member.full_name|js_str }} from the roster?')">
           <button type="submit" class="btn btn-outline-danger btn-sm">Remove from Roster</button>
         </form>
       </div>

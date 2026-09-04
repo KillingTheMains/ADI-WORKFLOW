@@ -627,7 +627,7 @@
       {% endif %}
       <form method="POST" style="display:inline;"
             action="{{ url_for('schedule.remove_recurring_from_day', show_id=show.id, day_id=day.id, hce_id=hc.id) }}"
-            onsubmit="return confirm('Remove “{{ hc.name|e }}” from this day only?\n\nOther days keep it, and you can put it back from the Recurring Events panel above.');">
+            onsubmit="return confirm('Remove “{{ hc.name|js_str }}” from this day only?\n\nOther days keep it, and you can put it back from the Recurring Events panel above.');">
         <button type="submit" title="Remove from this day"
                 style="border:none;background:none;color:var(--adi-muted);
                        font-size:.8rem;padding:0 2px;line-height:1;">{{ ico.icon('x') }}</button>
@@ -940,7 +940,7 @@
             <form method="POST"
                   action="{{ url_for('schedule.stamp_activity_to_phase', show_id=show.id, day_id=day.id, act_id=act.id) }}"
                   style="display:inline;"
-                  onsubmit="return confirm('Stamp to all {{ day.phase }} days?');">
+                  onsubmit="return confirm('Stamp to all {{ day.phase|js_str }} days?');">
               <button type="submit" class="act-action-btn"
                       title="Stamp to all {{ day.phase }} days">{{ ico.icon('zap') }}</button>
             </form>
@@ -1166,7 +1166,7 @@
                        title="Edit this section">{{ ico.icon('pencil') }}</a>
                     <form method="POST" style="display:inline;" class="js-section-delete"
                           action="{{ url_for('schedule.delete_crew_row', show_id=show.id, day_id=day.id, row_id=row.id) }}"
-                          onsubmit="return confirm('Remove the section “{{ row.group_label|e }}”? The crew rows under it stay on the call.');">
+                          onsubmit="return confirm('Remove the section “{{ row.group_label|js_str }}”? The crew rows under it stay on the call.');">
                       <button type="submit"
                               style="border:none;background:none;font-size:.68rem;padding:0 2px;"
                               title="Remove this section">{{ ico.icon('x') }}</button>
@@ -1565,10 +1565,10 @@
                     <label style="font-size:.72rem;" class="form-label">Hrs / End Time</label>
                     <input type="number" name="hours" id="hrs-input-{{ act.id }}"
                            class="form-control form-control-sm" step="0.5" placeholder="hrs"
-                           oninput="onHrsInput('{{ act.id }}')">
+                           oninput="onHrsInput('{{ act.id|js_str }}')">
                     <input type="time" id="end-input-{{ act.id }}"
                            class="form-control form-control-sm mt-1"
-                           oninput="onEndInput('{{ act.id }}')" title="Shift end time">
+                           oninput="onEndInput('{{ act.id|js_str }}')" title="Shift end time">
                     <div id="shift-hint-{{ act.id }}"
                          style="font-size:.65rem;color:var(--adi-gold);min-height:1em;margin-top:2px;"></div>
                   </div>
@@ -1585,7 +1585,7 @@
                     <label style="font-size:.72rem;" class="form-label">Name / Roster</label>
                     <select name="crew_member_id" id="crew-sel-{{ act.id }}"
                             class="form-select form-select-sm"
-                            onchange="onCrewSelect(this, '{{ act.id }}')">
+                            onchange="onCrewSelect(this, '{{ act.id|js_str }}')">
                       <option value="">— TBD / Local —</option>
                       {% set dg = namespace(dept='') %}
                       {% for cm in crew_members %}

@@ -97,7 +97,7 @@
           {% if not t.is_builtin and not usage.get(t.name) %}
           <form method="POST" style="display:inline;"
                 action="{{ url_for('phase_types.delete', type_id=t.id) }}"
-                onsubmit="return confirm('Delete “{{ t.name|e }}”? Nothing is using it.');">
+                onsubmit="return confirm('Delete “{{ t.name|js_str }}”? Nothing is using it.');">
             <button class="btn btn-sm btn-link p-0 ms-2"
                     style="font-size:.72rem;color:var(--adi-danger);">Delete</button>
           </form>

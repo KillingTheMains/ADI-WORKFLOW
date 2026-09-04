@@ -66,7 +66,7 @@
               {% if not g.all_undone %}
               <form method="POST" style="display:inline;"
                     action="{{ url_for('audit.undo_grp', group_id=g.group_id) }}"
-                    onsubmit="return confirm('Undo all {{ g.entries|length }} change(s) in this action?');">
+                    onsubmit="return confirm('Undo all {{ g.entries|length|js_str }} change(s) in this action?');">
                 <button type="submit" class="btn btn-sm btn-outline-warning">{{ ico.icon('undo-2') }} Undo</button>
               </form>
               {% endif %}

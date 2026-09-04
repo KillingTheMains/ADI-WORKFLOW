@@ -184,7 +184,7 @@
       <form method="POST"
             action="{{ url_for('schedule.clone_day', show_id=show.id, day_id=day.id) }}"
             style="display:inline;"
-            onsubmit="return confirm('Clone {{ clone_label }} to the next day?');">
+            onsubmit="return confirm('Clone {{ clone_label|js_str }} to the next day?');">
         <button type="submit" class="btn btn-sm"
                 style="font-size:.72rem;background:rgba(255,255,255,.07);
                        color:rgba(255,255,255,.65);border:none;"
