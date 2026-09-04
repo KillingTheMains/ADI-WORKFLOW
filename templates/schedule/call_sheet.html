@@ -272,7 +272,12 @@
       .call-sheet { border: none; border-radius: 0; }
       body { font-size: 9pt; }
       .cs-show-name { font-size: 14pt; }
-      .view-section { display: block !important; }
+      /* Print follows the tab you are looking at.
+         This used to force BOTH sections open, so every sheet printed twice —
+         once by call time and again by department. Invisible enough on one
+         day; a ten-day packet came out at twenty pages. The base rules above
+         already hide the inactive one, so printing now matches the screen,
+         and printing both is a matter of printing twice. */
       .cs-footer { position: fixed; bottom: 0; left: 0; right: 0; }
       /* Note 17 — a packet starts each day on a fresh page. */
       .call-sheet + .call-sheet { page-break-before: always; }
