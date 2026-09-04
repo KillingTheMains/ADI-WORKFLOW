@@ -1254,6 +1254,27 @@ def _pre_migration_snapshot(pending, verbose=True):
     from datetime import datetime, timezone
     from flask import current_app
 
+    # ── Opt-in escape hatch, added 2026-09-04 ────────────────────────────────
+    # This snapshot is a VACUUM INTO of the whole database. On PythonAnywhere's
+    # free tier that took 24 MINUTES on an 11MB database and the process was
+    # killed before it finished — so the deploy could not complete, and the
+    # thing being protected against had not yet happened. A safety measure that
+    # makes the operation impossible stops being a safety measure.
+    #
+    # It is opt-in, per-run, and DELIBERATELY NOISY. Two rules:
+    #   * never set it in deploy.sh — the default path must always snapshot;
+    #   * only correct when a snapshot of the CURRENT pre-migration state is
+    #     ALREADY on disk and somebody has looked at it.
+    if os.environ.get("SKIP_PRE_MIGRATION_SNAPSHOT") == "1":
+        if verbose:
+            pending_keys = ", ".join(k for k, _ in pending)
+            print("[migration] *** PRE-MIGRATION SNAPSHOT SKIPPED *** "
+                  "(SKIP_PRE_MIGRATION_SNAPSHOT=1)")
+            print(f"[migration]     about to apply: {pending_keys}")
+            print("[migration]     There is no automatic undo for this run. "
+                  "Restore from ~/backups by hand if it goes wrong.")
+        return
+
     uri = current_app.config.get("SQLALCHEMY_DATABASE_URI", "")
     if not uri.startswith("sqlite:"):
         # Only SQLite understands VACUUM INTO in this form. If we ever move
