@@ -162,13 +162,33 @@ def _find_header_row(rows, max_scan=10):
 
     Returns `(index, score)`. A score of 0 means nothing was recognised
     anywhere, which is the case the mapping step exists for.
+
+    When NOTHING scores, "earliest" is the wrong tiebreak and row 0 is the
+    wrong answer. Seen on screen 2026-09-04 with a vendor file headed
+    "MCDC26 Rigging Call — vendor copy": every row scored 0, so the banner was
+    offered as the header and the mapping screen led with its worst guess. The
+    tie-to-earliest rule was written for a recognised header competing with a
+    data row below it; it does not transfer to the case where there is nothing
+    to recognise. So fall back to the DENSEST row — most non-empty cells, ties
+    still to the earliest, which then picks the header over the data rows that
+    match its width. A banner is one cell wide; a header is as wide as its
+    table.
     """
+    scan = rows[:max_scan]
     best_idx, best_score = 0, -1
-    for i, row in enumerate(rows[:max_scan]):
+    for i, row in enumerate(scan):
         score = len(_map_columns(row))
         if score > best_score:
             best_idx, best_score = i, score
-    return best_idx, max(best_score, 0)
+    if best_score > 0:
+        return best_idx, best_score
+
+    best_idx, best_filled = 0, -1
+    for i, row in enumerate(scan):
+        filled = sum(1 for c in row if c is not None and str(c).strip())
+        if filled > best_filled:
+            best_idx, best_filled = i, filled
+    return best_idx, 0
 
 
 # Fields a person can point a column at on the mapping screen, in the order
@@ -665,6 +685,7 @@ def preview(sid):
         return redirect(url_for("crew.index"))
 
     rows = session.rows
+    target_show = session.target_show
     # Suggested defaults for the per-row Decision dropdown
     for r in rows:
         if not r.get("matched_id"):
@@ -676,12 +697,34 @@ def preview(sid):
         else:
             r["suggested"] = "skip"       # exact duplicate
 
+        # What this row will actually BECOME, which is not the same thing as
+        # the value the form posts. Seen on screen 2026-09-04: a placeholder
+        # row showed the OPEN SLOT badge and, two columns to the right, a
+        # Decision reading "+ Add new" — while the header counted it in
+        # "Add 4" and the button offered "Apply import (4 changes)". Three
+        # parts of one screen disagreeing about one row.
+        #
+        # `suggested` must stay "add" regardless: commit reaches the slot
+        # branch INSIDE its add path, so suggesting "skip" would stop the
+        # open slot being created at all. So the outcome is tracked
+        # separately and only the DISPLAY changes.
+        r["outcome"] = r["suggested"]
+        if r["suggested"] == "add" and r.get("is_slot"):
+            # With no show to hang it on there is nowhere for an open slot to
+            # live, and commit counts it under `slots_skipped` — the row does
+            # nothing whatsoever. Saying so is more use than a number that is
+            # quietly wrong, because the fix is something Larry can act on:
+            # run the import again from inside the show.
+            r["outcome"] = "slot" if target_show else "slot_dropped"
+
     summary = {
         "total":   len(rows),
-        "add":     sum(1 for r in rows if r["suggested"] == "add"),
-        "update":  sum(1 for r in rows if r["suggested"] == "update"),
-        "skip":    sum(1 for r in rows if r["suggested"] == "skip"),
-        "conflict":sum(1 for r in rows if r["suggested"] == "conflict"),
+        "add":     sum(1 for r in rows if r["outcome"] == "add"),
+        "update":  sum(1 for r in rows if r["outcome"] == "update"),
+        "skip":    sum(1 for r in rows if r["outcome"] == "skip"),
+        "conflict":sum(1 for r in rows if r["outcome"] == "conflict"),
+        "slot":    sum(1 for r in rows if r["outcome"] == "slot"),
+        "dropped": sum(1 for r in rows if r["outcome"] == "slot_dropped"),
         "new_pos": sum(1 for r in rows if r.get("position_action") == "new"),
         "new_co":  sum(1 for r in rows if r.get("company_action") == "new"),
     }

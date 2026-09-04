@@ -18,6 +18,7 @@
   .imp-pill.update   { background:#2563EB; color:#fff; }
   .imp-pill.skip     { background:#9CA3AF; color:#fff; }
   .imp-pill.conflict { background:#F59E0B; color:var(--adi-dark); }
+  .imp-pill.slot     { background:#7C3AED; color:#fff; }
   .imp-pill.warn     { background:#FEF3C7; color:#92400E; border:1px solid #FCD34D; }
 
   table.imp-table { font-size:.82rem; }
@@ -54,6 +55,14 @@
       <span class="imp-pill update">Update {{ summary['update'] }}</span>
       <span class="imp-pill conflict">Conflicts {{ summary.conflict }}</span>
       <span class="imp-pill skip">Duplicates {{ summary.skip }}</span>
+      {# Open slots are not adds and must not be counted as them. #}
+      {% if summary.slot %}
+      <span class="imp-pill slot">Open slots {{ summary.slot }}</span>
+      {% endif %}
+      {% if summary.dropped %}
+      <span class="imp-pill warn">{{ ico.icon('alert-triangle') }}
+        {{ summary.dropped }} unnamed — import from inside a show to keep them</span>
+      {% endif %}
       {% if summary.new_pos %}
       <span class="imp-pill warn">{{ ico.icon('alert-triangle') }} {{ summary.new_pos }} new positions</span>
       {% endif %}
@@ -97,11 +106,15 @@
                A guess a human can see and disagree with fails safely; the
                same guess made silently at commit does not. #}
             {% if r.is_slot %}
-            <div style="font-size:.7rem;font-weight:600;color:#0B2545;
-                        background:var(--adi-gold,#E8B84B);border-radius:3px;
+            {# --adi-gold is INK gold #7A5C1E, a TEXT colour, and near-black
+               text on it is ~1.9:1 — the badge read as dark-on-dark, which is
+               note 1's defect all over again. --adi-gold-lt (#C9A45C) is the
+               FILL gold. Fixed 2026-09-04 after looking at the screen. #}
+            <div style="font-size:.7rem;font-weight:600;color:var(--adi-dark,#0B2545);
+                        background:var(--adi-gold-lt,#C9A45C);border-radius:3px;
                         padding:1px 6px;display:inline-block;margin-top:3px;">
               OPEN SLOT — not a person
-              <span style="font-weight:400;opacity:.75;">({{ r.slot_reason }})</span>
+              <span style="font-weight:400;opacity:.85;">({{ r.slot_reason }})</span>
             </div>
             {% elif r.name_looks_like_position %}
             <div style="font-size:.7rem;font-weight:600;color:#B45309;
@@ -215,7 +228,15 @@
             <select name="decision_{{ r.n }}" class="form-select form-select-sm"
                     style="font-size:.78rem;">
               {% if not r.matched_id %}
-              <option value="add" {% if r.suggested == 'add' %}selected{% endif %}>+ Add new</option>
+              {# The VALUE stays "add" for a slot row — commit reaches the
+                 open-slot branch inside its add path, so anything else stops
+                 the slot being created. Only the label changes, so the
+                 Decision column agrees with the badge two columns left. #}
+              <option value="add" {% if r.suggested == 'add' %}selected{% endif %}>
+                {%- if r.outcome == 'slot' %}+ Open slot on this show
+                {%- elif r.outcome == 'slot_dropped' %}Nothing — no show selected
+                {%- else %}+ Add new{% endif -%}
+              </option>
               <option value="skip" {% if r.suggested == 'skip' %}selected{% endif %}>Skip this row</option>
               {% else %}
               <option value="update" {% if r.suggested == 'update' %}selected{% endif %}>Update existing (fill blanks)</option>

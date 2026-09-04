@@ -192,8 +192,15 @@
     <div class="card mb-3">
       <div class="card-header d-flex align-items-center justify-content-between"
            style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">
+        <!-- gap + no-shrink on the link: at a narrow viewport these two ran
+             together into "WHAT'S HAPPENING TODAYManage list" with nothing
+             between them (seen 2026-09-04). Note 6 established that Larry
+             zooms the browser in, which is exactly how a sidebar column gets
+             narrow enough for this. "Manage" also matches the Recurring
+             Events card below. -->
         <span>{{ ico.icon('flag') }} What's Happening Today</span>
-        <a href="/phase-types" style="font-size:.7rem;text-transform:none;font-weight:600;">Manage list</a>
+        <a href="/phase-types" style="font-size:.7rem;text-transform:none;font-weight:600;
+                                      margin-left:10px;flex-shrink:0;">Manage</a>
       </div>
       <div class="card-body p-3">
         {% if day_items %}
@@ -437,8 +444,12 @@
           <div class="d-flex gap-1 flex-wrap" title="What is happening today">
             {% for name in day.item_labels %}
             <span style="font-size:.7rem;font-weight:600;letter-spacing:.04em;
-                         text-transform:uppercase;color:#0B2545;
-                         background:var(--adi-gold, #E8B84B);
+                         text-transform:uppercase;color:var(--adi-dark,#0B2545);
+                         {# --adi-gold is INK gold #7A5C1E, a TEXT colour. Used
+                            as a fill under near-black text it is ~1.9:1 —
+                            unreadable, and the same defect as note 1. The fill
+                            gold is --adi-gold-lt. Fixed 2026-09-04. #}
+                         background:var(--adi-gold-lt, #C9A45C);
                          border-radius:3px;padding:1px 7px;">{{ name }}</span>
             {% endfor %}
           </div>
