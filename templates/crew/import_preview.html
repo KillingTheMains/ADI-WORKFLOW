@@ -93,6 +93,23 @@
             <div class="file-val">
               {{ r.first_name or '—' }} {{ r.last_name or '' }}
             </div>
+            {# Note 19 — say what this row will BECOME before it is written.
+               A guess a human can see and disagree with fails safely; the
+               same guess made silently at commit does not. #}
+            {% if r.is_slot %}
+            <div style="font-size:.7rem;font-weight:600;color:#0B2545;
+                        background:var(--adi-gold,#E8B84B);border-radius:3px;
+                        padding:1px 6px;display:inline-block;margin-top:3px;">
+              OPEN SLOT — not a person
+              <span style="font-weight:400;opacity:.75;">({{ r.slot_reason }})</span>
+            </div>
+            {% elif r.name_looks_like_position %}
+            <div style="font-size:.7rem;font-weight:600;color:#B45309;
+                        margin-top:3px;">
+              {{ ico.icon('alert-triangle') }} this is a position title, not a name —
+              skip it unless a real person is called this
+            </div>
+            {% endif %}
           </td>
 
           <td>

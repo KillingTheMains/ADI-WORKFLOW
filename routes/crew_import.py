@@ -23,7 +23,8 @@ from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, abort)
 from extensions import db
 from models import (CrewMember, Position, Company, CrewImportSession,
-                    Show, ShowCrewAssignment, ShowOpenSlot)
+                    Show, ShowCrewAssignment, ShowOpenSlot,
+                    name_is_unnamed_slot)
 from datetime import date as date_cls, datetime
 
 crew_import_bp = Blueprint("crew_import", __name__)
@@ -107,8 +108,12 @@ def _parse_xlsx(file_storage):
                 rec[field] = (str(val).strip() if val is not None else "")
             else:
                 rec[field] = ""
-        # Skip totally-empty rows (no first AND no last)
-        if not rec.get("first_name") and not rec.get("last_name"):
+        # Drop a row only when it is GENUINELY empty. This used to drop any row
+        # with no first AND no last — which silently discarded a called slot
+        # that has a position but nobody booked into it yet, and made the
+        # `not first` branch in commit() unreachable dead code (note 19).
+        if (not rec.get("first_name") and not rec.get("last_name")
+                and not (rec.get("position") or "").strip()):
             continue
         out.append(rec)
     return out
@@ -191,7 +196,47 @@ def _enrich_with_match_info(rec, all_crew_by_email, all_crew_by_namekey,
     else:
         rec["company_action"] = "new"
 
+    # ── Person, or a called slot? (note 19) ──────────────────────────────────
+    # Decided HERE rather than at commit so the preview can show it and Larry
+    # can disagree before anything is written. Auto-detection alone is wrong
+    # eventually and silently; auto-detection plus a confirmable guess fails
+    # safely.
+    rec["is_slot"] = _row_is_slot(rec)
+    if rec["is_slot"]:
+        rec["slot_reason"] = ("no name" if not (first or last)
+                              else "placeholder name")
+    else:
+        rec["slot_reason"] = None
+
+    # A DIFFERENT problem, and not auto-actioned. `first="Lighting",
+    # last="Hand"` is not a placeholder name — it is a POSITION TITLE typed
+    # into the name columns, and no list of stand-in names will ever catch it.
+    # It is flagged for a human rather than rerouted, because a real person
+    # could in principle be called anything and the cost of guessing wrong is
+    # a crew member deleted from the roster.
+    whole = f"{first} {last}".strip()
+    rec["name_looks_like_position"] = bool(
+        whole and whole in all_positions_by_title)
+
     return rec
+
+
+def _row_is_slot(rec):
+    """Is this import row a called slot rather than a person?
+
+    ONE definition, called from the preview enrichment and again at commit —
+    commit does not trust the stored flag, because a session created before
+    this shipped will not carry one.
+
+    Two ways in: a placeholder NAME (`name_is_unnamed_slot`, shared with the
+    rest of the app), or NO name at all beside a position, which is a called
+    slot nobody is booked into yet.
+    """
+    first = (rec.get("first_name") or "").strip()
+    last = (rec.get("last_name") or "").strip()
+    if name_is_unnamed_slot(first, last):
+        return True
+    return not (first or last) and bool((rec.get("position") or "").strip())
 
 
 
@@ -486,7 +531,7 @@ def commit(sid):
     form = request.form
     rows = session.rows
     counts = {"added": 0, "updated": 0, "skipped": 0, "errors": 0,
-              "show_assigned": 0, "tbd_slots": 0}
+              "show_assigned": 0, "tbd_slots": 0, "slots_skipped": 0}
     errors = []
     target_show = Show.query.get(session.target_show_id) if session.target_show_id else None
 
@@ -510,11 +555,26 @@ def commit(sid):
             if action == "add":
                 first = (row.get("first_name") or "").strip()
                 last  = (row.get("last_name")  or "").strip()
-                # File 1 has rows like first="TBD", last="" + a position — these
-                # are open slots, not crew. Recognize and create accordingly.
-                if target_show and (first.upper() == "TBD" or not first) and not last:
+                # Note 19. This used to be a hand-rolled test that knew only
+                # the literal "TBD", demanded an empty surname, and only ran
+                # when importing into a show — so TBA, Unknown, N/A, XXX,
+                # "TBD TBD" and every placeholder in the global crew import
+                # became a real crew member. `_row_is_slot` is the shared
+                # rule, recomputed here rather than read off the row so a
+                # session created before this shipped is still classified.
+                if _row_is_slot(row):
+                    if not target_show:
+                        # No show to hang an open slot on. Skipping is the only
+                        # safe answer — the alternative is what this note
+                        # exists to stop, a placeholder landing in the crew
+                        # database as a person. Counted and reported, never
+                        # silent.
+                        counts["slots_skipped"] += 1
+                        row["decision"] = "slot_skipped"
+                        continue
                     if not position and not (row.get("position") or "").strip():
-                        raise ValueError("TBD slot needs at least a position")
+                        raise ValueError(
+                            "an unnamed slot needs at least a position")
                     slot = ShowOpenSlot(
                         show_id           = target_show.id,
                         position_id       = position.id if position else None,
@@ -619,6 +679,12 @@ def commit(sid):
         parts.append(f"assigned to show {counts['show_assigned']}")
     if counts.get("tbd_slots"):
         parts.append(f"TBD slots {counts['tbd_slots']}")
+    if counts.get("slots_skipped"):
+        # Said out loud, because these rows were in the file and are not in
+        # the database — the user has to know they went nowhere.
+        parts.append(
+            f"unnamed slots skipped {counts['slots_skipped']} "
+            "(import into a show to keep them as open slots)")
     if counts['errors']:
         parts.append(f"errors {counts['errors']}")
     flash("Import complete — " + ", ".join(parts) + ".",

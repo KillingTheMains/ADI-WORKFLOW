@@ -168,14 +168,7 @@ class CrewMember(db.Model):
         when the whole name is a stand-in, not when one half happens to match:
         a real crew member surnamed "Name" or "Last" keeps their name.
         """
-        first = (self.first_name or "").strip().lower()
-        last = (self.last_name or "").strip().lower()
-        both = f"{first} {last}".strip()
-        if both in self.PLACEHOLDER_NAMES:
-            return True
-        first_ph = (not first) or first in self.PLACEHOLDER_NAMES
-        last_ph = (not last) or last in self.PLACEHOLDER_NAMES
-        return first_ph and last_ph and bool(both)
+        return name_is_unnamed_slot(self.first_name, self.last_name)
 
     @property
     def display_label(self):
@@ -202,6 +195,40 @@ class CrewMember(db.Model):
 
     def __repr__(self):
         return f"<CrewMember {self.full_name}>"
+
+
+def name_is_unnamed_slot(first, last):
+    """Is this first/last pair a stand-in rather than a person?
+
+    Module level, not a property, so the CREW IMPORTER can ask the question
+    about raw spreadsheet strings — before there is any row to have a property
+    (note 19, 2026-09-04). `CrewMember.is_unnamed_slot` delegates here, so
+    there is ONE definition of "this is not a person".
+
+    That matters because there used to be two. `routes/crew_import.py` rolled
+    its own: `(first.upper() == "TBD" or not first) and not last`. It knew the
+    literal "TBD" and nothing else, so TBA, Unknown, N/A, XXX and Test all
+    imported as real crew members — and "TBD TBD" did too, because it demanded
+    an empty surname. Every one of those names was already sitting in
+    PLACEHOLDER_NAMES, being checked correctly everywhere except the one place
+    that creates crew in bulk.
+
+    Deliberately strict, for the reason `is_unnamed_slot` documents: it fires
+    only when the WHOLE name is a stand-in, so a real crew member surnamed
+    "Name" or "Last" is still a person.
+
+    A completely blank name returns False. Blank means "no information", not
+    "a placeholder", and the importer decides what to do with it from context
+    — a blank name beside a position is a called slot, a blank row is noise.
+    """
+    first = (first or "").strip().lower()
+    last = (last or "").strip().lower()
+    both = f"{first} {last}".strip()
+    if both in CrewMember.PLACEHOLDER_NAMES:
+        return True
+    first_ph = (not first) or first in CrewMember.PLACEHOLDER_NAMES
+    last_ph = (not last) or last in CrewMember.PLACEHOLDER_NAMES
+    return first_ph and last_ph and bool(both)
 
 
 # ── Show ─────────────────────────────────────────────────────────────────────
