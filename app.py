@@ -67,6 +67,26 @@ def create_app():
             "pool_pre_ping": True,
             "pool_recycle": 280,
         }
+    elif app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite"):
+        # SQLite allows exactly ONE writer at a time, and Python's sqlite3
+        # default busy timeout is FIVE SECONDS. A migration that cannot get
+        # the write lock inside that window dies with "database is locked".
+        #
+        # That is precisely what killed the 2026-09-04 deploy: the seed ran at
+        # 03:02:25 and the commit failed at 03:02:31 — six seconds, the
+        # default timeout plus change. Nothing was wrong with the migration.
+        # It simply never got a gap.
+        #
+        # The live web app writes an audit row on every request, so deploying
+        # against a site anyone is touching means the write lock is being
+        # taken constantly. Five seconds is not long enough to wait for a gap;
+        # thirty is.
+        #
+        # This is a WAIT, not a retry loop. A lock genuinely held for thirty
+        # seconds is a real problem and should still surface as one.
+        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "connect_args": {"timeout": 30},
+        }
     # Max total request body size: covers request-board image uploads
     # (8 files × 5 MB per file = 40 MB) plus headroom for the crew XLSX
     # importer. Anything larger is rejected by Werkzeug before it hits a route.
