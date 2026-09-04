@@ -8,62 +8,33 @@ to **Deployed** with the date.
 
 ## Pending Deploy
 
-### Travel: company section banners + bulk date editor (Larry requests #28 + bulk-dates)
-- **Company/vendor section headers on Travel (#28, closes #21 follow-up):**
-  when the Travel page is sorted by **Company**, crew are now grouped under
-  dark section banners showing the company name and traveler count —
-  mirroring the Crew Contact Sheet layout. The same banners appear in the
-  Travel **XLSX** export (a repeated header row per company) and in the
-  **print/PDF** view.
-- **Grand-total hotel nights on exports (#28):** the Travel page summary bar,
-  the XLSX, and the print view now show a grand-total **hotel nights** figure
-  alongside the existing grand-total hotel cost. Nights derive from each
-  assignment's shared Travel In → Travel Out window (`stay_nights`).
-- **Bulk travel-date editor (P1 — "set travel in / show / travel out for
-  several or all crew at once"):** a checkbox column + select-all + a toolbar
-  above the Travel table. Fill any of Travel In / Show In / Show Out / Travel
-  Out, check the crew to apply to, and hit **Apply** — only the date boxes you
-  filled are written; blank ones leave existing values alone. New POST route
-  `show_crew.travel_bulk_dates` (`/shows/<id>/crew/travel/bulk-dates`). Writes
-  go through the normal session, so every bulk change is captured in the audit
-  log as one group and is **undoable from Recent Activity**.
-- Only assignments belonging to the current show are touched (defensive id
-  filter, same pattern as `reorder`).
-- Files: `routes/show_crew.py` (`_company_name`, `_company_counts`,
-  `travel`/`travel_print`/`travel_xlsx` grand-nights + banners,
-  `travel_bulk_dates`), `templates/shows/show_crew_travel.html`,
-  `tests/test_travel.py` (new — 5 tests). No schema change, no migration.
-
-### Travel sheet ↔ Crew booking sheet: linked dates (Larry request — "edit travel grid dates")
-- The Travel page's **Check In / Check Out** now edit the *same* underlying
-  dates as **Travel In / Travel Out** on the Crew booking sheet — single
-  source of truth. Enter a person's travel dates once on either page and
-  the other reflects it automatically; there's no second date pair to
-  keep in sync.
-- **Nights** on the Travel page/exports is now derived from the shared
-  Travel In → Travel Out window (`ShowCrewAssignment.stay_nights`).
-- Default "Check-in" sort, the Travel **XLSX**, and the Travel **PDF/print**
-  view all read the shared `travel_in_date` / `travel_out_date`.
-- The legacy `hotel_check_in` / `hotel_check_out` columns are retained in
-  the DB but no longer edited from the Travel page. One-time data migration
-  `2026-07-04-backfill-travel-dates-from-hotel` copies any date that was
-  previously entered only in those hotel fields into the shared travel
-  fields so nothing is lost. The crew importer likewise seeds the shared
-  travel dates from imported hotel check-in/out when they're blank.
-- Files: `models.py` (stay_nights), `templates/shows/show_crew_travel.html`,
-  `templates/shows/show_crew_travel_pdf.html`, `routes/show_crew.py`
-  (sort + travel_xlsx), `routes/crew_import.py`, `migrations.py`.
-- Note (Jason): implemented as a *shared* date pair rather than an
-  auto-copy, so hotel check-in can't drift from the flight-in date. If a
-  hotel stay ever needs to differ from the travel window, we'd re-add a
-  separate optional override — flag if Larry hits that.
-
-### Travel sheet: show Company column (Larry request #21 — "add company name like crew list")
-- The Travel grid now has a **Company** column (from the crew member's
-  roster company), so travelers can be read/grouped by company — pairs
-  with the existing **Company** sort button. Company was already present
-  in the Travel XLSX and PDF exports; this brings the on-screen grid in line.
-- File: `templates/shows/show_crew_travel.html`.
+### Crew import: "which column is the surname?" (Larry note #19, part 2)
+- When the importer can't work out which columns hold names, it no longer
+  refuses the file. It stops on a new **Match columns** screen showing every
+  column in the file, up to three real values from each, and its best guess
+  pre-selected — and takes a correction. The header row can be corrected on
+  the same screen, for the file where the automatic guess picks wrong.
+- Both paths — the file that parsed straight through and the one somebody
+  had to point at — go through the *same* `_finalise_parsed`, so a corrected
+  import gets identical matching, date normalisation and flight splitting. A
+  file that needed help is not a second-class import.
+- Nothing is written to the crew database from the mapping screen; it still
+  ends at the existing preview, where a person confirms row by row.
+- **Bug found while doing it:** a genuinely date-formatted cell (Start,
+  Travel In, Check Out…) was being **silently dropped**. openpyxl hands back
+  a `datetime` for those, the parser did `str()` on it — giving
+  "2026-09-08 00:00:00" — and the date reader doesn't understand that shape.
+  Only files that typed their dates as *text* ever imported dates at all.
+  Now converted as ISO before anything else touches it. **Worth spot-checking
+  any past import where travel dates came in blank.**
+- No schema change, no migration — `status` and `rows_json` already carried
+  a free-form state between upload and preview.
+- Files: `routes/crew_import.py` (`_read_grid`, `_rows_from_grid`,
+  `_mapping_is_usable`, `_grid_for_storage`, `_cell_for_storage`,
+  `MAPPABLE_FIELDS`, new `mapping` route), `templates/crew/import_mapping.html`
+  (new), `tests/test_crew_import_mapping.py` (new — 29 tests),
+  `tests/test_crew_import_formats.py` (one test inverted on purpose: it used
+  to assert that refusing was right).
 
 ### Requests board — replaces the "ADI Build Notes" Google Doc
 - New sidebar link 📋 **Requests** opens an inline-editable, filterable
@@ -466,5 +437,34 @@ to **Deployed** with the date.
 
 ## Deployed
 
-_(No deploys logged yet. The OSS work above will be the first entry here
-after the next push to PA.)_
+### 2026-07-12 — Travel: company section headers, bulk date editor, night totals (commit `b222323`)
+Verified live on production (show AWS_NAMER_Summit26 Travel page). Board
+items #21, #27, #28 moved to Ready to Test.
+
+- **Per-company section headers on Travel (#21):** when the Travel page is
+  sorted by **Company**, crew are grouped under dark section banners showing
+  company name + traveler count — mirroring the Crew Contact Sheet. Same
+  banners repeat in the Travel **XLSX** export and the **print/PDF** view.
+- **Bulk travel-date editor (#27 — "set travel in / show / travel out for
+  several or all crew at once"):** checkbox column + select-all + a toolbar
+  above the Travel table. Fill any of Travel In / Show In / Show Out / Travel
+  Out, check the crew to apply to, hit **Apply** — only the filled date boxes
+  are written; blanks leave existing values alone. POST route
+  `show_crew.travel_bulk_dates` (`/shows/<id>/crew/travel/bulk-dates`). Every
+  bulk change is one audit group, **undoable from Recent Activity**. Only
+  assignments belonging to the current show are touched (defensive id filter).
+- **Company export headers + grand-total hotel nights (#28):** sorted-by-company
+  Travel exports get a repeated company header row (XLSX + print); the page
+  summary bar, XLSX, and print view now show a grand-total **hotel nights**
+  figure alongside grand-total cost. Nights derive from each assignment's
+  shared Travel In → Travel Out window (`stay_nights`).
+- **Travel ↔ Crew booking sheet linked dates (#25):** the Travel page's
+  Check In / Check Out edit the *same* underlying dates as Travel In / Travel
+  Out on the Crew booking sheet — single source of truth, no drift. One-time
+  data migration `2026-07-04-backfill-travel-dates-from-hotel` copied any date
+  that lived only in the legacy hotel fields into the shared travel fields.
+- Files: `models.py` (`stay_nights`), `routes/show_crew.py`
+  (`_company_name`, `_company_counts`, `travel`/`travel_print`/`travel_xlsx`,
+  `travel_bulk_dates`), `templates/shows/show_crew_travel.html`,
+  `templates/shows/show_crew_travel_pdf.html`, `routes/crew_import.py`,
+  `migrations.py`, `tests/test_travel.py` (5 tests, all passing).

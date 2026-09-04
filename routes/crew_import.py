@@ -171,8 +171,41 @@ def _find_header_row(rows, max_scan=10):
     return best_idx, max(best_score, 0)
 
 
-def _parse_xlsx(file_storage):
-    """Parse the uploaded XLSX into a list of row dicts. Raises ValueError on bad input."""
+# Fields a person can point a column at on the mapping screen, in the order
+# they appear there. Name first because that is the only part the import
+# cannot do without; the rest are conveniences.
+MAPPABLE_FIELDS = [
+    ("",                     "— ignore this column —"),
+    ("full_name",            "Name (whole, we'll split it)"),
+    ("first_name",           "First name"),
+    ("last_name",            "Last name"),
+    ("position",             "Position / title"),
+    ("company",              "Company / vendor"),
+    ("email",                "Email"),
+    ("phone",                "Phone"),
+    ("booking_task",         "Booking task"),
+    ("travel_in",            "Travel in"),
+    ("start",                "Start"),
+    ("end",                  "End"),
+    ("travel_out",           "Travel out"),
+    ("hotel_name",           "Hotel"),
+    ("hotel_check_in",       "Hotel check in"),
+    ("hotel_check_out",      "Hotel check out"),
+    ("hotel_confirmation",   "Hotel confirmation #"),
+    ("hotel_cost",           "Hotel cost"),
+    ("arrival_flight_raw",   "Arrival flight"),
+    ("departure_flight_raw", "Departure flight"),
+    ("itinerary_link",       "Itinerary link"),
+]
+
+
+def _read_grid(file_storage):
+    """Read the uploaded workbook into a plain list of row tuples.
+
+    Split out of the old `_parse_xlsx` for note 19. The mapping step needs the
+    grid *before* anything has decided what the columns mean, and needs to keep
+    it after the upload request ends. Raises ValueError on bad input.
+    """
     try:
         import openpyxl
     except ImportError:
@@ -185,28 +218,65 @@ def _parse_xlsx(file_storage):
     rows = list(ws.iter_rows(values_only=True))
     if not rows:
         raise ValueError("The spreadsheet is empty.")
+    return rows
 
-    header_idx, _score = _find_header_row(rows)
-    header = rows[header_idx]
-    mapping = _map_columns(header)
-    # A single "Name" column is a valid way to give a name, so the file is
-    # only unreadable when there is NEITHER a first/last pair NOR a whole-name
-    # column. Note 19.
-    if (("first_name" not in mapping or "last_name" not in mapping)
-            and "full_name" not in mapping):
-        raise ValueError(
-            "Couldn't find First Name + Last Name columns, or a single Name "
-            "column. "
-            f"Found headers: {[str(h) for h in header if h is not None]}"
-        )
 
+def _mapping_is_usable(mapping):
+    """Can a name be got out of this mapping?
+
+    A single whole-name column is enough on its own; otherwise both halves are
+    needed. Everything else in the alias table is optional, so this is the one
+    test that decides whether a file can go straight through or has to stop and
+    ask.
+    """
+    return (("first_name" in mapping and "last_name" in mapping)
+            or "full_name" in mapping)
+
+
+def _cell_for_storage(value):
+    """One cell as a string, JSON-safe.
+
+    Dates go out in ISO form rather than through `str()`. This is not just for
+    the round trip through the session: `str()` on the datetime openpyxl hands
+    back for a real date cell gives "2026-09-08 00:00:00", which
+    `_parse_loose_date` does not read — so every genuinely date-formatted Start
+    / Travel In / Check Out cell was being silently dropped, and only files
+    that typed their dates as text ever imported them. Found while splitting
+    this function, 2026-09-04.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date_cls):
+        return value.isoformat()
+    return str(value).strip()
+
+
+def _grid_for_storage(grid, max_rows=500, max_cols=60):
+    """A JSON-safe, bounded copy of the grid, to park on the session.
+
+    Bounded because it lands in a TEXT column and a stray 40,000-row export
+    should not become a 40,000-row blob. 500 rows is far more crew than any
+    show has ever had, and the mapping screen only ever displays the first few.
+    """
+    return [[_cell_for_storage(c) for c in row[:max_cols]]
+            for row in grid[:max_rows]]
+
+
+def _rows_from_grid(grid, mapping, header_idx):
+    """Turn a grid plus a column mapping into the parser's row dicts.
+
+    The second half of what `_parse_xlsx` used to do in one piece. Taking the
+    mapping as an argument is the entire point: the same code now serves a
+    guess the server made and a mapping a person corrected by hand.
+    """
     out = []
-    for i, row in enumerate(rows[header_idx + 1:], start=header_idx + 2):
+    for i, row in enumerate(grid[header_idx + 1:], start=header_idx + 2):
         rec = {"n": i}
         for field, col_idx in mapping.items():
             if col_idx < len(row):
-                val = row[col_idx]
-                rec[field] = (str(val).strip() if val is not None else "")
+                rec[field] = _cell_for_storage(row[col_idx])
             else:
                 rec[field] = ""
 
@@ -411,32 +481,13 @@ def _back_to_target(session_or_show_id):
     return redirect(url_for("crew.index"))
 
 
-@crew_import_bp.route("/import/upload", methods=["POST"])
-def upload():
-    f = request.files.get("file")
-    target_show_id_raw = (request.form.get("target_show_id") or "").strip()
-    target_show_id = int(target_show_id_raw) if target_show_id_raw.isdigit() else None
-    back_to = lambda: _back_to_target(target_show_id)
+def _finalise_parsed(session, parsed):
+    """Enrich parsed rows onto the session and put it into preview.
 
-    if not f or not f.filename:
-        flash("Please pick a file first.", "danger")
-        return back_to()
-
-    if not f.filename.lower().endswith((".xlsx", ".xlsm")):
-        flash("Only .xlsx files are supported for now. (PDF coming later.)", "danger")
-        return back_to()
-
-    try:
-        parsed = _parse_xlsx(f)
-    except ValueError as e:
-        flash(str(e), "danger")
-        return back_to()
-
-    if not parsed:
-        flash("No usable rows found in the file (need at least First + Last name).", "warning")
-        return back_to()
-
-    # Pre-load existing crew + positions + companies for matching
+    Shared by the straight-through path and the mapping step, so a file that
+    needed its columns pointed out by hand goes through exactly the same
+    matching, date normalisation and flight splitting as one that did not.
+    """
     all_crew = CrewMember.query.all()
     by_email    = {(c.email or "").strip().lower(): c
                    for c in all_crew if (c.email or "").strip()}
@@ -468,12 +519,142 @@ def upload():
         r["departure_flight"]= df or ""
         r["departure_time"]  = dt_ or ""
 
-    session = CrewImportSession(filename=f.filename, target_show_id=target_show_id)
     session.rows = enriched
-    db.session.add(session)
+    session.status = "pending"
     db.session.commit()
 
-    return redirect(url_for("crew_import.preview", sid=session.id))
+
+@crew_import_bp.route("/import/upload", methods=["POST"])
+def upload():
+    f = request.files.get("file")
+    target_show_id_raw = (request.form.get("target_show_id") or "").strip()
+    target_show_id = int(target_show_id_raw) if target_show_id_raw.isdigit() else None
+    back_to = lambda: _back_to_target(target_show_id)
+
+    if not f or not f.filename:
+        flash("Please pick a file first.", "danger")
+        return back_to()
+
+    if not f.filename.lower().endswith((".xlsx", ".xlsm")):
+        flash("Only .xlsx files are supported for now. (PDF coming later.)", "danger")
+        return back_to()
+
+    try:
+        grid = _read_grid(f)
+    except ValueError as e:
+        flash(str(e), "danger")
+        return back_to()
+
+    header_idx, _score = _find_header_row(grid)
+    guess = _map_columns(grid[header_idx])
+
+    session = CrewImportSession(filename=f.filename,
+                                target_show_id=target_show_id)
+
+    if _mapping_is_usable(guess):
+        parsed = _rows_from_grid(grid, guess, header_idx)
+        if not parsed:
+            flash("No usable rows found in the file.", "warning")
+            return back_to()
+        db.session.add(session)
+        db.session.flush()
+        _finalise_parsed(session, parsed)
+        return redirect(url_for("crew_import.preview", sid=session.id))
+
+    # Note 19 — the columns could not be worked out. ASK rather than refuse.
+    # The uploaded file is gone once this request ends, so the grid is kept on
+    # the session to re-parse from once somebody has pointed at the columns.
+    session.status = "mapping"
+    session.rows = {
+        "stage": "mapping",
+        "header_idx": header_idx,
+        "grid": _grid_for_storage(grid),
+        "guess": guess,
+    }
+    db.session.add(session)
+    db.session.commit()
+    return redirect(url_for("crew_import.mapping", sid=session.id))
+
+
+@crew_import_bp.route("/import/<int:sid>/mapping", methods=["GET", "POST"])
+def mapping(sid):
+    """Note 19 — "which column is the surname?"
+
+    The importer used to refuse any file whose name columns it could not
+    recognise, and list the headers it found as though that were an answer.
+    This is the answer: show the columns, show a few real values from each,
+    pre-fill the best guess, and let a person correct it.
+
+    Jason's call, 2026-09-04: build it blind rather than waiting for sample
+    failing files. A mapping step handles shapes nobody has seen without new
+    code each time; widening an alias list only ever handles the shapes
+    somebody already sent.
+    """
+    session = CrewImportSession.query.get_or_404(sid)
+    if session.status == "pending":
+        return redirect(url_for("crew_import.preview", sid=sid))
+    if session.status != "mapping":
+        flash(f"This import session has already been {session.status}.", "info")
+        return _back_to_target(session)
+
+    payload = session.rows if isinstance(session.rows, dict) else {}
+    grid = payload.get("grid") or []
+    header_idx = int(payload.get("header_idx") or 0)
+    chosen = dict(payload.get("guess") or {})
+
+    if request.method == "POST":
+        try:
+            header_idx = int(request.form.get("header_idx", header_idx))
+        except (TypeError, ValueError):
+            pass
+        header_idx = max(0, min(header_idx, len(grid) - 1)) if grid else 0
+
+        # First column wins a field, so two columns pointed at the same thing
+        # cannot silently fight. The later one is simply ignored.
+        chosen = {}
+        for idx in range(len(grid[header_idx]) if grid else 0):
+            field = (request.form.get(f"col_{idx}") or "").strip()
+            if field and field not in chosen:
+                chosen[field] = idx
+
+        if not _mapping_is_usable(chosen):
+            flash("Point a column at Name, or at both First name and Last "
+                  "name — the import needs something to call people.",
+                  "warning")
+        else:
+            parsed = _rows_from_grid(grid, chosen, header_idx)
+            if not parsed:
+                flash("That mapping produced no usable rows. Check the header "
+                      "row is right.", "warning")
+            else:
+                _finalise_parsed(session, parsed)
+                return redirect(url_for("crew_import.preview", sid=session.id))
+
+    headers = list(grid[header_idx]) if grid and header_idx < len(grid) else []
+    by_index = {idx: field for field, idx in chosen.items()}
+    columns = [{
+        "index": idx,
+        "header": headers[idx] or f"(column {idx + 1})",
+        "field": by_index.get(idx, ""),
+        # Real values beat a header name when somebody is deciding what a
+        # column IS — a column called "Ref" is only knowable from what is in
+        # it.
+        "samples": [row[idx] for row in grid[header_idx + 1:header_idx + 5]
+                    if idx < len(row) and (row[idx] or "").strip()][:3],
+    } for idx in range(len(headers))]
+
+    header_choices = [
+        {"index": i,
+         "preview": " | ".join(str(c) for c in grid[i][:6] if c)[:70] or "(blank row)"}
+        for i in range(min(len(grid), 10))
+    ]
+
+    return render_template("crew/import_mapping.html",
+                           session=session, columns=columns,
+                           fields=MAPPABLE_FIELDS,
+                           header_idx=header_idx,
+                           header_choices=header_choices,
+                           row_count=max(0, len(grid) - header_idx - 1))
 
 
 @crew_import_bp.route("/import/<int:sid>/preview")

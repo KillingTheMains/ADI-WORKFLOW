@@ -127,7 +127,7 @@ def _xlsx(rows):
     return buf
 
 
-def _upload(client, app, rows, show=None):
+def _upload(client, app, rows, show=None, follow_redirects=True):
     from flask import url_for
     with app.test_request_context():
         url = url_for("crew_import.upload")
@@ -135,7 +135,7 @@ def _upload(client, app, rows, show=None):
     if show is not None:
         data["target_show_id"] = str(show.id)
     return client.post(url, data=data, content_type="multipart/form-data",
-                       follow_redirects=True)
+                       follow_redirects=follow_redirects)
 
 
 def test_a_single_name_column_is_now_readable(app, client, db):
@@ -176,9 +176,20 @@ def test_explicit_columns_beat_the_split(app, client, db):
     assert "WRONG" not in body
 
 
-def test_a_file_with_no_name_columns_at_all_still_says_so(app, client, db):
-    """Refusing is still right when there is genuinely nothing to read. The
-    message now mentions the single-column option too."""
-    r = _upload(client, app, [("Widget", "Colour"), ("thing", "red")])
-    body = r.get_data(as_text=True)
-    assert "single Name column" in body
+def test_a_file_with_no_name_columns_at_all_now_asks_instead_of_refusing(app, client, db):
+    """This test used to assert the opposite, and said so: "Refusing is still
+    right when there is genuinely nothing to read."
+
+    That was wrong, and part 2 of note 19 is the correction. Refusing was never
+    right — it just looked right while the only alternative on the table was
+    guessing harder. A file whose columns we cannot recognise is not a file we
+    cannot read; it is a file we have to ask about. The assertion is inverted
+    on purpose, not relaxed: the demand is now stronger, because "went to the
+    mapping screen" is a specific place, where "said Couldn't find" was only
+    the absence of progress.
+    """
+    from models import CrewImportSession
+    r = _upload(client, app, [("Widget", "Colour"), ("thing", "red")],
+                follow_redirects=False)
+    assert "/mapping" in r.headers["Location"]
+    assert CrewImportSession.query.one().status == "mapping"

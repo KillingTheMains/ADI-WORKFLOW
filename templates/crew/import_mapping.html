@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% import '_icons.html' as ico %}
+{% block title %}Crew Import — Match Columns — ADI Workflow{% endblock %}
+{% block page_title %}Crew Import — Which column is which?{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> /
+  <a href="{{ url_for('crew.index') }}">Crew Database</a> / Match columns
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .map-note {
+    background:#FEF3C7; border:1px solid #FCD34D; color:#92400E;
+    border-radius:8px; padding:10px 14px; font-size:.85rem; margin-bottom:16px;
+  }
+  .map-file { font-size:.8rem; color:#6b7280; margin-bottom:14px; }
+  table.map-table { font-size:.82rem; }
+  table.map-table th {
+    background:#fafafa; font-size:.7rem; text-transform:uppercase;
+    letter-spacing:.05em; color:#555; font-weight:600;
+  }
+  table.map-table td { vertical-align:top; padding:8px; }
+  .map-header-cell { font-weight:600; color:#1f2937; }
+  .map-samples { font-size:.72rem; color:#6b7280; margin-top:3px; }
+  .map-samples span { display:block; }
+  .map-blank { color:#9CA3AF; font-style:italic; }
+  .map-actions { margin-top:18px; display:flex; gap:10px; align-items:center; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="map-note">
+  {{ ico.icon('alert-triangle') }}
+  We couldn&rsquo;t work out which columns hold people&rsquo;s names, so nothing
+  has been imported yet. Point at the columns below and we&rsquo;ll carry on.
+  Everything except the name is optional.
+</div>
+
+<div class="map-file">
+  File: <strong>{{ session.filename }}</strong>
+  &middot; {{ row_count }} row{{ '' if row_count == 1 else 's' }} below the header
+  {%- if session.target_show %} &middot; importing into
+    <strong>{{ session.target_show.name }}</strong>{% endif %}
+</div>
+
+<form method="post" action="{{ url_for('crew_import.mapping', sid=session.id) }}">
+  <div class="mb-3">
+    <label for="header_idx" class="form-label fw-semibold" style="font-size:.8rem;">
+      Which row holds the column headings?
+    </label>
+    <select class="form-select form-select-sm" id="header_idx" name="header_idx"
+            style="max-width:520px;">
+      {% for choice in header_choices %}
+        <option value="{{ choice.index }}"
+                {% if choice.index == header_idx %}selected{% endif %}>
+          Row {{ choice.index + 1 }} — {{ choice.preview }}
+        </option>
+      {% endfor %}
+    </select>
+    <div class="form-text" style="font-size:.72rem;">
+      Change this and save if the headings below look like data.
+    </div>
+  </div>
+
+  <table class="table table-sm table-bordered map-table">
+    <thead>
+      <tr>
+        <th style="width:45%;">Column in your file</th>
+        <th style="width:55%;">Is this&hellip;</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for col in columns %}
+        <tr>
+          <td>
+            <div class="map-header-cell">{{ col.header }}</div>
+            <div class="map-samples">
+              {% if col.samples %}
+                {% for s in col.samples %}<span>{{ s }}</span>{% endfor %}
+              {% else %}
+                <span class="map-blank">(no values in the first few rows)</span>
+              {% endif %}
+            </div>
+          </td>
+          <td>
+            <select class="form-select form-select-sm" name="col_{{ col.index }}">
+              {% for value, label in fields %}
+                <option value="{{ value }}"
+                        {% if value == col.field %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </td>
+        </tr>
+      {% else %}
+        <tr>
+          <td colspan="2" class="map-blank">
+            That header row has no columns in it. Pick a different one above.
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="map-actions">
+    <button type="submit" class="btn btn-adi btn-sm">Continue to preview</button>
+    <span class="text-muted" style="font-size:.75rem;">
+      Nothing is saved to the crew database until you review the preview.
+    </span>
+  </div>
+</form>
+
+<form method="post" action="{{ url_for('crew_import.cancel', sid=session.id) }}"
+      class="mt-3">
+  <button type="submit" class="btn btn-outline-secondary btn-sm">Cancel this import</button>
+</form>
+{% endblock %}
