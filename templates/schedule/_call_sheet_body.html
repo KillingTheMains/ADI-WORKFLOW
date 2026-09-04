@@ -28,6 +28,15 @@
         <div class="cs-day-value">{{ day.label }}</div>
       </div>
       {% endif %}
+      {# Note 11 — what the day IS, on the sheet the crew actually holds.
+         Read through `item_labels` so it cannot be punctuated one way here
+         and another way on the day page. #}
+      {% if day.item_labels %}
+      <div class="cs-day-cell">
+        <div class="cs-day-label">Today</div>
+        <div class="cs-day-value">{{ day.item_labels | join(' · ') }}</div>
+      </div>
+      {% endif %}
       {% if day.phase %}
       <div class="cs-day-cell">
         <div class="cs-day-label">Phase</div>

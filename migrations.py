@@ -989,6 +989,82 @@ def _seed_phase_types(session):
           % (created, skipped))
 
 
+def _seed_scope_activity_types(session):
+    """Note 11 — seed Larry's own Scope / Activity vocabulary.
+
+    Jason's call, 2026-09-04: day items and production phases share ONE list,
+    so this extends `phase_types` rather than starting a second table.
+
+    PREDICTED on a database that has run the note-14 seed and nothing since:
+    13 created, 5 already present, 5 renumbered.
+
+      * 5 already present — THREE of them are Larry's: his list contains
+        "Load-In", "Show" and "Strike", and all three already exist as
+        "Load In", "Show" and "Strike". The other two are "Prep" and
+        "Custom", which are not in his list at all but are walked here so
+        they get a position in the chronological order; they match
+        themselves and skip. (The first draft of this docstring predicted 3
+        and the run reported 5 — the prediction was wrong, not the count.)
+        Larry's three are matched through `normalise_type_name`, which reads
+        a hyphen as a space, so the hyphenated spelling SKIPS rather than
+        landing beside the existing one. All three are load-bearing names
+        that other modules resolve as literal strings; a near-duplicate next
+        to one of those is the worst version of the `Load In` / `Load-In`
+        split this project keeps warning about.
+      * 5 renumbered — the existing five sit at 10..50, and Larry's list is
+        chronological, which is the whole reason it is worth seeding. New
+        rows are numbered by their position in his order, and the existing
+        five are moved into it.
+
+    A row whose `sort_order` is NOT still its seeded value is LEFT ALONE. If
+    Larry has reordered the list himself since 09-03, that is his ordering and
+    a seeder has no business overwriting it — the count reported will be lower
+    than 5 and that is the signal, not a fault.
+
+    Anything reported other than the predicted numbers means the table was not
+    in the state this assumed. That is a result to read, not a no-op.
+    """
+    from models import (PhaseType, SCOPE_ACTIVITY_SEED, PHASE_TYPES,
+                        normalise_type_name)
+
+    existing = {normalise_type_name(r.name): r for r in PhaseType.query.all()}
+
+    # Larry's order, with the five originals slotted into it. "Prep" reads
+    # with the other prep work; "Custom" is a catch-all and sits last, after
+    # "Other", so the two escape hatches are together at the end.
+    order = []
+    for name in SCOPE_ACTIVITY_SEED:
+        order.append(name)
+        if name == "Shop Prep":
+            order.append("Prep")
+    order.append("Custom")
+
+    # The sort_orders `_seed_phase_types` wrote, so we can tell an untouched
+    # row from one Larry has since moved.
+    seeded_at = {name: (i + 1) * 10 for i, name in enumerate(PHASE_TYPES)}
+
+    created = skipped = renumbered = 0
+    for i, name in enumerate(order):
+        want = (i + 1) * 10
+        row = existing.get(normalise_type_name(name))
+        if row is not None:
+            skipped += 1
+            if row.sort_order == seeded_at.get(row.name):
+                row.sort_order = want
+                renumbered += 1
+            continue
+        row = PhaseType(name=name, day_label=name, sort_order=want,
+                        is_active=True, is_builtin=False)
+        session.add(row)
+        existing[normalise_type_name(name)] = row
+        created += 1
+
+    session.flush()
+    print("[migration] scope/activity types: %d created, %d already present, "
+          "%d renumbered into chronological order"
+          % (created, skipped, renumbered))
+
+
 DATA_MIGRATIONS = [
     ("2026-06-30-fb-v2-migrate-entries", _migrate_fb_entries_to_meal_services),
     ("2026-07-02-add-prompter-position", _seed_position_prompter),
@@ -1060,6 +1136,10 @@ DATA_MIGRATIONS = [
     # Larry can add to it without a developer, and so it carries across every
     # show. Seeds the five that were hard-coded. Predicted: 5 created.
     ("2026-09-03-seed-phase-types", _seed_phase_types),
+    # 2026-09-04 — note 11. Must run AFTER the note-14 seed: it matches
+    # against the five that seed writes, and running it first would create
+    # "Load-In" as a new row and leave the real "Load In" to arrive beside it.
+    ("2026-09-04-seed-scope-activity-types", _seed_scope_activity_types),
 ]
 
 

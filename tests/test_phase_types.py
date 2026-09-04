@@ -44,17 +44,26 @@ def _show(db, **kw):
 # ── The seed ─────────────────────────────────────────────────────────────────
 
 def test_the_five_are_seeded_and_the_load_bearing_ones_are_marked(db):
+    """Note 11 (2026-09-04) seeded Larry's Scope/Activity vocabulary into this
+    same table, so the list is no longer only these five. What has to stay
+    true is that the five are all THERE and that exactly the load-bearing ones
+    are marked — the exact-list assertion was measuring the table's size, and
+    the table's size was never the point."""
     _seed(db)
     names = [t.name for t in PhaseType.query.order_by(PhaseType.sort_order)]
-    assert names == ["Prep", "Load In", "Show", "Strike", "Custom"]
+    for name in ("Prep", "Load In", "Show", "Strike", "Custom"):
+        assert name in names
     builtin = {t.name for t in PhaseType.query.filter_by(is_builtin=True)}
     assert builtin == {"Load In", "Show", "Strike"}
 
 
 def test_seeding_twice_creates_nothing(db):
+    """Idempotence, measured against whatever is there rather than against a
+    literal 5 — see the note above."""
     _seed(db)
+    before = PhaseType.query.count()
     _seed(db)
-    assert PhaseType.query.count() == 5
+    assert PhaseType.query.count() == before
 
 
 def test_the_accessor_falls_back_when_the_table_is_empty(db):
@@ -97,9 +106,10 @@ def test_a_new_type_appears_on_every_show(client, db):
 
 def test_a_duplicate_differing_only_by_case_is_refused(client, db):
     _seed(db)
+    before = PhaseType.query.count()
     client.post("/phase-types/new", data={"name": "PREP"},
                 follow_redirects=True)
-    assert PhaseType.query.count() == 5
+    assert PhaseType.query.count() == before
 
 
 def test_hiding_a_type_removes_it_from_the_show_dropdown(client, db):
@@ -111,12 +121,24 @@ def test_hiding_a_type_removes_it_from_the_show_dropdown(client, db):
 
 
 def test_order_is_explicit_because_phases_are_chronological(client, db):
+    """Moving a type up moves it above the one that was above it.
+
+    This used to assert "Show" ends up before "Load In", which was true only
+    because those two were adjacent in a five-item list. Note 11 seeded
+    Larry's chronological vocabulary into the same table, so they are eleven
+    apart now. The behaviour under test is the move; the adjacency was
+    scenery, and naming the neighbour explicitly is what keeps this test about
+    the move."""
     _seed(db)
+    names = [t.name for t in PhaseType.query.order_by(PhaseType.sort_order)]
+    above = names[names.index("Show") - 1]
+
     pt = PhaseType.query.filter_by(name="Show").first()
     client.post(f"/phase-types/{pt.id}/move", data={"dir": "up"},
                 follow_redirects=True)
-    names = [t.name for t in PhaseType.query.order_by(PhaseType.sort_order)]
-    assert names.index("Show") < names.index("Load In")
+
+    after = [t.name for t in PhaseType.query.order_by(PhaseType.sort_order)]
+    assert after.index("Show") < after.index(above)
 
 
 # ── The guard rails ──────────────────────────────────────────────────────────
@@ -175,14 +197,22 @@ def test_renaming_carries_existing_phases_with_it(client, db):
 def test_a_new_type_keeps_its_own_day_label_on_auto_generate(client, db):
     """THE ONE THAT MATTERS. PHASE_LABEL_MAP was a closed dict of five, so a
     type outside it produced a day labelled "Setup" and typed "Load In" — and
-    with templates ticked, the LOAD IN template applied to it."""
+    with templates ticked, the LOAD IN template applied to it.
+
+    The type here has to be one the seeds do NOT already contain. "Pre-Rig"
+    used to qualify and stopped on 2026-09-04, when note 11 seeded Larry's
+    Scope/Activity list — which has "Pre-Rig" in it — into this table. The
+    create was then correctly refused as a duplicate, the pre-seeded row won,
+    and its day_label is its own name, so the assertion failed while the
+    collision it guards was still perfectly well fixed. A test fixture that
+    collides with real seed data measures the fixture."""
     _seed(db)
     s = _show(db)
     client.post("/phase-types/new",
-                data={"name": "Pre-Rig", "day_label": "Pre-Rig Day"},
+                data={"name": "Overnight Rig", "day_label": "Overnight Rig Day"},
                 follow_redirects=True)
     _db.session.add(ProductionPhase(show_id=s.id, name="Rig week",
-                                    phase_type="Pre-Rig",
+                                    phase_type="Overnight Rig",
                                     start_date=date(2026, 10, 1),
                                     end_date=date(2026, 10, 2)))
     _db.session.commit()
@@ -190,7 +220,7 @@ def test_a_new_type_keeps_its_own_day_label_on_auto_generate(client, db):
     client.post(f"/shows/{s.id}/schedule/generate-days", follow_redirects=True)
     days = ScheduleDay.query.filter_by(show_id=s.id).all()
     assert days, "no days generated"
-    assert {d.phase for d in days} == {"Pre-Rig Day"}, (
+    assert {d.phase for d in days} == {"Overnight Rig Day"}, (
         "a custom phase type was relabelled — the note-18 collision is back"
     )
 

@@ -179,6 +179,61 @@
       </div>
     </div>
 
+    <!-- ── What's happening today (note 11) ──────────────────────────────
+         Deliberately OUTSIDE the Save Day form. Each item is its own add and
+         its own remove, and a nested form is invalid HTML that browsers
+         resolve by dropping the inner one — silently, which is the worst way
+         to find out.
+
+         The list Larry picks from is the phase-type list he manages himself
+         (note 14). Jason, 2026-09-04: one vocabulary for both levels, so
+         adding "Pre-Rig" once makes it available as a day item AND as a
+         production phase, and the two cannot drift into two spellings. -->
+    <div class="card mb-3">
+      <div class="card-header d-flex align-items-center justify-content-between"
+           style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">
+        <span>{{ ico.icon('flag') }} What's Happening Today</span>
+        <a href="/phase-types" style="font-size:.7rem;text-transform:none;font-weight:600;">Manage list</a>
+      </div>
+      <div class="card-body p-3">
+        {% if day_items %}
+        <div class="d-flex flex-wrap gap-1 mb-2">
+          {% for di in day_items %}
+          <span class="d-inline-flex align-items-center gap-1"
+                style="font-size:.74rem;font-weight:600;background:var(--adi-surface,#F0F4F8);
+                       border:1px solid var(--adi-border,#DDE3ED);border-radius:4px;
+                       padding:2px 4px 2px 8px;">
+            {{ di.name }}
+            <form method="POST" style="display:inline;"
+                  action="{{ url_for('schedule.delete_day_item', show_id=show.id, day_id=day.id, item_id=di.id) }}">
+              <button type="submit" title="Remove from this day"
+                      style="border:none;background:none;color:var(--adi-muted,#64748B);
+                             line-height:1;padding:0 2px;font-size:.85rem;">×</button>
+            </form>
+          </span>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div style="font-size:.75rem;color:var(--adi-muted,#64748B);margin-bottom:8px;">
+          Nothing set. A day can be several of these at once — Travel and
+          Load In on the same date is normal.
+        </div>
+        {% endif %}
+        <form method="POST" class="d-flex gap-1"
+              action="{{ url_for('schedule.add_day_item', show_id=show.id, day_id=day.id) }}">
+          <select name="phase_type_id" class="form-select form-select-sm"
+                  style="font-size:.78rem;" required>
+            <option value="">— add to this day —</option>
+            {% for pt in day_item_choices %}
+            <option value="{{ pt.id }}">{{ pt.name }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-sm btn-outline-dark"
+                  style="white-space:nowrap;">Add</button>
+        </form>
+      </div>
+    </div>
+
     <!-- ── Recurring Events ──────────────────────────────────────────────
          Moved out of the timeline column on 2026-08-12. It is a statement
          ABOUT the day, not an event on it — the events themselves are placed
@@ -373,6 +428,19 @@
           {% if day.phase_labels %}
           <div style="font-size:.72rem;color:rgba(255,255,255,.7);" title="Overlapping production phases (#32)">
             {{ day.phase_labels | join(' · ') }}
+          </div>
+          {% endif %}
+          {# Note 11 — what this day IS. A day can be several of these at
+             once, which is the whole reason it is a list and not the single
+             `label` field beside it. #}
+          {% if day.item_labels %}
+          <div class="d-flex gap-1 flex-wrap" title="What is happening today">
+            {% for name in day.item_labels %}
+            <span style="font-size:.7rem;font-weight:600;letter-spacing:.04em;
+                         text-transform:uppercase;color:#0B2545;
+                         background:var(--adi-gold, #E8B84B);
+                         border-radius:3px;padding:1px 7px;">{{ name }}</span>
+            {% endfor %}
           </div>
           {% endif %}
           <div id="hours-on-clock" class="hours-badge ms-auto"></div>

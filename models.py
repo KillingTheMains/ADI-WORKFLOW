@@ -398,6 +398,13 @@ class ScheduleDay(db.Model):
         return "Date TBD"
 
     @property
+    def item_labels(self):
+        """What this day IS, in order (note 11). Every surface reads this, so
+        a day cannot say "Travel · Load In" in one place and something else in
+        another."""
+        return day_item_labels(self)
+
+    @property
     def phase_labels(self):
         """#32 — per-phase day labels for this date, e.g.
         ['Lighting Prep D2', 'Video Prep D1'], ordered by phase start date."""
@@ -804,6 +811,42 @@ PHASE_DAY_LABELS = {
 # Names that other code looks up as literal strings. Never renamable.
 LOAD_BEARING_PHASE_TYPES = ("Load In", "Show", "Strike")
 
+# Larry's own Scope / Activity vocabulary, from the `07 Lists` tab of his RFQ
+# master — the only controlled list of its kind in his Drive, and already in
+# CHRONOLOGICAL order, which is why it seeds cleanly into a sorted list. It
+# ends in "Other", the escape hatch that makes "add freely" and "controlled
+# list" compatible rather than opposed.
+#
+# Note 11 uses it for day items and, per Jason 2026-09-04, day items and
+# production phases share ONE vocabulary — so this seeds `phase_types`.
+#
+# `Load-In`, `Show` and `Strike` are deliberately absent: the list already has
+# "Load In", "Show" and "Strike", all three of them LOAD-BEARING. Seeding
+# Larry's hyphenated spelling alongside the existing one is precisely the
+# `Load In` / `Load-In` / `load in` split this project keeps warning about,
+# and it would put the duplicate next to a name other modules resolve by
+# string. The seeder matches on a normalised name so it skips them rather
+# than duplicating them; this constant carries the full list, in his order,
+# so the chronology is not silently reconstructed from a shorter one.
+SCOPE_ACTIVITY_SEED = [
+    "Travel", "Shop Prep", "Preproduction/Advance", "Mark Floor/Layout",
+    "Pre-Rig", "Load-In", "Install/Setup", "System Test/Commission",
+    "Focus/Programming", "Technical Rehearsal", "Dress Rehearsal", "Show",
+    "Maintenance/Standby", "Strike", "Load-Out", "Other",
+]
+
+
+def normalise_type_name(value):
+    """Compare phase-type names the way a human would.
+
+    Case-folded, whitespace collapsed, and hyphens read as spaces — so
+    "Load-In", "Load In" and "load  in" are ONE name. `positions.title` is the
+    standing example of what happens without this: no unique index, a
+    case-sensitive lookup, and a second "Rigger" splitting every count that
+    depends on it.
+    """
+    return " ".join((value or "").replace("-", " ").split()).strip().lower()
+
 
 class PhaseType(db.Model):
     """A production-phase type Larry can manage, shared by every show.
@@ -970,6 +1013,61 @@ class DayPhase(db.Model):
     @property
     def label(self):
         return f"{self.phase.name} D{self.day_index}" if self.phase else ""
+
+
+# ── Day items (note 11) ──────────────────────────────────────────────────────
+
+class DayItem(db.Model):
+    """What a day IS — Travel, Load-In, Focus/Programming.
+
+    Note 11. Larry: he wants to add these freely, and "more than one can be
+    assigned to the same day" — a day can be both Travel and Load In. So this
+    is a LABEL on the day, many per day, not a timed row: the day page already
+    has timed activities, and a second way to say "Load In 08:00" is how two
+    people put the same fact in two places.
+
+    Jason's call, 2026-09-04: ONE vocabulary, shared with production phase
+    types, so Larry maintains a single list and the two levels cannot drift.
+    That is why this points at `phase_types` rather than carrying a string or
+    growing a table of its own — a string here would reproduce the
+    `Load In` / `Load-In` / `load in` split the capture log keeps warning
+    about, on a brand new column.
+
+    The unique constraint is the other half of that: a day can carry many
+    items, but not the same one twice.
+    """
+    __tablename__ = "day_items"
+    __table_args__ = (db.UniqueConstraint("day_id", "phase_type_id",
+                                          name="uq_day_item"),)
+    id            = db.Column(db.Integer, primary_key=True)
+    day_id        = db.Column(db.Integer, db.ForeignKey("schedule_days.id"),
+                              nullable=False)
+    phase_type_id = db.Column(db.Integer, db.ForeignKey("phase_types.id"),
+                              nullable=False)
+    sort_order    = db.Column(db.Integer, default=0)
+
+    day = db.relationship("ScheduleDay",
+                          backref=db.backref("day_items",
+                                             cascade="all, delete-orphan"))
+    phase_type = db.relationship("PhaseType")
+
+    @property
+    def name(self):
+        return self.phase_type.name if self.phase_type else ""
+
+
+def day_item_labels(day):
+    """A day's items in list order — the one definition of how they read.
+
+    The day page, the call sheet and anything else that shows them go through
+    here, so "Travel · Load In" cannot become "Travel, Load In" somewhere
+    else.
+    """
+    items = sorted(getattr(day, "day_items", None) or [],
+                   key=lambda di: ((di.phase_type.sort_order
+                                    if di.phase_type else 0),
+                                   di.sort_order or 0, di.id or 0))
+    return [di.name for di in items if di.name]
 
 
 # ── Day Templates ────────────────────────────────────────────────────────────

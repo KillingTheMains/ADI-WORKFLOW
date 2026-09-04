@@ -7,7 +7,7 @@ from models import Show, ScheduleDay, ScheduleActivity, CrewRow, Position, CrewM
                    PHASES, CREW_TYPES, DayTemplate, PHASE_TYPES, ShowCrewAssignment, Company, \
                    SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break, DayPhase, \
                    MealService, MealServiceLocation, HardCodedEventDayOff, \
-                   MEAL_KINDS, phase_type_names
+                   MEAL_KINDS, phase_type_names, PhaseType, DayItem
 from datetime import date, timedelta
 from time_utils import sort_minutes, parse_minutes, hhmm_or_blank
 import re, json
@@ -563,6 +563,19 @@ def day_detail(show_id, day_id):
                                show, exclude_id=day.id),
                            sheet_day_items=day_picker_items(
                                show, checked_ids={day.id}),
+                           # Note 11 — what this day IS, and the vocabulary to
+                           # add from. Active types only: a type Larry has
+                           # deactivated stays on days that already carry it
+                           # (so nothing rewrites itself under him) but stops
+                           # being offered for new ones.
+                           day_items=sorted(
+                               day.day_items,
+                               key=lambda di: ((di.phase_type.sort_order
+                                                if di.phase_type else 0),
+                                               di.sort_order or 0)),
+                           day_item_choices=PhaseType.query.filter_by(
+                               is_active=True).order_by(
+                                   PhaseType.sort_order, PhaseType.name).all(),
                            meal_breaks_missing_fb=meal_breaks_missing_fb)
 
 
@@ -629,6 +642,70 @@ def edit_day(show_id, day_id):
     else:
         flash("Day updated.", "success")
     return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
+
+
+@schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/items/add",
+                   methods=["POST"])
+def add_day_item(show_id, day_id):
+    """Note 11 — tag a day with what it IS: Travel, Load In, Focus/Programming.
+
+    Larry asked for two things and they pull against each other: add them
+    freely, and more than one per day. The free part is served by the
+    vocabulary being a managed list he owns (the phase-type screen, note 14),
+    not by free text here — free text is how `Load In`, `Load-In` and
+    `load in` become three day types across three shows and the whole point of
+    a shared reference list is lost.
+
+    The same item twice on one day is silently ignored rather than refused.
+    `uq_day_item` would raise, and a 500 for double-clicking Add is a worse
+    answer than nothing happening.
+    """
+    day = ScheduleDay.query.get_or_404(day_id)
+    if day.show_id != show_id:
+        abort(404)
+
+    try:
+        type_id = int((request.form.get("phase_type_id") or "").strip())
+    except (TypeError, ValueError):
+        flash("Pick something for the day first.", "warning")
+        return redirect(url_for("schedule.day_detail", show_id=show_id,
+                                day_id=day_id))
+
+    pt = PhaseType.query.get(type_id)
+    if pt is None:
+        flash("That day item no longer exists.", "warning")
+        return redirect(url_for("schedule.day_detail", show_id=show_id,
+                                day_id=day_id))
+
+    if DayItem.query.filter_by(day_id=day.id, phase_type_id=pt.id).first():
+        flash(f"“{pt.name}” is already on this day.", "info")
+        return redirect(url_for("schedule.day_detail", show_id=show_id,
+                                day_id=day_id))
+
+    last = (db.session.query(db.func.max(DayItem.sort_order))
+            .filter_by(day_id=day.id).scalar() or 0)
+    db.session.add(DayItem(day_id=day.id, phase_type_id=pt.id,
+                           sort_order=last + 10))
+    db.session.commit()
+    flash(f"“{pt.name}” added to {day.date.strftime('%a %b %-d')}.", "success")
+    return redirect(url_for("schedule.day_detail", show_id=show_id,
+                            day_id=day_id))
+
+
+@schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/items/<int:item_id>/"
+                   "delete", methods=["POST"])
+def delete_day_item(show_id, day_id, item_id):
+    """Remove a day item. The vocabulary itself is untouched — this is the
+    day's tag, not Larry's list."""
+    item = DayItem.query.get_or_404(item_id)
+    if item.day_id != day_id or item.day.show_id != show_id:
+        abort(404)
+    name = item.name
+    db.session.delete(item)
+    db.session.commit()
+    flash(f"“{name}” removed from this day.", "success")
+    return redirect(url_for("schedule.day_detail", show_id=show_id,
+                            day_id=day_id))
 
 
 @schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/delete", methods=["POST"])
