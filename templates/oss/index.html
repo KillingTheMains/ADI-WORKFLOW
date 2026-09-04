@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% import '_icons.html' as ico %}
 {% import '_row_kinds.html' as rk %}
+{% import '_multi_picker.html' as mp %}
 {% block title %}{{ show.name }} — OSS{% endblock %}
 {% block page_title %}On-Site Schedule — {{ show.name }}{% endblock %}
 {% block breadcrumb %}
@@ -158,6 +159,13 @@
          title="Client-facing PDF — cover, at-a-glance, day-by-day, by department">
         {{ ico.icon('download') }} PDF
       </a>
+      {# Note 9 / 9b — the same document scoped to the sections you tick. #}
+      <button type="button" class="btn btn-sm btn-outline-dark"
+              style="white-space:nowrap;"
+              data-bs-toggle="modal" data-bs-target="#ossSectionsModal"
+              title="PDF only the sections you choose — Dock, Security, and so on">
+        {{ ico.icon('download') }} Sections
+      </button>
       <a href="{{ url_for('oss.master_xlsx', show_id=show.id) }}"
          class="btn btn-sm btn-outline-dark" style="white-space:nowrap;"
          title="Working spreadsheet — a sheet per department, filterable">
@@ -664,9 +672,40 @@
     </form>
   </div>
 </div>
+
+<!-- Section PDF (notes 9 / 9b) -->
+<div class="modal fade" id="ossSectionsModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title">{{ ico.icon('download') }} PDF Sections</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST"
+            action="{{ url_for('oss.sections_pdf', show_id=show.id) }}">
+        <div class="modal-body">
+          <div class="mb-3" style="font-size:.76rem;color:#6c757d;line-height:1.45;">
+            One PDF holding just the sections you tick — its own cover, key and
+            day-by-day, so it stands on its own when you hand it to a
+            department. Only sections with something in them are listed.
+          </div>
+          <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6c757d;margin-bottom:8px;">
+            Select Sections
+          </div>
+          {{ mp.multi_picker(oss_section_items, 'depts[]', 'oss-section-check') }}
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-adi">Download PDF →</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
+{{ mp.multi_picker_js() }}
 <script>
   // Activities grouped by day_id, used to populate the activity dropdowns.
   const ACTIVITIES_BY_DAY = {{ activities_by_day | tojson }};

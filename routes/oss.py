@@ -362,7 +362,29 @@ def oss_hub(show_id):
         dietary_notes         = dietary_notes,
         meal_kinds            = MEAL_KINDS,
         master_items          = master_items,
+        # Note 9b — sections to offer in the export picker.
+        oss_section_items     = _section_picker_items(master_items),
     )
+
+
+def _section_picker_items(master_items):
+    """Sections for `_multi_picker.html` (note 9b).
+
+    Offered from the departments actually PRESENT in this show's master items,
+    in the document's own order, with a row count each. Two consequences worth
+    stating:
+
+      * It sidesteps the canonical-department question that has been open
+        since August and blocks #2, #11 and #12. This picker does not need a
+        vocabulary — it needs the sections this show has, and the master
+        already knows them.
+      * You cannot tick a section that would come out empty, which is the
+        only way this export produces a blank PDF.
+    """
+    from oss_export import group_by_department
+    return [{"id": dept, "label": dept,
+             "note": f"({len(items)} item{'s' if len(items) != 1 else ''})"}
+            for dept, items in group_by_department(master_items)]
 
 
 def _ensure_radio_channels(show_id):
@@ -690,6 +712,64 @@ def master_pdf(show_id):
                   (show.code or show.name or "show")).strip("_") or "show"
     return _send_file(buf, as_attachment=True, mimetype="application/pdf",
                       download_name=f"{slug}_Master_Schedule_{stamp}.pdf")
+
+
+@oss_bp.route("/<int:show_id>/oss/sections.pdf", methods=["POST"])
+def sections_pdf(show_id):
+    """Note 9 / 9b — PDF the sections you tick, not the whole OSS.
+
+    Larry: "PDF an individual section — Dock, or Security — without having to
+    PDF the whole thing", and then, in the same conversation, "check which
+    ones you want" and one batch button.
+
+    ONE COMBINED PDF, not several files and not a ZIP. That was open in the
+    capture log; it is the same answer as note 17's call sheet packet — Larry
+    asked for "a batch document", singular, in both places, and a combined
+    document is the shape that already exists (the master, minus the sections
+    nobody ticked). Separate files would immediately need 9c's save-location
+    question answered, and a ZIP is a thing you have to unpack at a venue.
+
+    The document is standalone: paperwork header, cover, department key, its
+    own day-by-day. It is titled "Section Schedule" rather than "Master
+    Schedule" so nobody is holding a Dock-only document believing it is the
+    show.
+    """
+    import io
+    from flask import send_file as _send_file
+    from models import AgencySetting
+    from oss_pdf import build_pdf
+
+    show = Show.query.get_or_404(show_id)
+    depts = [d for d in request.form.getlist("depts[]") if (d or "").strip()]
+    if not depts:
+        flash("Pick at least one section to export.", "warning")
+        return redirect(url_for("oss.oss_hub", show_id=show_id, tab="master"))
+
+    entries = SubScheduleEntry.query.filter_by(show_id=show_id).all()
+    meals = MealService.query.filter_by(show_id=show_id).all()
+
+    agency = AgencySetting.get()
+    try:
+        from routes.agency import logo_path
+        logo_file = logo_path(agency)
+    except Exception:
+        logo_file = None
+
+    buf = io.BytesIO()
+    build_pdf(buf, show, entries, meals, agency=agency, logo_file=logo_file,
+              departments=depts)
+    buf.seek(0)
+
+    stamp = datetime.now().strftime("%Y%m%d")
+    slug = re.sub(r"[^A-Za-z0-9]+", "_",
+                  (show.code or show.name or "show")).strip("_") or "show"
+    # The file NAME says which sections are in it — these land in a Downloads
+    # folder beside the master and beside each other, and "show_Sections.pdf"
+    # three times over is how the wrong one gets sent.
+    part = re.sub(r"[^A-Za-z0-9]+", "_", "_".join(sorted(depts))).strip("_")
+    part = (part[:60] or "Sections") if len(depts) <= 3 else f"{len(depts)}_Sections"
+    return _send_file(buf, as_attachment=True, mimetype="application/pdf",
+                      download_name=f"{slug}_{part}_{stamp}.pdf")
 
 
 @oss_bp.route("/<int:show_id>/oss/show-book")

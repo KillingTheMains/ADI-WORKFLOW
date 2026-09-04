@@ -31,8 +31,8 @@ from reportlab.platypus import (BaseDocTemplate, Frame, KeepTogether,
 
 import brand
 from oss_export import (build_master_items, count_label, department_style,
-                        group_by_day, group_by_department, master_label,
-                        time_range_text)
+                        dept_label, group_by_day, group_by_department,
+                        master_label, time_range_text)
 
 
 MIDNIGHT = colors.HexColor(brand.MIDNIGHT)
@@ -137,15 +137,22 @@ class _DayTable(Table):
 class _Doc(BaseDocTemplate):
     """Letter portrait with the ADI header band and footer on every page."""
 
-    def __init__(self, buf, show, agency, logo_file, **kw):
+    def __init__(self, buf, show, agency, logo_file, doc_kind="Master Schedule",
+                 **kw):
         self.show, self.agency, self.logo_file = show, agency, logo_file
+        # What this document IS, in the running eyebrow on every page and in
+        # the PDF's own title metadata (note 9). The cover says it once; the
+        # eyebrow is what a reader sees on page 14 of a section export, and
+        # page 14 is exactly where somebody stops remembering which file they
+        # opened.
+        self.doc_kind = doc_kind
         BaseDocTemplate.__init__(
             self, buf, pagesize=letter,
             leftMargin=brand.MARGIN_LEFT_IN * inch,
             rightMargin=brand.MARGIN_RIGHT_IN * inch,
             topMargin=(brand.MARGIN_TOP_IN + brand.LOGO_BAND_H_IN + 0.22) * inch,
             bottomMargin=brand.MARGIN_BOTTOM_IN * inch,
-            title=f"{show.code or show.name or 'Show'} — Master Schedule",
+            title=f"{show.code or show.name or 'Show'} — {doc_kind}",
             author=getattr(agency, "name", None) or brand.SIGNATURE_FORMAL,
             **kw)
         frame = Frame(self.leftMargin, self.bottomMargin,
@@ -184,7 +191,7 @@ class _Doc(BaseDocTemplate):
 
     def _footer(self, canvas, doc):
         name = getattr(self.agency, "name", None) or brand.SIGNATURE_FORMAL
-        bits = [name, self.show.name or "", "Master Schedule", str(doc.page)]
+        bits = [name, self.show.name or "", self.doc_kind, str(doc.page)]
         canvas.setFont(brand.FONT_FALLBACK, brand.PT_FOOTER)
         canvas.setFillColor(MINERAL)
         canvas.drawRightString(
@@ -228,7 +235,7 @@ def _fact_table(rows, st):
     return t
 
 
-def _cover(show, agency, master_items, st):
+def _cover(show, agency, master_items, st, sections=None):
     days = [d for d, _ in group_by_day(master_items) if d and d.date]
     span = ""
     if days:
@@ -241,10 +248,16 @@ def _cover(show, agency, master_items, st):
                 "cover_eyebrow", fontName=brand.FONT_FALLBACK + "-Bold",
                 fontSize=brand.PT_EYEBROW, textColor=MINERAL, alignment=TA_LEFT)),
             Spacer(1, 6),
-            Paragraph("Master Schedule", ParagraphStyle(
-                "cover_title", fontName=brand.FONT_FALLBACK + "-Bold",
-                fontSize=brand.PT_TITLE, leading=brand.PT_TITLE + 4,
-                textColor=MIDNIGHT)),
+            # Note 9 — a section PDF must not be mistakable for the master.
+            # It carries the same cover, the same paperwork header and the
+            # same key, so the TITLE is what has to say which document this
+            # is. Somebody holding a Dock-only schedule and believing it is
+            # the whole show is exactly the failure to design out.
+            Paragraph("Master Schedule" if not sections else "Section Schedule",
+                      ParagraphStyle(
+                          "cover_title", fontName=brand.FONT_FALLBACK + "-Bold",
+                          fontSize=brand.PT_TITLE, leading=brand.PT_TITLE + 4,
+                          textColor=MIDNIGHT)),
             Spacer(1, 0.30 * inch)]
 
     flow.append(_fact_table([
@@ -252,6 +265,7 @@ def _cover(show, agency, master_items, st):
         ("Venue", show.venue.name if show.venue else None),
         ("Room", show.room_name),
         ("Dates", span),
+        ("Sections", ", ".join(sections) if sections else None),
         ("Schedule days", str(len(days)) if days else "0"),
         ("Total items", str(len(master_items))),
         ("Prepared by", getattr(agency, "name", None) or brand.SIGNATURE_FORMAL),
@@ -503,18 +517,48 @@ def _department_sections(master_items, st):
     return flow
 
 
-def build_pdf(buf, show, entries, meal_services, agency=None, logo_file=None):
+def build_pdf(buf, show, entries, meal_services, agency=None, logo_file=None,
+              departments=None):
     """Render the Master OSS into `buf`. Caller supplies the already-queried
-    collections so this stays a pure presentation layer over oss_export."""
+    collections so this stays a pure presentation layer over oss_export.
+
+    `departments` scopes the document to a subset of sections (note 9: "PDF an
+    individual section — Dock, or Security — without having to PDF the whole
+    thing"). It is applied to `master_items` and to NOTHING else, which is why
+    it costs three lines: the cover, the department key, the at-a-glance
+    table, the day sections and the department sections are every one of them
+    derived from that list. Filter once and a Dock-only PDF is a genuine
+    standalone document — its own header, its own key, its own day-by-day —
+    rather than the master with pages torn out of it.
+
+    Names are matched through `dept_label`, so a caller may pass either the
+    stored type or the label a user sees. Three departments differ between the
+    two (Hazer/Haze, House LX/House Lights, HVAC/HVAC / AC) and a section
+    export that silently produced an empty PDF for one of them would be a very
+    quiet way to hand somebody a blank schedule.
+    """
     master_items, _hardcoded = build_master_items(show, entries, meal_services)
+
+    sections = None
+    if departments:
+        wanted = {dept_label(d) for d in departments if d}
+        master_items = [i for i in master_items
+                        if dept_label(i.get("dept")) in wanted]
+        # What was ASKED for, not what turned out to have rows. A section the
+        # user picked that came back empty still belongs on the cover — the
+        # reader needs to see that Security was included and had nothing in
+        # it, rather than wonder whether it was left out.
+        sections = sorted(wanted)
+
     st = _styles()
 
-    doc = _Doc(buf, show, agency, logo_file)
+    doc = _Doc(buf, show, agency, logo_file,
+               doc_kind="Section Schedule" if sections else "Master Schedule")
     # Page one uses the cover template; everything after switches to the body
     # template, which adds the running eyebrow. BaseDocTemplate decorates
     # pages through PageTemplate.onPage, not build() kwargs.
     flow = [NextPageTemplate("body")]
-    flow += _cover(show, agency, master_items, st)
+    flow += _cover(show, agency, master_items, st, sections=sections)
     if master_items:
         flow += _at_a_glance(master_items, st)
         flow += _day_sections(master_items, st)
