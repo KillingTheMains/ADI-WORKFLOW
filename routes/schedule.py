@@ -745,38 +745,95 @@ def bulk_shift(show_id, day_id):
 @schedule_bp.route("/<int:show_id>/schedule/<int:day_id>/activities/<int:act_id>/copy-to-days",
                    methods=["POST"])
 def copy_activity_to_days(show_id, day_id, act_id):
+    """Copy an activity — and everything on it — onto other days of the show.
+
+    Note 16, 2026-09-04. Three things this route got wrong until now, all
+    silent:
+
+      * `task` was not copied. That is the field local labor lives on
+        ("Catwalk Strike", "Hang / Circuit Lights") and the reason the 2025
+        workbook's 117 welded slot titles collapse to about ten positions.
+        A copied call arrived with every task stripped.
+      * `header_level` and `company_id` were not copied, so every copied
+        section header landed as an unbound level-1. `company_header_for`
+        could not then match it, and the next person added to that day got a
+        SECOND header for a company that already had one — undoing note 3.
+      * `sort_order` was copied verbatim into a day that already had rows, so
+        two rows shared a number and ordering fell through to `id`.
+
+    Jason's calls, 2026-09-04:
+      * A target day that already has a crew call KEEPS IT. The copy lands
+        alongside, placed chronologically rather than appended — two 08:00
+        calls with different people on them is a real thing.
+      * Times are editable per target day, defaulting to the source time.
+      * The crew comes with it, always. The checkbox that used to ask was one
+        more way to get it wrong.
+
+    Breaks deliberately do NOT come along: `crew_breaks.activity_id` is
+    UNIQUE, breaks are created on the crew call now, and a copy is a new call.
+    `actual_hours` does not come either — an actual belongs to the shift that
+    was worked, not to a plan for another day.
+    """
     act = ScheduleActivity.query.get_or_404(act_id)
     target_ids = request.form.getlist("target_day_ids[]")
-    copy_crew  = request.form.get("copy_crew") == "1"
-    count = 0
+
+    # DISPLAY order, not PK order — the order the day page renders, so a copy
+    # looks like the thing that was copied.
+    source_rows = act.ordered_crew_rows
+
+    copied_days = copied_rows = 0
     for tid in target_ids:
         try:
             target = ScheduleDay.query.get(int(tid))
-        except ValueError:
+        except (TypeError, ValueError):
             continue
         if not target or target.show_id != show_id:
             continue
-        last = db.session.query(db.func.max(ScheduleActivity.sort_order)).filter_by(day_id=target.id).scalar() or 0
+
+        when = (request.form.get(f"target_time_{target.id}") or "").strip()
+
+        last = db.session.query(db.func.max(ScheduleActivity.sort_order)) \
+                 .filter_by(day_id=target.id).scalar() or 0
         new_act = ScheduleActivity(
-            day_id=target.id, time=act.time,
+            day_id=target.id, time=when or act.time,
             description=act.description, notes=act.notes,
             sort_order=last + 10,
         )
         db.session.add(new_act)
         db.session.flush()
-        if copy_crew:
-            for row in act.crew_rows:
-                db.session.add(CrewRow(
-                    activity_id=new_act.id, sort_order=row.sort_order,
-                    is_group_header=row.is_group_header, group_label=row.group_label,
-                    qty=row.qty, hours=row.hours, position=row.position,
-                    position_id=row.position_id, crew_member_id=row.crew_member_id,
-                    name_override=row.name_override, crew_type=row.crew_type,
-                    notes=row.notes,
-                ))
-        count += 1
+
+        for i, row in enumerate(source_rows):
+            db.session.add(CrewRow(
+                activity_id=new_act.id,
+                sort_order=(i + 1) * 10,
+                is_group_header=row.is_group_header,
+                group_label=row.group_label,
+                header_level=row.header_level,
+                company_id=row.company_id,
+                qty=row.qty, hours=row.hours,
+                position=row.position, position_id=row.position_id,
+                crew_member_id=row.crew_member_id,
+                name_override=row.name_override,
+                crew_type=row.crew_type,
+                task=row.task,
+                notes=row.notes,
+            ))
+            copied_rows += 1
+
+        # Chronological placement. `_resort_day_by_time` is what add_activity
+        # and edit_activity already use, so a copied-into day is left in the
+        # same shape any other edit would leave it.
+        _resort_day_by_time(target.id)
+        copied_days += 1
+
     db.session.commit()
-    flash(f'"{act.description}" copied to {count} day{"s" if count != 1 else ""}.', "success")
+    if copied_days:
+        flash(f'"{act.description}" copied to {copied_days} '
+              f'day{"s" if copied_days != 1 else ""} '
+              f'({copied_rows} crew row{"s" if copied_rows != 1 else ""}).',
+              "success")
+    else:
+        flash("Nothing copied — pick at least one day.", "warning")
     return redirect(url_for("schedule.day_detail", show_id=show_id, day_id=day_id))
 
 

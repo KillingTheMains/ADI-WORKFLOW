@@ -835,7 +835,7 @@
                     data-bs-toggle="collapse" data-bs-target="#edit-act-{{ act.id }}"
                     title="Edit">{{ ico.icon('pencil') }}</button>
             <button class="act-action-btn"
-                    onclick="openCopyModal({{ act.id }}, {{ act.description|tojson }})"
+                    onclick="openCopyModal({{ act.id }}, {{ act.description|tojson }}, {{ (act.time|to_24hr)|tojson }})"
                     title="Copy to other days">{{ ico.icon('copy') }}</button>
             {% if day.phase %}
             <form method="POST"
@@ -2456,11 +2456,13 @@
           <div class="mb-2">
             <strong id="copy-modal-desc" style="font-size:.85rem;"></strong>
           </div>
-          <div class="form-check mb-3">
-            <input class="form-check-input" type="checkbox" name="copy_crew" value="1" id="copy-crew-check">
-            <label class="form-check-label" for="copy-crew-check" style="font-size:.82rem;">
-              Also copy crew rows
-            </label>
+          {# Note 16, 2026-09-04. The crew used to be opt-in behind a checkbox.
+             Copying a crew call without its people is not a thing anyone
+             wanted, and the checkbox was one more way to get it wrong. #}
+          <div class="mb-3" style="font-size:.76rem;color:#6c757d;line-height:1.45;">
+            The whole call comes with it — crew, section headers and tasks.
+            A day that already has a call keeps it; this lands alongside, in
+            time order.
           </div>
           <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6c757d;margin-bottom:8px;">
             Select Days
@@ -2469,7 +2471,7 @@
             <button type="button" class="btn btn-xs btn-outline-secondary"
                     style="font-size:.72rem;padding:2px 8px;" onclick="selectAllDays(true)">Select All</button>
             <button type="button" class="btn btn-xs btn-outline-secondary ms-1"
-                    style="font-size:.72px;padding:2px 8px;" onclick="selectAllDays(false)">Deselect All</button>
+                    style="font-size:.72rem;padding:2px 8px;" onclick="selectAllDays(false)">Deselect All</button>
           </div>
           <div id="copy-days-list" style="max-height:280px;overflow-y:auto;">
             {% set current_phase = namespace(val='') %}
@@ -2483,19 +2485,29 @@
                     {{ d.phase }}
                   </div>
                 {% endif %}
-                <div class="form-check">
-                  <input class="form-check-input copy-day-check" type="checkbox"
+                <div class="d-flex align-items-center gap-2" style="padding:2px 0;">
+                  <input class="form-check-input copy-day-check m-0 flex-shrink-0"
+                         type="checkbox"
                          name="target_day_ids[]" value="{{ d.id }}"
                          id="copy-day-{{ d.id }}"
                          data-phase="{{ d.phase or '' }}">
-                  <label class="form-check-label" for="copy-day-{{ d.id }}"
-                         style="font-size:.82rem;">
+                  <label class="form-check-label flex-grow-1" for="copy-day-{{ d.id }}"
+                         style="font-size:.82rem;cursor:pointer;">
                     {{ d.date.strftime('%a %b %-d') }}
                     {% if d.label %}<span class="text-muted"> — {{ d.label }}</span>{% endif %}
                     <span class="text-muted" style="font-size:.72rem;">
                       ({{ d.activities|length }} activities)
                     </span>
                   </label>
+                  {# Per-day call time (note 16). Seeded from the source
+                     activity when the modal opens — a 06:00 load-in call
+                     copied onto a show day usually wants a different time.
+                     Left blank it falls back to the source time server-side. #}
+                  <input type="time"
+                         class="form-control form-control-sm copy-day-time flex-shrink-0"
+                         name="target_time_{{ d.id }}"
+                         style="width:108px;font-size:.74rem;padding:1px 5px;"
+                         title="Call time on this day — defaults to the source time">
                 </div>
               {% endif %}
             {% endfor %}
@@ -2690,10 +2702,17 @@ durationInput?.addEventListener('input', updateTimeCalc);
 })();
 
 // ── Copy to Days modal ────────────────────────────────────────────────────────
-function openCopyModal(actId, desc) {
+function openCopyModal(actId, desc, time) {
   document.getElementById('copy-modal-desc').textContent = desc;
   const base = '{{ url_for("schedule.copy_activity_to_days", show_id=show.id, day_id=day.id, act_id=0) }}';
   document.getElementById('copy-to-days-form').action = base.replace('/0/', `/${actId}/`);
+  // Seed every day's time box from the source call. The caller passes it
+  // through `to_24hr` — an <input type="time"> silently renders anything else
+  // as an empty box, which then posts back blank and loses the time.
+  document.querySelectorAll('.copy-day-time').forEach(el => { el.value = time || ''; });
+  // One modal serves every activity on the page, so clear the last selection
+  // rather than inheriting it.
+  document.querySelectorAll('.copy-day-check').forEach(cb => { cb.checked = false; });
   const modal = new bootstrap.Modal(document.getElementById('copyToDaysModal'));
   modal.show();
 }
