@@ -55,7 +55,79 @@ COLUMN_ALIASES = {
     "arrival_flight_raw":  ["arrival flight", "arrival flight # / time", "arrival flight #/time", "flight in", "arrival"],
     "departure_flight_raw":["departure flight", "departure flight # / time", "departure flight #/time", "flight out", "departure"],
     "itinerary_link":      ["travel itinerary", "travel itinerary (link)", "itinerary", "itinerary link"],
+    # Note 19 — ONE column holding the whole name. Split by
+    # `split_person_name` when there is no separate first/last pair. Listed
+    # last so a file with both a "Name" column AND real first/last columns
+    # prefers the explicit pair, which is always more reliable than splitting.
+    "full_name":       ["name", "full name", "crew member", "crew name",
+                        "crew", "person", "employee", "employee name",
+                        "last, first", "name (last, first)", "first last"],
 }
+
+
+# Word fragments that belong to the SURNAME even though they look like
+# separate words. "Ann Van Der Berg" is not first="Ann Van Der".
+NAME_PARTICLES = {"van", "von", "de", "del", "della", "der", "den", "di",
+                  "da", "du", "la", "le", "ter", "ten", "af", "av", "bin",
+                  "ibn", "al"}
+
+# Trailing tokens that are not a surname and must not be treated as one.
+NAME_SUFFIXES = {"jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "v",
+                 "phd", "ph.d.", "md", "m.d.", "esq", "esq."}
+
+
+def split_person_name(value):
+    """One name string → (first, last). Note 19.
+
+    HEURISTIC, AND HONESTLY SO. Splitting a human name is not a solved
+    problem and this will be wrong sometimes — which is exactly why the
+    importer shows a preview and lets a person disagree before anything is
+    written. It is a good guess, not an authority.
+
+    What it handles, in order:
+
+      * `"Smith, Ann"` — a comma means surname-first. Unambiguous and common
+        in exported crew lists, so it is checked before anything else.
+      * `"Ann Smith Jr."` — a trailing suffix is not a surname. It travels
+        with the surname rather than becoming one.
+      * `"Ann Van Der Berg"` — a particle pulls everything after it into the
+        surname. Without this the surname is "Berg" and the first name is
+        "Ann Van Der", which is worse than useless on a call sheet.
+      * `"Ann Marie Smith"` — no particle, so the LAST token is the surname
+        and everything before it is the given name. Middle names read as part
+        of the first name, which is the convention on ADI's own paperwork.
+      * `"Cher"` — a single token is a first name with no surname recorded.
+        NOT a placeholder: `name_is_unnamed_slot` leaves it alone, so it
+        stays a person.
+    """
+    raw = " ".join((value or "").split()).strip()
+    if not raw:
+        return "", ""
+
+    if "," in raw:
+        last, _, first = raw.partition(",")
+        return first.strip(), last.strip()
+
+    tokens = raw.split()
+    if len(tokens) == 1:
+        return tokens[0], ""
+
+    suffix = []
+    while len(tokens) > 2 and tokens[-1].lower().strip(".,") in {
+            s.strip(".") for s in NAME_SUFFIXES}:
+        suffix.insert(0, tokens.pop())
+
+    cut = None
+    for i in range(1, len(tokens)):
+        if tokens[i].lower() in NAME_PARTICLES:
+            cut = i
+            break
+    if cut is None:
+        cut = len(tokens) - 1
+
+    first = " ".join(tokens[:cut])
+    last = " ".join(tokens[cut:] + suffix)
+    return first, last
 
 
 def _normalize_header(h):
@@ -76,6 +148,29 @@ def _map_columns(header_row):
     return mapping
 
 
+def _find_header_row(rows, max_scan=10):
+    """Which row is the header? Note 19.
+
+    This used to be `rows[0]`, full stop — so a workbook with a title row, a
+    blank spacer, or a merged banner above the headers failed outright, and
+    that is a very ordinary shape for something a vendor sends.
+
+    Scores each of the first few rows by how many columns it recognises and
+    takes the best. Ties go to the EARLIEST row (strict `>`), because a real
+    header sits above its data and a later row scoring the same is more
+    likely to be data that happens to look like one.
+
+    Returns `(index, score)`. A score of 0 means nothing was recognised
+    anywhere, which is the case the mapping step exists for.
+    """
+    best_idx, best_score = 0, -1
+    for i, row in enumerate(rows[:max_scan]):
+        score = len(_map_columns(row))
+        if score > best_score:
+            best_idx, best_score = i, score
+    return best_idx, max(best_score, 0)
+
+
 def _parse_xlsx(file_storage):
     """Parse the uploaded XLSX into a list of row dicts. Raises ValueError on bad input."""
     try:
@@ -91,16 +186,22 @@ def _parse_xlsx(file_storage):
     if not rows:
         raise ValueError("The spreadsheet is empty.")
 
-    header = rows[0]
+    header_idx, _score = _find_header_row(rows)
+    header = rows[header_idx]
     mapping = _map_columns(header)
-    if "first_name" not in mapping or "last_name" not in mapping:
+    # A single "Name" column is a valid way to give a name, so the file is
+    # only unreadable when there is NEITHER a first/last pair NOR a whole-name
+    # column. Note 19.
+    if (("first_name" not in mapping or "last_name" not in mapping)
+            and "full_name" not in mapping):
         raise ValueError(
-            "Couldn't find First Name + Last Name columns. "
+            "Couldn't find First Name + Last Name columns, or a single Name "
+            "column. "
             f"Found headers: {[str(h) for h in header if h is not None]}"
         )
 
     out = []
-    for i, row in enumerate(rows[1:], start=2):  # data starts on row 2
+    for i, row in enumerate(rows[header_idx + 1:], start=header_idx + 2):
         rec = {"n": i}
         for field, col_idx in mapping.items():
             if col_idx < len(row):
@@ -108,6 +209,17 @@ def _parse_xlsx(file_storage):
                 rec[field] = (str(val).strip() if val is not None else "")
             else:
                 rec[field] = ""
+
+        # Split a whole-name column, but only into halves the file did not
+        # already give explicitly. An explicit column always beats a guess.
+        whole = (rec.pop("full_name", "") or "").strip()
+        if whole:
+            guess_first, guess_last = split_person_name(whole)
+            if not rec.get("first_name"):
+                rec["first_name"] = guess_first
+            if not rec.get("last_name"):
+                rec["last_name"] = guess_last
+
         # Drop a row only when it is GENUINELY empty. This used to drop any row
         # with no first AND no last — which silently discarded a called slot
         # that has a position but nobody booked into it yet, and made the
