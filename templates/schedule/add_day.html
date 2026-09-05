@@ -18,11 +18,11 @@
             <div class="col-md-6">
               <label class="form-label">Date <span class="text-danger">*</span></label>
               <input type="date" name="date" class="form-control" required
-                     value="{{ suggested_date.isoformat() if suggested_date else '' }}">
+                     value="{{ suggested_date.isoformat() if suggested_date else '' }}" aria-label="Date">
             </div>
             <div class="col-md-6">
               <label class="form-label">Phase</label>
-              <select name="phase" class="form-select">
+              <select name="phase" class="form-select" aria-label="Phase">
                 <option value="">— Select Phase —</option>
                 {% for p in phases %}
                 <option value="{{ p }}">{{ p }}</option>
@@ -32,28 +32,28 @@
             <div class="col-12">
               <label class="form-label">Day Label</label>
               <input type="text" name="label" class="form-control"
-                     placeholder="e.g. Load In Day 1 / Show Day / Strike">
+                     placeholder="e.g. Load In Day 1 / Show Day / Strike" aria-label="Day Label">
             </div>
             <div class="col-md-6">
               <label class="form-label">Start of Day</label>
               <input type="text" name="sod" class="form-control"
-                     placeholder="e.g. 6:00 AM">
+                     placeholder="e.g. 6:00 AM" aria-label="Start of Day">
             </div>
             <div class="col-md-6">
               <label class="form-label">End of Day</label>
               <input type="text" name="eod" class="form-control"
-                     placeholder="e.g. 11:00 PM">
+                     placeholder="e.g. 11:00 PM" aria-label="End of Day">
             </div>
             <div class="col-12">
               <label class="form-label">Milestones</label>
               <textarea name="milestones" class="form-control" rows="3"
-                        placeholder="One milestone per line — e.g.&#10;Rigging complete&#10;LED wall up and cabled&#10;Audio system check"></textarea>
+                        placeholder="One milestone per line — e.g.&#10;Rigging complete&#10;LED wall up and cabled&#10;Audio system check" aria-label="Milestones"></textarea>
               <div class="form-text">One item per line — these appear at the bottom of the day in the OSS</div>
             </div>
             <div class="col-12">
               <label class="form-label">Notes</label>
               <textarea name="notes" class="form-control" rows="2"
-                        placeholder="Internal notes for this day..."></textarea>
+                        placeholder="Internal notes for this day..." aria-label="Notes"></textarea>
             </div>
           </div>
         </div>

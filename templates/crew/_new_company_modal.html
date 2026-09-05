@@ -9,16 +9,16 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">+ New Company</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <div class="mb-2">
-          <label class="form-label" style="font-size:.82rem;font-weight:600;">Company name</label>
+          <label for="nc-name" class="form-label" style="font-size:.82rem;font-weight:600;">Company name</label>
           <input type="text" id="nc-name" class="form-control"
                  placeholder="e.g. Acme Staging" required>
         </div>
         <div>
-          <label class="form-label" style="font-size:.82rem;font-weight:600;">Code <span style="font-weight:400;color:#888;">(optional)</span></label>
+          <label for="nc-code" class="form-label" style="font-size:.82rem;font-weight:600;">Code <span style="font-weight:400;color:#888;">(optional)</span></label>
           <input type="text" id="nc-code" class="form-control" placeholder="e.g. BAV, CT">
         </div>
         <div id="nc-msg" class="mt-2" style="font-size:.78rem;"></div>

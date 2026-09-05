@@ -36,7 +36,7 @@
 
     <!-- Department filter -->
     <div class="col-md-2">
-      <select id="filter-dept" class="form-select form-select-sm">
+      <select id="filter-dept" class="form-select form-select-sm" aria-label="Filter by department">
         <option value="">All Departments</option>
         {% set depts = members | map(attribute='position') | select | map(attribute='department') | select | unique | sort %}
         {% for d in depts %}
@@ -47,7 +47,7 @@
 
     <!-- Company filter -->
     <div class="col-md-2">
-      <select id="filter-company" class="form-select form-select-sm">
+      <select id="filter-company" class="form-select form-select-sm" aria-label="Filter by company">
         <option value="">All Companies</option>
         {% set companies_used = members | map(attribute='company') | select | unique | sort(attribute='name') %}
         {% for c in companies_used %}
@@ -58,7 +58,7 @@
 
     <!-- Status filter -->
     <div class="col-md-2">
-      <select id="filter-status" class="form-select form-select-sm">
+      <select id="filter-status" class="form-select form-select-sm" aria-label="Filter by status">
         <option value="">Active &amp; Inactive</option>
         <option value="active">Active only</option>
         <option value="inactive">Inactive only</option>
@@ -67,7 +67,7 @@
 
     <!-- Sort -->
     <div class="col-md-2">
-      <select id="sort-by" class="form-select form-select-sm">
+      <select id="sort-by" class="form-select form-select-sm" aria-label="Sort by">
         <option value="name-asc">Sort: Name A→Z</option>
         <option value="name-desc">Sort: Name Z→A</option>
         <option value="dept-asc">Sort: Department</option>
@@ -89,7 +89,7 @@
 </div>
 
 <!-- ── Bulk actions bar (#42) ───────────────────────────────────────────── -->
-<div id="bulk-bar" class="d-flex align-items-center gap-2 mb-2" style="display:none;">
+<div id="bulk-bar" class="d-flex align-items-center gap-2 mb-2" hidden>
   <span style="font-size:.82rem;color:var(--adi-muted);"><strong id="bulk-count">0</strong> selected</span>
   <button type="button" class="btn btn-sm btn-adi" id="bulk-edit-open">Bulk Edit…</button>
   <button type="button" class="btn btn-sm btn-outline-secondary" id="bulk-clear">Clear</button>
@@ -134,15 +134,15 @@
               style="cursor:grab;text-align:center;color:var(--adi-mineral);font-size:1rem;user-select:none;"
               title="Drag to reorder">⋮⋮</td>
           <td style="text-align:center;">
-            <input type="checkbox" class="crew-select" value="{{ m.id }}">
+            <input type="checkbox" class="crew-select" value="{{ m.id }}" aria-label="Select {{ m.full_name }}">
           </td>
           <form method="POST" action="{{ url_for('crew.edit_inline', member_id=m.id) }}" style="display:contents;">
             <td class="px-2">
               <div class="d-flex gap-1">
                 <input type="text" name="first_name" value="{{ m.first_name }}"
-                       class="form-control form-control-sm" style="font-size:.78rem;max-width:110px;">
+                       class="form-control form-control-sm" style="font-size:.78rem;max-width:110px;" aria-label="First name for {{ m.full_name }}">
                 <input type="text" name="last_name"  value="{{ m.last_name }}"
-                       class="form-control form-control-sm" style="font-size:.78rem;max-width:130px;">
+                       class="form-control form-control-sm" style="font-size:.78rem;max-width:130px;" aria-label="Last name for {{ m.full_name }}">
               </div>
             </td>
             <td class="text-muted" style="font-size:.72rem;">
@@ -150,7 +150,7 @@
             </td>
             <td>
               <select name="position_id" class="form-select form-select-sm crew-position-select"
-                      style="font-size:.74rem;max-width:180px;">
+                      style="font-size:.74rem;max-width:180px;" aria-label="Position for {{ m.full_name }}">
                 <option value="">—</option>
                 {% for p in positions %}
                 <option value="{{ p.id }}" {% if m.position_id == p.id %}selected{% endif %}>{{ p.title }}</option>
@@ -159,7 +159,7 @@
               </select>
             </td>
             <td>
-              <select name="company_id" class="form-select form-select-sm crew-company-select" style="font-size:.74rem;max-width:150px;">
+              <select name="company_id" class="form-select form-select-sm crew-company-select" style="font-size:.74rem;max-width:150px;" aria-label="Company for {{ m.full_name }}">
                 <option value="">—</option>
                 {% for co in companies %}
                 <option value="{{ co.id }}" {% if m.company_id == co.id %}selected{% endif %}>{{ co.name }}</option>
@@ -169,11 +169,11 @@
             </td>
             <td>
               <input type="email" name="email" value="{{ m.email or '' }}"
-                     class="form-control form-control-sm" style="font-size:.74rem;max-width:200px;">
+                     class="form-control form-control-sm" style="font-size:.74rem;max-width:200px;" aria-label="Email for {{ m.full_name }}">
             </td>
             <td>
               <input type="text" name="phone" value="{{ m.phone or '' }}"
-                     class="form-control form-control-sm" style="font-size:.74rem;max-width:130px;">
+                     class="form-control form-control-sm" style="font-size:.74rem;max-width:130px;" aria-label="Phone for {{ m.full_name }}">
             </td>
             <td class="text-muted" style="font-size:.76rem;">
               {{ '$%.0f' % m.rate_standard if m.rate_standard else '—' }}
@@ -395,7 +395,7 @@
       <form method="POST" action="{{ url_for('crew.bulk_edit') }}">
         <div class="modal-header">
           <h5 class="modal-title">Bulk Edit — <span id="bulk-modal-count">0</span> crew</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
           <p style="font-size:.8rem;color:var(--adi-muted);">
@@ -405,7 +405,7 @@
           <input type="hidden" name="ids" id="bulk-ids">
           <div class="mb-3">
             <label class="form-label" style="font-size:.82rem;font-weight:600;">Position</label>
-            <select name="position_id" class="form-select form-select-sm crew-position-select">
+            <select name="position_id" class="form-select form-select-sm crew-position-select" aria-label="Position">
               <option value="">— leave unchanged —</option>
               {% for p in positions %}<option value="{{ p.id }}">{{ p.title }}</option>{% endfor %}
               <option value="__new__" style="font-style:italic;color:#B45309;">+ New position…</option>
@@ -413,7 +413,7 @@
           </div>
           <div class="mb-1">
             <label class="form-label" style="font-size:.82rem;font-weight:600;">Company</label>
-            <select name="company_id" class="form-select form-select-sm crew-company-select">
+            <select name="company_id" class="form-select form-select-sm crew-company-select" aria-label="Company">
               <option value="">— leave unchanged —</option>
               {% for co in companies %}<option value="{{ co.id }}">{{ co.name }}</option>{% endfor %}
               <option value="__new__" style="font-style:italic;color:#B45309;">+ New company…</option>
@@ -444,7 +444,10 @@
   function refresh() {
     const n = selected().length;
     if (countEl) countEl.textContent = n;
-    if (bar) bar.style.display = n ? 'flex' : 'none';
+    // The [hidden] attribute, not style.display: Bootstrap's .d-flex is
+    // !important and beat an inline display:none, so the bar showed
+    // "0 selected" permanently. Found by the 09-05 critique.
+    if (bar) bar.hidden = !n;
   }
 
   document.addEventListener('change', function (e) {

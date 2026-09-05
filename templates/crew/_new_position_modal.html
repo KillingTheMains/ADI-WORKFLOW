@@ -9,17 +9,17 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">+ New Position</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <div class="mb-3">
-          <label class="form-label" style="font-size:.82rem;font-weight:600;">Title</label>
+          <label for="np-title" class="form-label" style="font-size:.82rem;font-weight:600;">Title</label>
           <input type="text" id="np-title" class="form-control"
                  placeholder="e.g. Steadicam Op, TelePrompter Op" required>
         </div>
         <div class="row g-2">
           <div class="col-md-6">
-            <label class="form-label" style="font-size:.82rem;font-weight:600;">Department</label>
+            <label for="np-department" class="form-label" style="font-size:.82rem;font-weight:600;">Department</label>
             <input type="text" id="np-department" class="form-control" list="np-depts"
                    placeholder="e.g. Video">
             <datalist id="np-depts">
@@ -30,7 +30,7 @@
             </datalist>
           </div>
           <div class="col-md-6">
-            <label class="form-label" style="font-size:.82rem;font-weight:600;">Type</label>
+            <label for="np-type" class="form-label" style="font-size:.82rem;font-weight:600;">Type</label>
             <select id="np-type" class="form-select">
               <option value="">—</option>
               <option value="lead">Lead</option>

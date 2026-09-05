@@ -115,6 +115,12 @@
   --bs-focus-ring-width:     2px;
 }
 
+/* [hidden] must win against Bootstrap's !important display utilities
+   (.d-flex, .d-block…). Bootstrap's own reboot has this rule, but its
+   utilities come later in the same file and beat it. This sheet loads last,
+   so from here the attribute is authoritative. The bulk-action bars use it. */
+[hidden] { display: none !important; }
+
 /* ── Base ────────────────────────────────────────────────────────────────── */
 body {
   font-family: 'Barlow', 'Segoe UI', system-ui, sans-serif;
@@ -723,6 +729,16 @@ input[type="number"], input[type="time"] { font-variant-numeric: tabular-nums; }
   background: var(--adi-blue-dim);
 }
 .crew-drag-handle:active, .act-drag-handle:active { cursor: grabbing; }
+
+
+/* Section collapse control on crew-call group headers: a <button> reset to
+   the glyph it used to be as a <span>, so keyboard and screen readers get it
+   without the row changing shape. */
+.crew-table .group-header .sect-toggle {
+  border: 0; background: none; padding: 0; margin: 0;
+  width: 12px; display: inline-block; cursor: pointer;
+  color: inherit; font: inherit; line-height: 1; vertical-align: baseline;
+}
 
 /* ── Buttons ─────────────────────────────────────────────────────────────── */
 .btn-adi {

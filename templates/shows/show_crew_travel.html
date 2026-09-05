@@ -287,7 +287,7 @@
         {% endif %}
         <tr>
           <td class="chk-col">
-            <input type="checkbox" class="bulk-row-check" form="bulk-dates-form"
+            <input type="checkbox" class="bulk-row-check" form="bulk-dates-form" aria-label="Select {{ a.crew_member.display_label }}"
                    name="assignment_ids" value="{{ a.id }}"
                    {% if sort_by == 'company' %}data-company="{{ co_name }}"{% endif %}>
           </td>
@@ -302,18 +302,18 @@
             {% if a.crew_member.company %}{{ a.crew_member.company.name }}{% endif %}
           </td>
           <td style="border-left:1px solid #E8E4D7;">
-            <input form="{{ fid }}" type="text" name="hotel_name"
+            <input form="{{ fid }}" aria-label="Hotel for {{ a.crew_member.display_label }}" type="text" name="hotel_name"
                    value="{{ a.hotel_name or '' }}"
                    placeholder="Hotel name" class="form-control form-control-sm">
           </td>
           <td>
-            <input form="{{ fid }}" type="date" name="travel_in_date"
+            <input form="{{ fid }}" aria-label="Travel in for {{ a.crew_member.display_label }}" type="date" name="travel_in_date"
                    value="{{ a.travel_in_date.isoformat() if a.travel_in_date else '' }}"
                    class="form-control form-control-sm"
                    title="Shared with Travel In on the Crew booking sheet">
           </td>
           <td>
-            <input form="{{ fid }}" type="date" name="travel_out_date"
+            <input form="{{ fid }}" aria-label="Travel out for {{ a.crew_member.display_label }}" type="date" name="travel_out_date"
                    value="{{ a.travel_out_date.isoformat() if a.travel_out_date else '' }}"
                    class="form-control form-control-sm"
                    title="Shared with Travel Out on the Crew booking sheet">
@@ -322,37 +322,37 @@
             {{ a.stay_nights if a.stay_nights is not none else '—' }}
           </td>
           <td>
-            <input form="{{ fid }}" type="text" name="hotel_confirmation"
+            <input form="{{ fid }}" aria-label="Hotel confirmation for {{ a.crew_member.display_label }}" type="text" name="hotel_confirmation"
                    value="{{ a.hotel_confirmation or '' }}"
                    placeholder="Conf #" class="form-control form-control-sm conf">
           </td>
           <td>
-            <input form="{{ fid }}" type="text" name="hotel_cost"
+            <input form="{{ fid }}" aria-label="Hotel cost for {{ a.crew_member.display_label }}" type="text" name="hotel_cost"
                    value="{{ '%.2f' % a.hotel_cost if a.hotel_cost is not none else '' }}"
                    placeholder="0.00" class="form-control form-control-sm cost">
           </td>
           <td style="border-left:1px solid #E8E4D7;">
-            <input form="{{ fid }}" type="text" name="arrival_flight"
+            <input form="{{ fid }}" aria-label="Arrival flight for {{ a.crew_member.display_label }}" type="text" name="arrival_flight"
                    value="{{ a.arrival_flight or '' }}"
                    placeholder="SW WN2877" class="form-control form-control-sm flight">
           </td>
           <td>
-            <input form="{{ fid }}" type="text" name="arrival_time"
+            <input form="{{ fid }}" aria-label="Arrival time for {{ a.crew_member.display_label }}" type="text" name="arrival_time"
                    value="{{ a.arrival_time or '' }}"
                    placeholder="5:35pm" class="form-control form-control-sm time">
           </td>
           <td>
-            <input form="{{ fid }}" type="text" name="departure_flight"
+            <input form="{{ fid }}" aria-label="Departure flight for {{ a.crew_member.display_label }}" type="text" name="departure_flight"
                    value="{{ a.departure_flight or '' }}"
                    placeholder="SW WN2287" class="form-control form-control-sm flight">
           </td>
           <td>
-            <input form="{{ fid }}" type="text" name="departure_time"
+            <input form="{{ fid }}" aria-label="Departure time for {{ a.crew_member.display_label }}" type="text" name="departure_time"
                    value="{{ a.departure_time or '' }}"
                    placeholder="2:10pm" class="form-control form-control-sm time">
           </td>
           <td style="border-left:1px solid #E8E4D7;">
-            <input form="{{ fid }}" type="text" name="itinerary_link"
+            <input form="{{ fid }}" aria-label="Itinerary link for {{ a.crew_member.display_label }}" type="text" name="itinerary_link"
                    value="{{ a.itinerary_link or '' }}"
                    placeholder="https://..." class="form-control form-control-sm">
           </td>

@@ -124,13 +124,13 @@
   <form method="get" action="{{ url_for('requests_bp.index') }}"
         style="display:flex; gap:.4rem; align-items:center;">
     <input type="hidden" name="status" value="{{ filters.status }}">
-    <select name="priority" onchange="this.form.submit()">
+    <select name="priority" onchange="this.form.submit()" aria-label="Priority">
       <option value="">All priorities</option>
       {% for p in priorities %}
       <option value="{{ p }}" {% if filters.priority == p %}selected{% endif %}>{{ p }}</option>
       {% endfor %}
     </select>
-    <select name="category" onchange="this.form.submit()">
+    <select name="category" onchange="this.form.submit()" aria-label="Category">
       <option value="">All categories</option>
       {% for c in categories %}
       <option value="{{ c }}" {% if filters.category == c %}selected{% endif %}>{{ c|capitalize }}</option>
@@ -151,11 +151,11 @@
   <div>
     <label>Title *</label>
     <input type="text" name="title" required
-           placeholder="Short summary of the request or bug…">
+           placeholder="Short summary of the request or bug…" aria-label="Title">
   </div>
   <div>
     <label>Category</label>
-    <select name="category">
+    <select name="category" aria-label="Category">
       <option value="feature" selected>Feature</option>
       <option value="bug">Bug</option>
       <option value="ux">UX</option>
@@ -164,7 +164,7 @@
   </div>
   <div>
     <label>Priority</label>
-    <select name="priority">
+    <select name="priority" aria-label="Priority">
       <option value="P2" selected>P2</option>
       <option value="P0">P0 (blocker)</option>
       <option value="P1">P1 (soon)</option>
@@ -173,7 +173,7 @@
   </div>
   <div>
     <label>Status</label>
-    <select name="status">
+    <select name="status" aria-label="Status">
       <option value="requested" selected>Requested</option>
       <option value="in_progress">In Progress</option>
       <option value="ready_to_test">Ready to Test</option>
@@ -183,7 +183,7 @@
   </div>
   <div>
     <label>Requested by</label>
-    <input type="text" name="requested_by" placeholder="Larry, Jason…">
+    <input type="text" name="requested_by" placeholder="Larry, Jason…" aria-label="Requested by">
   </div>
   <div>
     <button type="submit">+ Add</button>
@@ -210,7 +210,7 @@
       <form data-autosave="true" method="post"
             action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
         <input type="text" name="title" value="{{ r.title }}"
-               class="req-title-input" style="font-weight:600;">
+               class="req-title-input" style="font-weight:600;" aria-label="Title">
         <textarea name="description" rows="1" placeholder="Add description…"
                   style="font-size:.78rem;color:#666;margin-top:2px;"
         >{{ r.description or "" }}</textarea>
@@ -220,7 +220,7 @@
     <td>
       <form data-autosave="true" method="post"
             action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
-        <select name="category" class="cat-select">
+        <select name="category" class="cat-select" aria-label="Category">
           {% for c in categories %}
           <option value="{{ c }}" {% if r.category == c %}selected{% endif %}>
             {{ c|capitalize }}
@@ -233,7 +233,7 @@
     <td>
       <form data-autosave="true" method="post"
             action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
-        <select name="priority">
+        <select name="priority" aria-label="Priority">
           {% for p in priorities %}
           <option value="{{ p }}" {% if r.priority == p %}selected{% endif %}>
             {{ p }}
@@ -246,7 +246,7 @@
     <td>
       <form data-autosave="true" method="post"
             action="{{ url_for('requests_bp.edit', req_id=r.id) }}">
-        <select name="status">
+        <select name="status" aria-label="Status">
           {% for s in statuses %}
           <option value="{{ s }}" {% if r.status == s %}selected{% endif %}>
             {{ status_labels[s] }}

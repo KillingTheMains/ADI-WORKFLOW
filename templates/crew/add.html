@@ -16,15 +16,15 @@
           <div class="row g-3">
             <div class="col-md-5">
               <label class="form-label">First Name <span class="text-danger">*</span></label>
-              <input type="text" name="first_name" class="form-control" required>
+              <input type="text" name="first_name" class="form-control" required aria-label="First Name">
             </div>
             <div class="col-md-5">
               <label class="form-label">Last Name <span class="text-danger">*</span></label>
-              <input type="text" name="last_name" class="form-control" required>
+              <input type="text" name="last_name" class="form-control" required aria-label="Last Name">
             </div>
             <div class="col-md-6">
               <label class="form-label">Company</label>
-              <select name="company_id" class="form-select crew-company-select">
+              <select name="company_id" class="form-select crew-company-select" aria-label="Company">
                 <option value="">— No company —</option>
                 {% for c in companies %}
                 <option value="{{ c.id }}">{{ c.name }}</option>
@@ -34,7 +34,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label">Primary Position</label>
-              <select name="position_id" class="form-select crew-position-select">
+              <select name="position_id" class="form-select crew-position-select" aria-label="Primary Position">
                 <option value="">— Select position —</option>
                 {% set dept = namespace(current='') %}
                 {% for p in positions %}
@@ -49,11 +49,11 @@
             </div>
             <div class="col-md-6">
               <label class="form-label">Email</label>
-              <input type="email" name="email" class="form-control">
+              <input type="email" name="email" class="form-control" aria-label="Email">
             </div>
             <div class="col-md-6">
               <label class="form-label">Phone</label>
-              <input type="tel" name="phone" class="form-control">
+              <input type="tel" name="phone" class="form-control" aria-label="Phone">
             </div>
           </div>
         </div>
@@ -66,27 +66,27 @@
             <div class="col-md-3">
               <label class="form-label">Standard ($/hr)</label>
               <input type="number" name="rate_standard" class="form-control"
-                     step="0.01" placeholder="0.00">
+                     step="0.01" placeholder="0.00" aria-label="Standard ($/hr)">
             </div>
             <div class="col-md-3">
               <label class="form-label">OT (1.5x) ($/hr)</label>
               <input type="number" name="rate_ot" class="form-control"
-                     step="0.01" placeholder="0.00">
+                     step="0.01" placeholder="0.00" aria-label="OT (1.5x) ($/hr)">
             </div>
             <div class="col-md-3">
               <label class="form-label">DT (2x) ($/hr)</label>
               <input type="number" name="rate_dt" class="form-control"
-                     step="0.01" placeholder="0.00">
+                     step="0.01" placeholder="0.00" aria-label="DT (2x) ($/hr)">
             </div>
             <div class="col-md-3">
               <label class="form-label">Meal Penalty</label>
               <input type="number" name="meal_penalty" class="form-control"
-                     step="0.01" placeholder="0.00">
+                     step="0.01" placeholder="0.00" aria-label="Meal Penalty">
             </div>
             <div class="col-md-3">
               <label class="form-label">Per Diem ($/day)</label>
               <input type="number" name="per_diem" class="form-control"
-                     step="0.01" placeholder="89.00">
+                     step="0.01" placeholder="89.00" aria-label="Per Diem ($/day)">
             </div>
           </div>
         </div>
@@ -95,7 +95,7 @@
       <div class="card mb-4">
         <div class="card-header">Notes</div>
         <div class="card-body p-4">
-          <textarea name="notes" class="form-control" rows="2"></textarea>
+          <textarea name="notes" class="form-control" rows="2" aria-label="Notes"></textarea>
         </div>
       </div>
 

@@ -330,7 +330,7 @@
             <td style="{{ rk.row_fill('act') }}">
               <select name="type" form="fix-{{ e.id }}"
                       class="form-select form-select-sm" required
-                      style="font-size:.78rem;">
+                      style="font-size:.78rem;" aria-label="Type">
                 <option value="">— pick one —</option>
                 {% for t in ordered_types %}
                 <option value="{{ t }}" {% if t == e.type %}selected{% endif %}>
@@ -345,7 +345,7 @@
                    place on the day and stops being a loose end; the picker
                    beside it is a re-file, not the exit. #}
                 <input type="time" name="time" form="fix-{{ e.id }}"
-                       class="form-control form-control-sm" style="font-size:.78rem;">
+                       class="form-control form-control-sm" style="font-size:.78rem;" aria-label="Time">
                 <button type="submit" form="fix-{{ e.id }}"
                         class="btn btn-sm btn-adi" style="font-size:.72rem;white-space:nowrap;">
                   Save
@@ -547,7 +547,7 @@
                   data-activity-target="add-act-{{ loop.index }}"
                   data-time-target="add-time-{{ loop.index }}"
                   class="form-select form-select-sm oss-day-select" required
-                  {% if not show.days %}disabled{% endif %}>
+                  {% if not show.days %}disabled{% endif %} aria-label="Schedule day ID">
             <option value="">— day —</option>
             {% for d in days %}
             <option value="{{ d.id }}">
@@ -560,14 +560,14 @@
           <select name="activity_id"
                   id="add-act-{{ loop.index }}"
                   data-time-target="add-time-{{ loop.index }}"
-                  class="form-select form-select-sm oss-act-select">
+                  class="form-select form-select-sm oss-act-select" aria-label="Activity ID">
             <option value="">— link to activity (optional) —</option>
           </select>
         </div>
         <div class="col-md-1">
           <input type="time" name="time"
                  id="add-time-{{ loop.index }}"
-                 class="form-control form-control-sm oss-time-input">
+                 class="form-control form-control-sm oss-time-input" aria-label="Time">
         </div>
         <div class="col-md-2">
           <input type="text" name="activity" placeholder="Label"
@@ -606,12 +606,12 @@
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">Edit OSS entry</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
           <input type="hidden" name="type" id="edit-type">
           <div class="mb-2">
-            <label class="form-label" style="font-size:.78rem;font-weight:600;">Schedule Day</label>
+            <label for="edit-day" class="form-label" style="font-size:.78rem;font-weight:600;">Schedule Day</label>
             <select name="schedule_day_id" id="edit-day"
                     data-activity-target="edit-act"
                     data-time-target="edit-time"
@@ -624,7 +624,7 @@
             </select>
           </div>
           <div class="mb-2">
-            <label class="form-label" style="font-size:.78rem;font-weight:600;">
+            <label for="edit-act" class="form-label" style="font-size:.78rem;font-weight:600;">
               Link to activity (optional)
             </label>
             <select name="activity_id" id="edit-act"
@@ -638,28 +638,28 @@
           </div>
           <div class="row g-2">
             <div class="col-4">
-              <label class="form-label" style="font-size:.78rem;font-weight:600;">Time</label>
+              <label for="edit-time" class="form-label" style="font-size:.78rem;font-weight:600;">Time</label>
               <input type="time" name="time" id="edit-time" class="form-control form-control-sm">
             </div>
             <div class="col-4">
-              <label class="form-label" style="font-size:.78rem;font-weight:600;">Count</label>
+              <label for="edit-count" class="form-label" style="font-size:.78rem;font-weight:600;">Count</label>
               <input type="number" name="count" id="edit-count" min="0" step="1"
                      class="form-control form-control-sm">
             </div>
             <div class="col-4">
-              <label class="form-label" style="font-size:.78rem;font-weight:600;">Duration (hrs)</label>
+              <label for="edit-hrs" class="form-label" style="font-size:.78rem;font-weight:600;">Duration (hrs)</label>
               <input type="number" name="duration_hrs" id="edit-hrs" min="0" step="0.25"
                      class="form-control form-control-sm">
             </div>
           </div>
           <div class="mb-2 mt-2">
-            <label class="form-label" style="font-size:.78rem;font-weight:600;">Label</label>
+            <label for="edit-activity" class="form-label" style="font-size:.78rem;font-weight:600;">Label</label>
             <input type="text" name="activity" id="edit-activity"
                    placeholder="What this entry is (e.g. 'Crew lunch')"
                    class="form-control form-control-sm">
           </div>
           <div class="mb-2">
-            <label class="form-label" style="font-size:.78rem;font-weight:600;">Notes</label>
+            <label for="edit-notes" class="form-label" style="font-size:.78rem;font-weight:600;">Notes</label>
             <textarea name="notes" id="edit-notes" rows="2"
                       class="form-control form-control-sm"></textarea>
           </div>
@@ -679,7 +679,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h6 class="modal-title">{{ ico.icon('download') }} PDF Sections</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <form method="POST"
             action="{{ url_for('oss.sections_pdf', show_id=show.id) }}">

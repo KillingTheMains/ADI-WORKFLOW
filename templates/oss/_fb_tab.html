@@ -208,11 +208,11 @@
           <div class="col-md-3">
             <label style="font-size:.66rem;font-weight:600;">Service</label>
             <input type="text" name="name" value="{{ svc.name }}"
-                   class="form-control form-control-sm" style="font-size:.78rem;">
+                   class="form-control form-control-sm" style="font-size:.78rem;" aria-label="Service">
           </div>
           <div class="col-md-2">
             <label style="font-size:.66rem;font-weight:600;">Kind</label>
-            <select name="kind" class="form-select form-select-sm" style="font-size:.78rem;">
+            <select name="kind" class="form-select form-select-sm" style="font-size:.78rem;" aria-label="Kind">
               {% for k in meal_kinds %}
               <option value="{{ k }}" {% if svc.kind == k %}selected{% endif %}>{{ k }}</option>
               {% endfor %}
@@ -221,7 +221,7 @@
           {% if svc.is_standing %}
           <div class="col-md-2">
             <label style="font-size:.66rem;font-weight:600;">Set vs SOD</label>
-            <select name="beverage_offset_minutes" class="form-select form-select-sm" style="font-size:.78rem;">
+            <select name="beverage_offset_minutes" class="form-select form-select-sm" style="font-size:.78rem;" aria-label="Set vs SOD">
               {% for v, t in [(-60,'1 hr before'), (-30,'30 min before'), (0,'at SOD'), (30,'30 min after')] %}
               <option value="{{ v }}" {% if svc.beverage_offset_minutes == v %}selected{% endif %}>{{ t }}</option>
               {% endfor %}
@@ -229,7 +229,7 @@
           </div>
           <div class="col-md-2">
             <label style="font-size:.66rem;font-weight:600;">Refresh every</label>
-            <select name="beverage_interval_minutes" class="form-select form-select-sm" style="font-size:.78rem;">
+            <select name="beverage_interval_minutes" class="form-select form-select-sm" style="font-size:.78rem;" aria-label="Refresh every">
               {% for v, t in [(90,'1:30'), (120,'2:00'), (150,'2:30'), (180,'3:00'), (240,'4:00')] %}
               <option value="{{ v }}" {% if svc.beverage_interval_minutes == v %}selected{% endif %}>{{ t }}</option>
               {% endfor %}
@@ -241,20 +241,20 @@
                    title="F&amp;B is set up before the crew stops.">Set up (min)</label>
             <input type="number" name="setup_minutes" min="0" step="5"
                    value="{{ svc.setup_minutes if svc.setup_minutes is not none else 30 }}"
-                   class="form-control form-control-sm" style="font-size:.78rem;">
+                   class="form-control form-control-sm" style="font-size:.78rem;" aria-label="Set up (min)">
           </div>
           <div class="col-md-2">
             <label style="font-size:.66rem;font-weight:600;"
                    title="Held for latecomers after the crew is back.">Holdover (min)</label>
             <input type="number" name="holdover_minutes" min="0" step="5"
                    value="{{ svc.holdover_minutes if svc.holdover_minutes is not none else 30 }}"
-                   class="form-control form-control-sm" style="font-size:.78rem;">
+                   class="form-control form-control-sm" style="font-size:.78rem;" aria-label="Holdover (min)">
           </div>
           {% endif %}
           <div class="col-md-3">
             <label style="font-size:.66rem;font-weight:600;">Notes</label>
             <input type="text" name="notes" value="{{ svc.notes or '' }}"
-                   class="form-control form-control-sm" style="font-size:.78rem;">
+                   class="form-control form-control-sm" style="font-size:.78rem;" aria-label="Notes">
           </div>
         </div>
 
@@ -274,20 +274,20 @@
             <label style="font-size:.66rem;font-weight:600;">Where</label>
             <input type="text" name="loc_{{ loc.id }}_location_name"
                    value="{{ loc.location_name or '' }}" placeholder="e.g. Backstage"
-                   class="form-control form-control-sm" style="font-size:.78rem;">
+                   class="form-control form-control-sm" style="font-size:.78rem;" aria-label="Where">
           </div>
           {% if not svc.is_standing %}
           <div class="col-md-2">
             <label style="font-size:.66rem;font-weight:600;">Start</label>
             <input type="time" name="loc_{{ loc.id }}_start_time"
                    value="{{ loc.start_time|to_24hr }}"
-                   class="form-control form-control-sm" style="font-size:.78rem;">
+                   class="form-control form-control-sm" style="font-size:.78rem;" aria-label="Start">
           </div>
           <div class="col-md-2">
             <label style="font-size:.66rem;font-weight:600;">End</label>
             <input type="time" name="loc_{{ loc.id }}_end_time"
                    value="{{ loc.end_time|to_24hr }}"
-                   class="form-control form-control-sm" style="font-size:.78rem;">
+                   class="form-control form-control-sm" style="font-size:.78rem;" aria-label="End">
           </div>
           {% endif %}
           <div class="col-md-2">
@@ -314,16 +314,16 @@
             {% for loc in svc.locations_ordered %}
             <tr>
               <td><input type="text" name="loc_{{ loc.id }}_location_name"
-                         value="{{ loc.location_name or '' }}"></td>
+                         value="{{ loc.location_name or '' }}" aria-label="Loc {{ loc.id }} location name"></td>
               <td><input type="time" name="loc_{{ loc.id }}_start_time"
-                         value="{{ loc.start_time|to_24hr }}" class="time"></td>
+                         value="{{ loc.start_time|to_24hr }}" class="time" aria-label="Loc {{ loc.id }} start time"></td>
               <td><input type="time" name="loc_{{ loc.id }}_end_time"
-                         value="{{ loc.end_time|to_24hr }}" class="time"></td>
+                         value="{{ loc.end_time|to_24hr }}" class="time" aria-label="Loc {{ loc.id }} end time"></td>
               <td><input type="number" name="loc_{{ loc.id }}_headcount" min="0" step="1"
                          value="{{ loc.headcount if loc.headcount is not none else '' }}"
                          placeholder="{{ loc.derived_headcount if loc.derived_headcount is not none else '—' }}"
                          class="count"></td>
-              <td><input type="text" name="loc_{{ loc.id }}_notes" value="{{ loc.notes or '' }}"></td>
+              <td><input type="text" name="loc_{{ loc.id }}_notes" value="{{ loc.notes or '' }}" aria-label="Loc {{ loc.id }} notes"></td>
               <td style="text-align:center;">
                 <button type="submit" form="del-loc-{{ loc.id }}" class="btn btn-sm p-0 text-danger"
                         style="font-size:.78rem;" title="Remove this location">{{ ico.icon('x') }}</button>
@@ -350,7 +350,7 @@
         <div>
           <label style="font-size:.66rem;font-weight:600;">Another location</label>
           <input type="text" name="location_name" placeholder="e.g. FOH"
-                 class="form-control form-control-sm" style="font-size:.78rem;width:190px;">
+                 class="form-control form-control-sm" style="font-size:.78rem;width:190px;" aria-label="Another location">
         </div>
         <button class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;">+ Add</button>
       </form>
@@ -385,7 +385,7 @@
       <form method="POST" class="d-flex align-items-center gap-1"
             action="{{ url_for('break_link.service_feeds', show_id=show.id, svc_id=svc.id) }}">
         <select name="break_id" class="form-select form-select-sm"
-                style="font-size:.72rem;width:280px;">
+                style="font-size:.72rem;width:280px;" aria-label="Break ID">
           <option value="">— feeds no crew break (standalone) —</option>
           {% for c in choices %}
           <option value="{{ c.cb.id }}">
@@ -475,12 +475,12 @@
     <div class="col-md-2">
       <label style="font-size:.66rem;font-weight:600;">Standing service</label>
       <input type="text" name="name" value="All Day Beverages"
-             class="form-control form-control-sm" style="font-size:.76rem;">
+             class="form-control form-control-sm" style="font-size:.76rem;" aria-label="Standing service">
     </div>
     <div class="col-md-2">
       <label style="font-size:.66rem;font-weight:600;">Location</label>
       <input type="text" name="location_name" placeholder="e.g. Backstage"
-             class="form-control form-control-sm" style="font-size:.76rem;">
+             class="form-control form-control-sm" style="font-size:.76rem;" aria-label="Location">
     </div>
     <div class="col-md-2">
       <label style="font-size:.66rem;font-weight:600;">Set relative to SOD</label>
@@ -495,7 +495,7 @@
     <div class="col-md-2">
       <label style="font-size:.66rem;font-weight:600;">Refresh every</label>
       <select name="beverage_interval_minutes" class="form-select form-select-sm"
-              style="font-size:.76rem;">
+              style="font-size:.76rem;" aria-label="Refresh every">
         <option value="90">1:30</option>
         <option value="120">2:00</option>
         <option value="150" selected>2:30</option>
@@ -522,11 +522,11 @@
     <div class="col-md-2">
       <label style="font-size:.66rem;font-weight:600;">Service</label>
       <input type="text" name="name" placeholder="e.g. Breakfast, All Day Bev"
-             class="form-control form-control-sm" style="font-size:.76rem;" required>
+             class="form-control form-control-sm" style="font-size:.76rem;" required aria-label="Service">
     </div>
     <div class="col-md-1">
       <label style="font-size:.66rem;font-weight:600;">Kind</label>
-      <select name="kind" class="form-select form-select-sm" style="font-size:.76rem;">
+      <select name="kind" class="form-select form-select-sm" style="font-size:.76rem;" aria-label="Kind">
         {% for k in meal_kinds %}
         <option value="{{ k }}">{{ k }}</option>
         {% endfor %}
@@ -535,24 +535,24 @@
     <div class="col-md-2">
       <label style="font-size:.66rem;font-weight:600;">First location</label>
       <input type="text" name="location_name" placeholder="e.g. Backstage"
-             class="form-control form-control-sm" style="font-size:.76rem;">
+             class="form-control form-control-sm" style="font-size:.76rem;" aria-label="First location">
     </div>
     <div class="col-md-1">
       <label style="font-size:.66rem;font-weight:600;">Start</label>
-      <input type="time" name="start_time" class="form-control form-control-sm">
+      <input type="time" name="start_time" class="form-control form-control-sm" aria-label="Start">
     </div>
     <div class="col-md-1">
       <label style="font-size:.66rem;font-weight:600;">End</label>
-      <input type="time" name="end_time" class="form-control form-control-sm">
+      <input type="time" name="end_time" class="form-control form-control-sm" aria-label="End">
     </div>
     <div class="col-md-1">
       <label style="font-size:.66rem;font-weight:600;">Headcount</label>
       <input type="number" name="headcount" min="0" step="1"
-             class="form-control form-control-sm" style="font-size:.76rem;">
+             class="form-control form-control-sm" style="font-size:.76rem;" aria-label="Headcount">
     </div>
     <div class="col-md-1">
       <label style="font-size:.66rem;font-weight:600;" title="Link to schedule activity">Activity</label>
-      <select name="activity_id" class="form-select form-select-sm" style="font-size:.72rem;">
+      <select name="activity_id" class="form-select form-select-sm" style="font-size:.72rem;" aria-label="Activity">
         <option value="">— none —</option>
         {% for act in d.activities %}
         <option value="{{ act.id }}">{{ act.time or '' }} {{ act.description|truncate(24) }}</option>
@@ -561,7 +561,7 @@
     </div>
     <div class="col-md-2">
       <label style="font-size:.66rem;font-weight:600;">Notes</label>
-      <input type="text" name="notes" class="form-control form-control-sm" style="font-size:.76rem;">
+      <input type="text" name="notes" class="form-control form-control-sm" style="font-size:.76rem;" aria-label="Notes">
     </div>
     <div class="col-md-1">
       <button type="submit" class="btn btn-sm btn-adi w-100" style="font-size:.74rem;">+ Service</button>
@@ -638,19 +638,19 @@
         <tr>
           <form method="POST" data-autosave="true" style="display:contents;"
                 action="{{ url_for('oss.fb_dietary_edit', show_id=show.id, did=d.id) }}">
-            <td><input type="text" name="preference" value="{{ d.preference }}"></td>
+            <td><input type="text" name="preference" value="{{ d.preference }}" aria-label="Preference"></td>
             <td><input type="number" name="percentage" value="{{ d.percentage if d.percentage is not none else '' }}"
-                       min="0" max="100" step="1" class="count"></td>
+                       min="0" max="100" step="1" class="count" aria-label="Percentage"></td>
             <td><input type="number" name="count" value="{{ d.count if d.count is not none else '' }}"
-                       min="0" step="1" class="count"></td>
-            <td><input type="text" name="notes" value="{{ d.notes or '' }}"></td>
+                       min="0" step="1" class="count" aria-label="Count"></td>
+            <td><input type="text" name="notes" value="{{ d.notes or '' }}" aria-label="Notes"></td>
             <td style="text-align:center;">
-              <button type="submit" class="btn btn-sm p-0 text-success" style="font-size:.9rem;">{{ ico.icon('save') }}</button>
+              <button type="submit" class="btn btn-sm p-0 text-success" style="font-size:.9rem;" title="Save">{{ ico.icon('save') }}</button>
           </form>
               <form method="POST" style="display:inline;"
                     action="{{ url_for('oss.fb_dietary_delete', show_id=show.id, did=d.id) }}"
                     onsubmit="return confirm('Remove this dietary note?');">
-                <button type="submit" class="btn btn-sm p-0 text-danger" style="font-size:.8rem;">{{ ico.icon('x') }}</button>
+                <button type="submit" class="btn btn-sm p-0 text-danger" style="font-size:.8rem;" title="Remove">{{ ico.icon('x') }}</button>
               </form>
             </td>
           </tr>
@@ -661,7 +661,7 @@
             <td><input type="text" name="preference" placeholder="+ e.g. Vegetarian" required></td>
             <td><input type="number" name="percentage" placeholder="%" min="0" max="100" step="1" class="count"></td>
             <td><input type="number" name="count" placeholder="qty" min="0" step="1" class="count"></td>
-            <td><input type="text" name="notes"></td>
+            <td><input type="text" name="notes" aria-label="Notes"></td>
             <td style="text-align:center;">
               <button type="submit" class="btn btn-sm btn-adi p-0 px-2" style="font-size:.7rem;">+ Add</button>
             </td>

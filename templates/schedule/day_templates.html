@@ -66,7 +66,8 @@
               style="display:inline;"
               onsubmit="return confirm('Delete template \'{{ tpl.label|js_str }}\'? This won\'t affect existing schedule days.');">
           <button type="submit" class="btn btn-sm btn-outline-danger"
-                  style="font-size:.72rem;padding:2px 8px;">{{ ico.icon('x') }}</button>
+                  style="font-size:.72rem;padding:2px 8px;"
+                  title="Delete template {{ tpl.label }}">{{ ico.icon('x') }}</button>
         </form>
       </div>
       {% if tpl.activities %}
@@ -120,12 +121,12 @@
               <label class="form-label">Template Name <span class="text-danger">*</span></label>
               <input type="text" name="label" class="form-control"
                      value="{{ editing.label if editing else '' }}"
-                     placeholder="e.g. Load In Day" required>
+                     placeholder="e.g. Load In Day" required aria-label="Template Name">
             </div>
             <div class="col-md-3">
               <label class="form-label">Sort Order</label>
               <input type="number" name="sort_order" class="form-control"
-                     value="{{ editing.sort_order if editing else 99 }}" min="1">
+                     value="{{ editing.sort_order if editing else 99 }}" min="1" aria-label="Sort Order">
             </div>
           </div>
 
@@ -136,7 +137,7 @@
                 (used by Auto-Generate Days)
               </span>
             </label>
-            <select name="phase_hint" class="form-select">
+            <select name="phase_hint" class="form-select" aria-label="Auto-assign to Phase (used by Auto-Generate Days)">
               <option value="">— Not auto-assigned —</option>
               {% for pt in phase_types %}
               <option value="{{ pt }}"
@@ -190,7 +191,7 @@
                        placeholder="7:00 AM">
                 <input type="text" name="activity_desc[]" class="form-control form-control-sm"
                        placeholder="CREW START">
-                <button type="button" class="remove-act-btn" onclick="removeRow(this)">{{ ico.icon('x') }}</button>
+                <button type="button" class="remove-act-btn" onclick="removeRow(this)" title="Remove this activity">{{ ico.icon('x') }}</button>
               </div>
               <div class="activity-row-tpl">
                 <span class="drag-handle" title="Drag to reorder">⠿</span>
@@ -201,7 +202,7 @@
                        placeholder="5:00 PM">
                 <input type="text" name="activity_desc[]" class="form-control form-control-sm"
                        placeholder="LOAD OUT BEGINS">
-                <button type="button" class="remove-act-btn" onclick="removeRow(this)">{{ ico.icon('x') }}</button>
+                <button type="button" class="remove-act-btn" onclick="removeRow(this)" title="Remove this activity">{{ ico.icon('x') }}</button>
               </div>
             {% endif %}
           </div>

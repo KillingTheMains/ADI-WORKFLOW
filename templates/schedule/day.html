@@ -128,7 +128,7 @@
           <div class="mb-2">
             <label class="form-label">Date</label>
             <input type="date" name="date" class="form-control form-control-sm"
-                   value="{{ day.date.isoformat() }}" required>
+                   value="{{ day.date.isoformat() }}" required aria-label="Date">
             <div class="form-text" style="font-size:.72rem;color:#B45309;">
               {{ ico.icon('alert-triangle') }} Changing this <em>renames</em> this day. To add a new day
               for a different date, use <strong>+ Add Day</strong> on the
@@ -137,7 +137,7 @@
           </div>
           <div class="mb-2">
             <label class="form-label">Phase</label>
-            <select name="phase" class="form-select form-select-sm">
+            <select name="phase" class="form-select form-select-sm" aria-label="Phase">
               <option value="">— Phase —</option>
               {% for p in phases %}
               <option value="{{ p }}" {% if p == day.phase %}selected{% endif %}>{{ p }}</option>
@@ -147,17 +147,17 @@
           <div class="mb-2">
             <label class="form-label">Label</label>
             <input type="text" name="label" class="form-control form-control-sm"
-                   value="{{ day.label or '' }}" placeholder="e.g. Load In Day 1">
+                   value="{{ day.label or '' }}" placeholder="e.g. Load In Day 1" aria-label="Label">
           </div>
           <div class="row g-1 mb-2">
             <div class="col-6">
-              <label class="form-label">Start of Day</label>
+              <label for="sod_input" class="form-label">Start of Day</label>
               <input type="time" name="sod" id="sod_input"
                      class="form-control form-control-sm"
                      value="{{ day.sod|to_24hr }}">
             </div>
             <div class="col-6">
-              <label class="form-label">End of Day</label>
+              <label for="eod_input" class="form-label">End of Day</label>
               <input type="time" name="eod" id="eod_input"
                      class="form-control form-control-sm"
                      value="{{ day.eod|to_24hr }}">
@@ -166,11 +166,11 @@
           <div class="mb-2">
             <label class="form-label">Milestones</label>
             <textarea name="milestones" class="form-control form-control-sm" rows="3"
-                      placeholder="One per line…">{{ day.milestones or '' }}</textarea>
+                      placeholder="One per line…" aria-label="Milestones">{{ day.milestones or '' }}</textarea>
           </div>
           <div class="mb-3">
             <label class="form-label">Notes</label>
-            <textarea name="notes" class="form-control form-control-sm" rows="2">{{ day.notes or '' }}</textarea>
+            <textarea name="notes" class="form-control form-control-sm" rows="2" aria-label="Notes">{{ day.notes or '' }}</textarea>
           </div>
           <button type="submit" class="btn btn-sm btn-adi w-100">Save Day</button>
         </form>
@@ -229,7 +229,7 @@
         <form method="POST" class="d-flex gap-1"
               action="{{ url_for('schedule.add_day_item', show_id=show.id, day_id=day.id) }}">
           <select name="phase_type_id" class="form-select form-select-sm"
-                  style="font-size:.78rem;" required>
+                  style="font-size:.78rem;" required aria-label="Phase type ID">
             <option value="">— add to this day —</option>
             {% for pt in day_item_choices %}
             <option value="{{ pt.id }}">{{ pt.name }}</option>
@@ -311,12 +311,12 @@
             <div class="col-5">
               <label class="form-label" style="font-size:.72rem;">Flight #</label>
               <input type="text" name="travel_flight_number" class="form-control form-control-sm"
-                     value="{{ day.travel_flight_number or '' }}" placeholder="UA 123">
+                     value="{{ day.travel_flight_number or '' }}" placeholder="UA 123" aria-label="Flight #">
             </div>
             <div class="col-7">
               <label class="form-label" style="font-size:.72rem;">Airline</label>
               <input type="text" name="travel_airline" class="form-control form-control-sm"
-                     value="{{ day.travel_airline or '' }}" placeholder="United Airlines">
+                     value="{{ day.travel_airline or '' }}" placeholder="United Airlines" aria-label="Airline">
             </div>
           </div>
           <div class="row g-1 mb-2">
@@ -324,36 +324,36 @@
               <label class="form-label" style="font-size:.72rem;">Depart Airport</label>
               <input type="text" name="travel_depart_airport" class="form-control form-control-sm"
                      value="{{ day.travel_depart_airport or '' }}" placeholder="LAX"
-                     maxlength="6" style="text-transform:uppercase;">
+                     maxlength="6" style="text-transform:uppercase;" aria-label="Depart Airport">
             </div>
             <div class="col-6">
               <label class="form-label" style="font-size:.72rem;">Arrive Airport</label>
               <input type="text" name="travel_arrive_airport" class="form-control form-control-sm"
                      value="{{ day.travel_arrive_airport or '' }}" placeholder="ORD"
-                     maxlength="6" style="text-transform:uppercase;">
+                     maxlength="6" style="text-transform:uppercase;" aria-label="Arrive Airport">
             </div>
           </div>
           <div class="row g-1 mb-2">
             <div class="col-6">
               <label class="form-label" style="font-size:.72rem;">Depart Time</label>
               <input type="time" name="travel_depart_time" class="form-control form-control-sm"
-                     value="{{ day.travel_depart_time|to_24hr }}">
+                     value="{{ day.travel_depart_time|to_24hr }}" aria-label="Depart Time">
             </div>
             <div class="col-6">
               <label class="form-label" style="font-size:.72rem;">Arrive Time</label>
               <input type="time" name="travel_arrive_time" class="form-control form-control-sm"
-                     value="{{ day.travel_arrive_time|to_24hr }}">
+                     value="{{ day.travel_arrive_time|to_24hr }}" aria-label="Arrive Time">
             </div>
           </div>
           <div class="mb-2">
             <label class="form-label" style="font-size:.72rem;">Hotel</label>
             <input type="text" name="travel_hotel_name" class="form-control form-control-sm"
-                   value="{{ day.travel_hotel_name or '' }}" placeholder="Marriott Marquis">
+                   value="{{ day.travel_hotel_name or '' }}" placeholder="Marriott Marquis" aria-label="Hotel">
           </div>
           <div class="mb-3">
             <label class="form-label" style="font-size:.72rem;">Confirmation #</label>
             <input type="text" name="travel_hotel_confirm" class="form-control form-control-sm"
-                   value="{{ day.travel_hotel_confirm or '' }}" placeholder="CONF-XXXXXX">
+                   value="{{ day.travel_hotel_confirm or '' }}" placeholder="CONF-XXXXXX" aria-label="Confirmation #">
           </div>
           <button type="submit" class="btn btn-sm btn-adi w-100">Save Travel Info</button>
         </form>
@@ -404,7 +404,7 @@
               <li>
                 <button class="dropdown-item" type="button"
                         data-bs-toggle="modal" data-bs-target="#bulkShiftModal">
-                  ⏱ Bulk time shift…
+                  {{ ico.icon('clock') }} Bulk time shift…
                 </button>
               </li>
               <li>
@@ -556,7 +556,7 @@
               <div class="col-md-5" style="position:relative;">
                 {# Description leads now. It is the field that says what the
                    row IS, and it was buried third behind two number boxes. #}
-                <label class="form-label" style="font-size:.75rem;">Description</label>
+                <label for="new-act-desc" class="form-label" style="font-size:.75rem;">Description</label>
                 <input type="text" name="description" id="new-act-desc"
                        class="form-control form-control-sm"
                        placeholder="Start typing — e.g. LOAD IN" required
@@ -567,7 +567,7 @@
                 </div>
               </div>
               <div class="col-md-2">
-                <label class="form-label" style="font-size:.75rem;">Time</label>
+                <label for="new-act-time" class="form-label" style="font-size:.75rem;">Time</label>
                 <input type="time" name="time" id="new-act-time"
                        class="form-control form-control-sm">
                 <div class="time-calc-hint" id="time-calc-hint"></div>
@@ -576,7 +576,7 @@
                 {# Not stored. It drives the end-time hint under Time and
                    nothing else — labelled so it stops reading as a field that
                    saves something. #}
-                <label class="form-label" style="font-size:.75rem;">
+                <label for="new-act-duration" class="form-label" style="font-size:.75rem;">
                   Runs for
                   <span class="text-muted" style="font-weight:400;">· hint only</span>
                 </label>
@@ -585,7 +585,7 @@
               </div>
               <div class="col-md-2">
                 <label class="form-label" style="font-size:.75rem;">Notes</label>
-                <input type="text" name="notes" class="form-control form-control-sm" placeholder="Optional">
+                <input type="text" name="notes" class="form-control form-control-sm" placeholder="Optional" aria-label="Notes">
               </div>
               <div class="col-md-1 pt-1">
                 <label class="form-label" style="font-size:.75rem;">&nbsp;</label>
@@ -981,7 +981,7 @@
                      class="form-control form-control-sm" placeholder="LUNCH"
                      style="font-size:.72rem;width:130px;">
               <select name="duration_minutes_{{ b.id }}" class="form-select form-select-sm"
-                      style="font-size:.72rem;width:104px;">
+                      style="font-size:.72rem;width:104px;" aria-label="Duration minutes {{ b.id }}">
                 {% for m in [15, 30, 60] %}
                 <option value="{{ m }}" {% if b.duration_minutes == m %}selected{% endif %}>{{ m }} Minutes</option>
                 {% endfor %}
@@ -1026,7 +1026,7 @@
               <span class="text-muted">or link a service that already exists:</span>
               <select name="service_id" form="link-break-{{ b.id }}"
                       class="form-select form-select-sm d-inline-block"
-                      style="font-size:.7rem;width:230px;">
+                      style="font-size:.7rem;width:230px;" aria-label="Service ID">
                 {% for c in links %}
                 <option value="{{ c.svc.id }}">{{ c.svc.name }}
                   {%- if c.svc.earliest_time %} · {{ c.svc.earliest_time|to_12hr }}{% endif %}
@@ -1076,7 +1076,7 @@
               {% endfor %}
             </select>
             <select name="duration_minutes" class="form-select form-select-sm break-duration"
-                    style="font-size:.72rem;width:104px;">
+                    style="font-size:.72rem;width:104px;" aria-label="Duration minutes">
               <option value="15">15 Minutes</option>
               <option value="30">30 Minutes</option>
               <option value="60" selected>60 Minutes</option>
@@ -1095,17 +1095,17 @@
               <div class="col-md-2">
                 <label class="form-label" style="font-size:.75rem;">Time</label>
                 <input type="time" name="time" class="form-control form-control-sm"
-                       value="{{ act.time|to_24hr }}">
+                       value="{{ act.time|to_24hr }}" aria-label="Time">
               </div>
               <div class="col-md-7">
                 <label class="form-label" style="font-size:.75rem;">Description</label>
                 <input type="text" name="description" class="form-control form-control-sm"
-                       value="{{ act.description }}" required>
+                       value="{{ act.description }}" required aria-label="Description">
               </div>
               <div class="col-md-2">
                 <label class="form-label" style="font-size:.75rem;">Notes</label>
                 <input type="text" name="notes" class="form-control form-control-sm"
-                       value="{{ act.notes or '' }}">
+                       value="{{ act.notes or '' }}" aria-label="Notes">
               </div>
               <div class="col-md-1">
                 <button type="submit" class="btn btn-sm btn-adi w-100">Save</button>
@@ -1149,9 +1149,11 @@
                 <td colspan="6">
                   <span class="crew-drag-handle" title="Drag to move this section"
                         style="cursor:grab;opacity:.45;margin-right:4px;">⠿</span>
-                  <span class="sect-toggle" title="Collapse / expand"
-                        onclick="toggleSection(this)"
-                        style="cursor:pointer;display:inline-block;width:12px;">▾</span>
+                  {# A real button, so the keyboard can collapse a section and a
+                     screen reader hears its state. Was a <span onclick>. #}
+                  <button type="button" class="sect-toggle" title="Collapse / expand"
+                          aria-expanded="true" aria-label="Collapse section"
+                          onclick="toggleSection(this)">▾</button>
                   <span class="sect-label">{{ row.group_label }}</span>
                   {# Note 1a: colour and opacity for these two live in
                      style.css under `.group-header .sect-actions`, NOT inline.
@@ -1183,7 +1185,7 @@
                              class="form-control form-control-sm" placeholder="Section name">
                     </div>
                     <div class="col-md-3">
-                      <select name="header_level" class="form-select form-select-sm">
+                      <select name="header_level" class="form-select form-select-sm" aria-label="Header level">
                         <option value="1" {% if (row.header_level or 1) == 1 %}selected{% endif %}>Main section</option>
                         <option value="2" {% if (row.header_level or 1) == 2 %}selected{% endif %}>Sub-section</option>
                       </select>
@@ -1213,19 +1215,23 @@
                     <span class="crew-drag-handle" title="Drag to reorder"
                           style="cursor:grab;opacity:.35;margin-right:2px;">⠿</span>
                     <input type="number" name="qty" value="{{ row.qty }}" min="1" step="1"
+                           aria-label="Quantity for {{ row.display_name }}"
                            class="form-control form-control-sm d-inline-block"
                            style="font-size:.72rem;padding:1px 4px;width:44px;"></td>
                   <td><input type="number" name="hours" value="{{ row.hours if row.hours is not none else '' }}"
                              min="0" step="0.25" title="Estimated hours"
+                             aria-label="Estimated hours for {{ row.display_name }}"
                              class="form-control form-control-sm"
                              style="font-size:.72rem;padding:1px 4px;width:56px;"></td>
                   <td><input type="number" name="actual_hours" value="{{ row.actual_hours if row.actual_hours is not none else '' }}"
                              min="0" step="0.25" title="Actual hours worked"
+                             aria-label="Actual hours for {{ row.display_name }}"
                              class="form-control form-control-sm"
                              style="font-size:.72rem;padding:1px 4px;width:56px;
                                     {% if row.actual_hours is not none and row.hours and row.actual_hours > row.hours %}background:#FEF3C7;{% endif %}"></td>
                   <td><input type="text" name="position" value="{{ row.position or '' }}"
                              list="crew-row-positions-{{ act.id }}"
+                             aria-label="Position for {{ row.display_name }}"
                              class="form-control form-control-sm"
                              style="font-size:.72rem;padding:1px 4px;">
                     {# No task EDITOR here — Jason, 2026-08-12: a second box on
@@ -1246,12 +1252,14 @@
                              style="font-size:.72rem;padding:1px 4px;">
                     {% else %}
                       <input type="text" name="name_override" value="{{ row.name_override or '' }}"
-                             placeholder="TBD" class="form-control form-control-sm"
+                             placeholder="TBD" aria-label="Name for this open slot"
+                             class="form-control form-control-sm"
                              style="font-size:.72rem;padding:1px 4px;">
                     {% endif %}
                   </td>
                   <td>
                     <select name="crew_type" class="form-select form-select-sm"
+                            aria-label="Crew type for {{ row.display_name }}"
                             style="font-size:.7rem;padding:1px 4px;">
                       {% for ct in crew_types %}
                       <option value="{{ ct }}" {% if row.crew_type == ct %}selected{% endif %}>{{ ct }}</option>
@@ -1264,9 +1272,10 @@
                 </form>
                     <form method="POST" style="display:inline;"
                           action="{{ url_for('schedule.delete_crew_row', show_id=show.id, day_id=day.id, row_id=row.id) }}"
-                          onsubmit="return confirm('Delete this crew row?');">
+                          onsubmit="return confirm('Remove {{ row.display_name|js_str }} from this call?');">
                       <button type="submit" class="btn btn-sm btn-link text-danger p-0"
-                              style="font-size:.7rem;">{{ ico.icon('x') }}</button>
+                              style="font-size:.7rem;"
+                              title="Remove {{ row.display_name }} from this call">{{ ico.icon('x') }}</button>
                     </form>
                   </td>
                 </tr>
@@ -1349,7 +1358,7 @@
                   <td>
                     <input type="number" name="qty" value="{{ row.qty or 1 }}" min="1" step="1"
                            class="form-control form-control-sm"
-                           style="font-size:.72rem;padding:1px 4px;width:52px;font-weight:700;">
+                           style="font-size:.72rem;padding:1px 4px;width:52px;font-weight:700;" aria-label="Quantity">
                   </td>
                   <td><input type="number" name="hours" value="{{ row.hours if row.hours is not none else '' }}"
                              min="0" step="0.25" title="Estimated hours, each"
@@ -1362,20 +1371,21 @@
                   <td><input type="text" name="position" value="{{ row.position or '' }}"
                              list="crew-row-positions-{{ act.id }}"
                              class="form-control form-control-sm"
-                             style="font-size:.72rem;padding:1px 4px;"></td>
+                             style="font-size:.72rem;padding:1px 4px;" aria-label="Position"></td>
                   <td class="text-muted" style="font-size:.72rem;">{{ row.task or '—' }}</td>
                   <td><input type="text" name="notes" value="{{ row.notes or '' }}"
                              class="form-control form-control-sm"
-                             style="font-size:.72rem;padding:1px 4px;"></td>
+                             style="font-size:.72rem;padding:1px 4px;" aria-label="Notes"></td>
                   <td style="white-space:nowrap;">
                     <button type="submit" class="btn btn-sm btn-link text-success p-0"
                             style="font-size:.85rem;line-height:1;" title="Save row">{{ ico.icon('save') }}</button>
                 </form>
                     <form method="POST" style="display:inline;"
                           action="{{ url_for('schedule.delete_crew_row', show_id=show.id, day_id=day.id, row_id=row.id) }}"
-                          onsubmit="return confirm('Delete this local labor line?');">
+                          onsubmit="return confirm('Remove this local labor line ({{ row.display_name|js_str }})?');">
                       <button type="submit" class="btn btn-sm btn-link text-danger p-0"
-                              style="font-size:.7rem;">{{ ico.icon('x') }}</button>
+                              style="font-size:.7rem;"
+                              title="Remove this local labor line">{{ ico.icon('x') }}</button>
                     </form>
                   </td>
               </tr>
@@ -1455,7 +1465,7 @@
                      unassigned row wearing a department nobody chose. The
                      other two OSS add forms on this page already had this;
                      this one did not. #}
-                  <select name="type" class="form-select form-select-sm" required style="font-size:.78rem;">
+                  <select name="type" class="form-select form-select-sm" required style="font-size:.78rem;" aria-label="Dept">
                     <option value="">— dept —</option>
                     {% for t in oss_types %}
                     <option value="{{ t }}">{{ rk.DEPT_CODES.get(t, "") }} · {{ oss_meta[t].label }}</option>
@@ -1465,22 +1475,22 @@
                 <div class="col-md-4">
                   <label class="form-label" style="font-size:.7rem;margin-bottom:1px;">Label</label>
                   <input type="text" name="activity" placeholder="e.g. 'Crew lunch'"
-                         class="form-control form-control-sm" style="font-size:.78rem;">
+                         class="form-control form-control-sm" style="font-size:.78rem;" aria-label="Label">
                 </div>
                 <div class="col-md-1">
                   <label class="form-label" style="font-size:.7rem;margin-bottom:1px;">Count</label>
                   <input type="number" name="count" min="0" step="1"
-                         class="form-control form-control-sm" style="font-size:.78rem;">
+                         class="form-control form-control-sm" style="font-size:.78rem;" aria-label="Count">
                 </div>
                 <div class="col-md-1">
                   <label class="form-label" style="font-size:.7rem;margin-bottom:1px;">Hrs</label>
                   <input type="number" name="duration_hrs" min="0" step="0.25"
-                         class="form-control form-control-sm" style="font-size:.78rem;">
+                         class="form-control form-control-sm" style="font-size:.78rem;" aria-label="Hrs">
                 </div>
                 <div class="col-md-3">
                   <label class="form-label" style="font-size:.7rem;margin-bottom:1px;">Notes</label>
                   <input type="text" name="notes"
-                         class="form-control form-control-sm" style="font-size:.78rem;">
+                         class="form-control form-control-sm" style="font-size:.78rem;" aria-label="Notes">
                 </div>
                 <div class="col-md-1">
                   <button type="submit" class="btn btn-sm btn-adi w-100" style="font-size:.74rem;">+ Add</button>
@@ -1536,7 +1546,7 @@
                            placeholder="e.g. LEAD CREW">
                   </div>
                   <div class="col-md-3">
-                    <select name="header_level" class="form-select form-select-sm">
+                    <select name="header_level" class="form-select form-select-sm" aria-label="Header level">
                       <option value="1">Main section</option>
                       <option value="2">Sub-section</option>
                     </select>
@@ -1559,10 +1569,10 @@
                 <div class="row g-2 align-items-end">
                   <div class="col-md-1">
                     <label style="font-size:.72rem;" class="form-label">Qty</label>
-                    <input type="number" name="qty" class="form-control form-control-sm" value="1" min="1">
+                    <input type="number" name="qty" class="form-control form-control-sm" value="1" min="1" aria-label="Qty">
                   </div>
                   <div class="col-md-2">
-                    <label style="font-size:.72rem;" class="form-label">Hrs / End Time</label>
+                    <label for="hrs-input-{{ act.id }}" style="font-size:.72rem;" class="form-label">Hrs / End Time</label>
                     <input type="number" name="hours" id="hrs-input-{{ act.id }}"
                            class="form-control form-control-sm" step="0.5" placeholder="hrs"
                            oninput="onHrsInput('{{ act.id|js_str }}')">
@@ -1573,7 +1583,7 @@
                          style="font-size:.65rem;color:var(--adi-gold);min-height:1em;margin-top:2px;"></div>
                   </div>
                   <div class="col-md-3">
-                    <label style="font-size:.72rem;" class="form-label">Position</label>
+                    <label for="pos-input-{{ act.id }}" style="font-size:.72rem;" class="form-label">Position</label>
                     <input type="text" name="position" id="pos-input-{{ act.id }}"
                            class="form-control form-control-sm"
                            placeholder="e.g. A1" list="pos-list-{{ act.id }}">
@@ -1582,7 +1592,7 @@
                     </datalist>
                   </div>
                   <div class="col-md-3">
-                    <label style="font-size:.72rem;" class="form-label">Name / Roster</label>
+                    <label for="crew-sel-{{ act.id }}" style="font-size:.72rem;" class="form-label">Name / Roster</label>
                     <select name="crew_member_id" id="crew-sel-{{ act.id }}"
                             class="form-select form-select-sm"
                             onchange="onCrewSelect(this, '{{ act.id|js_str }}')">
@@ -1608,13 +1618,13 @@
                   </div>
                   <div class="col-md-2">
                     <label style="font-size:.72rem;" class="form-label">Type</label>
-                    <select name="crew_type" class="form-select form-select-sm">
+                    <select name="crew_type" class="form-select form-select-sm" aria-label="Type">
                       {% for ct in crew_types %}<option>{{ ct }}</option>{% endfor %}
                     </select>
                   </div>
                   <div class="col-md-1">
                     <label style="font-size:.72rem;" class="form-label">Notes</label>
-                    <input type="text" name="notes" class="form-control form-control-sm">
+                    <input type="text" name="notes" class="form-control form-control-sm" aria-label="Notes">
                   </div>
                   <div class="col-auto">
                     <button type="submit" class="btn btn-sm btn-adi">Add</button>
@@ -1657,12 +1667,12 @@
                     <div class="col-md-1">
                       <label style="font-size:.72rem;" class="form-label">How many</label>
                       <input type="number" name="qty[]" class="form-control form-control-sm"
-                             value="1" min="1" step="1" required>
+                             value="1" min="1" step="1" required aria-label="How many">
                     </div>
                     <div class="col-md-3">
                       <label style="font-size:.72rem;" class="form-label">Local labor position</label>
                       <select name="position_id[]" class="form-select form-select-sm" required
-                              onchange="llMirrorTitle(this);">
+                              onchange="llMirrorTitle(this);" aria-label="Local labor position">
                         <option value="">— position —</option>
                         {% for dept, rows in local_labor_catalogue %}
                         <optgroup label="{{ dept }}">
@@ -1682,7 +1692,7 @@
                         Task <span class="text-muted" style="font-weight:400;">· optional</span>
                       </label>
                       <input type="text" name="task[]" class="form-control form-control-sm"
-                             list="task-list-{{ act.id }}" placeholder="e.g. Hang / Circuit Lights">
+                             list="task-list-{{ act.id }}" placeholder="e.g. Hang / Circuit Lights" aria-label="Task · optional">
                       <datalist id="task-list-{{ act.id }}">
                         {% for t in task_options %}<option value="{{ t }}">{% endfor %}
                       </datalist>
@@ -1690,11 +1700,11 @@
                     <div class="col-md-2">
                       <label style="font-size:.72rem;" class="form-label">Hrs</label>
                       <input type="number" name="hours[]" class="form-control form-control-sm"
-                             step="0.5" placeholder="hrs">
+                             step="0.5" placeholder="hrs" aria-label="Hrs">
                     </div>
                     <div class="col-md-2">
                       <label style="font-size:.72rem;" class="form-label">Notes</label>
-                      <input type="text" name="notes[]" class="form-control form-control-sm">
+                      <input type="text" name="notes[]" class="form-control form-control-sm" aria-label="Notes">
                     </div>
                     <div class="col-auto">
                       <button type="button" class="btn btn-sm btn-outline-secondary ll-add"
@@ -1742,7 +1752,7 @@
        nothing on it would have quietly lost its "No activities yet" prompt. #}
     {% if not day.activities %}
     <div class="empty-state py-4">
-      <div class="empty-icon">⏰</div>
+      <div class="empty-icon">{{ ico.icon('clock', 32) }}</div>
       <div style="font-size:.9rem;font-weight:600;margin-bottom:6px;">No activities yet</div>
       <p class="text-muted" style="font-size:.82rem;">
         Use the form above, click a quick-add pill, or apply a template from the sidebar.
@@ -1774,10 +1784,10 @@
         <input type="hidden" name="schedule_day_id" value="{{ day.id }}">
         <input type="hidden" name="next" value="{{ request.path }}">
         <div class="col-md-1">
-          <input type="time" name="time" class="form-control form-control-sm" style="font-size:.78rem;">
+          <input type="time" name="time" class="form-control form-control-sm" style="font-size:.78rem;" aria-label="Time">
         </div>
         <div class="col-md-2">
-          <select name="type" class="form-select form-select-sm" required style="font-size:.78rem;">
+          <select name="type" class="form-select form-select-sm" required style="font-size:.78rem;" aria-label="Type">
             <option value="">— dept —</option>
             {% for t in oss_types %}
             <option value="{{ t }}">{{ rk.DEPT_CODES.get(t, "") }} · {{ oss_meta[t].label }}</option>
@@ -1891,7 +1901,7 @@
     <div class="card mt-2" id="hours-summary-card">
       <div class="card-header d-flex align-items-center justify-content-between"
            style="font-size:.82rem;font-weight:700;">
-        <span>⏱ Day Hours Summary</span>
+        <span>{{ ico.icon('clock') }} Day Hours Summary</span>
         <span class="text-muted" style="font-size:.72rem;font-weight:400;">
           {{ "%.1f"|format(total_mh.n) }} total man-hours
         </span>
@@ -2006,13 +2016,13 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">{{ ico.icon('plus') }} Add crew member to roster</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <div id="atr-error" class="alert alert-danger py-1 px-2"
              style="display:none;font-size:.8rem;"></div>
 
-        <label class="form-label" style="font-size:.75rem;">
+        <label for="atr-existing" class="form-label" style="font-size:.75rem;">
           Already in the Crew Database
         </label>
         <select id="atr-existing" class="form-select form-select-sm mb-3">
@@ -2027,15 +2037,15 @@
         <hr style="margin:.6rem 0;">
         <div class="row g-2">
           <div class="col-6">
-            <label class="form-label" style="font-size:.75rem;">First name</label>
+            <label for="atr-first" class="form-label" style="font-size:.75rem;">First name</label>
             <input type="text" id="atr-first" class="form-control form-control-sm">
           </div>
           <div class="col-6">
-            <label class="form-label" style="font-size:.75rem;">Last name</label>
+            <label for="atr-last" class="form-label" style="font-size:.75rem;">Last name</label>
             <input type="text" id="atr-last" class="form-control form-control-sm">
           </div>
           <div class="col-6">
-            <label class="form-label" style="font-size:.75rem;">Company</label>
+            <label for="atr-company" class="form-label" style="font-size:.75rem;">Company</label>
             <select id="atr-company" class="form-select form-select-sm">
               <option value="">—</option>
               {% for co in all_companies %}
@@ -2044,7 +2054,7 @@
             </select>
           </div>
           <div class="col-6">
-            <label class="form-label" style="font-size:.75rem;">Position</label>
+            <label for="atr-position" class="form-label" style="font-size:.75rem;">Position</label>
             <select id="atr-position" class="form-select form-select-sm">
               <option value="">—</option>
               {% for p in positions %}
@@ -2079,14 +2089,14 @@
             action="{{ url_for('schedule.create_crew_call', show_id=show.id, day_id=day.id) }}">
         <div class="modal-header">
           <h5 class="modal-title">{{ ico.icon('users') }} Create Crew Call</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
 
           <div style="font-size:.8rem;font-weight:600;margin-bottom:6px;">1. When do they arrive?</div>
           <div class="row g-2 mb-3">
             <div class="col-md-3">
-              <label class="form-label" style="font-size:.72rem;">Call time</label>
+              <label for="ccc-time" class="form-label" style="font-size:.72rem;">Call time</label>
               <input type="time" name="time" id="ccc-time"
                      class="form-control form-control-sm" required>
             </div>
@@ -2095,13 +2105,13 @@
                 Which crew? <span class="text-muted" style="font-weight:400;">· optional</span>
               </label>
               <input type="text" name="description" class="form-control form-control-sm"
-                     placeholder="e.g. RIGGING, or leave blank for all">
+                     placeholder="e.g. RIGGING, or leave blank for all" aria-label="Which crew? · optional">
               <div style="font-size:.68rem;color:var(--adi-muted);margin-top:2px;">
                 Saved as <strong>CREW START</strong>, or <strong>CREW START — RIGGING</strong>.
               </div>
             </div>
             <div class="col-md-3">
-              <label class="form-label" style="font-size:.72rem;">
+              <label for="ccc-hours" class="form-label" style="font-size:.72rem;">
                 Hours <span class="text-muted" style="font-weight:400;">· optional</span>
               </label>
               <input type="number" name="hours" id="ccc-hours"
@@ -2263,12 +2273,12 @@
           <div id="shift-modal-subtitle"
                style="font-size:.72rem;color:var(--adi-muted);margin-top:2px;"></div>
         </div>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body" style="padding:14px 16px;">
 
         <div class="mb-3">
-          <label class="form-label" style="font-size:.75rem;">Activity Start Time</label>
+          <label for="shift-modal-start" class="form-label" style="font-size:.75rem;">Activity Start Time</label>
           <input type="time" id="shift-modal-start" class="form-control form-control-sm"
                  readonly style="background:#F8F9FA;color:var(--adi-muted);">
           <div class="form-text" style="font-size:.68rem;">
@@ -2278,13 +2288,13 @@
 
         <div class="row g-2 mb-1">
           <div class="col-6">
-            <label class="form-label" style="font-size:.75rem;">Hours on Shift</label>
+            <label for="shift-modal-hrs" class="form-label" style="font-size:.75rem;">Hours on Shift</label>
             <input type="number" id="shift-modal-hrs" class="form-control form-control-sm"
                    step="0.5" min="0" placeholder="e.g. 10"
                    oninput="shiftModalHrsChanged()">
           </div>
           <div class="col-6">
-            <label class="form-label" style="font-size:.75rem;">End Time</label>
+            <label for="shift-modal-end" class="form-label" style="font-size:.75rem;">End Time</label>
             <input type="time" id="shift-modal-end" class="form-control form-control-sm"
                    oninput="shiftModalEndChanged()">
           </div>
@@ -2320,7 +2330,7 @@
         <input type="hidden" name="next" value="{{ request.path }}">
         <div class="modal-header">
           <h5 class="modal-title">Add meal service</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
           <p class="text-muted" style="font-size:.78rem;">
@@ -2331,11 +2341,11 @@
             <div class="col-md-7">
               <label class="form-label" style="font-size:.72rem;">Service</label>
               <input type="text" name="name" class="form-control form-control-sm"
-                     placeholder="e.g. Crew Lunch" required>
+                     placeholder="e.g. Crew Lunch" required aria-label="Service">
             </div>
             <div class="col-md-5">
               <label class="form-label" style="font-size:.72rem;">Kind</label>
-              <select name="kind" class="form-select form-select-sm">
+              <select name="kind" class="form-select form-select-sm" aria-label="Kind">
                 {% for k in meal_kinds %}
                 <option value="{{ k }}">{{ k }}</option>
                 {% endfor %}
@@ -2348,20 +2358,20 @@
                 First location <span class="text-muted" style="font-weight:400;">· optional</span>
               </label>
               <input type="text" name="location_name" class="form-control form-control-sm"
-                     placeholder="e.g. Backstage">
+                     placeholder="e.g. Backstage" aria-label="First location · optional">
             </div>
             <div class="col-md-2">
               <label class="form-label" style="font-size:.72rem;">Start</label>
-              <input type="time" name="start_time" class="form-control form-control-sm">
+              <input type="time" name="start_time" class="form-control form-control-sm" aria-label="Start">
             </div>
             <div class="col-md-2">
               <label class="form-label" style="font-size:.72rem;">End</label>
-              <input type="time" name="end_time" class="form-control form-control-sm">
+              <input type="time" name="end_time" class="form-control form-control-sm" aria-label="End">
             </div>
             <div class="col-md-2">
               <label class="form-label" style="font-size:.72rem;">Heads</label>
               <input type="number" name="headcount" min="0" step="1"
-                     class="form-control form-control-sm">
+                     class="form-control form-control-sm" aria-label="Heads">
             </div>
           </div>
           <div class="row g-2">
@@ -2369,7 +2379,7 @@
               <label class="form-label" style="font-size:.72rem;">
                 Tie to an event <span class="text-muted" style="font-weight:400;">· optional</span>
               </label>
-              <select name="activity_id" class="form-select form-select-sm">
+              <select name="activity_id" class="form-select form-select-sm" aria-label="Tie to an event · optional">
                 <option value="">— none —</option>
                 {% for act in day.ordered_activities %}
                 <option value="{{ act.id }}">{{ act.time or '' }} {{ act.description|truncate(32) }}</option>
@@ -2378,7 +2388,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label" style="font-size:.72rem;">Notes</label>
-              <input type="text" name="notes" class="form-control form-control-sm">
+              <input type="text" name="notes" class="form-control form-control-sm" aria-label="Notes">
             </div>
           </div>
         </div>
@@ -2403,7 +2413,7 @@
         <input type="hidden" name="next" value="{{ request.path }}">
         <div class="modal-header">
           <h5 class="modal-title">All-day beverage service</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
           <p class="text-muted" style="font-size:.78rem;">
@@ -2415,14 +2425,14 @@
             <div class="col-md-6">
               <label class="form-label" style="font-size:.72rem;">Service</label>
               <input type="text" name="name" value="All Day Beverages"
-                     class="form-control form-control-sm">
+                     class="form-control form-control-sm" aria-label="Service">
             </div>
             <div class="col-md-6">
               <label class="form-label" style="font-size:.72rem;">
                 Location <span class="text-muted" style="font-weight:400;">· optional</span>
               </label>
               <input type="text" name="location_name" class="form-control form-control-sm"
-                     placeholder="e.g. Backstage">
+                     placeholder="e.g. Backstage" aria-label="Location · optional">
             </div>
           </div>
           <div class="row g-2">
@@ -2438,7 +2448,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label" style="font-size:.72rem;">Refresh every</label>
-              <select name="beverage_interval_minutes" class="form-select form-select-sm">
+              <select name="beverage_interval_minutes" class="form-select form-select-sm" aria-label="Refresh every">
                 <option value="90">1:30</option>
                 <option value="120">2:00</option>
                 <option value="150" selected>2:30</option>
@@ -2467,7 +2477,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h6 class="modal-title">{{ ico.icon('clipboard-list') }} Apply template</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <form method="POST" action="{{ url_for('schedule.apply_template', show_id=show.id, day_id=day.id) }}">
         <div class="modal-body">
@@ -2489,7 +2499,7 @@
           </div>
           <div class="mb-3">
             <label class="form-label">Template</label>
-            <select name="template" class="form-select form-select-sm">
+            <select name="template" class="form-select form-select-sm" aria-label="Template">
               {% for key, tpl in day_templates.items() %}
               <option value="{{ key }}">{{ tpl.label }}</option>
               {% endfor %}
@@ -2518,8 +2528,8 @@
   <div class="modal-dialog modal-sm">
     <div class="modal-content">
       <div class="modal-header">
-        <h6 class="modal-title">⏱ Bulk Time Shift</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <h6 class="modal-title">{{ ico.icon('clock') }} Bulk Time Shift</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <form method="POST" action="{{ url_for('schedule.bulk_shift', show_id=show.id, day_id=day.id) }}">
         <div class="modal-body">
@@ -2529,7 +2539,7 @@
           <div class="mb-3">
             <label class="form-label">Minutes to shift</label>
             <input type="number" name="shift_minutes" class="form-control"
-                   placeholder="e.g. 30 or -15" required>
+                   placeholder="e.g. 30 or -15" required aria-label="Minutes to shift">
             <div class="form-text">+30 = 30 min later · -30 = 30 min earlier</div>
           </div>
         </div>
@@ -2548,7 +2558,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h6 class="modal-title">{{ ico.icon('copy') }} Copy Activity to Other Days</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <form method="POST" id="copy-to-days-form">
         <div class="modal-body">
@@ -2589,7 +2599,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h6 class="modal-title">{{ ico.icon('file-text') }} Call Sheet</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <form method="POST" target="_blank"
             action="{{ url_for('schedule.call_sheet_batch', show_id=show.id) }}">
@@ -2998,6 +3008,8 @@ function toggleSection(el) {
   const level = parseInt(hdr.dataset.level || '1', 10);
   const open = el.textContent.trim() === '▾';
   el.textContent = open ? '▸' : '▾';
+  el.setAttribute('aria-expanded', open ? 'false' : 'true');
+  el.setAttribute('aria-label', open ? 'Expand section' : 'Collapse section');
 
   let r = hdr.nextElementSibling;
   while (r) {

@@ -83,7 +83,7 @@
             </div>
           </td>
           <td>
-            <select class="form-select form-select-sm" name="col_{{ col.index }}">
+            <select class="form-select form-select-sm" name="col_{{ col.index }}" aria-label="Col {{ col.index }}">
               {% for value, label in fields %}
                 <option value="{{ value }}"
                         {% if value == col.field %}selected{% endif %}>{{ label }}</option>

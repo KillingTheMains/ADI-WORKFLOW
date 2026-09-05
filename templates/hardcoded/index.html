@@ -35,11 +35,11 @@
           style="border-bottom:1px solid var(--adi-border);">
       <div style="flex:1 1 170px;">
         <label class="hce-lbl">Event name</label>
-        <input name="name" required class="form-control form-control-sm" placeholder="e.g. Security">
+        <input name="name" required class="form-control form-control-sm" placeholder="e.g. Security" aria-label="Event name">
       </div>
       <div style="flex:0 1 160px;">
         <label class="hce-lbl">Department</label>
-        <select name="department" class="form-select form-select-sm">
+        <select name="department" class="form-select form-select-sm" aria-label="Department">
           <option value="">— none —</option>
           {% for t in oss_types %}
           <option value="{{ t }}">{{ rk.DEPT_CODES.get(t, "") }} · {{ oss_meta[t].label }}</option>
@@ -49,7 +49,7 @@
       <div>
         <label class="hce-lbl">Start</label>
         <div class="d-flex gap-1">
-          <select name="start_anchor" class="form-select form-select-sm hce-anchor">
+          <select name="start_anchor" class="form-select form-select-sm hce-anchor" aria-label="Start">
             {% for a in anchors %}<option value="{{ a }}">{{ a }}</option>{% endfor %}
           </select>
           <input name="start_offset" class="form-control form-control-sm hce-off" placeholder="-1:00">
@@ -58,7 +58,7 @@
       <div>
         <label class="hce-lbl">End (optional)</label>
         <div class="d-flex gap-1">
-          <select name="end_anchor" class="form-select form-select-sm hce-anchor">
+          <select name="end_anchor" class="form-select form-select-sm hce-anchor" aria-label="End (optional)">
             <option value="">—</option>
             {% for a in anchors %}<option value="{{ a }}">{{ a }}</option>{% endfor %}
           </select>
@@ -74,11 +74,11 @@
         <form method="POST" action="{{ url_for('hardcoded_bp.edit', ev_id=ev.id) }}" class="editf">
           <div style="flex:1 1 170px;">
             <label class="hce-lbl">Event</label>
-            <input name="name" value="{{ ev.name }}" required class="form-control form-control-sm">
+            <input name="name" value="{{ ev.name }}" required class="form-control form-control-sm" aria-label="Event">
           </div>
           <div style="flex:0 1 160px;">
             <label class="hce-lbl">Department</label>
-            <select name="department" class="form-select form-select-sm">
+            <select name="department" class="form-select form-select-sm" aria-label="Department">
               <option value="" {% if not ev.department %}selected{% endif %}>— none —</option>
               {% for t in oss_types %}
               <option value="{{ t }}" {% if ev.department == t %}selected{% endif %}>{{ rk.DEPT_CODES.get(t, "") }} · {{ oss_meta[t].label }}</option>
@@ -88,7 +88,7 @@
           <div>
             <label class="hce-lbl">Start</label>
             <div class="d-flex gap-1">
-              <select name="start_anchor" class="form-select form-select-sm hce-anchor">
+              <select name="start_anchor" class="form-select form-select-sm hce-anchor" aria-label="Start">
                 {% for a in anchors %}<option value="{{ a }}" {% if ev.start_anchor == a %}selected{% endif %}>{{ a }}</option>{% endfor %}
               </select>
               <input name="start_offset" value="{{ ev.start_offset_str }}" class="form-control form-control-sm hce-off" placeholder="+0:00">
@@ -97,7 +97,7 @@
           <div>
             <label class="hce-lbl">End</label>
             <div class="d-flex gap-1">
-              <select name="end_anchor" class="form-select form-select-sm hce-anchor">
+              <select name="end_anchor" class="form-select form-select-sm hce-anchor" aria-label="End">
                 <option value="" {% if not ev.end_anchor %}selected{% endif %}>—</option>
                 {% for a in anchors %}<option value="{{ a }}" {% if ev.end_anchor == a %}selected{% endif %}>{{ a }}</option>{% endfor %}
               </select>
@@ -106,7 +106,7 @@
           </div>
           <div>
             <label class="hce-lbl">Active</label>
-            <select name="active" class="form-select form-select-sm" style="width:78px;">
+            <select name="active" class="form-select form-select-sm" style="width:78px;" aria-label="Active">
               <option value="1" {% if ev.active %}selected{% endif %}>On</option>
               <option value="0" {% if not ev.active %}selected{% endif %}>Off</option>
             </select>

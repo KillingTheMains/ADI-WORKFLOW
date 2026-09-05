@@ -29,17 +29,17 @@
       <div class="col-md-3">
         <label class="form-label" style="font:700 11px/1 'Barlow',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--adi-mineral-dk);margin-bottom:4px;">Title</label>
         <input type="text" name="title" class="form-control form-control-sm"
-               placeholder="e.g. High Rigger" required>
+               placeholder="e.g. High Rigger" required aria-label="Title">
       </div>
       <div class="col-md-2">
         <label class="form-label" style="font:700 11px/1 'Barlow',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--adi-mineral-dk);margin-bottom:4px;">Department</label>
-        <select name="department" class="form-select form-select-sm">
+        <select name="department" class="form-select form-select-sm" aria-label="Department">
           {% for d in departments %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
         </select>
       </div>
       <div class="col-md-2">
         <label class="form-label" style="font:700 11px/1 'Barlow',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--adi-mineral-dk);margin-bottom:4px;">Type</label>
-        <select name="type" class="form-select form-select-sm">
+        <select name="type" class="form-select form-select-sm" aria-label="Type">
           <option value="hand">hand — hired in multiples</option>
           <option value="lead">lead — runs the crew</option>
           <option value="specialty">specialty — one skilled shadow</option>
@@ -48,7 +48,7 @@
       <div class="col-md-3">
         <label class="form-label" style="font:700 11px/1 'Barlow',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--adi-mineral-dk);margin-bottom:4px;">Notes</label>
         <input type="text" name="notes" class="form-control form-control-sm"
-               placeholder="Optional">
+               placeholder="Optional" aria-label="Notes">
       </div>
       <div class="col-md-2">
         <div class="form-check mb-1" style="font-size:.78rem;">
@@ -98,10 +98,10 @@
       <tr>
         <td>
           <input type="text" name="title" form="ll-{{ p.id }}"
-                 value="{{ p.title }}" class="form-control form-control-sm">
+                 value="{{ p.title }}" class="form-control form-control-sm" aria-label="Title">
         </td>
         <td>
-          <select name="type" form="ll-{{ p.id }}" class="form-select form-select-sm">
+          <select name="type" form="ll-{{ p.id }}" class="form-select form-select-sm" aria-label="Type">
             {% for t in types %}
             <option value="{{ t }}" {% if p.type == t %}selected{% endif %}>{{ t }}</option>
             {% endfor %}
@@ -127,7 +127,7 @@
              browsers hoist it out, silently breaking the row. #}
           <div class="d-flex gap-1">
             <select name="department" form="ll-{{ p.id }}"
-                    class="form-select form-select-sm" style="width:auto;">
+                    class="form-select form-select-sm" style="width:auto;" aria-label="Department">
               {% for d in departments %}
               <option value="{{ d }}" {% if p.department == d %}selected{% endif %}>{{ d }}</option>
               {% endfor %}

@@ -18,12 +18,12 @@
             <div class="col-md-5">
               <label class="form-label">First Name <span class="text-danger">*</span></label>
               <input type="text" name="first_name" class="form-control" required
-                     value="{{ member.first_name }}">
+                     value="{{ member.first_name }}" aria-label="First Name">
             </div>
             <div class="col-md-5">
               <label class="form-label">Last Name <span class="text-danger">*</span></label>
               <input type="text" name="last_name" class="form-control" required
-                     value="{{ member.last_name }}">
+                     value="{{ member.last_name }}" aria-label="Last Name">
             </div>
             <div class="col-md-2 d-flex align-items-end pb-1">
               <div class="form-check form-switch">
@@ -34,7 +34,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label">Company</label>
-              <select name="company_id" class="form-select crew-company-select">
+              <select name="company_id" class="form-select crew-company-select" aria-label="Company">
                 <option value="">— No company —</option>
                 {% for c in companies %}
                 <option value="{{ c.id }}" {% if member.company_id == c.id %}selected{% endif %}>
@@ -46,7 +46,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label">Primary Position</label>
-              <select name="position_id" class="form-select crew-position-select">
+              <select name="position_id" class="form-select crew-position-select" aria-label="Primary Position">
                 <option value="">— Select position —</option>
                 {% set dept = namespace(current='') %}
                 {% for p in positions %}
@@ -66,12 +66,12 @@
             <div class="col-md-6">
               <label class="form-label">Email</label>
               <input type="email" name="email" class="form-control"
-                     value="{{ member.email or '' }}">
+                     value="{{ member.email or '' }}" aria-label="Email">
             </div>
             <div class="col-md-6">
               <label class="form-label">Phone</label>
               <input type="tel" name="phone" class="form-control"
-                     value="{{ member.phone or '' }}">
+                     value="{{ member.phone or '' }}" aria-label="Phone">
             </div>
           </div>
         </div>
@@ -85,31 +85,31 @@
               <label class="form-label">Standard ($/hr)</label>
               <input type="number" name="rate_standard" class="form-control"
                      step="0.01" placeholder="0.00"
-                     value="{{ '%.2f'|format(member.rate_standard) if member.rate_standard else '' }}">
+                     value="{{ '%.2f'|format(member.rate_standard) if member.rate_standard else '' }}" aria-label="Standard ($/hr)">
             </div>
             <div class="col-md-3">
               <label class="form-label">OT (1.5x) ($/hr)</label>
               <input type="number" name="rate_ot" class="form-control"
                      step="0.01" placeholder="0.00"
-                     value="{{ '%.2f'|format(member.rate_ot) if member.rate_ot else '' }}">
+                     value="{{ '%.2f'|format(member.rate_ot) if member.rate_ot else '' }}" aria-label="OT (1.5x) ($/hr)">
             </div>
             <div class="col-md-3">
               <label class="form-label">DT (2x) ($/hr)</label>
               <input type="number" name="rate_dt" class="form-control"
                      step="0.01" placeholder="0.00"
-                     value="{{ '%.2f'|format(member.rate_dt) if member.rate_dt else '' }}">
+                     value="{{ '%.2f'|format(member.rate_dt) if member.rate_dt else '' }}" aria-label="DT (2x) ($/hr)">
             </div>
             <div class="col-md-3">
               <label class="form-label">Meal Penalty</label>
               <input type="number" name="meal_penalty" class="form-control"
                      step="0.01" placeholder="0.00"
-                     value="{{ '%.2f'|format(member.meal_penalty) if member.meal_penalty else '' }}">
+                     value="{{ '%.2f'|format(member.meal_penalty) if member.meal_penalty else '' }}" aria-label="Meal Penalty">
             </div>
             <div class="col-md-3">
               <label class="form-label">Per Diem ($/day)</label>
               <input type="number" name="per_diem" class="form-control"
                      step="0.01" placeholder="89.00"
-                     value="{{ '%.2f'|format(member.per_diem) if member.per_diem else '' }}">
+                     value="{{ '%.2f'|format(member.per_diem) if member.per_diem else '' }}" aria-label="Per Diem ($/day)">
             </div>
           </div>
         </div>
@@ -118,7 +118,7 @@
       <div class="card mb-4">
         <div class="card-header">Notes</div>
         <div class="card-body p-4">
-          <textarea name="notes" class="form-control" rows="2">{{ member.notes or '' }}</textarea>
+          <textarea name="notes" class="form-control" rows="2" aria-label="Notes">{{ member.notes or '' }}</textarea>
         </div>
       </div>
 

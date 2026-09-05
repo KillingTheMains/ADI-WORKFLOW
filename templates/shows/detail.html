@@ -15,7 +15,7 @@
     {{ ico.icon('users') }} Crew
   </a>
   <a href="{{ url_for('show_crew.hours_report', show_id=show.id) }}" class="btn btn-sm btn-outline-secondary">
-    ⏱ Hours
+    {{ ico.icon('clock') }} Hours
   </a>
   <a href="{{ url_for('show_crew.contact_sheet', show_id=show.id) }}" class="btn btn-sm btn-outline-secondary" target="_blank">
     {{ ico.icon('clipboard-list') }} Contacts
@@ -169,7 +169,7 @@
               <td class="text-muted pe-2" style="padding:2px 0;">{{ dept }}</td>
               <td style="padding:2px 4px 2px 0;">
                 <select name="company_{{ dept }}" class="form-select form-select-sm"
-                        style="font-size:.75rem;padding:1px 4px;">
+                        style="font-size:.75rem;padding:1px 4px;" aria-label="Company {{ dept }}">
                   <option value="">—</option>
                   {% for co in companies %}
                   <option value="{{ co.id }}"
@@ -308,7 +308,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">Duplicate "{{ show.name }}"</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
           <p class="text-muted" style="font-size:.85rem;">
@@ -347,7 +347,7 @@
             </label>
             <input type="text" name="new_name" required
                    value="Copy of {{ show.name }}"
-                   class="form-control">
+                   class="form-control" aria-label="New show name">
           </div>
 
           <div class="mb-3">
@@ -356,7 +356,7 @@
             </label>
             <input type="text" name="new_code" value=""
                    placeholder="e.g. GHC27"
-                   class="form-control">
+                   class="form-control" aria-label="New show code (optional)">
           </div>
 
           <div class="mb-2">
@@ -364,7 +364,7 @@
               Shift dates by (days)
             </label>
             <input type="number" name="date_offset_days" value="0" step="1"
-                   class="form-control" style="max-width:150px;">
+                   class="form-control" style="max-width:150px;" aria-label="Shift dates by (days)">
             <div class="form-text" style="font-size:.75rem;">
               Positive shifts later, negative shifts earlier. Leave 0 to keep
               the original dates and edit them manually.

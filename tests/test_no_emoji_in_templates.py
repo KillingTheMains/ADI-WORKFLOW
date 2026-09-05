@@ -43,6 +43,7 @@ SPEC_NAMED_ARROWS = {"↶", "↷"}
 PICTOGRAPH_RANGES = (
     (0x1F300, 0x1FAFF),   # emoji & pictographs
     (0x1F000, 0x1F0FF),   # mahjong / cards
+    (0x2300, 0x23FF),     # misc technical (⏱ ⏰ lived here, found 09-05)
     (0x2600, 0x27BF),     # misc symbols + dingbats
     (0x2B00, 0x2BFF),     # misc symbols and arrows (⬇ lives here)
     (0x2190, 0x21FF),     # arrows

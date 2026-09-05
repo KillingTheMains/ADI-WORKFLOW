@@ -161,13 +161,13 @@
             {% if r.position %}
               {% if r.position_action == 'new' %}
                 <select name="pos_choice_{{ r.n }}" class="form-select form-select-sm mt-1"
-                        style="font-size:.74rem;">
+                        style="font-size:.74rem;" aria-label="Pos choice {{ r.n }}">
                   <option value="create">Create new "{{ r.position }}"</option>
                   <option value="map">Map to existing…</option>
                   <option value="skip">Leave blank</option>
                 </select>
                 <select name="pos_map_{{ r.n }}" class="form-select form-select-sm mt-1"
-                        style="font-size:.72rem;">
+                        style="font-size:.72rem;" aria-label="Pos map {{ r.n }}">
                   <option value="">— pick to map —</option>
                   {% for p in all_positions %}
                   <option value="{{ p.id }}">{{ p.title }}{% if p.department %} ({{ p.department }}){% endif %}</option>
@@ -195,13 +195,13 @@
             {% if r.company %}
               {% if r.company_action == 'new' %}
                 <select name="co_choice_{{ r.n }}" class="form-select form-select-sm mt-1"
-                        style="font-size:.74rem;">
+                        style="font-size:.74rem;" aria-label="Co choice {{ r.n }}">
                   <option value="create">Create new "{{ r.company }}"</option>
                   <option value="map">Map to existing…</option>
                   <option value="skip">Leave blank</option>
                 </select>
                 <select name="co_map_{{ r.n }}" class="form-select form-select-sm mt-1"
-                        style="font-size:.72rem;">
+                        style="font-size:.72rem;" aria-label="Co map {{ r.n }}">
                   <option value="">— pick to map —</option>
                   {% for c in all_companies %}
                   <option value="{{ c.id }}">{{ c.name }}</option>
@@ -226,7 +226,7 @@
           {# Decision cell #}
           <td>
             <select name="decision_{{ r.n }}" class="form-select form-select-sm"
-                    style="font-size:.78rem;">
+                    style="font-size:.78rem;" aria-label="Decision {{ r.n }}">
               {% if not r.matched_id %}
               {# The VALUE stays "add" for a slot row — commit reaches the
                  open-slot branch inside its add path, so anything else stops

@@ -39,19 +39,19 @@
             <div class="col-md-3">
               <label class="form-label">Show Code</label>
               <input type="text" name="code" class="form-control text-uppercase"
-                     value="{{ show.code or '' }}" maxlength="20">
+                     value="{{ show.code or '' }}" maxlength="20" aria-label="Show Code">
             </div>
             <div class="col-md-9">
               <label class="form-label">Show Name <span class="text-danger">*</span></label>
-              <input type="text" name="name" class="form-control" required value="{{ show.name }}">
+              <input type="text" name="name" class="form-control" required value="{{ show.name }}" aria-label="Show Name">
             </div>
             <div class="col-md-6">
               <label class="form-label">Room / Hall</label>
-              <input type="text" name="room_name" class="form-control" value="{{ show.room_name or '' }}">
+              <input type="text" name="room_name" class="form-control" value="{{ show.room_name or '' }}" aria-label="Room / Hall">
             </div>
             <div class="col-md-3">
               <label class="form-label">Status</label>
-              <select name="status" class="form-select">
+              <select name="status" class="form-select" aria-label="Status">
                 {% for s in statuses %}
                 <option value="{{ s }}" {% if s == show.status %}selected{% endif %}>{{ s }}</option>
                 {% endfor %}
@@ -95,7 +95,7 @@
                            value="{{ phase.name }}" placeholder="Phase name" required>
                   </div>
                   <div class="col-md-2">
-                    <select name="phase_type[]" class="form-select form-select-sm phase-type">
+                    <select name="phase_type[]" class="form-select form-select-sm phase-type" aria-label="Phase type">
                       {% for t in phase_types %}
                       <option value="{{ t }}" {% if t == phase.phase_type %}selected{% endif %}>{{ t }}</option>
                       {% endfor %}
@@ -103,11 +103,11 @@
                   </div>
                   <div class="col">
                     <input type="date" name="phase_start[]" class="form-control form-control-sm phase-start"
-                           value="{{ phase.start_date.isoformat() if phase.start_date else '' }}">
+                           value="{{ phase.start_date.isoformat() if phase.start_date else '' }}" aria-label="Phase start">
                   </div>
                   <div class="col">
                     <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end"
-                           value="{{ phase.end_date.isoformat() if phase.end_date else '' }}">
+                           value="{{ phase.end_date.isoformat() if phase.end_date else '' }}" aria-label="Phase end">
                   </div>
                   <div class="col-auto" style="width:36px;">
                     <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">{{ ico.icon('x') }}</button>
@@ -129,17 +129,17 @@
                            value="{{ default[0] }}" placeholder="Phase name" required>
                   </div>
                   <div class="col-md-2">
-                    <select name="phase_type[]" class="form-select form-select-sm phase-type">
+                    <select name="phase_type[]" class="form-select form-select-sm phase-type" aria-label="Phase type">
                       {% for t in phase_types %}
                       <option value="{{ t }}" {% if t == default[1] %}selected{% endif %}>{{ t }}</option>
                       {% endfor %}
                     </select>
                   </div>
                   <div class="col">
-                    <input type="date" name="phase_start[]" class="form-control form-control-sm phase-start">
+                    <input type="date" name="phase_start[]" class="form-control form-control-sm phase-start" aria-label="Phase start">
                   </div>
                   <div class="col">
-                    <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end">
+                    <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end" aria-label="Phase end">
                   </div>
                   <div class="col-auto" style="width:36px;">
                     <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">{{ ico.icon('x') }}</button>
@@ -164,7 +164,7 @@
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label">Client</label>
-              <select name="client_id" class="form-select">
+              <select name="client_id" class="form-select" aria-label="Client">
                 <option value="">— No client —</option>
                 {% for c in clients %}
                 <option value="{{ c.id }}" {% if show.client_id == c.id %}selected{% endif %}>{{ c.name }}</option>
@@ -173,7 +173,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label">Venue</label>
-              <select name="venue_id" class="form-select">
+              <select name="venue_id" class="form-select" aria-label="Venue">
                 <option value="">— No venue —</option>
                 {% for v in venues %}
                 <option value="{{ v.id }}" {% if show.venue_id == v.id %}selected{% endif %}>{{ v.name }} — {{ v.city }}</option>
@@ -188,7 +188,7 @@
       <div class="card mb-4">
         <div class="card-header">Notes</div>
         <div class="card-body p-4">
-          <textarea name="notes" class="form-control" rows="3">{{ show.notes or '' }}</textarea>
+          <textarea name="notes" class="form-control" rows="3" aria-label="Notes">{{ show.notes or '' }}</textarea>
         </div>
       </div>
 
@@ -211,15 +211,15 @@
         <input type="text" name="phase_name[]" class="form-control form-control-sm phase-name" placeholder="Phase name">
       </div>
       <div class="col-md-2">
-        <select name="phase_type[]" class="form-select form-select-sm phase-type">
+        <select name="phase_type[]" class="form-select form-select-sm phase-type" aria-label="Phase type">
                     {% for t in phase_types %}<option value="{{ t }}"{% if t == '' %} selected{% endif %}>{{ t }}</option>{% endfor %}
                   </select>
       </div>
       <div class="col">
-        <input type="date" name="phase_start[]" class="form-control form-control-sm phase-start">
+        <input type="date" name="phase_start[]" class="form-control form-control-sm phase-start" aria-label="Phase start">
       </div>
       <div class="col">
-        <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end">
+        <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end" aria-label="Phase end">
       </div>
       <div class="col-auto" style="width:36px;">
         <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">{{ ico.icon('x') }}</button>

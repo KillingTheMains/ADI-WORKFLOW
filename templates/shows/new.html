@@ -42,22 +42,22 @@
             <div class="col-md-3">
               <label class="form-label">Show Code</label>
               <input type="text" name="code" class="form-control text-uppercase"
-                     placeholder="e.g. GHC26" maxlength="20">
+                     placeholder="e.g. GHC26" maxlength="20" aria-label="Show Code">
               <div class="form-text">Short identifier used in filenames</div>
             </div>
             <div class="col-md-9">
               <label class="form-label">Show Name <span class="text-danger">*</span></label>
               <input type="text" name="name" class="form-control" required
-                     placeholder="e.g. Grace Hopper Celebration 2026">
+                     placeholder="e.g. Grace Hopper Celebration 2026" aria-label="Show Name">
             </div>
             <div class="col-md-6">
               <label class="form-label">Room / Hall</label>
               <input type="text" name="room_name" class="form-control"
-                     placeholder="e.g. Exhibit Hall ABC — General Session">
+                     placeholder="e.g. Exhibit Hall ABC — General Session" aria-label="Room / Hall">
             </div>
             <div class="col-md-3">
               <label class="form-label">Status</label>
-              <select name="status" class="form-select">
+              <select name="status" class="form-select" aria-label="Status">
                 {% for s in statuses %}
                 <option value="{{ s }}">{{ s }}</option>
                 {% endfor %}
@@ -104,15 +104,15 @@
                          value="Load In" placeholder="Phase name">
                 </div>
                 <div class="col-md-2">
-                  <select name="phase_type[]" class="form-select form-select-sm phase-type">
+                  <select name="phase_type[]" class="form-select form-select-sm phase-type" aria-label="Phase type">
                     {% for t in phase_types %}<option value="{{ t }}"{% if t == 'Load In' %} selected{% endif %}>{{ t }}</option>{% endfor %}
                   </select>
                 </div>
                 <div class="col">
-                  <input type="date" name="phase_start[]" class="form-control form-control-sm phase-start">
+                  <input type="date" name="phase_start[]" class="form-control form-control-sm phase-start" aria-label="Phase start">
                 </div>
                 <div class="col">
-                  <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end">
+                  <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end" aria-label="Phase end">
                 </div>
                 <div class="col-auto" style="width:36px;">
                   <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">{{ ico.icon('x') }}</button>
@@ -131,15 +131,15 @@
                          value="Show" placeholder="Phase name">
                 </div>
                 <div class="col-md-2">
-                  <select name="phase_type[]" class="form-select form-select-sm phase-type">
+                  <select name="phase_type[]" class="form-select form-select-sm phase-type" aria-label="Phase type">
                     {% for t in phase_types %}<option value="{{ t }}"{% if t == 'Show' %} selected{% endif %}>{{ t }}</option>{% endfor %}
                   </select>
                 </div>
                 <div class="col">
-                  <input type="date" name="phase_start[]" class="form-control form-control-sm phase-start">
+                  <input type="date" name="phase_start[]" class="form-control form-control-sm phase-start" aria-label="Phase start">
                 </div>
                 <div class="col">
-                  <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end">
+                  <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end" aria-label="Phase end">
                 </div>
                 <div class="col-auto" style="width:36px;">
                   <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">{{ ico.icon('x') }}</button>
@@ -158,15 +158,15 @@
                          value="Strike" placeholder="Phase name">
                 </div>
                 <div class="col-md-2">
-                  <select name="phase_type[]" class="form-select form-select-sm phase-type">
+                  <select name="phase_type[]" class="form-select form-select-sm phase-type" aria-label="Phase type">
                     {% for t in phase_types %}<option value="{{ t }}"{% if t == 'Strike' %} selected{% endif %}>{{ t }}</option>{% endfor %}
                   </select>
                 </div>
                 <div class="col">
-                  <input type="date" name="phase_start[]" class="form-control form-control-sm phase-start">
+                  <input type="date" name="phase_start[]" class="form-control form-control-sm phase-start" aria-label="Phase start">
                 </div>
                 <div class="col">
-                  <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end">
+                  <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end" aria-label="Phase end">
                 </div>
                 <div class="col-auto" style="width:36px;">
                   <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">{{ ico.icon('x') }}</button>
@@ -189,7 +189,7 @@
         <div class="card-body p-4">
           {% if clients %}
           <div class="mb-3">
-            <label class="form-label">Select Existing Client</label>
+            <label for="client-select" class="form-label">Select Existing Client</label>
             <select name="client_id" class="form-select" id="client-select">
               <option value="">— or add new below —</option>
               {% for c in clients %}
@@ -203,15 +203,15 @@
             <div class="col-md-6">
               <label class="form-label">New Client Name</label>
               <input type="text" name="new_client_name" class="form-control"
-                     placeholder="e.g. AnitaB.org">
+                     placeholder="e.g. AnitaB.org" aria-label="New Client Name">
             </div>
             <div class="col-md-3">
               <label class="form-label">Contact Name</label>
-              <input type="text" name="new_client_contact" class="form-control">
+              <input type="text" name="new_client_contact" class="form-control" aria-label="Contact Name">
             </div>
             <div class="col-md-3">
               <label class="form-label">Email</label>
-              <input type="email" name="new_client_email" class="form-control">
+              <input type="email" name="new_client_email" class="form-control" aria-label="Email">
             </div>
           </div>
         </div>
@@ -224,7 +224,7 @@
           {% if venues %}
           <div class="mb-3">
             <label class="form-label">Select Existing Venue</label>
-            <select name="venue_id" class="form-select">
+            <select name="venue_id" class="form-select" aria-label="Select Existing Venue">
               <option value="">— or add new below —</option>
               {% for v in venues %}
               <option value="{{ v.id }}">{{ v.name }} — {{ v.city }}, {{ v.state }}</option>
@@ -237,19 +237,19 @@
             <div class="col-md-6">
               <label class="form-label">Venue Name</label>
               <input type="text" name="new_venue_name" class="form-control"
-                     placeholder="e.g. Anaheim Convention Center">
+                     placeholder="e.g. Anaheim Convention Center" aria-label="Venue Name">
             </div>
             <div class="col-md-3">
               <label class="form-label">City</label>
-              <input type="text" name="new_venue_city" class="form-control">
+              <input type="text" name="new_venue_city" class="form-control" aria-label="City">
             </div>
             <div class="col-md-3">
               <label class="form-label">State</label>
-              <input type="text" name="new_venue_state" class="form-control" maxlength="50">
+              <input type="text" name="new_venue_state" class="form-control" maxlength="50" aria-label="State">
             </div>
             <div class="col-12">
               <label class="form-label">Address</label>
-              <input type="text" name="new_venue_address" class="form-control">
+              <input type="text" name="new_venue_address" class="form-control" aria-label="Address">
             </div>
           </div>
         </div>
@@ -284,15 +284,15 @@
                placeholder="Phase name">
       </div>
       <div class="col-md-2">
-        <select name="phase_type[]" class="form-select form-select-sm phase-type">
+        <select name="phase_type[]" class="form-select form-select-sm phase-type" aria-label="Phase type">
                     {% for t in phase_types %}<option value="{{ t }}"{% if t == 'Custom' %} selected{% endif %}>{{ t }}</option>{% endfor %}
                   </select>
       </div>
       <div class="col">
-        <input type="date" name="phase_start[]" class="form-control form-control-sm phase-start">
+        <input type="date" name="phase_start[]" class="form-control form-control-sm phase-start" aria-label="Phase start">
       </div>
       <div class="col">
-        <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end">
+        <input type="date" name="phase_end[]" class="form-control form-control-sm phase-end" aria-label="Phase end">
       </div>
       <div class="col-auto" style="width:36px;">
         <button type="button" class="btn btn-sm btn-outline-danger remove-phase" title="Remove">{{ ico.icon('x') }}</button>

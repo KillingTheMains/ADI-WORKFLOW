@@ -54,7 +54,7 @@
       <form method="POST" action="{{ url_for('agency.agency_save') }}">
         <label class="form-label" style="font-size:.78rem;">Agency name</label>
         <input type="text" name="name" value="{{ setting.name or '' }}"
-               class="form-control form-control-sm" maxlength="200">
+               class="form-control form-control-sm" maxlength="200" aria-label="Agency name">
 
         <label class="form-label" style="font-size:.78rem;margin-top:12px;">
           Brand colour
@@ -62,7 +62,7 @@
         <div style="display:flex;gap:8px;align-items:center;">
           <input type="color" name="primary_hex"
                  value="{{ setting.primary_hex or '#0B2545' }}"
-                 class="form-control form-control-sm" style="width:56px;padding:2px;">
+                 class="form-control form-control-sm" style="width:56px;padding:2px;" aria-label="Brand colour">
           <code style="font-size:.78rem;">{{ setting.primary_hex }}</code>
         </div>
         <div class="text-muted" style="font-size:.72rem;margin:6px 0 10px;">

@@ -170,7 +170,7 @@
           <select name="pack_type_{{ a.id }}"
                   class="form-select form-select-sm coms-pack-field-{{ a.id }} coms-autocheck"
                   data-aid="{{ a.id }}"
-                  style="font-size:.78rem;">
+                  style="font-size:.78rem;" aria-label="Pack type {{ a.id }}">
             <option value="">—</option>
             {% for t in com_pack_types %}
             <option value="{{ t }}" {% if a.pack_type == t %}selected{% endif %}>{{ t }}</option>
@@ -182,7 +182,7 @@
             <select name="pack_brand_{{ a.id }}"
                     class="form-select form-select-sm coms-pack-field-{{ a.id }} coms-brand-{{ a.id }} coms-autocheck"
                     data-aid="{{ a.id }}"
-                    style="font-size:.78rem;flex:1;">
+                    style="font-size:.78rem;flex:1;" aria-label="Pack brand {{ a.id }}">
               <option value="">—</option>
               {% for b in com_pack_brands %}
               <option value="{{ b }}" {% if a.pack_brand == b %}selected{% endif %}>{{ b }}</option>
@@ -214,7 +214,7 @@
               <label style="font-size:.62rem;font-weight:700;color:#888;
                             text-transform:uppercase;letter-spacing:.04em;
                             margin-bottom:1px;">K{{ slot_num }}</label>
-              <select class="form-select form-select-sm coms-slot-select"
+              <select class="form-select form-select-sm coms-slot-select" aria-label="Slot K{{ slot_num }}"
                       data-aid="{{ a.id }}"
                       style="font-size:.74rem;min-width:88px;max-width:120px;">
                 <option value="">—</option>
@@ -237,7 +237,7 @@
           <input type="text" name="notes_{{ a.id }}"
                  value="{{ a.notes or '' }}"
                  class="form-control form-control-sm"
-                 style="font-size:.78rem;">
+                 style="font-size:.78rem;" aria-label="Notes {{ a.id }}">
         </td>
       </tr>
       {% endfor %}

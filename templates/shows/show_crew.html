@@ -22,7 +22,7 @@
   <a href="{{ url_for('show_crew.contact_sheet', show_id=show.id) }}"
      class="btn btn-sm btn-outline-secondary" target="_blank">{{ ico.icon('clipboard-list') }} Contact Sheet</a>
   <a href="{{ url_for('show_crew.hours_report', show_id=show.id) }}"
-     class="btn btn-sm btn-outline-secondary">⏱ Hours Report</a>
+     class="btn btn-sm btn-outline-secondary">{{ ico.icon('clock') }} Hours Report</a>
 {% endblock %}
 
 {% block content %}
@@ -104,7 +104,7 @@
     <div class="row g-1 align-items-end" style="font-size:.78rem;">
       <div class="col-md-2">
         <label style="font-size:.7rem;">Position</label>
-        <select name="position_id" class="form-select form-select-sm crew-position-select" style="font-size:.76rem;">
+        <select name="position_id" class="form-select form-select-sm crew-position-select" style="font-size:.76rem;" aria-label="Position">
           <option value="">— pick —</option>
           {% for p in all_positions %}
           <option value="{{ p.id }}">{{ p.title }}{% if p.department %} ({{ p.department }}){% endif %}</option>
@@ -115,33 +115,33 @@
       <div class="col-md-2">
         <label style="font-size:.7rem;">or Label</label>
         <input type="text" name="placeholder_label" placeholder="e.g. LED Lead — Set Up"
-               class="form-control form-control-sm" style="font-size:.76rem;">
+               class="form-control form-control-sm" style="font-size:.76rem;" aria-label="or Label">
       </div>
       <div class="col-md-1">
         <label style="font-size:.7rem;">Task</label>
         <input type="text" name="booking_task" list="task-options"
                placeholder="PREP / 3 Show / Strike"
-               class="form-control form-control-sm" style="font-size:.76rem;">
+               class="form-control form-control-sm" style="font-size:.76rem;" aria-label="Task">
       </div>
       <div class="col-md-1">
         <label style="font-size:.7rem;">Travel In</label>
-        <input type="date" name="travel_in_date" class="form-control form-control-sm">
+        <input type="date" name="travel_in_date" class="form-control form-control-sm" aria-label="Travel In">
       </div>
       <div class="col-md-1">
         <label style="font-size:.7rem;">Start</label>
-        <input type="date" name="start_date" class="form-control form-control-sm">
+        <input type="date" name="start_date" class="form-control form-control-sm" aria-label="Start">
       </div>
       <div class="col-md-1">
         <label style="font-size:.7rem;">End</label>
-        <input type="date" name="end_date" class="form-control form-control-sm">
+        <input type="date" name="end_date" class="form-control form-control-sm" aria-label="End">
       </div>
       <div class="col-md-1">
         <label style="font-size:.7rem;">Travel Out</label>
-        <input type="date" name="travel_out_date" class="form-control form-control-sm">
+        <input type="date" name="travel_out_date" class="form-control form-control-sm" aria-label="Travel Out">
       </div>
       <div class="col-md-2">
         <label style="font-size:.7rem;">Notes</label>
-        <input type="text" name="notes" class="form-control form-control-sm" style="font-size:.76rem;">
+        <input type="text" name="notes" class="form-control form-control-sm" style="font-size:.76rem;" aria-label="Notes">
       </div>
       <div class="col-md-1">
         <button type="submit" class="btn btn-sm btn-adi w-100" style="font-size:.74rem;">+ Add</button>
@@ -167,7 +167,7 @@
     <span style="font-size:.75rem;color:var(--adi-muted);">assigned crew, grouped by company</span>
   </div>
   <!-- ── Bulk actions bar (#42 — per-show roster) ── -->
-  <div id="bulk-bar" class="d-flex align-items-center gap-2 mb-2" style="display:none;">
+  <div id="bulk-bar" class="d-flex align-items-center gap-2 mb-2" hidden>
     <span style="font-size:.82rem;color:var(--adi-muted);"><strong id="bulk-count">0</strong> crew selected</span>
     <button type="button" class="btn btn-sm btn-adi" id="bulk-edit-open">Bulk Edit…</button>
     <button type="button" class="btn btn-sm btn-outline-secondary" id="bulk-clear">Clear</button>
@@ -211,11 +211,11 @@
                        user-select:none;vertical-align:middle;"
                 title="Drag to reorder">⋮⋮</td>
             <td style="text-align:center;vertical-align:middle;">
-              <input type="checkbox" class="crew-select" value="{{ a.crew_member.id }}">
+              <input type="checkbox" class="crew-select" value="{{ a.crew_member.id }}" aria-label="Select {{ a.crew_member.display_label }}">
             </td>
               <td>
                 <div style="font-weight:600;">{{ a.crew_member.display_label }}</div>
-                <input form="{{ fid }}" type="text" name="role_override" value="{{ a.role_override or '' }}"
+                <input form="{{ fid }}" aria-label="Role on this show for {{ a.crew_member.display_label }}" type="text" name="role_override" value="{{ a.role_override or '' }}"
                        placeholder="role on this show (optional)"
                        class="form-control form-control-sm mt-1">
               </td>
@@ -223,19 +223,19 @@
                 {{ a.crew_member.position.title if a.crew_member.position else '—' }}
               </td>
               <td>
-                <input form="{{ fid }}" type="text" name="booking_task" value="{{ a.booking_task or '' }}"
+                <input form="{{ fid }}" aria-label="Task for {{ a.crew_member.display_label }}" type="text" name="booking_task" value="{{ a.booking_task or '' }}"
                        list="task-options" class="form-control form-control-sm">
               </td>
-              <td><input form="{{ fid }}" type="date" name="travel_in_date"
+              <td><input form="{{ fid }}" aria-label="Travel in for {{ a.crew_member.display_label }}" type="date" name="travel_in_date"
                          value="{{ a.travel_in_date.isoformat() if a.travel_in_date else '' }}"
                          class="form-control form-control-sm"></td>
-              <td><input form="{{ fid }}" type="date" name="start_date"
+              <td><input form="{{ fid }}" aria-label="Start for {{ a.crew_member.display_label }}" type="date" name="start_date"
                          value="{{ a.start_date.isoformat() if a.start_date else '' }}"
                          class="form-control form-control-sm"></td>
-              <td><input form="{{ fid }}" type="date" name="end_date"
+              <td><input form="{{ fid }}" aria-label="End for {{ a.crew_member.display_label }}" type="date" name="end_date"
                          value="{{ a.end_date.isoformat() if a.end_date else '' }}"
                          class="form-control form-control-sm"></td>
-              <td><input form="{{ fid }}" type="date" name="travel_out_date"
+              <td><input form="{{ fid }}" aria-label="Travel out for {{ a.crew_member.display_label }}" type="date" name="travel_out_date"
                          value="{{ a.travel_out_date.isoformat() if a.travel_out_date else '' }}"
                          class="form-control form-control-sm"></td>
               <td>
@@ -257,13 +257,13 @@
                 <div style="font-weight:600;">
                   {{ slot.display_title }}<span class="tbd-badge">TBD</span>
                 </div>
-                <input form="{{ fid }}" type="text" name="placeholder_label"
+                <input form="{{ fid }}" aria-label="Label for {{ slot.display_title }}" type="text" name="placeholder_label"
                        value="{{ slot.placeholder_label or '' }}"
                        placeholder="custom label (optional)"
                        class="form-control form-control-sm mt-1">
               </td>
               <td>
-                <select form="{{ fid }}" name="position_id" class="form-select form-select-sm crew-position-select">
+                <select form="{{ fid }}" aria-label="Position for {{ slot.display_title }}" name="position_id" class="form-select form-select-sm crew-position-select">
                   <option value="">— none —</option>
                   {% for p in all_positions %}
                   <option value="{{ p.id }}" {% if slot.position_id == p.id %}selected{% endif %}>
@@ -274,19 +274,19 @@
                 </select>
               </td>
               <td>
-                <input form="{{ fid }}" type="text" name="booking_task" value="{{ slot.booking_task or '' }}"
+                <input form="{{ fid }}" aria-label="Task for {{ slot.display_title }}" type="text" name="booking_task" value="{{ slot.booking_task or '' }}"
                        list="task-options" class="form-control form-control-sm">
               </td>
-              <td><input form="{{ fid }}" type="date" name="travel_in_date"
+              <td><input form="{{ fid }}" aria-label="Travel in for {{ slot.display_title }}" type="date" name="travel_in_date"
                          value="{{ slot.travel_in_date.isoformat() if slot.travel_in_date else '' }}"
                          class="form-control form-control-sm"></td>
-              <td><input form="{{ fid }}" type="date" name="start_date"
+              <td><input form="{{ fid }}" aria-label="Start for {{ slot.display_title }}" type="date" name="start_date"
                          value="{{ slot.start_date.isoformat() if slot.start_date else '' }}"
                          class="form-control form-control-sm"></td>
-              <td><input form="{{ fid }}" type="date" name="end_date"
+              <td><input form="{{ fid }}" aria-label="End for {{ slot.display_title }}" type="date" name="end_date"
                          value="{{ slot.end_date.isoformat() if slot.end_date else '' }}"
                          class="form-control form-control-sm"></td>
-              <td><input form="{{ fid }}" type="date" name="travel_out_date"
+              <td><input form="{{ fid }}" aria-label="Travel out for {{ slot.display_title }}" type="date" name="travel_out_date"
                          value="{{ slot.travel_out_date.isoformat() if slot.travel_out_date else '' }}"
                          class="form-control form-control-sm"></td>
               <td style="white-space:nowrap;">
@@ -305,7 +305,7 @@
                       class="d-flex align-items-center gap-1">
                   <span style="font-size:.7rem;color:#92400E;">Fill this slot →</span>
                   <select name="crew_member_id" class="form-select form-select-sm"
-                          style="font-size:.74rem;max-width:280px;">
+                          style="font-size:.74rem;max-width:280px;" aria-label="Crew member ID">
                     <option value="">— pick a crew member —</option>
                     {% for co in sorted_companies %}
                     <optgroup label="{{ co.name }}">
@@ -504,7 +504,7 @@
         <input type="hidden" name="next" value="{{ request.path }}">
         <div class="modal-header">
           <h5 class="modal-title">Bulk Edit — <span id="bulk-modal-count">0</span> crew</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
           <p style="font-size:.8rem;color:var(--adi-muted);">
@@ -514,7 +514,7 @@
           <input type="hidden" name="ids" id="bulk-ids">
           <div class="mb-3">
             <label class="form-label" style="font-size:.82rem;font-weight:600;">Position</label>
-            <select name="position_id" class="form-select form-select-sm crew-position-select">
+            <select name="position_id" class="form-select form-select-sm crew-position-select" aria-label="Position">
               <option value="">— leave unchanged —</option>
               {% for p in all_positions %}<option value="{{ p.id }}">{{ p.title }}</option>{% endfor %}
               <option value="__new__" style="font-style:italic;color:#B45309;">+ New position…</option>
@@ -522,7 +522,7 @@
           </div>
           <div class="mb-1">
             <label class="form-label" style="font-size:.82rem;font-weight:600;">Company</label>
-            <select name="company_id" class="form-select form-select-sm crew-company-select">
+            <select name="company_id" class="form-select form-select-sm crew-company-select" aria-label="Company">
               <option value="">— leave unchanged —</option>
               {% for co in all_companies %}<option value="{{ co.id }}">{{ co.name }}</option>{% endfor %}
               <option value="__new__" style="font-style:italic;color:#B45309;">+ New company…</option>
@@ -548,7 +548,10 @@
   function refresh() {
     const n = selected().length;
     if (countEl) countEl.textContent = n;
-    if (bar) bar.style.display = n ? 'flex' : 'none';
+    // The [hidden] attribute, not style.display: Bootstrap's .d-flex is
+    // !important and beat an inline display:none, so the bar showed
+    // "0 selected" permanently. Found by the 09-05 critique.
+    if (bar) bar.hidden = !n;
   }
   document.addEventListener('change', function (e) {
     const t = e.target;

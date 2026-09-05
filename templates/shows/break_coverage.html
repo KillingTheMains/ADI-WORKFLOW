@@ -171,7 +171,7 @@
        delete buttons out of the form they sit inside. #}
     {% if link_choices.get(svc.id) %}
     <select name="break_id" form="svcfeed-{{ svc.id }}"
-            style="font-size:.74rem;max-width:280px;">
+            style="font-size:.74rem;max-width:280px;" aria-label="Break ID">
       <option value="">which break does this feed?</option>
       {% for c in link_choices[svc.id] %}
       <option value="{{ c.cb.id }}">
