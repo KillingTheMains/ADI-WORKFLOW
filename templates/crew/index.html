@@ -149,22 +149,31 @@
               {{ m.position.department if m.position else '—' }}
             </td>
             <td>
-              <select name="position_id" class="form-select form-select-sm crew-position-select"
+              {# Lazy options. Every row used to carry the FULL position list —
+                 on 200 crew that was 400 selects × 130 options and a 2.5 MB
+                 page. Each select now renders only its current value; the
+                 full list lives once in <template id="position-options"> and
+                 is cloned in on first focus (script at the bottom). The form
+                 posts exactly what it did before. #}
+              <select name="position_id" class="form-select form-select-sm crew-position-select lazy-options"
+                      data-options="position-options"
                       style="font-size:.74rem;max-width:180px;" aria-label="Position for {{ m.full_name }}">
-                <option value="">—</option>
-                {% for p in positions %}
-                <option value="{{ p.id }}" {% if m.position_id == p.id %}selected{% endif %}>{{ p.title }}</option>
-                {% endfor %}
-                <option value="__new__" style="font-style:italic;color:#B45309;">+ New position…</option>
+                {% if m.position %}
+                <option value="{{ m.position.id }}" selected>{{ m.position.title }}</option>
+                {% else %}
+                <option value="" selected>—</option>
+                {% endif %}
               </select>
             </td>
             <td>
-              <select name="company_id" class="form-select form-select-sm crew-company-select" style="font-size:.74rem;max-width:150px;" aria-label="Company for {{ m.full_name }}">
-                <option value="">—</option>
-                {% for co in companies %}
-                <option value="{{ co.id }}" {% if m.company_id == co.id %}selected{% endif %}>{{ co.name }}</option>
-                {% endfor %}
-                <option value="__new__" style="font-style:italic;color:#B45309;">+ New company…</option>
+              <select name="company_id" class="form-select form-select-sm crew-company-select lazy-options"
+                      data-options="company-options"
+                      style="font-size:.74rem;max-width:150px;" aria-label="Company for {{ m.full_name }}">
+                {% if m.company %}
+                <option value="{{ m.company.id }}" selected>{{ m.company.name }}</option>
+                {% else %}
+                <option value="" selected>—</option>
+                {% endif %}
               </select>
             </td>
             <td>
@@ -188,6 +197,23 @@
         {% endfor %}
       </tbody>
     </table>
+    {# The full option lists, rendered ONCE. Cloned into a row's select on
+       first focus by the lazy-options script below. The "+ New…" sentinels
+       are here too, so the new-position/new-company modals keep working. #}
+    <template id="position-options">
+      <option value="">—</option>
+      {% for p in positions %}
+      <option value="{{ p.id }}">{{ p.title }}</option>
+      {% endfor %}
+      <option value="__new__" style="font-style:italic;color:var(--adi-warn);">+ New position…</option>
+    </template>
+    <template id="company-options">
+      <option value="">—</option>
+      {% for co in companies %}
+      <option value="{{ co.id }}">{{ co.name }}</option>
+      {% endfor %}
+      <option value="__new__" style="font-style:italic;color:var(--adi-warn);">+ New company…</option>
+    </template>
     <!-- Empty state when filters return nothing -->
     {# §08. A floating emoji and a grey line read as a rendering failure. The
        dashed plate says "this is a state, deliberately" and matches the empty
@@ -216,6 +242,37 @@
 </div>
 {% endif %}
 
+<script>
+/* Lazy option lists. A .lazy-options select carries only its current value
+   until the first focus, mousedown or keydown, when the full list is cloned
+   in from the <template> named by data-options and the current value is
+   re-selected. Capture phase, so it runs before the native dropdown opens.
+   Runs once per select; the class is removed afterwards. */
+(function () {
+  function hydrate(sel) {
+    if (!sel.classList.contains('lazy-options')) return;
+    const tpl = document.getElementById(sel.dataset.options);
+    if (!tpl) return;
+    const current = sel.value;
+    const currentLabel = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent : '—';
+    sel.innerHTML = '';
+    sel.appendChild(tpl.content.cloneNode(true));
+    sel.value = current;
+    if (sel.value !== current) {          // not in the list any more — keep showing what the row had
+      const o = document.createElement('option');
+      o.value = current; o.textContent = currentLabel;
+      sel.insertBefore(o, sel.firstChild); sel.value = current;
+    }
+    sel.classList.remove('lazy-options');
+  }
+  ['focus', 'mousedown', 'keydown'].forEach(function (ev) {
+    document.addEventListener(ev, function (e) {
+      const t = e.target;
+      if (t && t.matches && t.matches('select.lazy-options')) hydrate(t);
+    }, true);
+  });
+})();
+</script>
 <script>
 (function () {
   const rows       = Array.from(document.querySelectorAll('.crew-row'));
@@ -383,8 +440,8 @@
 </script>
 
 <style>
-  .crew-drag-ghost   { opacity: 0.4; background: #FFF8EC !important; }
-  .crew-drag-chosen  { background: #FEF3C7 !important; }
+  .crew-drag-ghost   { opacity: 0.4; background: var(--adi-warn-bg) !important; }
+  .crew-drag-chosen  { background: var(--adi-warn-bg) !important; }
   .drag-handle:hover { color: var(--adi-dark) !important; }
 </style>
 
@@ -408,7 +465,7 @@
             <select name="position_id" class="form-select form-select-sm crew-position-select" aria-label="Position">
               <option value="">— leave unchanged —</option>
               {% for p in positions %}<option value="{{ p.id }}">{{ p.title }}</option>{% endfor %}
-              <option value="__new__" style="font-style:italic;color:#B45309;">+ New position…</option>
+              <option value="__new__" style="font-style:italic;color:var(--adi-warn);">+ New position…</option>
             </select>
           </div>
           <div class="mb-1">
@@ -416,7 +473,7 @@
             <select name="company_id" class="form-select form-select-sm crew-company-select" aria-label="Company">
               <option value="">— leave unchanged —</option>
               {% for co in companies %}<option value="{{ co.id }}">{{ co.name }}</option>{% endfor %}
-              <option value="__new__" style="font-style:italic;color:#B45309;">+ New company…</option>
+              <option value="__new__" style="font-style:italic;color:var(--adi-warn);">+ New company…</option>
             </select>
           </div>
           <p style="font-size:.72rem;color:var(--adi-muted);margin-top:8px;">

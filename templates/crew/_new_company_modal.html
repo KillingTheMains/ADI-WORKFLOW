@@ -18,7 +18,7 @@
                  placeholder="e.g. Acme Staging" required>
         </div>
         <div>
-          <label for="nc-code" class="form-label" style="font-size:.82rem;font-weight:600;">Code <span style="font-weight:400;color:#888;">(optional)</span></label>
+          <label for="nc-code" class="form-label" style="font-size:.82rem;font-weight:600;">Code <span style="font-weight:400;color:var(--adi-mineral);">(optional)</span></label>
           <input type="text" id="nc-code" class="form-control" placeholder="e.g. BAV, CT">
         </div>
         <div id="nc-msg" class="mt-2" style="font-size:.78rem;"></div>
@@ -56,7 +56,7 @@
     const msg = document.getElementById('nc-msg');
     if (!name) {
       msg.textContent = 'Company name is required';
-      msg.style.color = '#B91C1C';
+      msg.style.color = 'var(--adi-danger)';
       return;
     }
     const body = new FormData();
@@ -68,7 +68,7 @@
       .then(function (data) {
         if (!data.ok) {
           msg.textContent = data.error || 'Failed';
-          msg.style.color = '#B91C1C';
+          msg.style.color = 'var(--adi-danger)';
           return;
         }
         // Slot the new option into EVERY company dropdown on the page.
@@ -82,6 +82,15 @@
             else sel.appendChild(opt);
           }
         });
+        // The lazy <template> on the crew database, if this page has one, so
+        // selects not yet hydrated pick the new entry up too.
+        const tpl = document.getElementById('company-options');
+        if (tpl && !tpl.content.querySelector('option[value="' + data.id + '"]')) {
+          const o = document.createElement('option');
+          o.value = data.id; o.textContent = data.name;
+          const sn = tpl.content.querySelector('option[value="__new__"]');
+          if (sn) tpl.content.insertBefore(o, sn); else tpl.content.appendChild(o);
+        }
         if (pendingSelect) {
           pendingSelect.value = data.id;
           pendingSelect.dispatchEvent(new Event('change', { bubbles: true }));
@@ -90,7 +99,7 @@
       })
       .catch(function () {
         msg.textContent = 'Network error';
-        msg.style.color = '#B91C1C';
+        msg.style.color = 'var(--adi-danger)';
       });
   });
 })();

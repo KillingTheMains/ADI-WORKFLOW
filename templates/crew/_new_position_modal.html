@@ -85,7 +85,7 @@
     const msg = document.getElementById('np-msg');
     if (!title) {
       msg.textContent = 'Title is required';
-      msg.style.color = '#B91C1C';
+      msg.style.color = 'var(--adi-danger)';
       return;
     }
     const body = new FormData();
@@ -99,7 +99,7 @@
       .then(function (data) {
         if (!data.ok) {
           msg.textContent = data.error || 'Failed';
-          msg.style.color = '#B91C1C';
+          msg.style.color = 'var(--adi-danger)';
           return;
         }
         // Slot the new option into EVERY position dropdown on the page.
@@ -114,6 +114,15 @@
             else sel.appendChild(opt);
           }
         });
+        // The lazy <template> on the crew database, if this page has one, so
+        // selects not yet hydrated pick the new entry up too.
+        const tpl = document.getElementById('position-options');
+        if (tpl && !tpl.content.querySelector('option[value="' + data.id + '"]')) {
+          const o = document.createElement('option');
+          o.value = data.id; o.textContent = data.title;
+          const sn = tpl.content.querySelector('option[value="__new__"]');
+          if (sn) tpl.content.insertBefore(o, sn); else tpl.content.appendChild(o);
+        }
         if (pendingSelect) {
           pendingSelect.value = data.id;
           pendingSelect.dispatchEvent(new Event('change', { bubbles: true }));
@@ -122,7 +131,7 @@
       })
       .catch(function () {
         msg.textContent = 'Network error';
-        msg.style.color = '#B91C1C';
+        msg.style.color = 'var(--adi-danger)';
       });
   });
 })();
