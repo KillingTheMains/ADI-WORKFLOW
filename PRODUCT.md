@@ -115,11 +115,20 @@ than as his decisions. **[repo, recording approved by Jason]**
    handlers (`js_str` filter). Emoji and pictographs are banned in templates;
    use `ico.icon(...)`.
 
+**Decided 2026-09-05 [Jason]:**
+
+- `rate_standard` is an **hourly** rate for the first 10 hours. **OT after
+  10. DT after 12** by default.
+- **Double-booked** means the same **named** person on two calls in the same
+  day. Local-labor positions on multiple calls in a day are allowed and are
+  not double booking.
+- The Requests board stays where it is in the sidebar. The Show Roster and
+  the Crew Database remain separate pages.
+- Working on the app during a show week is fine.
+
 **Undecided product facts — do not build on assumptions.** **[undecided,
 blocked on Larry]**
 
-- Double time after 12 or 13 hours.
-- Whether `rate_standard` is hourly or a 10-hour day rate.
 - Short-turnaround threshold, and whether it varies by labor provider.
 - Whether one department can have two vendors on a show, and whether a vendor
   changes mid-show.

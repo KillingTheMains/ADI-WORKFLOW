@@ -8,11 +8,14 @@ Larry's model, stated identically across his rate cards and RFQ workbooks
 
 Two deliberate limits on what this module does.
 
-It splits HOURS ONLY and computes no money. Whether ``CrewMember.rate_standard``
-is an hourly rate or a 10-hour day rate is genuinely ambiguous — Larry's intake
-form collects "10-Hour Day Rate" AND "ST Hourly" as separate fields, and his
-live data has both, some of it corrupted by free-text entry. Splitting hours is
-correct under either reading; costing them is not. That question goes to Larry.
+It splits HOURS ONLY and computes no money — yet. The rate question is now
+ANSWERED (Jason, 2026-09-05): ``CrewMember.rate_standard`` is an HOURLY rate
+for the first 10 hours; OT after 10, DT after 12 by default. The reason this
+module still stops short of money is data, not rules: Larry's intake form
+collected "10-Hour Day Rate" AND "ST Hourly" as separate fields and the live
+data has both, some of it free-text. Costing needs the rate column cleaned
+first (capture log #8), then the split here is priced as
+``st*rate + ot*rate*1.5 + dt*rate*2.0``.
 
 The split is PER DAY. Overtime is a property of a single day's work, so summing
 a person's hours across a show and splitting the total would be wrong in both

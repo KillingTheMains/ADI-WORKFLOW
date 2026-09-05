@@ -75,6 +75,54 @@ def test_both_ends_of_a_double_booking_are_flagged(client, db):
     assert sheet["conflicts"] is True
 
 
+def test_local_labor_on_two_calls_the_same_day_is_not_a_conflict(client, db):
+    """Jason, 2026-09-05: double-booked means the same NAMED person on two
+    calls in one day. A local-labor line is a count of a position, not a
+    person — "4 × Lighting Hand" at 08:00 and again at 13:00 is two separate
+    crews, never a conflict. Even a name attached to such a line does not
+    make it one, and the day's headcount counts the line by its qty."""
+    from models import Position
+    show, days = _show(db)
+    a1 = _act(db, days[0], time="08:00", description="RIGGING CREW START")
+    a2 = _act(db, days[0], time="13:00", description="LOAD OUT CREW",
+              sort_order=20)
+    pos = Position(title="LL Test Hand", department="Lighting", is_local_labor=True)
+    db.session.add(pos); db.session.flush()
+    cm = _person(db, "Named")
+    db.session.add_all([
+        CrewRow(activity_id=a1.id, position_id=pos.id, qty=4, sort_order=10),
+        CrewRow(activity_id=a2.id, position_id=pos.id, qty=4, sort_order=10),
+        # a named person attached to a local-labor line is still a line
+        CrewRow(activity_id=a1.id, position_id=pos.id, crew_member_id=cm.id,
+                qty=1, sort_order=20),
+        CrewRow(activity_id=a2.id, position_id=pos.id, crew_member_id=cm.id,
+                qty=1, sort_order=20),
+    ])
+    db.session.commit()
+
+    sheet = _call_sheet_sheet(days[0])
+    assert sheet["conflicts"] is False
+    assert all(l["conflict"] is False for l in sheet["crew_lines"])
+    assert all(l["is_local_labor"] for l in sheet["crew_lines"])
+
+
+def test_total_crew_is_a_headcount_not_a_line_count(client, db):
+    """One named person on three calls is one body; four open slots are four.
+    "96 people" for a 32-person day was the document the venue catered from."""
+    show, days = _show(db)
+    acts = [_act(db, days[0], time=t, description=f"CALL {i}", sort_order=10*i)
+            for i, t in enumerate(("08:00", "12:00", "16:00"), 1)]
+    cm = _person(db, "Thrice")
+    for a in acts:
+        db.session.add(CrewRow(activity_id=a.id, crew_member_id=cm.id, sort_order=10))
+    db.session.add(CrewRow(activity_id=acts[0].id, qty=4, sort_order=20))  # open slots
+    db.session.commit()
+
+    sheet = _call_sheet_sheet(days[0])
+    assert sheet["total_crew"] == 1 + 4
+    assert sheet["total_lines"] == 3 + 4
+
+
 def test_a_person_called_on_two_different_days_is_not_a_conflict(client, db):
     """Conflicts are scoped to one day. A packet must not invent one across
     pages — everybody on a run of days works more than one of them."""

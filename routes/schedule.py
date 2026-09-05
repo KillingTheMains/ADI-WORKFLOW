@@ -1693,7 +1693,12 @@ def _call_sheet_sheet(day):
                 "is_local_labor": row.is_local_labor,
                 "conflict":       False,
             })
-            if row.crew_member_id:
+            # Double-booked = the same NAMED person on two calls in one day
+            # (Jason, 2026-09-05). A local-labor line is a count of a
+            # position, not a person; the same position on several calls in
+            # a day is allowed and never a conflict, even if a name happens to
+            # be attached to the line.
+            if row.crew_member_id and not row.is_local_labor:
                 if row.crew_member_id in seen_ids:
                     conflicts.add(row.crew_member_id)
                 else:
