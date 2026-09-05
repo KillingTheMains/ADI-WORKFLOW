@@ -8,7 +8,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from extensions import db
 from local_labor import SEED_TASKS, group_by_department
-from models import CrewRow, Position
+from models import CrewRow, Position, find_normalised
 
 local_labor_bp = Blueprint("local_labor", __name__)
 
@@ -50,8 +50,7 @@ def add():
     # Case-insensitive, across the WHOLE table — not just local labor. Two
     # positions called "Rigger" would split every count that matters, and the
     # second one would be invisible to whoever created the first.
-    clash = Position.query.filter(
-        db.func.lower(Position.title) == title.lower()).first()
+    clash = find_normalised(Position.query.all(), title, attr="title")
     if clash is not None:
         if clash.is_local_labor:
             flash(f"“{clash.title}” is already in the local labor "

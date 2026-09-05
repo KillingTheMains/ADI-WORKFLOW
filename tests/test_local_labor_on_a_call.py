@@ -23,10 +23,15 @@ def _show_day(db):
 
 
 def _position(db, title="Lighting Hand", dept="Lighting", local=True):
-    from models import Position
-    p = Position(title=title, department=dept, type="hand",
-                 is_local_labor=local)
-    db.session.add(p)
+    """Get-or-create. positions.title is unique as of 2026-09-05, and the
+    fixture database arrives seeded — this helper wants A position with this
+    title, never a second one."""
+    from models import Position, find_normalised
+    p = find_normalised(Position.query.all(), title, attr="title")
+    if p is None:
+        p = Position(title=title)
+        db.session.add(p)
+    p.department, p.type, p.is_local_labor = dept, "hand", local
     db.session.commit()
     return p
 

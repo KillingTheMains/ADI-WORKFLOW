@@ -227,7 +227,9 @@ def test_a_position_title_in_the_name_column_is_flagged_not_rerouted(app, client
     warning for a human rather than a silent reroute: a real person could in
     principle be called anything."""
     from flask import url_for
-    db.session.add(Position(title="Lighting Hand", department="Lighting"))
+    from models import Position as _P, find_normalised
+    if find_normalised(_P.query.all(), "Lighting Hand", attr="title") is None:
+        db.session.add(_P(title="Lighting Hand", department="Lighting"))
     db.session.commit()
     show = _show(db)
     with app.test_request_context():

@@ -79,7 +79,12 @@ class Position(db.Model):
     """Master list of crew positions / labor categories."""
     __tablename__ = "positions"
     id             = db.Column(db.Integer, primary_key=True)
-    title          = db.Column(db.String(100), nullable=False)   # e.g. "A1", "LED Head"
+    # 2026-09-05 — unique at last. The importer creates positions, so without
+    # this a crew import could quietly produce a second "Rigger" and split
+    # every count that reads through it. The index catches exact repeats at
+    # the database; `find_normalised` catches the human ones at the screen —
+    # the same division of labour PhaseType.name already uses.
+    title          = db.Column(db.String(100), nullable=False, unique=True)   # e.g. "A1", "LED Head"
     department     = db.Column(db.String(50))    # Audio / Video / Lighting / LED / Rigging / Scenic / Power / General
     type           = db.Column(db.String(30))    # lead / head / hand / utility / specialty
     union_eligible = db.Column(db.Boolean, default=False)
@@ -873,6 +878,28 @@ def normalise_type_name(value):
     depends on it.
     """
     return " ".join((value or "").replace("-", " ").split()).strip().lower()
+
+
+def find_normalised(rows, value, attr="name", exclude_id=None):
+    """First row in `rows` whose `attr` matches `value` under
+    normalise_type_name.
+
+    These are small managed lookups — 129 positions, 18 phase types — so this
+    scans in Python rather than trying to express whitespace collapsing in
+    SQL. The microseconds are not the point: this is the SAME rule the note-11
+    seeder used, so the screen and the seeder cannot drift apart. A `lower()`
+    comparison is NOT this rule — it misses "Load-In" against "Load In", and
+    "Rigger " against "Rigger", which is how a second Rigger gets created.
+    """
+    target = normalise_type_name(value)
+    if not target:
+        return None
+    for row in rows:
+        if exclude_id is not None and row.id == exclude_id:
+            continue
+        if normalise_type_name(getattr(row, attr, None)) == target:
+            return row
+    return None
 
 
 class PhaseType(db.Model):

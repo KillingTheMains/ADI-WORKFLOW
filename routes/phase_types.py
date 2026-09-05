@@ -27,7 +27,8 @@ takes it out of the dropdown and leaves those shows readable.
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from extensions import db
-from models import LOAD_BEARING_PHASE_TYPES, PhaseType, ProductionPhase
+from models import (LOAD_BEARING_PHASE_TYPES, PhaseType, ProductionPhase,
+                    find_normalised)
 
 phase_types_bp = Blueprint("phase_types", __name__)
 
@@ -58,8 +59,7 @@ def create():
     # Case-insensitive, across the whole table including hidden rows. Without
     # it "Pre-Rig" and "pre-rig" become two types that group separately in
     # every count — the same trap positions.title still carries.
-    clash = (PhaseType.query
-             .filter(db.func.lower(PhaseType.name) == name.lower()).first())
+    clash = find_normalised(PhaseType.query.all(), name)
     if clash:
         tail = "" if clash.is_active else " (hidden — show it instead)"
         flash(f"“{clash.name}” is already a phase type{tail}.", "warning")
@@ -92,9 +92,8 @@ def edit(type_id):
         return redirect(url_for("phase_types.index"))
 
     if new_name and new_name != pt.name:
-        clash = (PhaseType.query
-                 .filter(db.func.lower(PhaseType.name) == new_name.lower())
-                 .filter(PhaseType.id != pt.id).first())
+        clash = find_normalised(PhaseType.query.all(), new_name,
+                                exclude_id=pt.id)
         if clash:
             flash(f"“{clash.name}” is already a phase type.", "warning")
             return redirect(url_for("phase_types.index"))

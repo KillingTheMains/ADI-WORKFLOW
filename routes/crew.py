@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from extensions import db
-from models import CrewMember, Company, Position
+from models import CrewMember, Company, Position, find_normalised
 
 crew_bp = Blueprint("crew", __name__)
 
@@ -107,10 +107,9 @@ def positions_create():
     if len(title) > 100:
         title = title[:100]
 
-    # Duplicate detection (case-insensitive)
-    existing = Position.query.filter(
-        db.func.lower(Position.title) == title.lower()
-    ).first()
+    # Duplicate detection under the ONE rule — normalise_type_name, not
+    # lower(). "Load-In" and "Load In" are the same position.
+    existing = find_normalised(Position.query.all(), title, attr="title")
     if existing:
         return jsonify(ok=True, id=existing.id, title=existing.title,
                        department=existing.department, duplicate=True)

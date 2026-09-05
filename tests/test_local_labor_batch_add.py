@@ -31,8 +31,13 @@ def _fixture(db):
     for title, dept in (("Lighting Hand", "Lighting"),
                         ("Audio Hand", "Audio"),
                         ("Rigger High", "Rigging")):
-        p = Position(title=title, department=dept, is_local_labor=True)
-        db.session.add(p); db.session.flush()
+        from models import find_normalised
+        p = find_normalised(Position.query.all(), title, attr="title")
+        if p is None:
+            p = Position(title=title)
+            db.session.add(p)
+        p.department, p.is_local_labor = dept, True
+        db.session.flush()
         pos[title] = p
     db.session.commit()
     return show, day, act, pos

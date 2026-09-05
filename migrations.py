@@ -1065,6 +1065,41 @@ def _seed_scope_activity_types(session):
           % (created, skipped, renumbered))
 
 
+def _unique_index_on_position_titles(session):
+    """positions.title has never had a unique index, and the importer creates
+    positions — so a crew import could quietly produce a second "Rigger",
+    splitting every count that reads through it. The last loose end of the
+    managed-lookup pattern (capture log, pattern 3).
+
+    This does NOT merge duplicates. Merging positions means repointing crew
+    rows and crew members and picking a survivor — a judgement call about real
+    paperwork, not something a migration should do unattended while a deploy
+    is running. If there are duplicates it names them and refuses; step 3
+    never runs, so production keeps serving the old code.
+
+    Predicted 2026-09-05 before first run: production 129 rows / 0 duplicates,
+    local 107 / 0. A count other than that is a failure signal.
+    """
+    from models import normalise_type_name
+    rows = session.execute(text("SELECT id, title FROM positions")).fetchall()
+    groups = {}
+    for r in rows:
+        groups.setdefault(normalise_type_name(r[1]), []).append(r[1])
+    dupes = {k: v for k, v in groups.items() if len(v) > 1}
+    print("[migration] positions: %d rows, %d duplicate title(s)"
+          % (len(rows), len(dupes)))
+    if dupes:
+        for k, v in sorted(dupes.items()):
+            print("[migration]   DUPLICATE %r -> %s" % (k, v))
+        raise RuntimeError(
+            "positions.title has %d duplicate name(s); resolve them by hand "
+            "before this index can be created" % len(dupes))
+    session.execute(text(
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_positions_title "
+        "ON positions(title)"))
+    print("[migration] unique index ux_positions_title created")
+
+
 DATA_MIGRATIONS = [
     ("2026-06-30-fb-v2-migrate-entries", _migrate_fb_entries_to_meal_services),
     ("2026-07-02-add-prompter-position", _seed_position_prompter),
@@ -1140,6 +1175,10 @@ DATA_MIGRATIONS = [
     # against the five that seed writes, and running it first would create
     # "Load-In" as a new row and leave the real "Load In" to arrive beside it.
     ("2026-09-04-seed-scope-activity-types", _seed_scope_activity_types),
+    # 2026-09-05 — the managed-lookup pattern's last loose end. Refuses rather
+    # than merging if duplicates exist. Predicted: 129 rows, 0 duplicates.
+    ("2026-09-05-unique-index-positions-title",
+     _unique_index_on_position_titles),
 ]
 
 

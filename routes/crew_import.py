@@ -24,7 +24,7 @@ from flask import (Blueprint, render_template, request, redirect, url_for,
 from extensions import db
 from models import (CrewMember, Position, Company, CrewImportSession,
                     Show, ShowCrewAssignment, ShowOpenSlot,
-                    name_is_unnamed_slot)
+                    name_is_unnamed_slot, find_normalised)
 from datetime import date as date_cls, datetime
 
 crew_import_bp = Blueprint("crew_import", __name__)
@@ -756,9 +756,7 @@ def _resolve_position(row, form):
 
     if choice == "use" or row.get("position_action") == "exact":
         # Exact existing match
-        existing = Position.query.filter(
-            db.func.lower(Position.title) == title.lower()
-        ).first()
+        existing = find_normalised(Position.query.all(), title, attr="title")
         if existing:
             return existing
     if choice == "map":
@@ -766,9 +764,7 @@ def _resolve_position(row, form):
         if mid.isdigit():
             return Position.query.get(int(mid))
     if choice == "create":
-        existing = Position.query.filter(
-            db.func.lower(Position.title) == title.lower()
-        ).first()
+        existing = find_normalised(Position.query.all(), title, attr="title")
         if existing:
             return existing
         p = Position(title=title)

@@ -67,8 +67,13 @@ def test_task_survives_the_copy(client, db):
     it hands Larry a call full of hands with nothing to do."""
     show, days = _show_with_days(db)
     src = _crew_call(db, days[0])
-    pos = Position(title="Rigger", department="Rigging", type="hand")
-    db.session.add(pos); db.session.flush()
+    from models import find_normalised
+    pos = find_normalised(Position.query.all(), "Rigger", attr="title")
+    if pos is None:
+        pos = Position(title="Rigger")
+        db.session.add(pos)
+    pos.department, pos.type = "Rigging", "hand"
+    db.session.flush()
     db.session.add(CrewRow(activity_id=src.id, sort_order=10,
                            crew_type="Local Crew", qty=6,
                            position_id=pos.id, position="Rigger",
