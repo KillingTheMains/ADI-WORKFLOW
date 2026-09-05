@@ -300,7 +300,7 @@ h1, h2, h3, h4, h5, h6,
      block is 36px (11 + 2 + 23) and 14px padding either side overshot. 9px
      lands it on 56 with the 1px rule included; min-height holds the floor if
      a page title ever wraps. */
-  min-height: 56px;
+  min-height: var(--adi-topbar-h);
   padding: 9px var(--sp-8);
   display: flex;
   align-items: center;
@@ -331,6 +331,62 @@ h1, h2, h3, h4, h5, h6,
   line-height: 1;
 }
 .top-bar .breadcrumb a { color: inherit; }
+
+/* The page title is now an <h1> (one per page, in the top bar). Bootstrap
+   gives h1 a bottom margin and weight 500; the top bar's own rule sets the
+   size and weight, this zeroes the margin so nothing moves. */
+.top-bar h1.page-title { margin: 0; }
+
+/* The top bar's height is a token now, because the crew-table's sticky
+   header and the flash region both have to sit exactly below it. */
+:root { --adi-topbar-h: 56px; }
+
+/* Skip link: the first tab stop on every page. Off-screen until focused, then
+   a plate on Midnight at the top-left, over the sidebar. */
+.skip-link {
+  position: absolute;
+  left: var(--sp-6);
+  top: -100px;
+  z-index: 200;            /* above the fixed sidebar (100) */
+  padding: var(--sp-4) var(--sp-6);
+  background: var(--adi-midnight);
+  color: #fff;
+  font-weight: 600;
+  border-radius: var(--r-sm);
+  text-decoration: none;
+}
+.skip-link:focus { top: var(--sp-4); outline: 2px solid var(--adi-blue-lt); outline-offset: 2px; }
+
+/* Flash region: sticky just below the top bar, so a message survives the
+   post-POST scroll restore that puts the user back mid-page. */
+.flash-region {
+  position: sticky;
+  top: var(--adi-topbar-h);
+  z-index: 40;
+  background: var(--adi-surface);
+}
+
+/* Autosave status — a persistent per-form mark with three states. Ink
+   strength, never a stock green. */
+.autosave-flash {
+  display: inline-block;
+  margin-left: var(--sp-3);
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--adi-mineral);          /* saving… */
+  white-space: nowrap;
+}
+.autosave-flash[data-state="saved"]  { color: var(--adi-ok); }
+.autosave-flash[data-state="failed"] { color: var(--adi-danger); }
+
+/* Sidebar entries for pages that do not exist yet. No href, so they are not
+   links and take no focus; aria-disabled says why to assistive tech. Styled
+   here rather than inline so the dim state is one rule. */
+#sidebar nav a.disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+#sidebar nav a.disabled:hover { background: none; border-left-color: transparent; font-weight: inherit; }
 
 .page-body {
   padding: 28px;
@@ -522,9 +578,12 @@ h1, h2, h3, h4, h5, h6,
   text-transform: uppercase;
   letter-spacing: 0.12em;
   border-bottom: 1px solid var(--adi-border-strong);
-  /* A crew call runs to 40+ rows. The header has to survive the scroll. */
+  /* A crew call runs to 40+ rows. The header has to survive the scroll.
+     top is the top bar's height, not 0: the top bar is itself sticky at
+     z-index 50, so a header stuck at 0 slid underneath it and the user
+     read 40 rows of unlabeled boxes. Found by the 09-05 critique. */
   position: sticky;
-  top: 0;
+  top: var(--adi-topbar-h);
   z-index: 2;
   background: var(--adi-surface);
 }

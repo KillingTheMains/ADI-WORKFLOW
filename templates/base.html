@@ -17,6 +17,11 @@
 </head>
 <body>
 
+{# First tab stop on every page. A screen-reader or keyboard user otherwise
+   starts each page with ~46 sidebar links before the content. Visually
+   hidden until focused — see .skip-link in style.css. #}
+<a class="skip-link" href="#main-content">Skip to content</a>
+
 <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
 <div id="sidebar">
   <div class="sidebar-logo">
@@ -49,7 +54,7 @@
   {% endif %}
   {%- endmacro %}
 
-  <nav>
+  <nav aria-label="Primary">
     <div class="nav-section">Dashboard</div>
     <a href="{{ url_for('main.dashboard') }}"
        class="{% if request.endpoint == 'main.dashboard' %}active{% endif %}">
@@ -124,10 +129,10 @@
          Companies table filtered by type, so it may not need its own entry. #}
       <span class="nav-icon">{{ ico.icon('building-2') }}</span> Clients
     </a>
-    <a href="#" class="disabled" style="opacity:0.4; cursor:not-allowed;">
+    <a class="disabled" aria-disabled="true">
       <span class="nav-icon">{{ ico.icon('building-2') }}</span> Vendors
     </a>
-    <a href="#" class="disabled" style="opacity:0.4; cursor:not-allowed;">
+    <a class="disabled" aria-disabled="true">
       <span class="nav-icon">{{ ico.icon('package') }}</span> Equipment
     </a>
 
@@ -137,13 +142,13 @@
     </a>
 
     <div class="nav-section">Coming Soon</div>
-    <a href="#" class="disabled" style="opacity:0.4; cursor:not-allowed;">
+    <a class="disabled" aria-disabled="true">
       <span class="nav-icon">{{ ico.icon('clipboard-list') }}</span> RFQ Builder
     </a>
-    <a href="#" class="disabled" style="opacity:0.4; cursor:not-allowed;">
+    <a class="disabled" aria-disabled="true">
       <span class="nav-icon">{{ ico.icon('banknote') }}</span> Budget
     </a>
-    <a href="#" class="disabled" style="opacity:0.4; cursor:not-allowed;">
+    <a class="disabled" aria-disabled="true">
       <span class="nav-icon">{{ ico.icon('utensils') }}</span> F&amp;B
     </a>
   </nav>
@@ -155,7 +160,11 @@
 </div>
 
 <!-- ── Main Content ──────────────────────────────────────────────────────── -->
-<div id="main-content">
+{# <main>, not <div>: the one landmark every page shares, and the target of
+   the skip link. tabindex="-1" lets the skip link actually move focus into
+   it in every browser. The id is unchanged — style.css and the print rules
+   select on it. #}
+<main id="main-content" tabindex="-1">
 
   <!-- Top bar -->
   <div class="top-bar">
@@ -165,7 +174,9 @@
           <span>Home</span>
         {% endblock %}
       </nav>
-      <div class="page-title">{% block page_title %}ADI Workflow{% endblock %}</div>
+      {# The page title is the page's <h1>. Templates that carried their own
+         <h1> in the body were demoted to <h2> so there is exactly one. #}
+      <h1 class="page-title">{% block page_title %}ADI Workflow{% endblock %}</h1>
     </div>
     <div class="d-flex gap-2">
       {% block top_actions %}{% endblock %}
@@ -206,9 +217,15 @@
   {% endif %}
 
   <!-- Flash messages -->
+  {# .flash-region is sticky just below the top bar. Every mutation is a POST
+     that redirects back and the scroll-restore script below returns the user
+     to where they were — thousands of pixels down on a busy day — so a flash
+     rendered only at the top of the page was never seen after the action
+     that produced it. Sticky keeps it in view wherever the restore lands;
+     role="status" makes assistive tech announce it. #}
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="px-4 pt-3">
+      <div class="px-4 pt-3 flash-region" role="status" aria-live="polite">
         {% for cat, msg in messages %}
           <div class="alert alert-{{ 'success' if cat == 'success' else 'danger' if cat == 'danger' else 'info' if cat == 'info' else 'warning' }} alert-dismissible fade show py-2 px-3" role="alert">
             {#- §05: the glyph follows the CATEGORY, so no flash string has to
@@ -218,7 +235,7 @@
                         else 'alert-triangle' if cat in ('danger', 'warning')
                         else 'clipboard-list') }}
             {{ msg }}
-            <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+            <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Dismiss"></button>
           </div>
         {% endfor %}
       </div>
@@ -229,7 +246,7 @@
   <div class="page-body">
     {% block content %}{% endblock %}
   </div>
-</div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -240,30 +257,42 @@
   const timers = new WeakMap();
   const DEBOUNCE_MS = 350;
 
-  function flashSaved(form) {
-    let flash = form.querySelector('.autosave-flash');
-    if (!flash) {
-      flash = document.createElement('span');
-      flash.className = 'autosave-flash';
-      flash.style.cssText = 'color:#16A34A;font-size:.7rem;font-weight:600;' +
-                            'margin-left:6px;transition:opacity .5s;';
+  /* Save status is a persistent per-form mark, not a flash. It used to be a
+     0.7rem "saved" that faded out after 1.2 s — gone before the eye reached
+     it, and nothing at all while the save was still pending. Now the mark
+     has three states and stays until the next change: "saving…" the moment
+     a field changes, "saved" when the server answers, "save failed" if it
+     does not. Colours are the semantic tokens (ink strength, not a stock
+     green — #16A34A was 3.0:1 on the warm-white page). */
+  function statusEl(form) {
+    let el = form.querySelector('.autosave-flash');
+    if (!el) {
+      el = document.createElement('span');
+      el.className = 'autosave-flash';
+      el.setAttribute('role', 'status');
+      el.setAttribute('aria-live', 'polite');
       const btn = form.querySelector('button[type="submit"]');
-      if (btn && btn.parentNode) btn.parentNode.appendChild(flash);
-      else form.appendChild(flash);
+      if (btn && btn.parentNode) btn.parentNode.appendChild(el);
+      else form.appendChild(el);
     }
-    flash.innerHTML = `{{ ico.icon('check') }} saved`;
-    flash.style.opacity = '1';
-    setTimeout(() => { flash.style.opacity = '0'; }, 1200);
+    return el;
+  }
+  function setStatus(form, state) {
+    const el = statusEl(form);
+    el.dataset.state = state;
+    if (state === 'saving') {
+      el.innerHTML = 'saving…';
+    } else if (state === 'saved') {
+      el.innerHTML = `{{ ico.icon('check') }} saved`;
+    } else {
+      el.innerHTML = `{{ ico.icon('alert-triangle') }} save failed — check the connection and change the field again`;
+    }
   }
 
-  function flashError(form) {
-    let flash = form.querySelector('.autosave-flash');
-    if (flash) {
-      flash.innerHTML = `{{ ico.icon('alert-triangle') }} save failed`;
-      flash.style.color = '#B91C1C';
-      flash.style.opacity = '1';
-    }
-  }
+  /* Forms with a save pending (debounce running or request in flight). While
+     any exist, leaving the page would silently discard the edit; the
+     beforeunload prompt is the only honest answer. */
+  const pending = new Set();
 
   function submitForm(form) {
     const data = new FormData(form);
@@ -271,14 +300,23 @@
     // wants (routes ignore it today, but harmless).
     data.set('_autosave', '1');
     fetch(form.action, { method: 'POST', body: data, headers: {'X-Autosave': '1'} })
-      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); flashSaved(form); })
-      .catch(err => { console.warn('autosave failed', err); flashError(form); });
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); setStatus(form, 'saved'); })
+      .catch(err => { console.warn('autosave failed', err); setStatus(form, 'failed'); })
+      .finally(() => { pending.delete(form); });
   }
 
   function scheduleSave(form) {
     clearTimeout(timers.get(form));
+    pending.add(form);
+    setStatus(form, 'saving');
     timers.set(form, setTimeout(() => submitForm(form), DEBOUNCE_MS));
   }
+
+  window.addEventListener('beforeunload', function (e) {
+    if (pending.size === 0) return;
+    e.preventDefault();
+    e.returnValue = '';   // the browser shows its own wording
+  });
 
   // A form MUST NOT be autosaved if it's a date-guarded form (e.g. Day Settings).
   // These carry data-date-guard="true" because their onsubmit confirms date
