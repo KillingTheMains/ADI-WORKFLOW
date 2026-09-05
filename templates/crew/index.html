@@ -136,7 +136,11 @@
           <td style="text-align:center;">
             <input type="checkbox" class="crew-select" value="{{ m.id }}" aria-label="Select {{ m.full_name }}">
           </td>
-          <form method="POST" action="{{ url_for('crew.edit_inline', member_id=m.id) }}" style="display:contents;">
+          {# data-autosave: the same contract as every other dense table — a
+             change saves itself and the row shows saving… / saved. Before
+             09-05 this was the one table that needed a click per row, and an
+             unsaved row was lost silently on navigation. #}
+          <form method="POST" data-autosave="true" action="{{ url_for('crew.edit_inline', member_id=m.id) }}" style="display:contents;">
             <td class="px-2">
               <div class="d-flex gap-1">
                 <input type="text" name="first_name" value="{{ m.first_name }}"

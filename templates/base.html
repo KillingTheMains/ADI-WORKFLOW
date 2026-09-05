@@ -347,6 +347,10 @@
   document.addEventListener('change', function (e) {
     if (!e.target || !e.target.matches) return;
     if (!e.target.matches('input, select, textarea')) return;
+    // "+ New position…" / "+ New company…" are sentinels that open a modal;
+    // the real value arrives on a second change event once it is created.
+    // Saving the sentinel would clear the field server-side in between.
+    if (e.target.value === '__new__') return;
     var f = _autosaveFormFor(e.target);
     if (f) scheduleSave(f);
   });
