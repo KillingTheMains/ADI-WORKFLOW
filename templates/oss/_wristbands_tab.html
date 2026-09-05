@@ -25,7 +25,7 @@
       <tr>
         <th style="width:130px;">Date</th>
         <th style="width:100px;">Phase</th>
-        <th style="width:70px;text-align:right;">Crew<br><span style="font-weight:400;color:#888;font-size:.7rem;">(auto)</span></th>
+        <th style="width:70px;text-align:right;">Crew<br><span style="font-weight:400;color:var(--adi-mineral);font-size:.7rem;">(auto)</span></th>
         <th style="width:90px;">Override</th>
         <th style="width:90px;">Extras</th>
         <th style="width:80px;text-align:right;">Total</th>
@@ -41,7 +41,7 @@
             {{ d.date.strftime('%a %-m/%-d') }}
           </a>
           {% if d.label %}
-          <div style="font-size:.7rem;color:#888;">{{ d.label }}</div>
+          <div style="font-size:.7rem;color:var(--adi-mineral);">{{ d.label }}</div>
           {% endif %}
         </td>
         <td>
@@ -67,7 +67,7 @@
                  style="font-size:.8rem;text-align:right;">
         </td>
         <td style="text-align:right;font-weight:700;font-size:.95rem;
-                   color:{{ 'var(--adi-gold)' if d.total_wristbands else 'var(--adi-muted)' }};">
+                   color:{{ 'var(--adi-dark)' if d.total_wristbands else 'var(--adi-muted)' }};">
           {{ d.total_wristbands }}
         </td>
         <td>
@@ -81,7 +81,7 @@
       {% endfor %}
     </tbody>
     <tfoot>
-      <tr style="background:var(--adi-dark);color:var(--adi-gold-lt);">
+      <tr style="background:var(--adi-dark);color:#fff;">
         <td colspan="5" style="text-align:right;font-weight:700;
                               text-transform:uppercase;letter-spacing:.04em;
                               font-size:.78rem;padding:8px;">

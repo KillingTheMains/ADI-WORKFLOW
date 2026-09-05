@@ -93,8 +93,12 @@ says otherwise.** Jason approved recording these as codebase facts rather
 than as his decisions. **[repo, recording approved by Jason]**
 
 1. No build step. Flask + Jinja2 + Bootstrap 5 from a CDN + one hand-written
-   stylesheet (`static/css/style.css`) + SortableJS. Vanilla JavaScript only,
-   as little as possible. No `localStorage` or `sessionStorage`.
+   stylesheet (`static/css/style.css`, plus `paper.css` for the standalone
+   print surfaces) + SortableJS. Vanilla JavaScript only, as little as
+   possible. No browser storage for app data — the only use is the
+   scroll-restore in `base.html`, which keeps a scroll position in
+   `sessionStorage` for five seconds across a POST. (The stale brief said
+   "none anywhere"; that was wrong about the code.)
 2. Structure that must not be touched: the crew row
    `<tr>` / `<form style="display:contents">` / `<td>` chain; `form="id"`
    associations that wire forms living outside their tables; the `⠿` drag

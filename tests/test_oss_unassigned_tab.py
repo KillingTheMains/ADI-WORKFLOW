@@ -114,7 +114,8 @@ def test_it_carries_a_warning_badge_with_the_count(app, client, db,
     # the claim, and the badge must still carry the warning icon.
     assert 'data-icon="alert-triangle"' in nav
     assert "3" in nav
-    assert "#FEF3C7" in nav
+    # 09-05: the amber is the semantic token now, not a literal
+    assert "var(--adi-warn-bg)" in nav
 
 
 def test_a_timed_unlinked_entry_is_not_a_problem(app, client, db,

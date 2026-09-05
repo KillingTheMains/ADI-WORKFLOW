@@ -83,15 +83,15 @@
 
 {% set phase_colors = {
   'Equipment Delivery': '#7C3AED',
-  'Load In': '#1D4ED8',
+  'Load In': 'var(--adi-info)',
   'Setup': '#0369A1',
   'Tech Rehearsal': '#0F766E',
-  'Executive Rehearsal': '#15803D',
+  'Executive Rehearsal': 'var(--adi-ok)',
   'Presenter Rehearsal': '#4D7C0F',
-  'Show Day': '#B45309',
+  'Show Day': 'var(--adi-warn)',
   'Strike': '#9F1239',
-  'Travel': '#6B7280',
-  'Dark': '#374151',
+  'Travel': 'var(--adi-mineral)',
+  'Dark': 'var(--adi-mineral-dk)',
 } %}
 
 <!-- Show header -->
@@ -103,7 +103,7 @@
             text-transform:uppercase;color:var(--adi-blue-lt);">{{ show.code }}</div>{% endif %}
         <div style="font-size:1.05rem;font-weight:700;color:#fff;">{{ show.name }}</div>
         <div style="font-size:.8rem;color:rgba(255,255,255,.5);">
-          Hours Report · {{ sorted_crew|length }} named crew · {{ show_days|length }} days
+          Hours Report · {{ sorted_crew|length }} named crew · {{ show_days|length }} {{ 'day' if show_days|length == 1 else 'days' }}
         </div>
       </div>
       <div class="col-auto">
@@ -126,17 +126,17 @@
 {% if totals_ot or totals_dt %}
 <div class="alert mb-3" role="note"
      style="background:#FCFAF4;border:1px solid #E8DCA8;font-size:.82rem;">
-  <strong>Billable split</strong> — 10-hour day, OT 1.5× for hours 11–12,
-  DT 2.0× from hour 13, applied to each day separately.
+  <strong>Billable split</strong> — a 10-hour day; hours 11–12 at OT (1.5×);
+  anything past 12 hours at DT (2×); each day counted on its own.
   <span style="margin-left:6px;">
     ST <strong>{{ "%.1f"|format(totals_st) }}</strong> ·
     OT <strong>{{ "%.1f"|format(totals_ot) }}</strong> ·
     DT <strong>{{ "%.1f"|format(totals_dt) }}</strong>
   </span>
   <div style="font-size:.74rem;color:#6b7280;margin-top:3px;">
-    Derived from Larry's rate cards and RFQ workbooks — not yet confirmed by
-    him, and no rates are applied. Estimated hours are used where actual hours
-    have not been entered.
+    These thresholds are the app's working assumption and have not been
+    confirmed — check them before paying anyone from this report. No rates
+    are applied. Where actual hours are blank, the estimate is used.
   </div>
 </div>
 {% endif %}
@@ -239,11 +239,11 @@
             {% if any_actual_recorded %}
             {% set delta = entry.total_actual - entry.total %}
             <td class="total-cell"
-                style="color:{% if entry.total_actual %}var(--adi-blue){% else %}#ccc{% endif %};">
+                style="color:{% if entry.total_actual %}var(--adi-blue){% else %}var(--adi-border-strong){% endif %};">
               {% if entry.total_actual %}{{ "%.1f"|format(entry.total_actual) }}{% else %}—{% endif %}
             </td>
             <td class="total-cell"
-                style="color:{% if delta > 0.05 %}#B91C1C{% elif delta < -0.05 %}#065F46{% else %}#888{% endif %};">
+                style="color:{% if delta > 0.05 %}var(--adi-danger){% elif delta < -0.05 %}var(--adi-ok){% else %}var(--adi-mineral){% endif %};">
               {% if entry.total_actual %}{% if delta > 0 %}+{% endif %}{{ "%.1f"|format(delta) }}{% else %}—{% endif %}
             </td>
             {% endif %}
@@ -266,7 +266,7 @@
             {{ "%.1f"|format(grand_total_actual) }}
           </td>
           <td class="total-cell"
-              style="color:{% if g_delta > 0.05 %}#B91C1C{% elif g_delta < -0.05 %}#065F46{% else %}#888{% endif %} !important;">
+              style="color:{% if g_delta > 0.05 %}var(--adi-danger){% elif g_delta < -0.05 %}var(--adi-ok){% else %}var(--adi-mineral){% endif %} !important;">
             {% if g_delta > 0 %}+{% endif %}{{ "%.1f"|format(g_delta) }}
           </td>
           {% endif %}
@@ -380,7 +380,7 @@
               <td style="color:var(--adi-blue);font-size:.72rem;">{{ entry.position or '—' }}</td>
               <td>
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <div style="flex:1;background:#F1F5F9;border-radius:4px;height:6px;">
+                  <div style="flex:1;background:var(--adi-surface);border-radius:4px;height:6px;">
                     {% if grand_total > 0 %}
                     <div style="width:{{ (entry.total / grand_total * 100)|round(1) }}%;
                                 background:var(--adi-blue);height:6px;border-radius:4px;"></div>

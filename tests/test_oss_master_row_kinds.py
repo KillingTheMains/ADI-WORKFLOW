@@ -63,7 +63,8 @@ def test_every_master_row_carries_a_kind_chip(client, master_show):
     header_row = 1                      # the <thead> row
     data_rows = pane.count("<tr") - day_headers - header_row
     assert data_rows > 0
-    assert pane.count('<span title="') == data_rows
+    # 09-05: the chip carries a class before its title (kind-chip kind-chip-<kind>)
+    assert pane.count('class="kind-chip ') == data_rows
 
 
 def test_recurring_and_entered_rows_are_told_apart(client, master_show):

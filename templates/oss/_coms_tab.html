@@ -16,7 +16,7 @@
   <div class="col-md-6">
     <div class="card h-100">
       <div class="card-header d-flex align-items-center justify-content-between"
-           style="background:var(--adi-dark);color:var(--adi-gold-lt);">
+           style="background:var(--adi-dark);color:#fff;">
         <span style="font-size:.85rem;font-weight:700;">{{ ico.icon('radio') }} Radio channels (1–16)</span>
         <span class="text-muted" style="font-size:.7rem;color:rgba(255,255,255,.55)!important;">
           Two-way radio channel scheme for this show
@@ -29,7 +29,7 @@
             <div class="col-md-6">
               <div class="d-flex align-items-center gap-2">
                 <span style="display:inline-block;width:30px;text-align:right;
-                             font-family:monospace;font-weight:700;color:#888;
+                             font-family:monospace;font-weight:700;color:var(--adi-mineral);
                              font-size:.78rem;">
                   {{ '%02d'|format(ch.slot) }}
                 </span>
@@ -56,7 +56,7 @@
   <div class="col-md-6">
     <div class="card h-100">
       <div class="card-header d-flex align-items-center justify-content-between"
-           style="background:var(--adi-dark);color:var(--adi-gold-lt);">
+           style="background:var(--adi-dark);color:#fff;">
         <span style="font-size:.85rem;font-weight:700;">{{ ico.icon('headphones') }} Beltpack channels</span>
         <span style="font-size:.7rem;color:rgba(255,255,255,.55);">
           {{ coms_channels|length }} defined
@@ -67,7 +67,7 @@
         <div class="d-flex flex-wrap gap-1 mb-3">
           {% for ch in coms_channels %}
           <div class="d-flex align-items-center gap-1 px-2 py-1"
-               style="background:#FFF8EC;border:1px solid #E8DCA8;border-radius:14px;
+               style="background:var(--adi-warn-bg);border:1px solid #E8DCA8;border-radius:14px;
                       font-size:.78rem;font-weight:600;">
             <span>{{ ch.name }}</span>
             <form method="POST"
@@ -108,17 +108,17 @@
 
 {# Summary header #}
 <div class="d-flex flex-wrap gap-2 mb-2" style="font-size:.78rem;">
-  <span class="oss-pill" style="background:var(--adi-dark);color:var(--adi-gold-lt);">
+  <span class="oss-pill" style="background:var(--adi-dark);color:#fff;">
     {{ ico.icon('radio') }} {{ coms_summary.radios }} radio{{ '' if coms_summary.radios == 1 else 's' }}
   </span>
-  <span class="oss-pill" style="background:var(--adi-dark);color:var(--adi-gold-lt);">
+  <span class="oss-pill" style="background:var(--adi-dark);color:#fff;">
     {{ ico.icon('headphones') }} {{ coms_summary.wireless }} wireless pack{{ '' if coms_summary.wireless == 1 else 's' }}
   </span>
-  <span class="oss-pill" style="background:var(--adi-dark);color:var(--adi-gold-lt);">
+  <span class="oss-pill" style="background:var(--adi-dark);color:#fff;">
     {{ ico.icon('plug') }} {{ coms_summary.wired }} wired pack{{ '' if coms_summary.wired == 1 else 's' }}
   </span>
   {% if coms_summary.no_comms %}
-  <span class="oss-pill" style="background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;">
+  <span class="oss-pill" style="background:var(--adi-warn-bg);color:var(--adi-warn);border:1px solid var(--adi-warn-bg);">
     {{ ico.icon('alert-triangle') }} {{ coms_summary.no_comms }} crew without comms
   </span>
   {% endif %}
@@ -211,7 +211,7 @@
             {% set chid = picked[slot_num - 1] if (slot_num - 1) < picked|length else None %}
             <div class="coms-slot" data-aid="{{ a.id }}" data-slot="{{ slot_num }}"
                  style="display:flex;flex-direction:column;align-items:flex-start;">
-              <label style="font-size:.62rem;font-weight:700;color:#888;
+              <label style="font-size:.62rem;font-weight:700;color:var(--adi-mineral);
                             text-transform:uppercase;letter-spacing:.04em;
                             margin-bottom:1px;">K{{ slot_num }}</label>
               <select class="form-select form-select-sm coms-slot-select" aria-label="Slot K{{ slot_num }}"
@@ -226,7 +226,7 @@
             {% endfor %}
           </div>
           <div class="coms-ch-counter mt-1" data-aid="{{ a.id }}"
-               style="font-size:.7rem;color:#888;"></div>
+               style="font-size:.7rem;color:var(--adi-mineral);"></div>
           {% else %}
           <span class="text-muted" style="font-size:.72rem;font-style:italic;">
             Add beltpack channels above first
@@ -328,7 +328,7 @@
       `.coms-slots[data-aid="${aid}"] .coms-slot:not([style*="display: none"])`).length;
     counter.textContent =
       `${filled} channel${filled === 1 ? '' : 's'} assigned across ${visibleSlots} slot${visibleSlots === 1 ? '' : 's'}`;
-    counter.style.color = '#888';
+    counter.style.color = 'var(--adi-mineral)';
   }
 
   // Auto-tick the headset box when the user touches any pack-related field, so the row

@@ -33,25 +33,20 @@
     {% endif %}
   </div>
 
-  {# ── Reusable per-show sub-list ─────────────────────────────────────── #}
-  {% macro show_sub_list(endpoint) -%}
-  {% if all_shows %}
-  <div style="padding:0 0 4px 0;">
-    {% for s in all_shows %}
-    {# Was an inline style plus two onmouseover/onmouseout handlers that set
-       rgba(47,128,237,.1) — the LEGACY blue. It survived f00eb13 because it
-       was written as a literal inside JavaScript rather than as a token, so
-       nothing looking for CSS colours ever found it. All of it now lives in
-       .sidebar-show-link in style.css: the palette cannot drift again, and
-       keyboard focus gets the same treatment the mouse always had. #}
-    <a href="{{ url_for(endpoint, show_id=s.id) }}"
-       class="sidebar-show-link {% if request.endpoint == endpoint and request.view_args and request.view_args.get('show_id') == s.id %}sidebar-show-active{% endif %}">
-      <span class="show-dot"></span>
-      <span class="show-name">{{ s.name }}</span>
-    </a>
-    {% endfor %}
-  </div>
-  {% endif %}
+  {# ── One entry per show ────────────────────────────────────────────────
+     The sidebar used to list every show THREE times — under Shows, under
+     Schedule Builder and under Crew Database — so seven shows made 21
+     identical-looking links and two shows with the same name could not be
+     told apart. Now a show appears once, code beside name, and the show the
+     user is IN expands to its pages: Schedule · OSS · Crew · Travel · Hours.
+     Everything else that was a "database" or a builder lives under Setup.
+     The five "Coming Soon" entries are gone until the pages exist. #}
+  {%- set _cur_show = request.view_args.get('show_id') if request.view_args else none -%}
+  {%- set _ep = request.endpoint or '' -%}
+  {% macro show_page_link(endpoint, show_id, label, active_when) -%}
+    <a href="{{ url_for(endpoint, show_id=show_id) }}"
+       class="sidebar-show-page {% if active_when %}sidebar-show-active{% endif %}"
+       {% if active_when %}aria-current="page"{% endif %}>{{ label }}</a>
   {%- endmacro %}
 
   <nav aria-label="Primary">
@@ -71,29 +66,59 @@
        title="Feature requests, bugs, and questions">
       <span class="nav-icon">{{ ico.icon('clipboard-list') }}</span> Requests
     </a>
-    {# Hardcoded href so a missing blueprint can't 500 the whole site. #}
-    <a href="/hard-coded-events"
-       class="{% if request.endpoint and request.endpoint.startswith('hardcoded_bp.') %}active{% endif %}"
-       title="Recurring events defined once, timed off each day's SOD/EOD">
-      <span class="nav-icon">{{ ico.icon('repeat') }}</span> Recurring Events
-    </a>
 
     <div class="nav-section">Shows</div>
     <a href="{{ url_for('shows.index') }}"
-       class="{% if 'shows.' in (request.endpoint or '') and 'schedule' not in (request.endpoint or '') %}active{% endif %}">
+       class="{% if request.endpoint in ('shows.index',) %}active{% endif %}">
       <span class="nav-icon">{{ ico.icon('clapperboard') }}</span> All Shows
     </a>
-    {# Per-show links under All Shows → show detail #}
-    {{ show_sub_list('shows.detail') }}
+    {% if all_shows %}
+    <div class="sidebar-shows">
+      {% for s in all_shows %}
+      {%- set is_cur = (_cur_show == s.id) -%}
+      <a href="{{ url_for('shows.detail', show_id=s.id) }}"
+         class="sidebar-show-link {% if is_cur and _ep == 'shows.detail' %}sidebar-show-active{% endif %}{% if is_cur %} sidebar-show-current{% endif %}"
+         {% if is_cur %}aria-current="true"{% endif %}>
+        <span class="show-dot"></span>
+        {% if s.code %}<span class="show-code">{{ s.code }}</span>{% endif %}
+        <span class="show-name">{{ s.name }}</span>
+      </a>
+      {% if is_cur %}
+      <div class="sidebar-show-pages" aria-label="{{ s.name }} pages">
+        {{ show_page_link('schedule.overview', s.id, 'Schedule', _ep.startswith('schedule.')) }}
+        {{ show_page_link('oss.oss_hub', s.id, 'OSS', _ep.startswith('oss.')) }}
+        {{ show_page_link('show_crew.show_crew', s.id, 'Crew', _ep == 'show_crew.show_crew') }}
+        {{ show_page_link('show_crew.travel', s.id, 'Travel', _ep == 'show_crew.travel') }}
+        {{ show_page_link('show_crew.hours_report', s.id, 'Hours', _ep == 'show_crew.hours_report') }}
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
     <a href="{{ url_for('shows.new') }}"
        class="{% if request.endpoint == 'shows.new' %}active{% endif %}">
       <span class="nav-icon">{{ ico.icon('plus') }}</span> New Show
     </a>
 
-    <div class="nav-section">Schedule Builder</div>
-    {# Per-show links → schedule overview #}
-    {{ show_sub_list('schedule.overview') }}
-    {# href hardcoded — see the note on /clients below. #}
+    <div class="nav-section">Setup</div>
+    <a href="{{ url_for('crew.index') }}"
+       class="{% if request.endpoint == 'crew.index' or request.endpoint == 'crew.add' or request.endpoint == 'crew.edit' %}active{% endif %}">
+      <span class="nav-icon">{{ ico.icon('users') }}</span> Crew Database
+    </a>
+    <a href="{{ url_for('local_labor.index') }}"
+       class="{% if request.endpoint and request.endpoint.startswith('local_labor.') %}active{% endif %}">
+      <span class="nav-icon">{{ ico.icon('hard-hat') }}</span> Local Labor
+    </a>
+    {# href hardcoded, like /agency and /phase-types. The blueprint loader is
+       deliberately resilient — a blueprint that fails to import is captured
+       and the rest of the site still serves — but `url_for` on a route that
+       never registered raises during template render and takes EVERY page
+       down with it. That is the July 2 hotfix, and it applies to any nav
+       entry added afterwards. #}
+    <a href="/clients"
+       class="{% if request.endpoint and request.endpoint.startswith('clients.') %}active{% endif %}">
+      <span class="nav-icon">{{ ico.icon('building-2') }}</span> Clients
+    </a>
     <a href="/phase-types"
        class="{% if request.endpoint and request.endpoint.startswith('phase_types.') %}active{% endif %}">
       <span class="nav-icon">{{ ico.icon('flag') }}</span> Phase Types
@@ -102,54 +127,14 @@
        class="{% if request.endpoint and 'template' in request.endpoint %}active{% endif %}">
       <span class="nav-icon">{{ ico.icon('copy') }}</span> Day Templates
     </a>
-
-    <div class="nav-section">Databases</div>
-    <a href="{{ url_for('crew.index') }}"
-       class="{% if request.endpoint == 'crew.index' or request.endpoint == 'crew.add' or request.endpoint == 'crew.edit' %}active{% endif %}">
-      <span class="nav-icon">{{ ico.icon('users') }}</span> Crew Database
+    <a href="/hard-coded-events"
+       class="{% if request.endpoint and request.endpoint.startswith('hardcoded_bp.') %}active{% endif %}"
+       title="Recurring events defined once, timed off each day's SOD/EOD">
+      <span class="nav-icon">{{ ico.icon('repeat') }}</span> Recurring Events
     </a>
-    {# Per-show links under Crew Database → that show's crew page #}
-    {{ show_sub_list('show_crew.show_crew') }}
-    <a href="{{ url_for('local_labor.index') }}"
-       class="{% if request.endpoint and request.endpoint.startswith('local_labor.') %}active{% endif %}">
-      <span class="nav-icon">{{ ico.icon('hard-hat') }}</span> Local Labor
-    </a>
-    {# href hardcoded, like /agency above it. The blueprint loader is
-       deliberately resilient — a blueprint that fails to import is captured
-       and the rest of the site still serves — but `url_for` on a route that
-       never registered raises during template render and takes EVERY page
-       down with it. That is the July 2 hotfix, and it applies to any nav
-       entry added afterwards. #}
-    <a href="/clients"
-       class="{% if request.endpoint and request.endpoint.startswith('clients.') %}active{% endif %}">
-      {# building-2, not briefcase — briefcase is not in the generated set and
-         test_icon_names_resolve would fail on it. It is shared with the
-         disabled Vendors placeholder below for now; whoever builds that page
-         should pick another, and per the #2 proposal Vendors is really the
-         Companies table filtered by type, so it may not need its own entry. #}
-      <span class="nav-icon">{{ ico.icon('building-2') }}</span> Clients
-    </a>
-    <a class="disabled" aria-disabled="true">
-      <span class="nav-icon">{{ ico.icon('building-2') }}</span> Vendors
-    </a>
-    <a class="disabled" aria-disabled="true">
-      <span class="nav-icon">{{ ico.icon('package') }}</span> Equipment
-    </a>
-
     <a href="/agency"
        class="{% if request.endpoint and request.endpoint.startswith('agency.') %}active{% endif %}">
       <span class="nav-icon">{{ ico.icon('palette') }}</span> Agency Branding
-    </a>
-
-    <div class="nav-section">Coming Soon</div>
-    <a class="disabled" aria-disabled="true">
-      <span class="nav-icon">{{ ico.icon('clipboard-list') }}</span> RFQ Builder
-    </a>
-    <a class="disabled" aria-disabled="true">
-      <span class="nav-icon">{{ ico.icon('banknote') }}</span> Budget
-    </a>
-    <a class="disabled" aria-disabled="true">
-      <span class="nav-icon">{{ ico.icon('utensils') }}</span> F&amp;B
     </a>
   </nav>
 
@@ -189,10 +174,10 @@
   {% if blueprint_errors %}
     <div class="px-4 pt-3">
       <div class="alert alert-warning py-2 px-3 mb-0" role="alert"
-           style="border-left:4px solid #B45309;">
+           style="border-left:4px solid var(--adi-warn);">
         <strong>{{ ico.icon('alert-triangle') }} Some features are unavailable — a blueprint failed to load at startup.</strong>
         The rest of the site is working. Check the PA error log for details.<br>
-        <span style="font-family:monospace; font-size:.8rem; color:#78350F;">
+        <span style="font-family:monospace; font-size:.8rem; color:var(--adi-warn);">
           {% for path, err in blueprint_errors.items() %}{{ path }}: {{ err }}<br>{% endfor %}
         </span>
       </div>
@@ -204,12 +189,12 @@
   {% if migration_error %}
     <div class="px-4 pt-3">
       <div class="alert alert-danger py-2 px-3 mb-0" role="alert"
-           style="border-left:4px solid #B91C1C;">
+           style="border-left:4px solid var(--adi-danger);">
         <strong>{{ ico.icon('alert-triangle') }} Migration failed on startup.</strong>
         The database may be in a half-migrated state. Do not enter new data
         until this is resolved. Check the PA error log and the pre-migration
         snapshot under <code>~/backups/</code>.<br>
-        <span style="font-family:monospace; font-size:.8rem; color:#7F1D1D;">
+        <span style="font-family:monospace; font-size:.8rem; color:var(--adi-danger);">
           {{ migration_error }}
         </span>
       </div>
@@ -263,7 +248,7 @@
      has three states and stays until the next change: "saving…" the moment
      a field changes, "saved" when the server answers, "save failed" if it
      does not. Colours are the semantic tokens (ink strength, not a stock
-     green — #16A34A was 3.0:1 on the warm-white page). */
+     green — var(--adi-ok) was 3.0:1 on the warm-white page). */
   function statusEl(form) {
     let el = form.querySelector('.autosave-flash');
     if (!el) {

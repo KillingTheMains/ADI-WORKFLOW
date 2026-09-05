@@ -100,5 +100,7 @@ def test_day_page_places_events_inline_not_in_a_top_block(app, client, db):
     # Wording changed on 2026-08-12 when the panel moved from above the
     # timeline into the left sidebar, so "below" stopped being true. The
     # behaviour under test is unchanged and still the point: a COUNT here,
-    # with the events themselves placed in the stream by time.
-    assert "placed in the schedule by time" in html
+    # with the events themselves placed in the stream by time. Reworded
+    # again 2026-09-05 into Larry's language ("N recurring events on this
+    # day, placed by time"); the count and the placement are what matter.
+    assert "placed by time" in html

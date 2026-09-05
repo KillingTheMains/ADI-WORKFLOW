@@ -26,7 +26,7 @@
           <div class="show-meta"><strong>Dates:</strong> {{ show.date_range }}</div>
           <div class="mt-2 d-flex align-items-center justify-content-between">
             <span class="status-badge status-{{ show.status }}">{{ show.status }}</span>
-            <span class="text-muted" style="font-size:.75rem;">{{ show.days|length }} days</span>
+            <span class="text-muted" style="font-size:.75rem;">{{ show.days|length }} {{ 'day' if show.days|length == 1 else 'days' }}</span>
           </div>
         </div>
       </div>

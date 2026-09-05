@@ -54,7 +54,7 @@
 <style>
   .booking-task-card { margin-bottom: 14px; }
   .booking-task-card .task-header {
-    background:var(--adi-dark); color:var(--adi-gold-lt);
+    background:var(--adi-dark); color:#fff;
     padding: 6px 14px; font-size:.78rem; font-weight:700;
     text-transform:uppercase; letter-spacing:.06em;
     display:flex; align-items:center; justify-content:space-between;
@@ -62,29 +62,29 @@
   }
   .booking-table { font-size:.8rem; margin: 0; }
   .booking-table th {
-    background:#fafafa; font-size:.66rem; text-transform:uppercase;
-    letter-spacing:.05em; color:#666; font-weight:600;
+    background:var(--adi-surface); font-size:.66rem; text-transform:uppercase;
+    letter-spacing:.05em; color:var(--adi-mineral-dk); font-weight:600;
     padding:5px 8px;
   }
   .booking-table td { padding:5px 8px; vertical-align:middle; }
   .booking-table input[type="date"],
   .booking-table input[type="text"],
   .booking-table select { font-size:.76rem; padding:2px 6px; }
-  .tbd-row { background:#FFF8EC; }
+  .tbd-row { background:var(--adi-warn-bg); }
   .tbd-badge {
-    display:inline-block; background:#F59E0B; color:var(--adi-dark);
+    display:inline-block; background:var(--adi-warn-bg); color:var(--adi-dark);
     font-size:.62rem; font-weight:700; padding:1px 6px;
     border-radius:8px; text-transform:uppercase; letter-spacing:.04em;
     margin-left:6px;
   }
   .save-btn-inline {
     font-size:.7rem; padding:2px 8px;
-    background:#16A34A; color:#fff; border:none; border-radius:4px;
+    background:var(--adi-ok); color:#fff; border:none; border-radius:4px;
   }
-  .save-btn-inline:hover { background:#15803D; }
+  .save-btn-inline:hover { background:var(--adi-ok); }
   .del-btn-inline {
     font-size:.7rem; padding:1px 6px;
-    background:none; color:#DC2626; border:1px solid #DC2626;
+    background:none; color:var(--adi-danger); border:1px solid var(--adi-danger);
     border-radius:4px;
   }
 </style>
@@ -100,7 +100,7 @@
 <!-- Inline form to add a new TBD slot -->
 <form method="POST" action="{{ url_for('show_crew.add_slot', show_id=show.id) }}"
       class="collapse mb-3" id="add-slot-form">
-  <div class="card p-2" style="background:#FFF8EC;border:1px solid #E8DCA8;">
+  <div class="card p-2" style="background:var(--adi-warn-bg);border:1px solid #E8DCA8;">
     <div class="row g-1 align-items-end" style="font-size:.78rem;">
       <div class="col-md-2">
         <label style="font-size:.7rem;">Position</label>
@@ -109,7 +109,7 @@
           {% for p in all_positions %}
           <option value="{{ p.id }}">{{ p.title }}{% if p.department %} ({{ p.department }}){% endif %}</option>
           {% endfor %}
-          <option value="__new__" style="font-style:italic;color:#B45309;">+ New position…</option>
+          <option value="__new__" style="font-style:italic;color:var(--adi-warn);">+ New position…</option>
         </select>
       </div>
       <div class="col-md-2">
@@ -207,7 +207,7 @@
           {% set fid = 'assign-row-' ~ a.id %}
           <tr data-item-type="a" data-item-id="{{ a.id }}">
             <td class="booking-drag-handle"
-                style="cursor:grab;text-align:center;color:#999;font-size:.9rem;
+                style="cursor:grab;text-align:center;color:var(--adi-mineral);font-size:.9rem;
                        user-select:none;vertical-align:middle;"
                 title="Drag to reorder">⋮⋮</td>
             <td style="text-align:center;vertical-align:middle;">
@@ -249,10 +249,10 @@
           {% set did = 'slot-del-' ~ slot.id %}
           <tr class="tbd-row" data-item-type="s" data-item-id="{{ slot.id }}">
             <td class="booking-drag-handle"
-                style="cursor:grab;text-align:center;color:#999;font-size:.9rem;
+                style="cursor:grab;text-align:center;color:var(--adi-mineral);font-size:.9rem;
                        user-select:none;vertical-align:middle;"
                 title="Drag to reorder">⋮⋮</td>
-            <td style="text-align:center;vertical-align:middle;color:#ccc;" title="Assign this slot to bulk-edit its crew">·</td>
+            <td style="text-align:center;vertical-align:middle;color:var(--adi-border-strong);" title="Assign this slot to bulk-edit its crew">·</td>
               <td>
                 <div style="font-weight:600;">
                   {{ slot.display_title }}<span class="tbd-badge">TBD</span>
@@ -270,7 +270,7 @@
                     {{ p.title }}
                   </option>
                   {% endfor %}
-                  <option value="__new__" style="font-style:italic;color:#B45309;">+ New position…</option>
+                  <option value="__new__" style="font-style:italic;color:var(--adi-warn);">+ New position…</option>
                 </select>
               </td>
               <td>
@@ -303,7 +303,7 @@
                 <form method="POST"
                       action="{{ url_for('show_crew.fill_slot', show_id=show.id, sid=slot.id) }}"
                       class="d-flex align-items-center gap-1">
-                  <span style="font-size:.7rem;color:#92400E;">Fill this slot →</span>
+                  <span style="font-size:.7rem;color:var(--adi-warn);">Fill this slot →</span>
                   <select name="crew_member_id" class="form-select form-select-sm"
                           style="font-size:.74rem;max-width:280px;" aria-label="Crew member ID">
                     <option value="">— pick a crew member —</option>
@@ -433,7 +433,7 @@
       <tbody>
         {% for cm in co_crew %}
         {% set is_assigned = cm.id in assigned_ids %}
-        <tr style="border-bottom:1px solid #F3F4F6;
+        <tr style="border-bottom:1px solid var(--adi-surface);
                    {% if is_assigned %}background:#F0F9FF;{% endif %}">
           <td style="padding:8px 16px;font-weight:600;color:var(--adi-dark);">
             {{ cm.display_label }}
@@ -447,14 +447,14 @@
                 {{ cm.position.department }}
               </span>
             {% else %}
-              <span style="color:#ccc;">—</span>
+              <span style="color:var(--adi-border-strong);">—</span>
             {% endif %}
           </td>
           <td style="padding:8px 16px;text-align:center;">
             {% if is_assigned %}
-            <span style="color:#15803D;font-size:1rem;">{{ ico.icon('check') }}</span>
+            <span style="color:var(--adi-ok);font-size:1rem;">{{ ico.icon('check') }}</span>
             {% else %}
-            <span style="color:#ccc;font-size:.75rem;">—</span>
+            <span style="color:var(--adi-border-strong);font-size:.75rem;">—</span>
             {% endif %}
           </td>
           <td style="padding:8px 16px;text-align:right;">
@@ -464,8 +464,8 @@
               {% if is_assigned %}
               <input type="hidden" name="action" value="unassign">
               <button type="submit" class="btn btn-sm"
-                      style="font-size:.72rem;background:#FEF2F2;color:#DC2626;
-                             border:1px solid #FCA5A5;border-radius:4px;padding:2px 10px;">
+                      style="font-size:.72rem;background:var(--adi-danger-bg);color:var(--adi-danger);
+                             border:1px solid var(--adi-danger-bg);border-radius:4px;padding:2px 10px;">
                 Remove
               </button>
               {% else %}
@@ -517,7 +517,7 @@
             <select name="position_id" class="form-select form-select-sm crew-position-select" aria-label="Position">
               <option value="">— leave unchanged —</option>
               {% for p in all_positions %}<option value="{{ p.id }}">{{ p.title }}</option>{% endfor %}
-              <option value="__new__" style="font-style:italic;color:#B45309;">+ New position…</option>
+              <option value="__new__" style="font-style:italic;color:var(--adi-warn);">+ New position…</option>
             </select>
           </div>
           <div class="mb-1">
@@ -525,7 +525,7 @@
             <select name="company_id" class="form-select form-select-sm crew-company-select" aria-label="Company">
               <option value="">— leave unchanged —</option>
               {% for co in all_companies %}<option value="{{ co.id }}">{{ co.name }}</option>{% endfor %}
-              <option value="__new__" style="font-style:italic;color:#B45309;">+ New company…</option>
+              <option value="__new__" style="font-style:italic;color:var(--adi-warn);">+ New company…</option>
             </select>
           </div>
         </div>
@@ -635,8 +635,8 @@
 </script>
 
 <style>
-  .booking-drag-ghost   { opacity: 0.4; background: #FFF8EC !important; }
-  .booking-drag-chosen  { background: #FEF3C7 !important; }
+  .booking-drag-ghost   { opacity: 0.4; background: var(--adi-warn-bg) !important; }
+  .booking-drag-chosen  { background: var(--adi-warn-bg) !important; }
   .booking-drag-handle:hover { color: var(--adi-dark) !important; }
 </style>
 {# Shared "+ New Position" modal (#41) — positions created here are saved globally #}

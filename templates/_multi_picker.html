@@ -34,8 +34,8 @@
       {% if item.group and item.group != seen.group %}
         {% set seen.group = item.group %}
         <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;
-                    letter-spacing:.06em;color:#adb5bd;padding:6px 0 2px;
-                    border-top:1px dashed #dee2e6;margin-top:4px;">
+                    letter-spacing:.06em;color:var(--adi-mineral);padding:6px 0 2px;
+                    border-top:1px dashed var(--adi-border);margin-top:4px;">
           {{ item.group }}
         </div>
       {% endif %}
@@ -62,7 +62,7 @@
       </div>
     {% endfor %}
     {% if not items %}
-      <div style="font-size:.8rem;color:#6c757d;padding:8px 0;">
+      <div style="font-size:.8rem;color:var(--adi-mineral);padding:8px 0;">
         Nothing to choose from.
       </div>
     {% endif %}

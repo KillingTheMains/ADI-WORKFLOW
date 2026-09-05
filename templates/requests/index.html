@@ -12,81 +12,81 @@
   /* ── Priority badges ────────────────────────────────────────────────── */
   .prio-badge { display:inline-block; font-weight:600; font-size:.72rem;
                 padding:2px 7px; border-radius:10px; letter-spacing:.03em; }
-  .prio-P0 { background:#FEE2E2; color:#991B1B; border:1px solid #FCA5A5; }
-  .prio-P1 { background:#FEF3C7; color:#92400E; border:1px solid #FCD34D; }
-  .prio-P2 { background:#DBEAFE; color:#1E40AF; border:1px solid #93C5FD; }
-  .prio-P3 { background:#E5E7EB; color:#374151; border:1px solid #D1D5DB; }
+  .prio-P0 { background:var(--adi-danger-bg); color:var(--adi-danger); border:1px solid var(--adi-danger-bg); }
+  .prio-P1 { background:var(--adi-warn-bg); color:var(--adi-warn); border:1px solid var(--adi-warn-bg); }
+  .prio-P2 { background:var(--adi-info-bg); color:var(--adi-info); border:1px solid var(--adi-info-bg); }
+  .prio-P3 { background:var(--adi-surface); color:var(--adi-mineral-dk); border:1px solid var(--adi-border); }
 
   /* ── Status badges ──────────────────────────────────────────────────── */
   .status-badge { display:inline-block; font-weight:600; font-size:.72rem;
                   padding:2px 8px; border-radius:10px; letter-spacing:.02em; }
-  .status-requested     { background:#FEF3C7; color:#92400E; border:1px solid #FDE68A; }
-  .status-in_progress   { background:#DBEAFE; color:#1E40AF; border:1px solid #93C5FD; }
-  .status-ready_to_test { background:#EDE9FE; color:#5B21B6; border:1px solid #C4B5FD; }
-  .status-deployed      { background:#D1FAE5; color:#065F46; border:1px solid #6EE7B7; }
-  .status-deferred      { background:#F3F4F6; color:#6B7280; border:1px solid #D1D5DB; }
+  .status-requested     { background:var(--adi-warn-bg); color:var(--adi-warn); border:1px solid var(--adi-warn-bg); }
+  .status-in_progress   { background:var(--adi-info-bg); color:var(--adi-info); border:1px solid var(--adi-info-bg); }
+  .status-ready_to_test { background:var(--adi-info-bg); color:var(--adi-info); border:1px solid var(--adi-info-bg); }
+  .status-deployed      { background:var(--adi-ok-bg); color:var(--adi-ok); border:1px solid var(--adi-ok-bg); }
+  .status-deferred      { background:var(--adi-surface); color:var(--adi-mineral); border:1px solid var(--adi-border); }
 
   /* ── Category chips ─────────────────────────────────────────────────── */
   .cat-chip { display:inline-block; font-size:.7rem; padding:1px 6px;
-              border-radius:8px; background:#F5F5F5; color:#555;
-              border:1px solid #E5E5E5; }
-  .cat-bug      { background:#FEE2E2; color:#991B1B; border-color:#FECACA; }
-  .cat-feature  { background:#DBEAFE; color:#1E40AF; border-color:#BFDBFE; }
-  .cat-ux       { background:#FCE7F3; color:#831843; border-color:#F9A8D4; }
-  .cat-question { background:#FEF9C3; color:#713F12; border-color:#FEF08A; }
+              border-radius:8px; background:var(--adi-surface); color:var(--adi-mineral-dk);
+              border:1px solid var(--adi-border); }
+  .cat-bug      { background:var(--adi-danger-bg); color:var(--adi-danger); border-color:var(--adi-danger-bg); }
+  .cat-feature  { background:var(--adi-info-bg); color:var(--adi-info); border-color:var(--adi-info-bg); }
+  .cat-ux       { background:var(--adi-warn-bg); color:var(--adi-warn); border-color:var(--adi-warn-bg); }
+  .cat-question { background:var(--adi-warn-bg); color:var(--adi-warn); border-color:var(--adi-warn-bg); }
 
   /* ── Filter bar ─────────────────────────────────────────────────────── */
   .filter-bar { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center;
-                margin-bottom:1rem; padding:.75rem; background:#FAFAFA;
-                border:1px solid #E5E5E5; border-radius:6px; }
+                margin-bottom:1rem; padding:.75rem; background:var(--adi-surface);
+                border:1px solid var(--adi-border); border-radius:6px; }
   .filter-bar select, .filter-bar input {
-      padding:4px 8px; font-size:.85rem; border:1px solid #CCC; border-radius:4px;
+      padding:4px 8px; font-size:.85rem; border:1px solid var(--adi-border-strong); border-radius:4px;
   }
-  .status-pill { padding:4px 10px; background:#fff; border:1px solid #DDD;
+  .status-pill { padding:4px 10px; background:#fff; border:1px solid var(--adi-border);
                  border-radius:16px; font-size:.78rem; text-decoration:none;
-                 color:#333; }
-  .status-pill:hover { background:#EEF2FF; }
-  .status-pill.active { background:#1E40AF; color:#fff; border-color:#1E40AF; }
+                 color:var(--adi-text); }
+  .status-pill:hover { background:var(--adi-info-bg); }
+  .status-pill.active { background:var(--adi-info); color:#fff; border-color:var(--adi-info); }
 
   /* ── Table ──────────────────────────────────────────────────────────── */
   .req-table { width:100%; border-collapse:collapse; font-size:.85rem; }
-  .req-table thead th { background:#FAFAFA; border-bottom:2px solid #E5E5E5;
+  .req-table thead th { background:var(--adi-surface); border-bottom:2px solid var(--adi-border);
                         padding:8px 6px; text-align:left; font-weight:600;
-                        color:#555; font-size:.78rem; text-transform:uppercase;
+                        color:var(--adi-mineral-dk); font-size:.78rem; text-transform:uppercase;
                         letter-spacing:.04em; }
-  .req-table tbody td { border-bottom:1px solid #F0F0F0; padding:8px 6px;
+  .req-table tbody td { border-bottom:1px solid var(--adi-row-rule); padding:8px 6px;
                         vertical-align:top; }
-  .req-table tbody tr:hover { background:#FAFBFF; }
+  .req-table tbody tr:hover { background:var(--adi-hover); }
   .req-table input[type="text"], .req-table textarea, .req-table select {
       border:1px solid transparent; background:transparent;
       padding:2px 4px; font-size:.85rem; width:100%; border-radius:3px;
       resize:vertical;
   }
   .req-table input[type="text"]:hover, .req-table textarea:hover,
-  .req-table select:hover { border-color:#DDD; background:#fff; }
+  .req-table select:hover { border-color:var(--adi-border); background:#fff; }
   .req-table input[type="text"]:focus, .req-table textarea:focus,
   .req-table select:focus { border-color:#3B82F6; background:#fff; outline:none; }
 
   .drag-handle { cursor:grab; color:#BBB; font-size:1.1rem; user-select:none;
                  padding:8px 8px; display:inline-block; min-width:22px;
                  text-align:center; touch-action:none; }
-  .drag-handle:hover { color:#666; }
+  .drag-handle:hover { color:var(--adi-mineral-dk); }
 
   .req-title { font-weight:600; color:#111; }
-  .req-desc  { color:#666; font-size:.78rem; margin-top:2px; }
+  .req-desc  { color:var(--adi-mineral-dk); font-size:.78rem; margin-top:2px; }
 
   .add-form { display:grid;
               grid-template-columns: 2fr 100px 90px 110px 130px 90px;
               gap:.4rem; align-items:end; margin-bottom:1rem;
               padding:.75rem; background:#F0FDF4; border:1px solid #BBF7D0;
               border-radius:6px; }
-  .add-form label { font-size:.7rem; color:#555; text-transform:uppercase;
+  .add-form label { font-size:.7rem; color:var(--adi-mineral-dk); text-transform:uppercase;
                     letter-spacing:.04em; margin-bottom:2px; display:block; }
   .add-form input, .add-form select {
       width:100%; padding:5px 8px; font-size:.85rem;
-      border:1px solid #CCC; border-radius:4px;
+      border:1px solid var(--adi-border-strong); border-radius:4px;
   }
-  .add-form button { padding:6px 12px; background:#059669; color:#fff;
+  .add-form button { padding:6px 12px; background:var(--adi-ok); color:#fff;
                      border:none; border-radius:4px; font-weight:600;
                      cursor:pointer; }
   .add-form button:hover { background:#047857; }
@@ -95,15 +95,15 @@
      (attach, delete). Larry uses this board from iPad — mis-taps
      erode trust. Icons stay visually small; the invisible click area is
      larger via padding. */
-  .btn-mini { padding:8px 12px; font-size:.72rem; border:1px solid #CCC;
+  .btn-mini { padding:8px 12px; font-size:.72rem; border:1px solid var(--adi-border-strong);
               background:#fff; border-radius:3px; cursor:pointer;
-              color:#333; text-decoration:none;
+              color:var(--adi-text); text-decoration:none;
               display:inline-block; min-width:36px; min-height:36px;
               line-height:1.2; text-align:center;
               touch-action:manipulation; }
-  .btn-mini:hover { background:#F5F5F5; }
-  .btn-mini.danger { color:#991B1B; border-color:#FCA5A5; }
-  .btn-mini.danger:hover { background:#FEE2E2; }
+  .btn-mini:hover { background:var(--adi-surface); }
+  .btn-mini.danger { color:var(--adi-danger); border-color:var(--adi-danger-bg); }
+  .btn-mini.danger:hover { background:var(--adi-danger-bg); }
 </style>
 
 <!-- ── Filter / status pills ────────────────────────────────────────────── -->
@@ -212,7 +212,7 @@
         <input type="text" name="title" value="{{ r.title }}"
                class="req-title-input" style="font-weight:600;" aria-label="Title">
         <textarea name="description" rows="1" placeholder="Add description…"
-                  style="font-size:.78rem;color:#666;margin-top:2px;"
+                  style="font-size:.78rem;color:var(--adi-mineral-dk);margin-top:2px;"
         >{{ r.description or "" }}</textarea>
       </form>
     </td>
@@ -273,7 +273,7 @@
       </form>
     </td>
 
-    <td style="font-size:.72rem; color:#888; white-space:nowrap;">
+    <td style="font-size:.72rem; color:var(--adi-mineral); white-space:nowrap;">
       {{ r.updated_at.strftime("%m/%d") if r.updated_at else "" }}
     </td>
 
@@ -301,7 +301,7 @@
     <td colspan="8" style="padding:6px 4px 10px;">
       <div style="display:flex; flex-wrap:wrap; gap:8px;">
         {% for att in r.attachments %}
-        <div style="position:relative; border:1px solid #E5E5E5;
+        <div style="position:relative; border:1px solid var(--adi-border);
                     border-radius:6px; padding:3px; background:#fff;">
           <a href="{{ url_for('requests_bp.serve_attachment',
                               req_id=r.id, att_id=att.id) }}"
@@ -319,7 +319,7 @@
                 onsubmit="return confirm('Delete this attachment?');"
                 style="position:absolute; top:-6px; right:-6px;">
             <button type="submit"
-                    style="border:none; background:#EF4444; color:#fff;
+                    style="border:none; background:var(--adi-danger); color:#fff;
                            border-radius:50%; width:32px; height:32px;
                            font-size:.85rem; cursor:pointer; line-height:1;
                            display:flex; align-items:center; justify-content:center;
@@ -371,29 +371,29 @@
      title so the eye jumps straight to open work above. */
   .req-row.row-status-deployed td {
     background: #ECFDF5;
-    color: #065F46;
+    color: var(--adi-ok);
   }
   .req-row.row-status-deployed .req-title-input {
-    color: #065F46;
+    color: var(--adi-ok);
     text-decoration: line-through;
     text-decoration-color: rgba(6,95,70,.35);
   }
-  .req-row.row-status-deployed textarea { color: #065F46; }
-  .req-row.row-status-deployed:hover td { background: #D1FAE5; }
+  .req-row.row-status-deployed textarea { color: var(--adi-ok); }
+  .req-row.row-status-deployed:hover td { background: var(--adi-ok-bg); }
 
   /* Ready to test — subtle purple hint */
   .req-row.row-status-ready_to_test td { background: #FAF5FF; }
 
   /* Deferred — muted */
-  .req-row.row-status-deferred td { color: #6B7280; }
-  .req-row.row-status-deferred .req-title-input { color: #6B7280; }
+  .req-row.row-status-deferred td { color: var(--adi-mineral); }
+  .req-row.row-status-deferred .req-title-input { color: var(--adi-mineral); }
 </style>
 
 {% endif %}
 
 <div style="margin-top:1rem; padding:.75rem; background:#F9FAFB;
-            border:1px solid #E5E5E5; border-radius:6px;
-            font-size:.78rem; color:#666;">
+            border:1px solid var(--adi-border); border-radius:6px;
+            font-size:.78rem; color:var(--adi-mineral-dk);">
   <strong>Tips:</strong> Click any field to edit — autosaves as you type.
   Drag the handle at the left of a row to reorder within a status. Click the paperclip to attach
   a screenshot (PNG / JPG / GIF / WebP, max 5 MB each). Deleted a row by mistake?

@@ -1690,6 +1690,7 @@ def _call_sheet_sheet(day):
                 "notes":          row.notes or "",
                 "dept":           row.position_ref.department if row.position_ref else "",
                 "crew_member_id": row.crew_member_id,
+                "is_local_labor": row.is_local_labor,
                 "conflict":       False,
             })
             if row.crew_member_id:
@@ -1707,11 +1708,26 @@ def _call_sheet_sheet(day):
     for line in crew_lines:
         by_dept[line["dept"] or "General"].append(line)
 
+    # Total Crew is a HEADCOUNT — bodies in the building — not a count of
+    # lines. It used to sum qty over every activity, so a person on three
+    # crew calls counted three times and a 40-person day printed "96 people"
+    # on the document the venue caters from. A named person counts once
+    # however many calls they are on; an open slot (no crew_member_id)
+    # counts by its qty because each is a separate body. Found 09-05.
+    people = set()
+    placeholders = 0
+    for line in crew_lines:
+        if line["crew_member_id"]:
+            people.add(line["crew_member_id"])
+        else:
+            placeholders += line["qty"]
+
     return {
         "day":        day,
         "crew_lines": crew_lines,
         "by_dept":    dict(sorted(by_dept.items())),
-        "total_crew": sum(l["qty"] for l in crew_lines),
+        "total_crew": len(people) + placeholders,
+        "total_lines": sum(l["qty"] for l in crew_lines),
         "conflicts":  len(conflicts) > 0,
     }
 

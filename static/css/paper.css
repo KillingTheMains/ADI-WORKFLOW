@@ -1,0 +1,31 @@
+/* ── ADI Workflow — paper ─────────────────────────────────────────────────
+   Shared by the standalone paper surfaces (call sheet, show book, contact
+   sheet, travel print). They do not extend base.html, so they did not get
+   the app's tokens or its face: the call sheet loaded Inter with a legacy
+   blue, the show book was Arial, the contact sheet was system-ui. Print
+   parity is a product principle — the crew reads the call sheet in the
+   same language the operator saw on screen. Barlow, with Arial as the
+   fallback a print engine without web fonts will use. Tokens are the same
+   values as style.css; the names are the short ones these pages use. */
+:root {
+  --navy:    #0B2545;   /* Midnight */
+  --blue:    #0C6B79;   /* ink cyan — text on light */
+  --blue-lt: #35C4D8;   /* true cyan — on Midnight only */
+  --gold:    #7A5C1E;   /* ink gold — text */
+  --gold-lt: #C9A45C;   /* true gold — rails */
+  --surface: #F7F4EE;
+  --border:  #E2DDD3;
+  --border-strong: #7E8794;
+  --muted:   #59636E;
+  --muted-dk:#414A54;
+  --text:    #16202E;
+  --ok:      #1A6B3C;   --ok-bg:     #DCFCE7;
+  --warn:    #8A5A00;   --warn-bg:   #FDF3D8;
+  --danger:  #B3261E;   --danger-bg: #FDECEA;
+  --paper-font: 'Barlow', Arial, Helvetica, sans-serif;
+  --paper-display: 'Barlow Condensed', 'Barlow', Arial, sans-serif;
+}
+body { font-family: var(--paper-font); color: var(--text); }
+h1, h2, h3, .paper-display { font-family: var(--paper-display); letter-spacing: .03em; }
+/* Tabular figures everywhere a time or count sits in a column. */
+td, th { font-variant-numeric: tabular-nums; }

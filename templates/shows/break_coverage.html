@@ -8,12 +8,12 @@
   .cov-day { background:#F0EDE0; color:var(--adi-dark); padding:6px 12px;
              font-size:.82rem; font-weight:700; border-radius:6px;
              margin:18px 0 8px; display:flex; justify-content:space-between; }
-  .cov-block { border:1px solid #E8E4D7; border-radius:8px; background:#fff;
+  .cov-block { border:1px solid var(--adi-border); border-radius:8px; background:#fff;
                margin-bottom:10px; }
   .cov-block > .head { padding:5px 12px; font-size:.74rem; font-weight:700;
                        text-transform:uppercase; letter-spacing:.04em;
                        border-radius:8px 8px 0 0; }
-  .cov-undecided > .head { background:#FDF6E7; color:#B45309; }
+  .cov-undecided > .head { background:#FDF6E7; color:var(--adi-warn); }
   .cov-unfed     > .head { background:#FDF0F0; color:#9F1239; }
   .cov-orphan    > .head { background:#F2F6FA; color:#0B2545; }
   .cov-row { display:flex; align-items:center; gap:10px; padding:5px 12px;
@@ -49,7 +49,7 @@
 
 <div class="card mb-3">
   <div class="card-body py-2 px-3 d-flex align-items-center gap-3 flex-wrap">
-    <span style="color:#B45309;"><strong>{{ counts.undecided }}</strong>
+    <span style="color:var(--adi-warn);"><strong>{{ counts.undecided }}</strong>
       not decided</span>
     <span style="color:#9F1239;"><strong>{{ counts.unfed }}</strong>
       with nothing feeding them</span>

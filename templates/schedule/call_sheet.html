@@ -9,24 +9,19 @@
      to say which days are in the file. #}
   <title>Call Sheet —
     {%- if sheets|length == 1 %} {{ sheets[0].day.date.strftime('%b %-d, %Y') }}
-    {%- else %} {{ sheets[0].day.date.strftime('%b %-d') }}–{{ sheets[-1].day.date.strftime('%b %-d, %Y') }} ({{ sheets|length }} days)
+    {%- else %} {{ sheets[0].day.date.strftime('%b %-d') }}–{{ sheets[-1].day.date.strftime('%b %-d, %Y') }} ({{ sheets|length }} {{ 'day' if sheets|length == 1 else 'days' }})
     {%- endif %} — {{ show.name }}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/paper.css') }}">
   <style>
-    :root {
-      --navy:   #0B2545;   /* ADI Midnight — see brand.py */
-      --blue:   #0C6B79;
-      --blue-lt:#6BA5F5;
-      --surface:#F0F4F8;
-      --border: #DDE3ED;
-      --muted:  #64748B;
-      --text:   #16202E;
-    }
+    /* Tokens come from paper.css (Midnight, ink cyan, true cyan on Midnight,
+       warm white, mineral). The legacy #6BA5F5 blue and #F0F4F8 surface are
+       gone — this sheet now speaks the screen's language. */
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Inter', Arial, sans-serif;
+      font-family: var(--paper-font);
       font-size: 11pt;
       color: var(--text);
       background: #fff;

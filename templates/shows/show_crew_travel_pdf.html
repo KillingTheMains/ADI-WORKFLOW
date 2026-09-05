@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/paper.css') }}">
 <title>{{ show.name }} — Travel</title>
 <style>
   @page { size: letter landscape; margin: 0.4in; }
-  body { font-family: -apple-system, "Segoe UI", sans-serif;
+  body { font-family: var(--paper-font);
          font-size: 9px; color: #0B2545; }
   .doc-header { border-bottom: 2px solid #0B2545; padding-bottom: 8px;
                 margin-bottom: 12px; display: flex;

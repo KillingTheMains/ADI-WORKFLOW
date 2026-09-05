@@ -10,20 +10,20 @@
 {% block extra_css %}
 <style>
   .map-note {
-    background:#FEF3C7; border:1px solid #FCD34D; color:#92400E;
+    background:var(--adi-warn-bg); border:1px solid var(--adi-warn-bg); color:var(--adi-warn);
     border-radius:8px; padding:10px 14px; font-size:.85rem; margin-bottom:16px;
   }
   .map-file { font-size:.8rem; color:#6b7280; margin-bottom:14px; }
   table.map-table { font-size:.82rem; }
   table.map-table th {
-    background:#fafafa; font-size:.7rem; text-transform:uppercase;
-    letter-spacing:.05em; color:#555; font-weight:600;
+    background:var(--adi-surface); font-size:.7rem; text-transform:uppercase;
+    letter-spacing:.05em; color:var(--adi-mineral-dk); font-weight:600;
   }
   table.map-table td { vertical-align:top; padding:8px; }
   .map-header-cell { font-weight:600; color:#1f2937; }
   .map-samples { font-size:.72rem; color:#6b7280; margin-top:3px; }
   .map-samples span { display:block; }
-  .map-blank { color:#9CA3AF; font-style:italic; }
+  .map-blank { color:var(--adi-mineral); font-style:italic; }
   .map-actions { margin-top:18px; display:flex; gap:10px; align-items:center; }
 </style>
 {% endblock %}

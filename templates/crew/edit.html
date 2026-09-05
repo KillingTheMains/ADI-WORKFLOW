@@ -41,7 +41,7 @@
                   {{ c.name }}
                 </option>
                 {% endfor %}
-                <option value="__new__" style="font-style:italic;color:#B45309;">+ New company…</option>
+                <option value="__new__" style="font-style:italic;color:var(--adi-warn);">+ New company…</option>
               </select>
             </div>
             <div class="col-md-6">
@@ -60,7 +60,7 @@
                   </option>
                 {% endfor %}
                 {% if dept.current %}</optgroup>{% endif %}
-                <option value="__new__" style="font-style:italic;color:#B45309;">+ New position…</option>
+                <option value="__new__" style="font-style:italic;color:var(--adi-warn);">+ New position…</option>
               </select>
             </div>
             <div class="col-md-6">

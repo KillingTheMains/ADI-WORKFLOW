@@ -42,8 +42,8 @@
 <style>
   .travel-table { font-size:.8rem; }
   .travel-table th {
-    background:#fafafa; font-size:.66rem; text-transform:uppercase;
-    letter-spacing:.05em; color:#666; font-weight:600; padding:5px 8px;
+    background:var(--adi-surface); font-size:.66rem; text-transform:uppercase;
+    letter-spacing:.05em; color:var(--adi-mineral-dk); font-weight:600; padding:5px 8px;
   }
   .travel-table td { padding:5px 8px; vertical-align:middle; }
   .travel-table input, .travel-table select {
@@ -57,17 +57,17 @@
   .travel-table input.conf   { width:110px; }
   .save-btn-inline {
     font-size:.7rem; padding:2px 8px;
-    background:#16A34A; color:#fff; border:none; border-radius:4px;
+    background:var(--adi-ok); color:#fff; border:none; border-radius:4px;
   }
-  .save-btn-inline:hover { background:#15803D; }
+  .save-btn-inline:hover { background:var(--adi-ok); }
   .summary-bar {
-    background:var(--adi-dark); color:var(--adi-gold-lt);
+    background:var(--adi-dark); color:#fff;
     padding:8px 14px; font-size:.78rem;
     border-radius:6px 6px 0 0;
     display:flex; justify-content:space-between; align-items:center;
   }
   .name-cell { white-space:nowrap; }
-  .name-cell .pos { font-size:.66rem; color:#888; }
+  .name-cell .pos { font-size:.66rem; color:var(--adi-mineral); }
 
   /* Company/vendor section banner (shown when sorted by Company) — mirrors
      the Crew Contact Sheet's grouped layout. */
@@ -76,8 +76,26 @@
     font-size:.74rem; letter-spacing:.03em; padding:6px 10px;
     text-transform:uppercase; position:sticky; left:0;
   }
+  /* 09-05: twelve columns run off a laptop screen. The name column stays
+     put while the rest scrolls, and the wrapper draws a shadow on its right
+     edge while there is more to the right — the cue that was missing. */
+  .travel-table th:nth-child(2),
+  .travel-table td.name-cell {
+    position: sticky; left: 0; z-index: 1;
+    background: var(--adi-card);
+    box-shadow: inset -1px 0 0 var(--adi-border);
+  }
+  .travel-table thead th:nth-child(2) { z-index: 2; background: var(--adi-surface); }
+  .travel-scroll { position: relative; }
+  .travel-scroll::after {
+    content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 18px;
+    pointer-events: none;
+    background: linear-gradient(to left, rgba(11,37,69,.14), rgba(11,37,69,0));
+    opacity: 1; transition: opacity .15s;
+  }
+  .travel-scroll.at-end::after { opacity: 0; }
   .travel-table tr.company-banner .count {
-    font-weight:500; text-transform:none; color:var(--adi-gold-lt); margin-left:6px;
+    font-weight:500; text-transform:none; color:rgba(255,255,255,.75); margin-left:6px;
   }
 
   /* Bulk date editor */
@@ -85,17 +103,17 @@
   .chk-col input[type="checkbox"] { width:18px; height:18px; cursor:pointer; }
   .bulk-toolbar {
     display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px;
-    background:#F3F1EA; border-bottom:1px solid #E8E4D7;
+    background:#F3F1EA; border-bottom:1px solid var(--adi-border);
     padding:10px 14px; font-size:.74rem;
   }
   .bulk-toolbar .bt-label { font-weight:700; align-self:center; }
   .bulk-toolbar label {
-    display:flex; flex-direction:column; font-size:.66rem; color:#666;
+    display:flex; flex-direction:column; font-size:.66rem; color:var(--adi-mineral-dk);
     text-transform:uppercase; letter-spacing:.03em; gap:2px;
   }
   .bulk-toolbar input[type="date"] { font-size:.76rem; padding:3px 6px; }
   .bulk-toolbar .bt-apply {
-    background:var(--adi-dark); color:var(--adi-gold-lt); border:none; border-radius:5px;
+    background:var(--adi-dark); color:#fff; border:none; border-radius:5px;
     padding:6px 14px; font-size:.76rem; font-weight:600; cursor:pointer;
   }
   .bulk-toolbar .bt-apply:hover { background:var(--adi-dark-2); }
@@ -125,7 +143,7 @@
     /* Page setup: landscape, small margins */
     @page { size: letter landscape; margin: 0.4in; }
     /* Ensure summary bar prints its color */
-    .summary-bar { background: var(--adi-dark) !important; color: var(--adi-gold-lt) !important; }
+    .summary-bar { background: var(--adi-dark) !important; color: #fff !important; }
   }
 </style>
 {% endblock %}
@@ -230,7 +248,7 @@
     <span class="bt-hint">Only the date boxes you fill get applied. Blank ones
       leave existing dates alone. Undoable from Recent Activity.</span>
   </div>
-  <div class="table-responsive">
+  <div class="table-responsive travel-scroll" id="travel-scroll">
     <table class="table table-sm travel-table mb-0">
       <thead>
         <tr>
@@ -239,26 +257,26 @@
           </th>
           <th>Crew / Role</th>
           <th>Company</th>
-          <th colspan="5" style="border-left:1px solid #E8E4D7;">{{ ico.icon('hotel') }} Hotel</th>
-          <th colspan="4" style="border-left:1px solid #E8E4D7;">{{ ico.icon('plane') }} Flights</th>
-          <th style="border-left:1px solid #E8E4D7;">Itinerary</th>
+          <th colspan="5" style="border-left:1px solid var(--adi-border);">{{ ico.icon('hotel') }} Hotel</th>
+          <th colspan="4" style="border-left:1px solid var(--adi-border);">{{ ico.icon('plane') }} Flights</th>
+          <th style="border-left:1px solid var(--adi-border);">Itinerary</th>
           <th></th>
         </tr>
         <tr>
           <th></th>
           <th></th>
           <th></th>
-          <th style="border-left:1px solid #E8E4D7;">Name</th>
+          <th style="border-left:1px solid var(--adi-border);">Name</th>
           <th title="Shared with Travel In on the Crew booking sheet">Check In</th>
           <th title="Shared with Travel Out on the Crew booking sheet">Check Out</th>
           <th title="Auto from check-in/out">Nights</th>
           <th>Conf #</th>
           <th>Cost</th>
-          <th style="border-left:1px solid #E8E4D7;">In #</th>
+          <th style="border-left:1px solid var(--adi-border);">In #</th>
           <th>In time</th>
           <th>Out #</th>
           <th>Out time</th>
-          <th style="border-left:1px solid #E8E4D7;">Link</th>
+          <th style="border-left:1px solid var(--adi-border);">Link</th>
           <th></th>
         </tr>
       </thead>
@@ -298,10 +316,10 @@
               {% if a.booking_task %} · {{ a.booking_task }}{% endif %}
             </div>
           </td>
-          <td style="font-size:.74rem;color:#555;white-space:nowrap;">
+          <td style="font-size:.74rem;color:var(--adi-mineral-dk);white-space:nowrap;">
             {% if a.crew_member.company %}{{ a.crew_member.company.name }}{% endif %}
           </td>
-          <td style="border-left:1px solid #E8E4D7;">
+          <td style="border-left:1px solid var(--adi-border);">
             <input form="{{ fid }}" aria-label="Hotel for {{ a.crew_member.display_label }}" type="text" name="hotel_name"
                    value="{{ a.hotel_name or '' }}"
                    placeholder="Hotel name" class="form-control form-control-sm">
@@ -318,7 +336,7 @@
                    class="form-control form-control-sm"
                    title="Shared with Travel Out on the Crew booking sheet">
           </td>
-          <td style="text-align:center;color:#888;font-weight:600;">
+          <td style="text-align:center;color:var(--adi-mineral);font-weight:600;">
             {{ a.stay_nights if a.stay_nights is not none else '—' }}
           </td>
           <td>
@@ -331,7 +349,7 @@
                    value="{{ '%.2f' % a.hotel_cost if a.hotel_cost is not none else '' }}"
                    placeholder="0.00" class="form-control form-control-sm cost">
           </td>
-          <td style="border-left:1px solid #E8E4D7;">
+          <td style="border-left:1px solid var(--adi-border);">
             <input form="{{ fid }}" aria-label="Arrival flight for {{ a.crew_member.display_label }}" type="text" name="arrival_flight"
                    value="{{ a.arrival_flight or '' }}"
                    placeholder="SW WN2877" class="form-control form-control-sm flight">
@@ -351,7 +369,7 @@
                    value="{{ a.departure_time or '' }}"
                    placeholder="2:10pm" class="form-control form-control-sm time">
           </td>
-          <td style="border-left:1px solid #E8E4D7;">
+          <td style="border-left:1px solid var(--adi-border);">
             <input form="{{ fid }}" aria-label="Itinerary link for {{ a.crew_member.display_label }}" type="text" name="itinerary_link"
                    value="{{ a.itinerary_link or '' }}"
                    placeholder="https://..." class="form-control form-control-sm">
@@ -400,4 +418,20 @@
 
 <!-- Sequential/chronological date boxes (#40) -->
 <script src="{{ url_for('static', filename='js/date-sequence.js') }}"></script>
+
+<script>
+/* Hide the "more to the right" shadow once the table is scrolled to its end
+   (or fits). */
+(function () {
+  var box = document.getElementById('travel-scroll');
+  if (!box) return;
+  function update() {
+    var atEnd = box.scrollLeft + box.clientWidth >= box.scrollWidth - 1;
+    box.classList.toggle('at-end', atEnd);
+  }
+  box.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update);
+  update();
+})();
+</script>
 {% endblock %}

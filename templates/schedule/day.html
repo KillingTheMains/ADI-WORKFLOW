@@ -39,7 +39,7 @@
   /* ── Activity library autocomplete dropdown ── */
   .activity-suggestions {
     position: absolute; z-index: 1000; background: #fff;
-    border: 1px solid #dee2e6; border-radius: 6px;
+    border: 1px solid var(--adi-border); border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0,0,0,.12); max-height: 220px;
     overflow-y: auto; width: 100%; display: none;
   }
@@ -49,30 +49,30 @@
   }
   .activity-suggestions .suggestion-item:hover,
   .activity-suggestions .suggestion-item.active {
-    background: #FFF8EC; color: var(--adi-gold);
+    background: var(--adi-hover); color: var(--adi-blue);
   }
   .activity-suggestions .suggestion-group {
     padding: 4px 10px 2px; font-size: .68rem; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .06em; color: #adb5bd;
-    background: #f8f9fa;
+    text-transform: uppercase; letter-spacing: .06em; color: var(--adi-mineral);
+    background: var(--adi-surface);
   }
   /* ── Quick-add button pills ── */
   .quick-add-btn {
     font-size: .72rem; padding: 3px 10px; border-radius: 20px;
-    border: 1px solid #dee2e6; background: #f8f9fa; cursor: pointer;
+    border: 1px solid var(--adi-border); background: var(--adi-surface); cursor: pointer;
     white-space: nowrap; transition: all .1s;
   }
   .quick-add-btn:hover { background: var(--adi-blue); border-color: var(--adi-blue); color: #fff; }
   /* ── Activity action buttons ── */
   .act-action-btn {
-    font-size: .72rem; padding: 0 6px; color: #6c757d;
+    font-size: .72rem; padding: 0 6px; color: var(--adi-mineral);
     border: none; background: none; cursor: pointer; white-space: nowrap;
   }
-  .act-action-btn:hover { color: var(--adi-gold); }
-  .act-action-btn.danger:hover { color: #dc3545; }
+  .act-action-btn:hover { color: var(--adi-blue); }
+  .act-action-btn.danger:hover { color: var(--adi-danger); }
   /* ── Time calculator display ── */
   .time-calc-hint {
-    font-size: .72rem; color: var(--adi-gold); font-weight: 600;
+    font-size: .72rem; color: var(--adi-blue); font-weight: 600;
     margin-top: 3px; min-height: 1em;
   }
   /* .tools-card / .tool-btn deleted with the Quick Tools panel — the day
@@ -84,16 +84,16 @@
   .hours-badge {
     font-size: .72rem; color: rgba(255,255,255,.5); margin-top: 2px;
   }
-  .hours-badge.warn { color: #FBBF24; }
-  .hours-badge.ot   { color: #F87171; }
+  .hours-badge.warn { color: var(--adi-warn-on-dark); }
+  .hours-badge.ot   { color: var(--adi-danger-on-dark); }
   /* ── Activity drag-to-reorder ── */
   .act-drag-handle {
-    cursor: grab; color: #adb5bd; font-size: 1rem; padding: 0 8px 0 0;
+    cursor: grab; color: var(--adi-mineral); font-size: 1rem; padding: 0 8px 0 0;
     user-select: none; flex-shrink: 0; line-height: 1;
   }
   .act-drag-handle:active { cursor: grabbing; }
   .act-card.dragging { opacity: .35; }
-  .act-card.drag-over { outline: 2px dashed var(--adi-blue); outline-offset: -2px; background: #EFF6FF; }
+  .act-card.drag-over { outline: 2px dashed var(--adi-blue); outline-offset: -2px; background: var(--adi-info-bg); }
   /* ── Call sheet ── */
   .call-sheet-row-enter { animation: fadeSlide .2s ease; }
   @keyframes fadeSlide { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
@@ -129,7 +129,7 @@
             <label class="form-label">Date</label>
             <input type="date" name="date" class="form-control form-control-sm"
                    value="{{ day.date.isoformat() }}" required aria-label="Date">
-            <div class="form-text" style="font-size:.72rem;color:#B45309;">
+            <div class="form-text" style="font-size:.72rem;color:var(--adi-warn);">
               {{ ico.icon('alert-triangle') }} Changing this <em>renames</em> this day. To add a new day
               for a different date, use <strong>+ Add Day</strong> on the
               Schedule Overview.
@@ -214,14 +214,14 @@
             <form method="POST" style="display:inline;"
                   action="{{ url_for('schedule.delete_day_item', show_id=show.id, day_id=day.id, item_id=di.id) }}">
               <button type="submit" title="Remove from this day"
-                      style="border:none;background:none;color:var(--adi-muted,#64748B);
+                      style="border:none;background:none;color:var(--adi-muted,var(--adi-mineral));
                              line-height:1;padding:0 2px;font-size:.85rem;">×</button>
             </form>
           </span>
           {% endfor %}
         </div>
         {% else %}
-        <div style="font-size:.75rem;color:var(--adi-muted,#64748B);margin-bottom:8px;">
+        <div style="font-size:.75rem;color:var(--adi-muted,var(--adi-mineral));margin-bottom:8px;">
           Nothing set. A day can be several of these at once — Travel and
           Load In on the same date is normal.
         </div>
@@ -248,7 +248,7 @@
          heading competing with the day's first real row. It belongs with the
          other things you set once and read, not edit per row. -->
     {% if hardcoded_overlay or hardcoded_missing_anchor or hardcoded_hidden %}
-    <div class="card mb-3" style="border-left:3px solid var(--adi-gold);">
+    <div class="card mb-3" style="border-left:4px dotted var(--adi-gold-lt);">
       <div class="card-header d-flex align-items-center justify-content-between"
            style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">
         <span>{{ ico.icon('repeat') }} Recurring Events</span>
@@ -256,11 +256,11 @@
       </div>
       <div class="card-body p-3">
         <div style="font-size:.75rem;color:var(--adi-muted);">
-          {{ hardcoded_overlay|length }} placed in the schedule by time
-          <span style="opacity:.8;">· auto · timed off SOD/EOD</span>
+          {{ hardcoded_overlay|length }} recurring {{ 'event' if hardcoded_overlay|length == 1 else 'events' }} on this day, placed by time.
+          <span style="opacity:.8;">They follow the day's start and end times.</span>
         </div>
         {% if hardcoded_missing_anchor %}
-        <div style="font-size:.72rem;color:#B45309;margin-top:5px;">
+        <div style="font-size:.72rem;color:var(--adi-warn);margin-top:5px;">
           Set this day's Start/End of Day above to place the remaining
           recurring events.
         </div>
@@ -291,7 +291,7 @@
     <!-- Travel Info (shown when phase = Travel) -->
     <div class="card mb-3" id="travel-card"
          style="{{ '' if day.phase == 'Travel' else 'display:none;' }}">
-      <div class="card-header" style="background:#6B728020;border-bottom:1px solid #6B728040;">
+      <div class="card-header" style="background:var(--adi-mineral)20;border-bottom:1px solid var(--adi-mineral)40;">
         <span style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">
           {{ ico.icon('plane') }} Travel Info
         </span>
@@ -638,16 +638,16 @@
     {% macro catered_pill(state) %}
     {# One glyph for the one question: who is feeding this crew? #}
     {% if state == 'yes' %}
-    <span class="badge" style="background:#DCFCE7;color:#166534;font-weight:600;font-size:.66rem;"
+    <span class="badge" style="background:var(--adi-ok-bg);color:var(--adi-ok);font-weight:600;font-size:.66rem;"
           title="F&amp;B provides this. It has a meal service on the F&amp;B tab.">{{ ico.icon('utensils') }} Provided</span>
     {% elif state == 'no' %}
-    <span class="badge" style="background:#F1F5F9;color:var(--adi-muted);font-weight:600;font-size:.66rem;"
+    <span class="badge" style="background:var(--adi-surface);color:var(--adi-muted);font-weight:600;font-size:.66rem;"
           title="The crew stops, but F&amp;B provides nothing. Invisible to the F&amp;B tab.">Not Provided</span>
     {% elif state == 'mixed' %}
-    <span class="badge" style="background:#FEF3C7;color:#92400E;font-weight:600;font-size:.66rem;"
+    <span class="badge" style="background:var(--adi-warn-bg);color:var(--adi-warn);font-weight:600;font-size:.66rem;"
           title="The sittings disagree — one crew group is provided for and another is not.">Mixed</span>
     {% else %}
-    <span class="badge" style="background:#FEF3C7;color:#92400E;font-weight:600;font-size:.66rem;"
+    <span class="badge" style="background:var(--adi-warn-bg);color:var(--adi-warn);font-weight:600;font-size:.66rem;"
           title="Nobody has said yet. It still shows on the F&amp;B tab, flagged, until somebody does.">TBD</span>
     {% endif %}
     {% endmacro %}
@@ -715,7 +715,7 @@
       {# Linked to F&B — said plainly, under the event, so you can see it
          without opening another tab. #}
       {% for b in p.sittings if b.meal_service %}
-      <div style="font-size:.74rem;margin-left:170px;color:#166534;">
+      <div style="font-size:.74rem;margin-left:170px;color:var(--adi-ok);">
         {{ ico.icon('utensils') }} This event is linked to the F&amp;B service
         <a href="{{ url_for('oss.oss_hub', show_id=show.id, tab='F&B') }}"
            style="color:inherit;font-weight:600;text-decoration:underline;"
@@ -866,12 +866,21 @@
            a line. CC vs AC, and a 4px Midnight rail vs a 2px Mineral one.
            The chip goes on the HEADER, never inside a crew row — §01's "do
            not touch" list, and the reason is the <tr>/<form>/<td> chain. #}
-        <div class="d-flex align-items-center px-3 py-2"
-             style="border-bottom:1px solid var(--adi-border);background:#F4F1EA;
+        {# 09-05: the crew-call header is a MIDNIGHT plate, white text. Both
+           kinds used to share the same cream band, differing only by chip
+           letters and 4px-vs-2px of rail — the weakest pair of the seven in
+           greyscale, on the one distinction that matters most (a table of
+           people vs a line). The plate matches the section headers inside
+           it and the PDF's own section bands, so all five surfaces agree:
+           where a crew call is a plate its header is Midnight; where it is a
+           table row (OSS, PDF, XLSX) the CC chip and 4px rail carry it.
+           Colours for the band live in style.css under .act-head. #}
+        <div class="d-flex align-items-center px-3 py-2 act-head {{ 'act-head-crew' if is_crew_start(act.description) else 'act-head-act' }}"
+             style="border-bottom:1px solid var(--adi-border);
                     border-left:{{ '4px solid var(--adi-kind-crew)' if is_crew_start(act.description) else '2px solid var(--adi-kind-act)' }};">
           <span class="act-drag-handle" title="Drag to reorder">⠿</span>
           {{ rk.kind_chip('crew' if is_crew_start(act.description) else 'act') }}
-          <span style="min-width:64px;font-weight:600;color:var(--adi-blue);font-size:13px;
+          <span class="act-time" style="min-width:64px;font-weight:600;font-size:13px;
                        font-variant-numeric:tabular-nums;margin-left:8px;">
             {{ act.time|to_12hr if act.time else '—' }}
           </span>
@@ -881,7 +890,7 @@
             <span title="This looks like a meal break but no F&B OSS entry is linked. Use the OSS button on this row to add one."
                   style="display:inline-block;font-size:.65rem;font-weight:600;
                          padding:1px 6px;border-radius:8px;margin-left:6px;
-                         background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;">
+                         background:var(--adi-warn-bg);color:var(--adi-warn);border:1px solid var(--adi-warn-bg);">
               {{ ico.icon('alert-triangle') }} no F&B
             </span>
             {% endif %}
@@ -895,10 +904,10 @@
              to this crew start. Folded away by default: mounting the editor
              on every crew call is what made this page a wall of form controls. #}
           {% set my_breaks = breaks_by_crew_call.get(act.id, []) %}
-          <button class="btn btn-sm me-2" type="button"
+          <button class="btn btn-sm me-2 act-breaks-btn" type="button"
                   data-bs-toggle="collapse" data-bs-target="#breaks-{{ act.id }}"
                   style="font-size:.7rem;padding:1px 8px;border:1px solid var(--adi-border);
-                         background:{{ '#F7F9FB' if my_breaks else '#fff' }};white-space:nowrap;"
+                         background:{{ 'var(--adi-surface)' if my_breaks else '#fff' }};white-space:nowrap;"
                   title="Breaks for this crew call">
             {{ ico.icon('coffee') }} {% if my_breaks %}{{ my_breaks|length }} break{{ '' if my_breaks|length == 1 else 's' }}{% else %}breaks{% endif %}
           </button>
@@ -909,10 +918,10 @@
             {# OSS lives here now, not in a panel of its own under every card.
                It carries its own count, so an activity with linked entries
                says so without spending a strip of the page to do it. #}
-            <button class="act-action-btn"
+            <button class="act-action-btn{% if linked_oss %} act-action-btn-linked{% endif %}"
                     data-bs-toggle="collapse" data-bs-target="#add-oss-{{ act.id }}"
                     title="On-site schedule entries linked to this activity"
-                    style="font-weight:700;letter-spacing:.04em;{% if linked_oss %}color:var(--adi-gold);{% endif %}">
+                    style="font-weight:700;letter-spacing:.04em;">
               OSS{% if linked_oss %}&nbsp;{{ linked_oss|length }}{% endif %}
             </button>
             <button class="act-action-btn"
@@ -958,7 +967,7 @@
         <!-- Breaks for this crew call (collapse) -->
         {% set my_breaks = breaks_by_crew_call.get(act.id, []) %}
         <div class="collapse px-3 py-2" id="breaks-{{ act.id }}"
-             style="background:#F7F9FB;border-bottom:1px solid var(--adi-border);">
+             style="background:var(--adi-surface);border-bottom:1px solid var(--adi-border);">
           {# ONE Save for the whole panel. The panel folds shut when you are
              done with it, so a per-row Save is a trap: change three breaks,
              save one, close it, and the other two are silently gone.
@@ -1088,7 +1097,7 @@
 
         <!-- Edit activity (collapse) -->
         <div class="collapse px-3 py-2" id="edit-act-{{ act.id }}"
-             style="background:#FFF8EC;border-bottom:1px solid var(--adi-border);">
+             style="background:var(--adi-warn-bg);border-bottom:1px solid var(--adi-border);">
           <form method="POST" data-autosave="true"
                 action="{{ url_for('schedule.edit_activity', show_id=show.id, day_id=day.id, act_id=act.id) }}">
             <div class="row g-2 align-items-end">
@@ -1177,7 +1186,7 @@
                 </td>
               </tr>
               <tr class="header-edit-row" id="hdr-edit-{{ row.id }}" style="display:none;">
-                <td colspan="6" style="background:#FAFAFA;">
+                <td colspan="6" style="background:var(--adi-surface);">
                   <form method="POST" class="row g-1 align-items-end"
                         action="{{ url_for('schedule.edit_crew_row', show_id=show.id, day_id=day.id, row_id=row.id) }}">
                     <div class="col-md-4">
@@ -1228,7 +1237,7 @@
                              aria-label="Actual hours for {{ row.display_name }}"
                              class="form-control form-control-sm"
                              style="font-size:.72rem;padding:1px 4px;width:56px;
-                                    {% if row.actual_hours is not none and row.hours and row.actual_hours > row.hours %}background:#FEF3C7;{% endif %}"></td>
+                                    {% if row.actual_hours is not none and row.hours and row.actual_hours > row.hours %}background:var(--adi-warn-bg);{% endif %}"></td>
                   <td><input type="text" name="position" value="{{ row.position or '' }}"
                              list="crew-row-positions-{{ act.id }}"
                              aria-label="Position for {{ row.display_name }}"
@@ -1394,7 +1403,7 @@
             </tbody>
           </table>
           <div class="text-muted" style="font-size:.66rem;margin-top:2px;">
-            Hours are <em>each</em> — {{ ll_people }} people at these hours.
+            Hours are <em>each</em> — {{ ll_people }} {{ 'person' if ll_people == 1 else 'people' }} at these hours.
             Ordered by department, the same as the
             <a href="{{ url_for('local_labor.index') }}"
                style="color:inherit;text-decoration:underline;">Local Labor Database</a>.
@@ -1417,7 +1426,7 @@
         <div class="px-3 pb-2 pt-1 d-flex flex-wrap gap-1 align-items-center">
             {% for e in linked_oss %}
             <div class="d-flex align-items-center gap-1 px-2 py-1"
-                 style="background:#FFF8EC;border:1px solid #E8DCA8;border-radius:14px;
+                 style="background:var(--adi-warn-bg);border:1px solid #E8DCA8;border-radius:14px;
                         font-size:.74rem;">
               {# The department's own two letters, the same chip the timeline
                  rows and both OSS tabs draw. This pill used to carry only the
@@ -1450,7 +1459,7 @@
              is adding OSS to costs nothing at all. -->
         <div class="collapse px-3 pb-2 pt-1" id="add-oss-{{ act.id }}">
             <form method="POST" action="{{ url_for('oss.add_entry', show_id=show.id) }}"
-                  class="p-2" style="background:#FFF8EC;border:1px solid #E8DCA8;border-radius:6px;">
+                  class="p-2" style="background:var(--adi-warn-bg);border:1px solid #E8DCA8;border-radius:6px;">
               <input type="hidden" name="schedule_day_id" value="{{ day.id }}">
               <input type="hidden" name="activity_id"     value="{{ act.id }}">
               <input type="hidden" name="next"            value="{{ request.path }}">
@@ -1580,7 +1589,7 @@
                            class="form-control form-control-sm mt-1"
                            oninput="onEndInput('{{ act.id|js_str }}')" title="Shift end time">
                     <div id="shift-hint-{{ act.id }}"
-                         style="font-size:.65rem;color:var(--adi-gold);min-height:1em;margin-top:2px;"></div>
+                         style="font-size:.65rem;color:var(--adi-blue);min-height:1em;margin-top:2px;"></div>
                   </div>
                   <div class="col-md-3">
                     <label for="pos-input-{{ act.id }}" style="font-size:.72rem;" class="form-label">Position</label>
@@ -1780,7 +1789,7 @@
       </summary>
       <form method="POST" action="{{ url_for('oss.add_entry', show_id=show.id) }}"
             class="row g-1 align-items-end mt-2 p-2"
-            style="background:#FAFAFA;border:1px solid var(--adi-border);border-radius:6px;">
+            style="background:var(--adi-surface);border:1px solid var(--adi-border);border-radius:6px;">
         <input type="hidden" name="schedule_day_id" value="{{ day.id }}">
         <input type="hidden" name="next" value="{{ request.path }}">
         <div class="col-md-1">
@@ -1826,7 +1835,7 @@
           <span class="text-muted" style="font-size:.72rem;font-weight:400;" id="crew-count-label">
             {% set crew_count = namespace(n=0) %}
             {% for act in day.activities %}{% for row in act.ordered_crew_rows %}{% if not row.is_group_header %}{% set crew_count.n = crew_count.n + (row.qty or 1) %}{% endif %}{% endfor %}{% endfor %}
-            {{ crew_count.n }} people called
+            {{ crew_count.n }} {{ 'person' if crew_count.n == 1 else 'people' }} called
           </span>
           <button type="button" class="btn btn-sm btn-outline-secondary"
                   style="font-size:.7rem;padding:2px 8px;" id="cs-group-btn"
@@ -1843,7 +1852,7 @@
               <th style="width:40px;">Qty</th>
               <th style="width:40px;">Hrs</th>
               <th style="width:100px;">Type</th>
-              <th style="width:160px;color:#adb5bd;">Activity</th>
+              <th style="width:160px;color:var(--adi-mineral);">Activity</th>
             </tr>
           </thead>
           <tbody id="call-sheet-body">
@@ -1963,7 +1972,7 @@
               <td style="text-align:right;font-weight:700;">{{ "%.1f"|format(row[3]) }}</td>
               <td>
                 {% if total_mh.n > 0 %}
-                <div style="background:#F1F5F9;border-radius:4px;height:7px;width:100%;">
+                <div style="background:var(--adi-surface);border-radius:4px;height:7px;width:100%;">
                   <div style="width:{{ [(row[3] / total_mh.n * 100), 100]|min|round(1) }}%;
                               background:var(--adi-blue);height:7px;border-radius:4px;"></div>
                 </div>
@@ -1978,7 +1987,7 @@
                                      text-transform:uppercase;letter-spacing:.05em;">
                 Total Man-Hours
               </td>
-              <td style="text-align:right;font-weight:700;color:var(--adi-gold);">
+              <td style="text-align:right;font-weight:700;color:var(--adi-dark);">
                 {{ "%.1f"|format(total_mh.n) }}
               </td>
               <td></td>
@@ -2148,7 +2157,7 @@
                      person, often the same position twice, so flagging it
                      would cry wolf on most of the list. #}
                   {% if cm.id in already_called %}
-                  <span style="color:#B45309;font-size:.7rem;margin-left:auto;white-space:nowrap;"
+                  <span style="color:var(--adi-warn);font-size:.7rem;margin-left:auto;white-space:nowrap;"
                         title="Adding them again gives this person two sets of breaks and counts them on two calls, which inflates what F&amp;B is told.">
                     {{ ico.icon('alert-triangle') }} already on {{ already_called[cm.id]|map('to_12hr')|join(', ') }}
                   </span>
@@ -2196,7 +2205,7 @@
             {% endfor %}
           </div>
           {% else %}
-          <div style="font-size:.78rem;color:#B45309;">
+          <div style="font-size:.78rem;color:var(--adi-warn);">
             This show is still on the old breaks model, so no breaks will be
             added. Switch it over on the F&amp;B tab first.
           </div>
@@ -2218,10 +2227,10 @@
 (function () {
   const modal = document.getElementById('createCrewCallModal');
   if (!modal) return;
-  const countEl = modal.querySelector('#ccc-count');
-  const timeEl  = modal.querySelector('#ccc-time');
-  const hoursEl = modal.querySelector('#ccc-hours');
-  const prevEl  = modal.querySelector('#ccc-break-preview');
+  const countEl = modal.querySelector('var(--adi-border-strong)-count');
+  const timeEl  = modal.querySelector('var(--adi-border-strong)-time');
+  const hoursEl = modal.querySelector('var(--adi-border-strong)-hours');
+  const prevEl  = modal.querySelector('var(--adi-border-strong)-break-preview');
 
   function pad(n) { return String(n).padStart(2, '0'); }
   function plus(hhmm, mins) {
@@ -2280,7 +2289,7 @@
         <div class="mb-3">
           <label for="shift-modal-start" class="form-label" style="font-size:.75rem;">Activity Start Time</label>
           <input type="time" id="shift-modal-start" class="form-control form-control-sm"
-                 readonly style="background:#F8F9FA;color:var(--adi-muted);">
+                 readonly style="background:var(--adi-surface);color:var(--adi-muted);">
           <div class="form-text" style="font-size:.68rem;">
             Pulled from the activity — edit on the activity card if needed.
           </div>
@@ -2300,7 +2309,7 @@
           </div>
         </div>
         <div id="shift-modal-hint"
-             style="font-size:.72rem;color:var(--adi-gold);font-weight:600;min-height:1.2em;
+             style="font-size:.72rem;color:var(--adi-blue);font-weight:600;min-height:1.2em;
                     margin-bottom:4px;"></div>
 
         <div class="form-text" style="font-size:.68rem;">
@@ -2568,12 +2577,12 @@
           {# Note 16, 2026-09-04. The crew used to be opt-in behind a checkbox.
              Copying a crew call without its people is not a thing anyone
              wanted, and the checkbox was one more way to get it wrong. #}
-          <div class="mb-3" style="font-size:.76rem;color:#6c757d;line-height:1.45;">
+          <div class="mb-3" style="font-size:.76rem;color:var(--adi-mineral);line-height:1.45;">
             The whole call comes with it — crew, section headers and tasks.
             A day that already has a call keeps it; this lands alongside, in
             time order.
           </div>
-          <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6c757d;margin-bottom:8px;">
+          <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--adi-mineral);margin-bottom:8px;">
             Select Days
           </div>
           {# The shared picker (note 16/17/9b). The time boxes are seeded by
@@ -2604,12 +2613,12 @@
       <form method="POST" target="_blank"
             action="{{ url_for('schedule.call_sheet_batch', show_id=show.id) }}">
         <div class="modal-body">
-          <div class="mb-3" style="font-size:.76rem;color:#6c757d;line-height:1.45;">
+          <div class="mb-3" style="font-size:.76rem;color:var(--adi-mineral);line-height:1.45;">
             One document, a new page per day. Days with nobody called are left
             out — the same thing you already do to an empty day before a
             schedule is issued.
           </div>
-          <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6c757d;margin-bottom:8px;">
+          <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--adi-mineral);margin-bottom:8px;">
             Select Days
           </div>
           {{ mp.multi_picker(sheet_day_items, 'day_ids[]', 'sheet-day-check') }}
@@ -3221,7 +3230,7 @@ function toggleCallSheetGrouping() {
     tbody.innerHTML = '';
     Object.keys(groups).sort().forEach(dept => {
       const hdr = document.createElement('tr');
-      hdr.innerHTML = `<td colspan="7" style="background:#F8F9FA;font-weight:700;font-size:.72rem;
+      hdr.innerHTML = `<td colspan="7" style="background:var(--adi-surface);font-weight:700;font-size:.72rem;
         text-transform:uppercase;letter-spacing:.08em;color:var(--adi-dark);padding:6px 8px 4px;">
         ${dept}
       </td>`;
@@ -3387,7 +3396,7 @@ async function confirmShiftModal() {
       if (btn) {
         btn.innerHTML = `{{ ico.icon('check') }} Added ${data.added}`;
         btn.style.background = 'rgba(21,128,61,.15)';
-        btn.style.color = '#15803D';
+        btn.style.color = 'var(--adi-ok)';
         btn.style.borderColor = 'rgba(21,128,61,.3)';
       }
       setTimeout(() => location.reload(), 800);

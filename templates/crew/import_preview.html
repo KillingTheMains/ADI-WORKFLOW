@@ -14,29 +14,29 @@
     background:var(--adi-dark); color:var(--adi-gold-lt); font-size:.78rem; font-weight:600;
     padding:4px 10px; border-radius:12px;
   }
-  .imp-pill.add      { background:#16A34A; color:#fff; }
-  .imp-pill.update   { background:#2563EB; color:#fff; }
-  .imp-pill.skip     { background:#9CA3AF; color:#fff; }
-  .imp-pill.conflict { background:#F59E0B; color:var(--adi-dark); }
+  .imp-pill.add      { background:var(--adi-ok); color:#fff; }
+  .imp-pill.update   { background:var(--adi-info); color:#fff; }
+  .imp-pill.skip     { background:var(--adi-mineral); color:#fff; }
+  .imp-pill.conflict { background:var(--adi-warn-bg); color:var(--adi-dark); }
   .imp-pill.slot     { background:#7C3AED; color:#fff; }
-  .imp-pill.warn     { background:#FEF3C7; color:#92400E; border:1px solid #FCD34D; }
+  .imp-pill.warn     { background:var(--adi-warn-bg); color:var(--adi-warn); border:1px solid var(--adi-warn-bg); }
 
   table.imp-table { font-size:.82rem; }
   table.imp-table th {
-    background:#fafafa; font-size:.7rem; text-transform:uppercase;
-    letter-spacing:.05em; color:#555; font-weight:600;
+    background:var(--adi-surface); font-size:.7rem; text-transform:uppercase;
+    letter-spacing:.05em; color:var(--adi-mineral-dk); font-weight:600;
   }
   table.imp-table td { vertical-align:top; padding:6px 8px; }
-  .conflict-row { background:#FFF8EC; }
+  .conflict-row { background:var(--adi-warn-bg); }
   .conflict-bx {
-    font-size:.7rem; color:#92400E; background:#FEF3C7;
-    border:1px solid #FCD34D; border-radius:6px; padding:4px 6px;
+    font-size:.7rem; color:var(--adi-warn); background:var(--adi-warn-bg);
+    border:1px solid var(--adi-warn-bg); border-radius:6px; padding:4px 6px;
     margin-top:3px;
   }
   .file-val   { color:#1f2937; font-weight:600; }
   .exist-val  { color:#6b7280; text-decoration:line-through; }
-  .field-hint { font-size:.68rem; color:#888; }
-  .row-sub    { font-size:.68rem; color:#888; }
+  .field-hint { font-size:.68rem; color:var(--adi-mineral); }
+  .row-sub    { font-size:.68rem; color:var(--adi-mineral); }
 </style>
 {% endblock %}
 
@@ -46,7 +46,7 @@
 <div class="card mb-3 p-3">
   <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
     <div>
-      <div style="font-size:.78rem; color:#666;">Source file</div>
+      <div style="font-size:.78rem; color:var(--adi-mineral-dk);">Source file</div>
       <div style="font-weight:600;">{{ session.filename }}</div>
     </div>
     <div class="imp-summary">
@@ -117,7 +117,7 @@
               <span style="font-weight:400;opacity:.85;">({{ r.slot_reason }})</span>
             </div>
             {% elif r.name_looks_like_position %}
-            <div style="font-size:.7rem;font-weight:600;color:#B45309;
+            <div style="font-size:.7rem;font-weight:600;color:var(--adi-warn);
                         margin-top:3px;">
               {{ ico.icon('alert-triangle') }} this is a position title, not a name —
               skip it unless a real person is called this
@@ -245,7 +245,7 @@
               {% endif %}
             </select>
             {% if r.suggested == 'conflict' %}
-            <div class="field-hint" style="color:#92400E;margin-top:3px;">
+            <div class="field-hint" style="color:var(--adi-warn);margin-top:3px;">
               {{ ico.icon('alert-triangle') }} Has conflicts — review fields above
             </div>
             {% endif %}

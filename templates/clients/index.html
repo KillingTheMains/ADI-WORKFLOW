@@ -103,7 +103,7 @@
         </td>
       </tr>
       <tr id="client-edit-{{ c.id }}" style="display:none;">
-        <td colspan="6" style="background:#FAFAFA;">
+        <td colspan="6" style="background:var(--adi-surface);">
           <form method="POST" class="row g-1 align-items-end"
                 action="{{ url_for('clients.edit', client_id=c.id) }}">
             <div class="col-md-3">

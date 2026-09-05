@@ -76,7 +76,7 @@
     not throw a 500 on the OSS page at eight in the morning on a show day. -#}
     {% macro kind_chip(kind) %}
       {%- set K = CODES[kind] -%}
-      <span title="{{ kind }}" style="display:inline-flex;align-items:center;
+      <span class="kind-chip kind-chip-{{ kind }}" title="{{ kind }}" style="display:inline-flex;align-items:center;
             justify-content:center;width:26px;height:18px;flex:0 0 26px;
             background:{{ K[1] }};color:{{ K[2] }};border:1px solid {{ K[3] }};
             font:700 10px/1 'Barlow',sans-serif;letter-spacing:.06em;">{{ K[0] }}</span>
@@ -152,7 +152,7 @@
 
     {% macro dept_chip(dept) %}
       {%- if dept in DEPT_CODES -%}
-      <span title="{{ dept }}" style="display:inline-flex;align-items:center;
+      <span class="kind-chip kind-chip-dept" title="{{ dept }}" style="display:inline-flex;align-items:center;
             justify-content:center;width:26px;height:18px;flex:0 0 26px;
             background:#414A54;color:#FFFFFF;border:1px solid #414A54;
             font:700 10px/1 'Barlow',sans-serif;letter-spacing:.06em;">{{ DEPT_CODES[dept] }}</span>

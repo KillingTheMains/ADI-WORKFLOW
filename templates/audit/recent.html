@@ -8,7 +8,7 @@
 
 {% block content %}
 
-<div class="card mb-3 p-3" style="background:#FFF8EC;border:1px solid #E8DCA8;">
+<div class="card mb-3 p-3" style="background:var(--adi-warn-bg);border:1px solid #E8DCA8;">
   <div style="font-size:.85rem;">
     <strong>Undo / redo any recent change.</strong> Each item below is one
     user action. Click <strong>{{ ico.icon('undo-2') }} Undo</strong> to reverse it, or
@@ -27,7 +27,7 @@
 <div class="card">
   <div class="card-body p-0">
     <table class="table table-sm mb-0" style="font-size:.85rem;">
-      <thead style="background:#fafafa;">
+      <thead style="background:var(--adi-surface);">
         <tr>
           <th style="width:130px;">When</th>
           <th>What changed</th>
@@ -37,16 +37,16 @@
       </thead>
       <tbody>
         {% for g in groups %}
-        <tr style="{% if g.all_undone %}background:#F3F4F6;{% endif %}">
-          <td style="font-size:.78rem;color:#555;white-space:nowrap;">
+        <tr style="{% if g.all_undone %}background:var(--adi-surface);{% endif %}">
+          <td style="font-size:.78rem;color:var(--adi-mineral-dk);white-space:nowrap;">
             {{ g.timestamp.strftime('%b %-d, %-I:%M %p') if g.timestamp else '—' }}
           </td>
           <td>
             <div>
               {% for e in g.entries[:3] %}
-              <div style="{% if e.undone %}text-decoration:line-through;color:#999;{% endif %}">
+              <div style="{% if e.undone %}text-decoration:line-through;color:var(--adi-mineral);{% endif %}">
                 <span class="badge"
-                      style="background:{% if e.action == 'insert' %}#16A34A{% elif e.action == 'update' %}#2563EB{% else %}#DC2626{% endif %};
+                      style="background:{% if e.action == 'insert' %}var(--adi-ok){% elif e.action == 'update' %}var(--adi-info){% else %}var(--adi-danger){% endif %};
                              color:#fff;font-size:.62rem;">{{ e.action }}</span>
                 {{ e.label or e.table_name }}
               </div>

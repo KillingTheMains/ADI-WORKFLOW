@@ -124,15 +124,15 @@
 <div class="d-flex gap-2 flex-wrap mb-3">
   {% set phase_colors = {
     'Equipment Delivery': '#7C3AED',
-    'Load In': '#1D4ED8',
+    'Load In': 'var(--adi-info)',
     'Setup': '#0369A1',
     'Tech Rehearsal': '#0F766E',
-    'Executive Rehearsal': '#15803D',
+    'Executive Rehearsal': 'var(--adi-ok)',
     'Presenter Rehearsal': '#4D7C0F',
-    'Show Day': '#B45309',
+    'Show Day': 'var(--adi-warn)',
     'Strike': '#9F1239',
-    'Travel': '#6B7280',
-    'Dark': '#374151',
+    'Travel': 'var(--adi-mineral)',
+    'Dark': 'var(--adi-mineral-dk)',
   } %}
   {% for phase, color in phase_colors.items() %}
   <span style="font-size:.68rem;background:{{ color }}20;color:{{ color }};
@@ -245,15 +245,15 @@
 <div id="timeline-view" style="display:none;">
   {% set phase_colors = {
     'Equipment Delivery': '#7C3AED',
-    'Load In': '#1D4ED8',
+    'Load In': 'var(--adi-info)',
     'Setup': '#0369A1',
     'Tech Rehearsal': '#0F766E',
-    'Executive Rehearsal': '#15803D',
+    'Executive Rehearsal': 'var(--adi-ok)',
     'Presenter Rehearsal': '#4D7C0F',
-    'Show Day': '#B45309',
+    'Show Day': 'var(--adi-warn)',
     'Strike': '#9F1239',
-    'Travel': '#6B7280',
-    'Dark': '#374151',
+    'Travel': 'var(--adi-mineral)',
+    'Dark': 'var(--adi-mineral-dk)',
   } %}
 
   <div class="card" style="overflow-x:auto;">

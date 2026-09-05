@@ -16,7 +16,7 @@
       provided (linked to a real meal service)</span>
     <span style="color:#59636E;"><strong>{{ counts.not_provided }}</strong>
       not provided (standing/beverage service)</span>
-    <span style="color:#B45309;"><strong>{{ counts.unconfirmed }}</strong>
+    <span style="color:var(--adi-warn);"><strong>{{ counts.unconfirmed }}</strong>
       unconfirmed</span>
     {% if counts.duration_recovered %}
     <span style="color:#0B2545;"><strong>{{ counts.duration_recovered }}</strong>
@@ -102,7 +102,7 @@
         {% elif r.catered == 'no' %}
         <span style="color:#59636E;font-weight:600;">not provided</span>
         {% else %}
-        <span style="color:#B45309;font-weight:600;">unconfirmed</span>
+        <span style="color:var(--adi-warn);font-weight:600;">unconfirmed</span>
         {% endif %}
       </td>
       <td style="color:var(--adi-muted);font-size:.76rem;">{{ r.reason }}</td>

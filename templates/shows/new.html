@@ -10,8 +10,8 @@
 {% block content %}
 <style>
   .phase-row {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
+    background: var(--adi-surface);
+    border: 1px solid var(--adi-border);
     border-radius: 8px;
     padding: 12px 14px;
     margin-bottom: 8px;
@@ -20,7 +20,7 @@
   .phase-row:hover { box-shadow: 0 2px 6px rgba(0,0,0,.08); }
   .phase-row .drag-handle {
     cursor: grab;
-    color: #adb5bd;
+    color: var(--adi-mineral);
     font-size: 1.1rem;
     padding: 0 4px;
     user-select: none;
@@ -83,7 +83,7 @@
         <div class="card-body p-3">
 
           <!-- Column headers -->
-          <div class="row g-2 mb-1 px-1" style="font-size:.72rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:.06em;">
+          <div class="row g-2 mb-1 px-1" style="font-size:.72rem;font-weight:600;color:var(--adi-mineral);text-transform:uppercase;letter-spacing:.06em;">
             <div class="col-auto" style="width:28px;"></div>
             <div class="col-md-3">Phase Name</div>
             <div class="col-md-2">Type</div>
@@ -305,8 +305,8 @@
 <script>
 const PHASE_COLORS = {
   'Prep':    '#7C3AED',
-  'Load In': '#1D4ED8',
-  'Show':    '#B45309',
+  'Load In': 'var(--adi-info)',
+  'Show':    'var(--adi-warn)',
   'Strike':  '#9F1239',
   'Custom':  '#0F766E',
 };
@@ -314,7 +314,7 @@ const PHASE_COLORS = {
 function applyTypeColor(row) {
   const sel = row.querySelector('.phase-type');
   if (!sel) return;
-  const color = PHASE_COLORS[sel.value] || '#6c757d';
+  const color = PHASE_COLORS[sel.value] || 'var(--adi-mineral)';
   sel.style.borderLeft = `4px solid ${color}`;
   sel.style.paddingLeft = '8px';
 }

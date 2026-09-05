@@ -63,6 +63,7 @@
   --adi-mineral-dk:    #414A54;   /* 9.00:1 on white — small text, text on tints */
   --adi-row-rule:      #EDE9E1;   /* the rule between dense rows, replacing zebra */
   --adi-hover:         #EAF4F6;   /* OPAQUE row hover — prints as tint, not smear */
+  --adi-band:          #F4F1EA;   /* the cream header band on a plain activity card */
   --adi-tint-local:    #EDF0F4;   /* local-labor block */
   --adi-kind-local:    #24405F;   /* local-labor rail */
   --adi-kind-crew:     #0B2545;   /* crew-call rail */
@@ -83,6 +84,9 @@
   --adi-warn:          #8A5A00;  --adi-warn-bg:   #FDF3D8;
   --adi-danger:        #B3261E;  --adi-danger-bg: #FDECEA;
   --adi-info:          #0C6B79;  --adi-info-bg:   #E6F7FA;
+  /* Status ON Midnight (the day header's hours badge): light, not ink. */
+  --adi-warn-on-dark:   #FBBF24;  /* 9.2:1 on Midnight */
+  --adi-danger-on-dark: #F87171;  /* 5.6:1 on Midnight */
 
   --sp-1: 2px;  --sp-2: 4px;  --sp-3: 6px;  --sp-4: 8px;
   --sp-5: 12px; --sp-6: 16px; --sp-7: 20px; --sp-8: 28px;
@@ -284,6 +288,40 @@ h1, h2, h3, h4, h5, h6,
   border-top: 1px solid rgba(255,255,255,0.08);
   font-size: 0.75rem;
   color: rgba(255,255,255,0.55);
+}
+
+/* The show's code, beside its name, so two shows called "Big" can be told
+   apart. Condensed, tracked, dimmer than the name. */
+.sidebar-show-link .show-code {
+  font: 600 11px/1 'Barlow Condensed', 'Barlow', sans-serif;
+  letter-spacing: .06em;
+  color: rgba(255,255,255,.55);
+  flex-shrink: 0;
+}
+.sidebar-show-link.sidebar-show-current { color: #fff; }
+.sidebar-show-link.sidebar-show-current .show-code { color: var(--adi-blue-lt); }
+
+/* The current show's pages, indented under it. One row of five short links
+   replaces the three copies of the show list that used to live under
+   Shows, Schedule Builder and Crew Database. */
+.sidebar-show-pages {
+  display: flex; flex-wrap: wrap; gap: 2px 6px;
+  padding: 2px 12px 8px 46px;
+  box-shadow: inset 1px 0 0 rgba(255,255,255,0.14);   /* the same stem */
+}
+.sidebar-show-page {
+  font-size: 12px; font-weight: 500;
+  color: rgba(255,255,255,.62);
+  padding: 3px 7px;
+  border-radius: var(--r-sm);
+  text-decoration: none;
+}
+.sidebar-show-page:hover, .sidebar-show-page:focus-visible {
+  color: #fff; background: rgba(53,196,216,0.16); text-decoration: none;
+}
+.sidebar-show-page.sidebar-show-active {
+  color: #fff !important; background: rgba(53,196,216,0.28) !important;
+  border-left-color: transparent !important;
 }
 
 /* Show sub-links in sidebar */
@@ -738,6 +776,81 @@ input[type="number"], input[type="time"] { font-variant-numeric: tabular-nums; }
   border: 0; background: none; padding: 0; margin: 0;
   width: 12px; display: inline-block; cursor: pointer;
   color: inherit; font: inherit; line-height: 1; vertical-align: baseline;
+}
+
+
+/* ── Quiet at rest ─────────────────────────────────────────────────────────
+   A crew call is a schedule that happens to be editable, not a form. With
+   40 rows × 7 bordered boxes the page read as a blank form and printed as
+   one. Controls in a crew table now have no border and no fill at rest and
+   get both back on hover or focus-within, so the row reads as text until it
+   is being edited. Inline backgrounds (the over-hours amber) still win —
+   they are inline. Selects lose their arrow at rest for the same reason.
+   Removal buttons (the red ×) appear on hover or focus-within only, so a
+   97-row call is not 97 always-visible deletes; keyboard users reach them
+   through focus-within, and they never print. */
+.crew-table .form-control,
+.crew-table .form-select {
+  border-color: transparent;
+  background-color: transparent;
+  transition: border-color .12s, background-color .12s;
+}
+.crew-table .form-select { background-image: none; }
+.crew-table tr:hover .form-control,
+.crew-table tr:focus-within .form-control,
+.crew-table .form-control:focus {
+  border-color: var(--adi-border-strong);
+  background-color: var(--adi-card);
+}
+.crew-table tr:hover .form-select,
+.crew-table tr:focus-within .form-select,
+.crew-table .form-select:focus {
+  border-color: var(--adi-border-strong);
+  background-color: var(--adi-card);
+  background-image: var(--bs-form-select-bg-img);
+}
+.crew-table td .btn-link.text-danger {
+  opacity: 0;
+  transition: opacity .12s;
+}
+.crew-table tr:hover td .btn-link.text-danger,
+.crew-table tr:focus-within td .btn-link.text-danger,
+.crew-table td .btn-link.text-danger:focus-visible { opacity: 1; }
+@media print {
+  .crew-table td .btn-link.text-danger { display: none; }
+}
+
+
+/* ── Activity header bands on the day page ─────────────────────────────────
+   Two silhouettes, not two shades of cream. A plain activity keeps the cream
+   band; a crew call is a Midnight plate with white text — the same band its
+   section headers and the PDF already use — so the "table of people vs a
+   line" distinction survives greyscale, a dimmed laptop and a mono laser.
+   Everything inside the plate is retuned here: the time in true cyan (the
+   on-Midnight colour, 7.4:1), controls in soft white, the CC chip inverted
+   so it does not vanish into its own colour. */
+.act-head-act  { background: var(--adi-band); }
+.act-head-crew { background: var(--adi-kind-crew); color: #fff; }
+.act-head-act  .act-time { color: var(--adi-blue); }
+.act-head-crew .act-time { color: var(--adi-blue-lt); }
+.act-head-crew .text-muted { color: rgba(255,255,255,.72) !important; }
+.act-head-crew .act-drag-handle { color: rgba(255,255,255,.55) !important; }
+.act-head-crew .act-drag-handle:hover { color: #fff !important; background: rgba(255,255,255,.12); }
+.act-head-crew .act-action-btn { color: rgba(255,255,255,.78); }
+.act-head-crew .act-action-btn:hover { color: #fff; }
+.act-head-act  .act-action-btn-linked { color: var(--adi-blue); }
+.act-head-crew .act-action-btn-linked { color: var(--adi-blue-lt); }
+.act-head-crew .act-action-btn.danger:hover { color: var(--adi-danger-on-dark); }
+.act-head-crew .kind-chip-crew {
+  background: #fff !important; color: var(--adi-midnight) !important; border-color: #fff !important;
+}
+.act-head-crew .act-breaks-btn {
+  background: rgba(255,255,255,.10) !important; border-color: rgba(255,255,255,.35) !important; color: #fff;
+}
+.act-head-crew .act-breaks-btn:hover { background: rgba(255,255,255,.18) !important; }
+@media print {
+  .act-head-crew { background: var(--adi-kind-crew) !important; color: #fff !important;
+                   -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
 /* ── Buttons ─────────────────────────────────────────────────────────────── */

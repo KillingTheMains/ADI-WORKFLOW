@@ -1,4 +1,5 @@
 {% import "_icons.html" as ico %}
+{% import "_row_kinds.html" as rk %}
 {# One day of a call sheet. Note 17 made the packet and the single-day
    sheet the same thing — a single day is a batch of one — so this body is
    the ONLY place a call sheet day is described, and the two cannot drift.
@@ -57,7 +58,7 @@
       {% endif %}
       <div class="cs-day-cell">
         <div class="cs-day-label">Total Crew</div>
-        <div class="cs-day-value">{{ total_crew }} people</div>
+        <div class="cs-day-value">{{ total_crew }} {{ 'person' if total_crew == 1 else 'people' }}</div>
       </div>
     </div>
 
@@ -117,7 +118,7 @@
           <tr {% if line.conflict %}class="conflict-row"{% endif %}>
             <td class="time-cell">{{ line.act_time or '—' }}</td>
             <td class="name-cell">
-              {{ line.name }}
+              {% if line.is_local_labor %}{{ rk.kind_chip('local') }} {% endif %}{{ line.name }}
               {% if line.conflict %}<span class="conflict-badge">{{ ico.icon('alert-triangle') }} DBL</span>{% endif %}
             </td>
             <td>{{ line.position or '—' }}</td>
@@ -158,7 +159,7 @@
           <tr {% if line.conflict %}class="conflict-row"{% endif %}>
             <td class="time-cell">{{ line.act_time or '—' }}</td>
             <td class="name-cell">
-              {{ line.name }}
+              {% if line.is_local_labor %}{{ rk.kind_chip('local') }} {% endif %}{{ line.name }}
               {% if line.conflict %}<span class="conflict-badge">{{ ico.icon('alert-triangle') }} DBL</span>{% endif %}
             </td>
             <td>{{ line.position or '—' }}</td>
