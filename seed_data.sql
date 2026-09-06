@@ -343,12 +343,12 @@ CREATE TABLE day_templates (
 	PRIMARY KEY (id), 
 	UNIQUE ("key")
 );
-INSERT INTO day_templates VALUES(1,'load_in','Load In Day','Load In','[["8:00 AM", "CREW START"], ["10:00 AM", "COFFEE BREAK - 15 min"], ["12:30 PM", "LUNCH BREAK \u2014 30 min"], ["2:30 PM", "AFTERNOON BREAK \u2014 15 min"], ["6:00 PM", "EOD WRAP"]]',1);
-INSERT INTO day_templates VALUES(2,'show_day','Show Day','Show','[["7:00 AM", "CREW START"], ["8:00 AM", "DOORS OPEN"], ["9:00 AM", "GENERAL SESSION BEGINS"], ["12:00 PM", "LUNCH BREAK \u2014 60 min"], ["1:00 PM", "AFTERNOON SESSION"], ["5:00 PM", "END OF SHOW"], ["7:00 PM", "EOD WRAP"]]',2);
-INSERT INTO day_templates VALUES(3,'tech_rehearsal','Tech Rehearsal',NULL,'[["7:00 AM", "CREW START"], ["9:00 AM", "TECH REHEARSAL BEGINS"], ["12:30 PM", "LUNCH BREAK \u2014 30 min"], ["1:00 PM", "TECH REHEARSAL RESUMES"], ["5:00 PM", "END OF TECH"], ["7:00 PM", "EOD WRAP"]]',3);
-INSERT INTO day_templates VALUES(4,'presenter_rehearsal','Presenter Rehearsal',NULL,'[["8:00 AM", "CREW START"], ["9:00 AM", "PRESENTER REHEARSAL BEGINS"], ["12:00 PM", "LUNCH BREAK \u2014 30 min"], ["1:00 PM", "PRESENTER REHEARSAL RESUMES"], ["5:00 PM", "END OF REHEARSAL"], ["7:00 PM", "EOD WRAP"]]',4);
-INSERT INTO day_templates VALUES(5,'strike','Strike Day','Strike','[["8:00 AM", "CREW START \u2014 STRIKE BEGINS"], ["12:00 PM", "LUNCH BREAK \u2014 30 min"], ["6:00 PM", "STRIKE COMPLETE / EOD WRAP"]]',5);
-INSERT INTO day_templates VALUES(6,'prep','Prep Day','Prep','[["8:00 AM", "CREW START \u2014 PREP"], ["12:30 PM", "LUNCH BREAK \u2014 60 min"], ["6:00 PM", "EOD WRAP"]]',6);
+INSERT INTO day_templates VALUES(1,'load_in','Load In Day','Load In','[["8:00 AM", "CREW START"]]',1);
+INSERT INTO day_templates VALUES(2,'show_day','Show Day','Show','[["7:00 AM", "CREW START"], ["8:00 AM", "DOORS OPEN"], ["9:00 AM", "GENERAL SESSION BEGINS"], ["1:00 PM", "AFTERNOON SESSION"], ["5:00 PM", "END OF SHOW"]]',2);
+INSERT INTO day_templates VALUES(3,'tech_rehearsal','Tech Rehearsal','Technical Rehearsal','[["7:00 AM", "CREW START"], ["9:00 AM", "TECH REHEARSAL BEGINS"], ["1:00 PM", "TECH REHEARSAL RESUMES"], ["5:00 PM", "END OF TECH"]]',3);
+INSERT INTO day_templates VALUES(4,'presenter_rehearsal','Presenter Rehearsal','Presenter Rehearsal','[["8:00 AM", "CREW START"], ["9:00 AM", "PRESENTER REHEARSAL BEGINS"], ["1:00 PM", "PRESENTER REHEARSAL RESUMES"], ["5:00 PM", "END OF REHEARSAL"]]',4);
+INSERT INTO day_templates VALUES(5,'strike','Strike Day','Strike','[["8:00 AM", "CREW START \u2014 STRIKE BEGINS"], ["6:00 PM", "STRIKE COMPLETE"]]',5);
+INSERT INTO day_templates VALUES(6,'prep','Prep Day','Prep','[["8:00 AM", "CREW START \u2014 PREP"]]',6);
 CREATE TABLE show_crew_assignments (
 	id INTEGER NOT NULL, 
 	show_id INTEGER NOT NULL, 

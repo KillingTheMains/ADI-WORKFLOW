@@ -96,13 +96,53 @@
   .act-card.drag-over { outline: 2px dashed var(--adi-blue); outline-offset: -2px; background: var(--adi-info-bg); }
   /* ── Call sheet ── */
   .call-sheet-row-enter { animation: fadeSlide .2s ease; }
+  /* ── Print (2026-09-06) ─────────────────────────────────────────────────
+     The day page is printed and, more often, Chrome-printed to PDF and
+     emailed. Until now it had no print rules of its own: page one was the
+     Day Settings form, every drag handle, edit pencil and add-row control
+     printed, the crew table came out as 60 empty input boxes, and the call
+     sheet's sticky header printed over the rows beneath it. What prints now
+     is the day as a reader sees it: the header, the timeline, the crew, the
+     call sheet — and nothing that only exists to be clicked. */
+  .print-only { display: none; }
+  @media print {
+    @page { margin: 12mm 12mm 14mm; }
+    .print-only { display: block; }
+    .day-side, .day-actions, .act-drag-handle, .act-action-btn, .act-actions,
+    .day-tools, .btn, button, .add-crew-row, .sect-actions, details,
+    .crew-table .btn-link.text-danger, .top-bar, #sidebar, .no-print,
+    .flash-region, [role="status"] { display: none !important; }
+    .day-main { flex: 0 0 100%; max-width: 100%; }
+    .row > .day-main { width: 100%; }
+    .card { break-inside: avoid; page-break-inside: avoid; border: 1px solid #bbb; box-shadow: none; }
+    .act-card { margin-bottom: 4pt; }
+    .crew-table tr { break-inside: avoid; page-break-inside: avoid; }
+    /* Inputs read as text, not boxes. The values are what matter. */
+    .crew-table input, .crew-table select, .crew-table textarea {
+      border: 0 !important; background: transparent !important;
+      padding: 0 !important; box-shadow: none !important;
+      -webkit-appearance: none; appearance: none; color: #000 !important;
+    }
+    .crew-table select::-ms-expand { display: none; }
+    /* Sticky headers print over the rows below them. Static on paper. */
+    .crew-table thead th, #call-sheet-card thead th, thead th, .sticky-top {
+      position: static !important; top: auto !important;
+    }
+    /* Keep the plates and bands; they carry the row-kind system. */
+    .act-head-crew, .crew-table .group-header td, .day-header-bar {
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+    a { color: inherit; text-decoration: none; }
+    body { font-size: 9.5pt; }
+  }
+
   @keyframes fadeSlide { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
 </style>
 
 <div class="row g-3">
 
   <!-- ══ LEFT SIDEBAR ══════════════════════════════════════════════════════ -->
-  <div class="col-md-3">
+  <div class="col-md-3 day-side">
 
     <!-- Day Settings -->
     <div class="card mb-3">
@@ -375,7 +415,14 @@
   </div><!-- /col-md-3 -->
 
   <!-- ══ RIGHT: ACTIVITIES ═════════════════════════════════════════════════ -->
-  <div class="col-md-9">
+  <div class="col-md-9 day-main">
+
+    {# Printed/PDF'd pages leave the top bar and sidebar behind, so the show
+       has to name itself here. Screen never shows this line. #}
+    <div class="print-only" style="font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:#555;margin-bottom:4pt;">
+      {{ show.code or '' }}{% if show.code and show.name %} · {% endif %}{{ show.name }}
+      {% if day.label %} · {{ day.label }}{% endif %}
+    </div>
 
     <!-- Day header bar -->
     <div class="card mb-3" style="background:var(--adi-dark);border-color:var(--adi-dark);">
@@ -387,7 +434,7 @@
                Actions that operate on the DAY, on the day's own header.
                Delete sits behind this menu rather than in an always-visible
                sidebar, which is the right number of clicks for it. -->
-          <div class="dropdown ms-auto">
+          <div class="dropdown ms-auto day-tools">
             <button class="btn btn-sm dropdown-toggle" type="button"
                     data-bs-toggle="dropdown" aria-expanded="false"
                     style="font-size:.75rem;color:var(--adi-blue-lt);
@@ -479,7 +526,7 @@
          anything — so the first thing you read on a schedule was a form
          rather than the schedule. It folds now. -->
     {% set day_standing = day_meal_services | selectattr('is_standing') | list %}
-    <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
+    <div class="d-flex align-items-center gap-2 flex-wrap mb-3 day-actions">
       {# FOUR DOORS, ONE BUTTON. Jason, 2026-08-13: "they all look different
          and I hate it. Make them uniform, use the CREATE CREW CALL button as
          the model, remove any emojis from these buttons."
@@ -1524,7 +1571,7 @@
              Existing rows on non-call activities still RENDER and can still
              be deleted; this only stops new ones being created there. -->
         {% if is_crew_start(act.description) %}
-        <div class="px-3 pb-3 pt-1">
+        <div class="px-3 pb-3 pt-1 add-crew-row">
           <div class="d-flex align-items-center gap-3 flex-wrap mb-1">
             <button class="btn btn-sm btn-link p-0 text-muted" style="font-size:.78rem;"
                     data-bs-toggle="collapse" data-bs-target="#add-crew-{{ act.id }}">
@@ -2494,18 +2541,6 @@
             Drops a standard set of activities onto this day. Leave the switch
             off and they are added to whatever is already here.
           </p>
-          {# Note 18, 2026-09-03. Same defect as the Auto-Generate checkbox on
-             the overview: every template still writes breaks as plain
-             activities. Warned here too, because this is the OTHER door to
-             the same six templates — and the only door to Tech Rehearsal and
-             Presenter Rehearsal, which carry no phase hint. #}
-          <div class="tpl-warn-box mb-3">
-            <span class="tpl-warn">{{ ico.icon('alert-triangle', 13) }}</span>
-            These templates still add breaks as ordinary schedule lines
-            (&ldquo;LUNCH BREAK &mdash; 30 min&rdquo;) rather than real breaks
-            attached to a crew call. Add breaks on the crew call instead, and
-            delete any the template leaves behind.
-          </div>
           <div class="mb-3">
             <label class="form-label">Template</label>
             <select name="template" class="form-select form-select-sm" aria-label="Template">

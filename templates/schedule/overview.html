@@ -12,24 +12,15 @@
   <form method="POST" action="{{ url_for('schedule.generate_days', show_id=show.id) }}"
         style="display:inline;" id="gen-days-form">
     <div class="d-inline-flex align-items-center gap-2">
-      {# Note 18, 2026-09-03. All six day templates still write breaks as
-         PLAIN ACTIVITIES — "LUNCH BREAK — 30 min", "COFFEE BREAK - 15 min",
-         "EOD WRAP" — which is the exact shape the 2026-08-12 repair
-         migrations spent a day undoing. The generators that did this were
-         removed then; the templates that do the same thing were not.
-
-         The real fix is a data migration over `day_templates`, which is not a
-         show-week job. Until then this warns rather than blocks, because a
-         template still produces legitimate activities (CREW START, DOORS
-         OPEN) and Jason may want them knowingly. #}
+      {# Note 18: the templates wrote breaks as plain activities until the
+         2026-09-06 migration stripped them. Breaks live on the crew call. #}
       <div class="form-check form-check-inline mb-0" style="font-size:.78rem;">
         <input class="form-check-input" type="checkbox" name="with_templates" value="1"
                id="with-templates-chk">
         <label class="form-check-label text-muted" for="with-templates-chk"
                style="cursor:pointer;"
-               title="Seeds each day with standard activities for its phase. WARNING: templates still add breaks as ordinary schedule lines rather than real breaks on a crew call — add breaks on the crew call instead.">
+               title="Seeds each day with standard activities for its phase (Crew Start, Doors Open…). Breaks are added on the crew call.">
           with templates
-          <span class="tpl-warn" title="Templates still add breaks as ordinary schedule lines rather than real breaks on a crew call. Add breaks on the crew call instead.">{{ ico.icon('alert-triangle', 13) }}</span>
         </label>
       </div>
       <button type="submit" class="btn btn-sm btn-outline-secondary"
@@ -479,11 +470,6 @@
           <label class="form-check-label text-muted" for="with-templates-empty-chk">
             Seed days with phase templates (Crew Start, EOD, etc.)
           </label>
-        </div>
-        <div class="text-muted" style="font-size:.72rem;max-width:420px;margin:6px auto 0;">
-          <span class="tpl-warn">{{ ico.icon('alert-triangle', 13) }}</span>
-          Templates still add breaks as ordinary schedule lines rather than real
-          breaks on a crew call. Add breaks on the crew call instead.
         </div>
       </div>
       <button type="submit" class="btn btn-adi">{{ ico.icon('zap') }} Auto-Generate Days</button>
