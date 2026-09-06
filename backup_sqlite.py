@@ -7,8 +7,21 @@ Designed to be wired up as a PythonAnywhere Scheduled Task:
     ~/adi-workflow/venv/bin/python ~/adi-workflow/backup_sqlite.py
 
 Behavior:
-- Snapshots the live SQLite DB (via VACUUM INTO — safe under concurrent writes)
-  to a dated file under ~/backups/
+- Snapshots the live SQLite DB with SQLite's ONLINE BACKUP API (safe under
+  concurrent writes) to a dated file under ~/backups/
+
+  Why the backup API and not VACUUM INTO (2026-09-06): on PythonAnywhere's
+  free tier VACUUM INTO of an 11 MB database took 25-45 minutes when it
+  worked, hung twice in two days with single-digit CPU seconds burned, and
+  on 09-06 produced a file that could not even be READ. `.backup` finished in
+  about ten seconds on the same database. The API copies pages; it does not
+  rebuild the file, so there is nothing for a throttled host to choke on.
+
+  Two more rules learned the same day:
+  * always write to a FRESH file name, then rename into place — a second
+    backup onto an existing file name hung and left a -journal behind;
+  * verify the copy (`pragma integrity_check`) before calling it a backup.
+    A file on disk is not a backup until it has been read back.
 - Retains the most recent RETENTION_DAYS (default 14) daily snapshots and
   deletes older ones
 - Idempotent — running twice on the same day overwrites the day's snapshot,
@@ -53,18 +66,50 @@ def resolve_db_path():
     return p or DEFAULT_DB_PATH
 
 
+def verify(path):
+    """Read the snapshot back. Returns the integrity_check result ("ok" when
+    good). A snapshot that cannot be read is not a snapshot — 09-06's vacuum
+    output blocked a sixteen-byte read until `timeout` killed it."""
+    con = sqlite3.connect(path)
+    try:
+        return con.execute("pragma integrity_check").fetchone()[0]
+    finally:
+        con.close()
+
+
 def snapshot(db_path, dest_path):
+    """Copy the live database to `dest_path` with the online backup API.
+
+    Always writes a FRESH temp file beside the destination, verifies it, then
+    renames it into place. Never writes into an existing file — that is the
+    shape that hung on 2026-09-06. The rename is atomic, so a reader never
+    sees a half-written destination either.
+    """
     dest_dir = os.path.dirname(dest_path)
     if dest_dir:
         os.makedirs(dest_dir, exist_ok=True)
+    tmp = f"{dest_path}.part-{os.getpid()}"
+    if os.path.exists(tmp):
+        os.remove(tmp)
+    src = sqlite3.connect(db_path, timeout=30)
+    dst = sqlite3.connect(tmp)
+    try:
+        # pages=256 lets the source's writers in between steps; the live web
+        # app writes an audit row on every request and must not be locked out.
+        src.backup(dst, pages=256)
+    finally:
+        dst.close()
+        src.close()
+    result = verify(tmp)
+    if result != "ok":
+        try:
+            os.remove(tmp)
+        finally:
+            raise RuntimeError(f"snapshot failed integrity_check: {result}")
     if os.path.exists(dest_path):
         os.remove(dest_path)
-    con = sqlite3.connect(db_path)
-    try:
-        safe = dest_path.replace("'", "''")
-        con.execute(f"VACUUM INTO '{safe}'")
-    finally:
-        con.close()
+    os.replace(tmp, dest_path)
+    return dest_path
 
 
 def prune(backup_dir, retention_days):
@@ -107,13 +152,13 @@ def main():
     try:
         snapshot(db_path, dest)
     except Exception as e:
-        print(f"[backup] FAIL: VACUUM INTO failed: {e}", file=sys.stderr)
+        print(f"[backup] FAIL: snapshot failed: {e}", file=sys.stderr)
         return 1
 
     size_mb = os.path.getsize(dest) / (1024 * 1024)
     removed = prune(backup_dir, retention)
 
-    print(f"[backup] OK: {dest} ({size_mb:.2f} MB), "
+    print(f"[backup] OK: {dest} ({size_mb:.2f} MB, integrity ok), "
           f"retention={retention}d, pruned={len(removed)}")
     return 0
 

@@ -30,8 +30,12 @@ echo "== python: $PY"
 echo "== at:     $(git log --oneline -1)"
 
 echo
-echo "== 1/3  backup (VACUUM INTO ~/backups — slow on a real database, no output until done)"
+echo "== 1/3  backup (online backup API -> ~/backups; about ten seconds on 11 MB)"
 $PY backup_sqlite.py
+# The step-1 backup doubles as the pre-migration snapshot when it is fresh and
+# reads back clean (migrations._pre_migration_snapshot verifies both). One
+# copy per deploy instead of two.
+export ADI_SNAPSHOT_REUSE="$HOME/backups/adi_workflow_$(date -u +%Y%m%d).db"
 
 echo
 echo "== 2/3  migrations"

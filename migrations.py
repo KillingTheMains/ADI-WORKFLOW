@@ -1107,6 +1107,65 @@ def _unique_index_on_position_titles(session):
     print("[migration] unique index ux_positions_title created")
 
 
+def _strip_legacy_break_rows_from_day_templates(session):
+    """Note 18 (capture log): all six day templates still wrote breaks as
+    PLAIN activities — "LUNCH BREAK — 30 min", "AFTERNOON BREAK — 15 min" —
+    the exact shape the 2026-08-12 repair migrations spent a day undoing. The
+    generators were removed then; the templates that did the same thing were
+    not. Ticking "with templates" rebuilt the problem on a live show.
+
+    This strips every break-shaped row from every template, renames a row
+    that only MENTIONS EOD WRAP ("STRIKE COMPLETE / EOD WRAP" -> "STRIKE
+    COMPLETE"), and gives the two rehearsal templates the phase_hint they
+    never had, so Auto-Generate can reach them.
+
+    Predicted 2026-09-06 against the production snapshot of that morning:
+    7 break rows removed across 6 templates (load_in 2, show_day 1,
+    tech_rehearsal 1, presenter_rehearsal 1, strike 1, prep 1), 0 renamed,
+    2 phase hints set. The seed still carries the EOD WRAP rows; a fresh
+    database would report 13 removed, 1 renamed, 2 hints.
+    """
+    import json as _json
+    rows = session.execute(text(
+        "SELECT id, key, phase_hint, activities_json FROM day_templates")).fetchall()
+    HINTS = {"tech_rehearsal": "Technical Rehearsal",
+             "presenter_rehearsal": "Presenter Rehearsal"}
+    removed = renamed = hinted = 0
+    for tid, key, hint, raw in rows:
+        try:
+            acts = _json.loads(raw or "[]")
+        except Exception:
+            print(f"[migration]   template {key!r}: activities_json unreadable, left alone")
+            continue
+        kept = []
+        for pair in acts:
+            if not isinstance(pair, (list, tuple)) or len(pair) < 2:
+                kept.append(pair)
+                continue
+            t, desc = pair[0], str(pair[1])
+            up = desc.upper()
+            if "BREAK" in up or up.strip() == "EOD WRAP":
+                removed += 1
+                continue
+            if "EOD WRAP" in up:
+                # "STRIKE COMPLETE / EOD WRAP" -> "STRIKE COMPLETE"
+                new = desc.split("/")[0].strip() or desc
+                if new != desc:
+                    renamed += 1
+                    desc = new
+            kept.append([t, desc])
+        new_hint = hint
+        if not hint and key in HINTS:
+            new_hint = HINTS[key]
+            hinted += 1
+        session.execute(
+            text("UPDATE day_templates SET activities_json = :a, phase_hint = :h "
+                 "WHERE id = :i"),
+            {"a": _json.dumps(kept), "h": new_hint, "i": tid})
+    print(f"[migration] day templates: {len(rows)} rows, {removed} break row(s) "
+          f"removed, {renamed} renamed, {hinted} phase hint(s) set")
+
+
 DATA_MIGRATIONS = [
     ("2026-06-30-fb-v2-migrate-entries", _migrate_fb_entries_to_meal_services),
     ("2026-07-02-add-prompter-position", _seed_position_prompter),
@@ -1186,6 +1245,10 @@ DATA_MIGRATIONS = [
     # than merging if duplicates exist. Predicted: 129 rows, 0 duplicates.
     ("2026-09-05-unique-index-positions-title",
      _unique_index_on_position_titles),
+    # 2026-09-06 — note 18. Predicted on the production snapshot: 7 removed,
+    # 0 renamed, 2 phase hints. A fresh seed reports 13 / 1 / 2.
+    ("2026-09-06-strip-legacy-break-rows-from-day-templates",
+     _strip_legacy_break_rows_from_day_templates),
 ]
 
 
@@ -1289,23 +1352,29 @@ def run_migrations(verbose=True):
 # ── Pre-migration snapshot ───────────────────────────────────────────────────
 
 def _pre_migration_snapshot(pending, verbose=True):
-    """VACUUM INTO a snapshot of the live DB before any pending data migration
-    runs. Path: ~/backups/pre-migration-<ISO ts>.db
+    """Snapshot the live DB before any pending data migration runs, with
+    SQLite's online backup API. Path: ~/backups/pre-migration-<ISO ts>.db
 
     Cheap insurance — only fires when data migrations actually have work to do.
-    Uses only stdlib (sqlite3) so nothing here can pull in a broken dep.
+    Uses only stdlib (sqlite3, through backup_sqlite.snapshot) so nothing here
+    can pull in a broken dep.
+
+    Why not VACUUM INTO any more (2026-09-06): see backup_sqlite.py. Ten
+    seconds against forty minutes and a coin-flip hang on the same 11 MB.
     """
     import os
-    import sqlite3
+    import time
     from datetime import datetime, timezone
     from flask import current_app
+    from backup_sqlite import snapshot, verify
 
     # ── Opt-in escape hatch, added 2026-09-04 ────────────────────────────────
-    # This snapshot is a VACUUM INTO of the whole database. On PythonAnywhere's
-    # free tier that took 24 MINUTES on an 11MB database and the process was
-    # killed before it finished — so the deploy could not complete, and the
-    # thing being protected against had not yet happened. A safety measure that
-    # makes the operation impossible stops being a safety measure.
+    # The snapshot used to be a VACUUM INTO of the whole database. On
+    # PythonAnywhere's free tier that took 24 MINUTES on an 11MB database and
+    # the process was killed before it finished — so the deploy could not
+    # complete, and the thing being protected against had not yet happened. A
+    # safety measure that makes the operation impossible stops being a safety
+    # measure.
     #
     # It is opt-in, per-run, and DELIBERATELY NOISY. Two rules:
     #   * never set it in deploy.sh — the default path must always snapshot;
@@ -1323,8 +1392,8 @@ def _pre_migration_snapshot(pending, verbose=True):
 
     uri = current_app.config.get("SQLALCHEMY_DATABASE_URI", "")
     if not uri.startswith("sqlite:"):
-        # Only SQLite understands VACUUM INTO in this form. If we ever move
-        # off SQLite, this branch turns into a no-op (which is safe: the
+        # Only SQLite has the backup API in this form. If we ever move off
+        # SQLite, this branch turns into a no-op (which is safe: the
         # pre-migration snapshot is a defense, not a correctness requirement).
         if verbose:
             print("[migration] snapshot skipped (non-sqlite backend)")
@@ -1338,21 +1407,44 @@ def _pre_migration_snapshot(pending, verbose=True):
             print(f"[migration] snapshot skipped (source DB not found at {path!r})")
         return
 
+    pending_keys = ", ".join(k for k, _ in pending)
+
+    # ── Reuse the deploy's own step-1 backup (2026-09-06) ────────────────────
+    # deploy.sh takes a full backup minutes before this runs. Taking a second
+    # one is the "two vacuums, needs one" annoyance the runbook lists. If
+    # deploy.sh names its backup here, and the file is recent and reads back
+    # clean, it IS the pre-migration snapshot. Strict on purpose: stale or
+    # unreadable means take a fresh one, never skip.
+    reuse = os.environ.get("ADI_SNAPSHOT_REUSE", "").strip()
+    if reuse and os.path.exists(reuse):
+        age_min = (time.time() - os.path.getmtime(reuse)) / 60.0
+        if age_min <= 30:
+            try:
+                result = verify(reuse)
+            except Exception as e:  # unreadable file — the 09-06 shape
+                result = f"unreadable: {e}"
+            if result == "ok":
+                if verbose:
+                    print(f"[migration] pre-snapshot reused: {reuse}  "
+                          f"(taken {age_min:.0f} min ago, integrity ok; "
+                          f"before applying: {pending_keys})")
+                return
+            elif verbose:
+                print(f"[migration] pre-snapshot NOT reused: {reuse} failed "
+                      f"verification ({result}); taking a fresh one")
+        elif verbose:
+            print(f"[migration] pre-snapshot NOT reused: {reuse} is "
+                  f"{age_min:.0f} min old; taking a fresh one")
+
     backup_dir = os.path.expanduser("~/backups")
     os.makedirs(backup_dir, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     dest = os.path.join(backup_dir, f"pre-migration-{ts}.db")
-
-    con = sqlite3.connect(path)
-    try:
-        safe = dest.replace("'", "''")
-        con.execute(f"VACUUM INTO '{safe}'")
-    finally:
-        con.close()
+    snapshot(path, dest)
 
     if verbose:
-        pending_keys = ", ".join(k for k, _ in pending)
-        print(f"[migration] pre-snapshot saved: {dest}  (before applying: {pending_keys})")
+        print(f"[migration] pre-snapshot saved: {dest}  (integrity ok; "
+              f"before applying: {pending_keys})")
 
 
 if __name__ == "__main__":
