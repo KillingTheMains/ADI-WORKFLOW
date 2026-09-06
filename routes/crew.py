@@ -158,6 +158,45 @@ def companies_create():
     return jsonify(ok=True, id=c.id, name=c.name, duplicate=False)
 
 
+@crew_bp.route("/companies")
+def companies():
+    """Every company with its overtime terms (2026-09-05).
+
+    Companies were created from a modal and never had a page of their own,
+    which was fine while the only thing on one was a name. Thresholds gave
+    them a second field with nowhere to be edited. This page is that surface,
+    and nothing more: contact details still live where they always have."""
+    from billing import OT_AFTER_HOURS, DT_AFTER_HOURS
+    rows = Company.query.order_by(Company.name).all()
+    headcount = {}
+    for co_id, n in (db.session.query(CrewMember.company_id,
+                                      db.func.count(CrewMember.id))
+                     .group_by(CrewMember.company_id).all()):
+        headcount[co_id] = n
+    return render_template("crew/companies.html", companies=rows,
+                           headcount=headcount,
+                           default_ot=OT_AFTER_HOURS, default_dt=DT_AFTER_HOURS)
+
+
+@crew_bp.route("/companies/<int:company_id>/terms", methods=["POST"])
+def company_terms(company_id):
+    """Save a company's OT/DT thresholds. Field-present semantics; blank or
+    zero means 'same as the default'."""
+    co = Company.query.get_or_404(company_id)
+    f = request.form
+    if "ot_after_hours" in f:
+        co.ot_after_hours = _threshold(f, "ot_after_hours")
+    if "dt_after_hours" in f:
+        co.dt_after_hours = _threshold(f, "dt_after_hours")
+    if "code" in f:
+        co.code = (f.get("code") or "").strip()[:20] or None
+    db.session.commit()
+    if request.headers.get("X-Autosave"):
+        return ("", 204)
+    flash(f"{co.name}: overtime terms saved.", "success")
+    return redirect(url_for("crew.companies"))
+
+
 @crew_bp.route("/<int:member_id>/edit-inline", methods=["POST"])
 def edit_inline(member_id):
     """Save only the fields the inline row form sends (first/last name,
@@ -215,6 +254,24 @@ def bulk_edit():
     return redirect(dest)
 
 
+def _money(f, key):
+    """A blank money/number field is NULL, never 0. Tolerates "$" and ",",
+    which is how rates arrive when pasted from a rate card."""
+    raw = (f.get(key) or "").strip().replace("$", "").replace(",", "")
+    if not raw:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+def _threshold(f, key):
+    """OT/DT thresholds: blank or 0 means inherit (see billing.thresholds_for)."""
+    v = _money(f, key)
+    return v if v and v > 0 else None
+
+
 @crew_bp.route("/add", methods=["GET", "POST"])
 def add():
     companies = Company.query.order_by(Company.name).all()
@@ -229,11 +286,13 @@ def add():
             position_id   = f.get("position_id") or None,
             email         = f.get("email", ""),
             phone         = f.get("phone", ""),
-            rate_standard = float(f["rate_standard"]) if f.get("rate_standard") else None,
-            rate_ot       = float(f["rate_ot"]) if f.get("rate_ot") else None,
-            rate_dt       = float(f["rate_dt"]) if f.get("rate_dt") else None,
-            meal_penalty  = float(f["meal_penalty"]) if f.get("meal_penalty") else None,
-            per_diem      = float(f["per_diem"]) if f.get("per_diem") else None,
+            rate_standard = _money(f, "rate_standard"),
+            rate_ot       = _money(f, "rate_ot"),
+            rate_dt       = _money(f, "rate_dt"),
+            meal_penalty  = _money(f, "meal_penalty"),
+            per_diem      = _money(f, "per_diem"),
+            ot_after_hours = _threshold(f, "ot_after_hours"),
+            dt_after_hours = _threshold(f, "dt_after_hours"),
             notes         = f.get("notes", ""),
         )
         db.session.add(member)
@@ -247,7 +306,9 @@ def add():
                   "warning")
         return redirect(url_for("crew.index"))
 
-    return render_template("crew/add.html", companies=companies, positions=positions)
+    from billing import OT_AFTER_HOURS, DT_AFTER_HOURS
+    return render_template("crew/add.html", companies=companies, positions=positions,
+                           default_ot=OT_AFTER_HOURS, default_dt=DT_AFTER_HOURS)
 
 
 @crew_bp.route("/<int:member_id>/edit", methods=["GET", "POST"])
@@ -264,11 +325,13 @@ def edit(member_id):
         member.position_id   = f.get("position_id") or None
         member.email         = f.get("email", "")
         member.phone         = f.get("phone", "")
-        member.rate_standard = float(f["rate_standard"]) if f.get("rate_standard") else None
-        member.rate_ot       = float(f["rate_ot"]) if f.get("rate_ot") else None
-        member.rate_dt       = float(f["rate_dt"]) if f.get("rate_dt") else None
-        member.meal_penalty  = float(f["meal_penalty"]) if f.get("meal_penalty") else None
-        member.per_diem      = float(f["per_diem"]) if f.get("per_diem") else None
+        member.rate_standard = _money(f, "rate_standard")
+        member.rate_ot       = _money(f, "rate_ot")
+        member.rate_dt       = _money(f, "rate_dt")
+        member.meal_penalty  = _money(f, "meal_penalty")
+        member.per_diem      = _money(f, "per_diem")
+        member.ot_after_hours = _threshold(f, "ot_after_hours")
+        member.dt_after_hours = _threshold(f, "dt_after_hours")
         member.active        = f.get("active") == "1"
         member.notes         = f.get("notes", "")
         db.session.commit()
@@ -281,8 +344,16 @@ def edit(member_id):
                   "warning")
         return redirect(url_for("crew.index"))
 
+    from billing import rates_for, thresholds_for, OT_AFTER_HOURS, DT_AFTER_HOURS
+    _std, auto_ot, auto_dt = rates_for(member)
+    # What this person would inherit if their own thresholds were blank —
+    # shown as the placeholder so a blank field says what it means.
+    inherit_ot, inherit_dt = thresholds_for(None, member.company)
     return render_template("crew/edit.html", member=member,
-                           companies=companies, positions=positions)
+                           companies=companies, positions=positions,
+                           auto_ot=auto_ot, auto_dt=auto_dt,
+                           inherit_ot=inherit_ot, inherit_dt=inherit_dt,
+                           default_ot=OT_AFTER_HOURS, default_dt=DT_AFTER_HOURS)
 
 
 @crew_bp.route("/<int:member_id>/delete", methods=["POST"])

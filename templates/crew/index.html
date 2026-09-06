@@ -12,6 +12,8 @@
              onchange="this.form.submit()" style="display:none;">
     </label>
   </form>
+  <a href="{{ url_for('crew.companies') }}" class="btn btn-sm btn-outline-secondary">
+    {{ ico.icon('building-2') }} Companies</a>
   <a href="{{ url_for('crew.add') }}" class="btn btn-sm btn-adi">+ Add Person</a>
 {% endblock %}
 

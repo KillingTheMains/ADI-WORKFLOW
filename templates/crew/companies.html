@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% import '_icons.html' as ico %}
+{% block title %}Companies — Overtime Terms{% endblock %}
+{% block page_title %}Companies{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> /
+  <a href="{{ url_for('crew.index') }}">Crew Database</a> / Companies
+{% endblock %}
+
+{% block content %}
+{# Companies were created from a "+ New company" modal and never had a page.
+   Thresholds (2026-09-05) gave them something to edit. This page is exactly
+   that — name, code, headcount, overtime terms — and autosaves per row the
+   way every other dense table here does. #}
+<p class="text-muted" style="font-size:.85rem;max-width:62em;">
+  Overtime terms by company. The defaults are Larry's: standard rate is
+  hourly for the first <strong>{{ '%g'|format(default_ot) }}</strong> hours,
+  OT (1.5×) after {{ '%g'|format(default_ot) }}, DT (2×) after
+  {{ '%g'|format(default_dt) }}. Fill a company in only when its deal
+  differs; a person's own terms on their
+  <a href="{{ url_for('crew.index') }}">crew record</a> win over their
+  company's.
+</p>
+
+{% if companies %}
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0" style="font-size:.85rem;">
+      <thead>
+        <tr>
+          <th style="width:34%;">Company</th>
+          <th style="width:10%;">Code</th>
+          <th style="width:12%;">Type</th>
+          <th style="width:10%;text-align:right;">People</th>
+          <th style="width:12%;">OT after (hrs)</th>
+          <th style="width:12%;">DT after (hrs)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for co in companies %}
+        <tr>
+          <td style="font-weight:600;">{{ co.name }}</td>
+          <td>
+            <input type="text" name="code" form="co-{{ co.id }}"
+                   value="{{ co.code or '' }}" maxlength="20"
+                   class="form-control form-control-sm" placeholder="—"
+                   aria-label="Code for {{ co.name }}">
+          </td>
+          <td class="text-muted" style="font-size:.78rem;">{{ co.type or '—' }}</td>
+          <td class="text-muted" style="text-align:right;font-size:.78rem;">
+            {{ headcount.get(co.id, 0) or '—' }}
+          </td>
+          <td>
+            <input type="number" name="ot_after_hours" form="co-{{ co.id }}"
+                   step="0.5" min="0"
+                   value="{{ '%g'|format(co.ot_after_hours) if co.ot_after_hours else '' }}"
+                   placeholder="{{ '%g'|format(default_ot) }}"
+                   class="form-control form-control-sm"
+                   aria-label="OT after hours for {{ co.name }}">
+          </td>
+          <td>
+            <input type="number" name="dt_after_hours" form="co-{{ co.id }}"
+                   step="0.5" min="0"
+                   value="{{ '%g'|format(co.dt_after_hours) if co.dt_after_hours else '' }}"
+                   placeholder="{{ '%g'|format(default_dt) }}"
+                   class="form-control form-control-sm"
+                   aria-label="DT after hours for {{ co.name }}">
+          </td>
+          <td>
+            {% if co.ot_after_hours or co.dt_after_hours %}
+            <span class="text-muted" style="font-size:.72rem;">own terms</span>
+            {% else %}
+            <span class="text-muted" style="font-size:.72rem;">defaults</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Forms live outside the table via form= — a <form> inside a <tr> is
+   invalid and browsers hoist it out. Autosave on change, like the crew
+   database; the submit button exists so the keyboard has a target and so
+   the save status has somewhere to sit. #}
+{% for co in companies %}
+<form id="co-{{ co.id }}" method="POST" data-autosave="true"
+      action="{{ url_for('crew.company_terms', company_id=co.id) }}"
+      class="d-inline">
+  <button type="submit" class="visually-hidden">Save {{ co.name }}</button>
+</form>
+{% endfor %}
+{% else %}
+<div class="empty-state py-5">
+  <div class="empty-icon">{{ ico.icon('building-2', 32) }}</div>
+  <div style="font-size:.95rem;font-weight:600;margin-bottom:6px;">No companies yet</div>
+  <p class="text-muted" style="font-size:.85rem;">
+    Companies are created from the company dropdown when adding a person.
+  </p>
+</div>
+{% endif %}
+{% endblock %}

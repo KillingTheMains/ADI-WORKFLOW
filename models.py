@@ -69,6 +69,12 @@ class Company(db.Model):
     phone        = db.Column(db.String(50))
     address      = db.Column(db.Text)
     notes        = db.Column(db.Text)
+    # 2026-09-05 — the company's own overtime terms, if they differ from
+    # Larry's defaults (OT after 10, DT after 12). NULL means "same as the
+    # default". A person can override their company; see
+    # billing.thresholds_for for the person -> company -> default resolution.
+    ot_after_hours = db.Column(db.Float)
+    dt_after_hours = db.Column(db.Float)
     crew         = db.relationship("CrewMember", back_populates="company", lazy="dynamic")
 
     def __repr__(self):
@@ -118,11 +124,19 @@ class CrewMember(db.Model):
     position_id    = db.Column(db.Integer, db.ForeignKey("positions.id"))
     email          = db.Column(db.String(200))
     phone          = db.Column(db.String(50))
+    # rate_standard is HOURLY, for the first 10 hours (Jason, 2026-09-05).
+    # rate_ot / rate_dt may be left blank: billing.rates_for fills them in at
+    # 1.5x and 2x of standard. A value typed here wins over the multiplier.
     rate_standard  = db.Column(db.Float)
     rate_ot        = db.Column(db.Float)
     rate_dt        = db.Column(db.Float)
     meal_penalty   = db.Column(db.Float)
     per_diem       = db.Column(db.Float)
+    # 2026-09-05 — this person's own OT/DT thresholds, when their deal differs
+    # from their company's (or from the defaults). NULL = inherit. Resolved
+    # person -> company -> default by billing.thresholds_for.
+    ot_after_hours = db.Column(db.Float)
+    dt_after_hours = db.Column(db.Float)
     active         = db.Column(db.Boolean, default=True)
     notes          = db.Column(db.Text)
     # Phase D wishlist: manual roster ordering — up/down arrows move a

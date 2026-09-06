@@ -15,7 +15,10 @@ module still stops short of money is data, not rules: Larry's intake form
 collected "10-Hour Day Rate" AND "ST Hourly" as separate fields and the live
 data has both, some of it free-text. Costing needs the rate column cleaned
 first (capture log #8), then the split here is priced as
-``st*rate + ot*rate*1.5 + dt*rate*2.0``.
+``st*rate + ot*rate*1.5 + dt*rate*2.0`` — ``rates_for`` already resolves the
+three rates, and ``thresholds_for`` resolves WHERE a person's day splits
+(person -> company -> default), so the report can split on the right terms
+before a dollar is ever shown.
 
 The split is PER DAY. Overtime is a property of a single day's work, so summing
 a person's hours across a show and splitting the total would be wrong in both
@@ -30,6 +33,47 @@ OT_AFTER_HOURS = 10.0
 DT_AFTER_HOURS = 12.0
 OT_MULTIPLIER = 1.5
 DT_MULTIPLIER = 2.0
+
+
+def thresholds_for(member=None, company=None):
+    """``(ot_after, dt_after)`` for a person: person -> company -> default.
+
+    Each threshold resolves on its own, so a person with only a custom DT
+    still takes OT from their company or the default. Blank means inherit;
+    zero is not a threshold anyone means, so it inherits too. A company given
+    directly is used when the member has none (a local labor line's header
+    company, say).
+    """
+    co = company if company is not None else getattr(member, "company", None)
+
+    def pick(attr, default):
+        for src in (member, co):
+            v = getattr(src, attr, None) if src is not None else None
+            if v:
+                return float(v)
+        return default
+
+    ot = pick("ot_after_hours", OT_AFTER_HOURS)
+    dt = pick("dt_after_hours", DT_AFTER_HOURS)
+    if dt < ot:
+        dt = ot      # DT can never start before OT does
+    return (ot, dt)
+
+
+def rates_for(member):
+    """``(standard, ot, dt)`` hourly rates, or ``None`` where unknown.
+
+    rate_standard is hourly for the first 10 hours (Jason, 2026-09-05). OT
+    and DT typed on the person win; left blank they are 1.5x and 2x of
+    standard. With no standard rate at all, nothing can be derived.
+    """
+    std = getattr(member, "rate_standard", None)
+    std = float(std) if std else None
+    ot = getattr(member, "rate_ot", None)
+    dt = getattr(member, "rate_dt", None)
+    ot = float(ot) if ot else (round(std * OT_MULTIPLIER, 2) if std else None)
+    dt = float(dt) if dt else (round(std * DT_MULTIPLIER, 2) if std else None)
+    return (std, ot, dt)
 
 
 def split_day(hours, ot_after=OT_AFTER_HOURS, dt_after=DT_AFTER_HOURS):

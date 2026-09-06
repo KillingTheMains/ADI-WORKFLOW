@@ -90,13 +90,13 @@
             <div class="col-md-3">
               <label class="form-label">OT (1.5x) ($/hr)</label>
               <input type="number" name="rate_ot" class="form-control"
-                     step="0.01" placeholder="0.00"
+                     step="0.01" placeholder="{{ '%.2f'|format(auto_ot) if auto_ot else '1.5× standard' }}"
                      value="{{ '%.2f'|format(member.rate_ot) if member.rate_ot else '' }}" aria-label="OT (1.5x) ($/hr)">
             </div>
             <div class="col-md-3">
               <label class="form-label">DT (2x) ($/hr)</label>
               <input type="number" name="rate_dt" class="form-control"
-                     step="0.01" placeholder="0.00"
+                     step="0.01" placeholder="{{ '%.2f'|format(auto_dt) if auto_dt else '2× standard' }}"
                      value="{{ '%.2f'|format(member.rate_dt) if member.rate_dt else '' }}" aria-label="DT (2x) ($/hr)">
             </div>
             <div class="col-md-3">
@@ -110,6 +110,32 @@
               <input type="number" name="per_diem" class="form-control"
                      step="0.01" placeholder="89.00"
                      value="{{ '%.2f'|format(member.per_diem) if member.per_diem else '' }}" aria-label="Per Diem ($/day)">
+            </div>
+          </div>
+          {# Overtime terms (2026-09-05). Blank inherits: the company's terms if
+             it has any, otherwise Larry's defaults — OT after 10, DT after 12.
+             Only a deal that differs belongs here. #}
+          <div class="row g-3 mt-1">
+            <div class="col-md-3">
+              <label class="form-label">OT after (hrs)</label>
+              <input type="number" name="ot_after_hours" class="form-control"
+                     step="0.5" min="0" placeholder="{{ '%g'|format(inherit_ot) }}"
+                     value="{{ '%g'|format(member.ot_after_hours) if member.ot_after_hours else '' }}" aria-label="OT after (hours)">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">DT after (hrs)</label>
+              <input type="number" name="dt_after_hours" class="form-control"
+                     step="0.5" min="0" placeholder="{{ '%g'|format(inherit_dt) }}"
+                     value="{{ '%g'|format(member.dt_after_hours) if member.dt_after_hours else '' }}" aria-label="DT after (hours)">
+            </div>
+            <div class="col-md-6 align-self-end">
+              <div class="form-text" style="font-size:.76rem;">
+                Standard is hourly for the first {{ '%g'|format(default_ot) }} hours.
+                Blank OT/DT rates are {{ '$%.2f'|format(auto_ot) ~ ' and ' ~ '$%.2f'|format(auto_dt) if auto_ot else '1.5× and 2× of standard' }}.
+                Blank thresholds inherit
+                {% if member.company and (member.company.ot_after_hours or member.company.dt_after_hours) %}{{ member.company.name }}'s terms{% else %}the defaults{% endif %}:
+                OT after {{ '%g'|format(inherit_ot) }}, DT after {{ '%g'|format(inherit_dt) }}.
+              </div>
             </div>
           </div>
         </div>

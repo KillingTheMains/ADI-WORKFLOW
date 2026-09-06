@@ -131,6 +131,13 @@ MIGRATIONS = [
     # classifier below never reaches keeps its catering question rather than
     # silently losing it.
     ("crew_breaks", "kind", "VARCHAR(12) DEFAULT 'meal'"),
+    # 2026-09-05 — overtime thresholds, person -> company -> default (OT after
+    # 10, DT after 12). All NULL on arrival: nothing changes until someone
+    # types a different deal. crew_row_bodies is a new table (create_all).
+    ("crew_members", "ot_after_hours", "FLOAT"),
+    ("crew_members", "dt_after_hours", "FLOAT"),
+    ("companies",    "ot_after_hours", "FLOAT"),
+    ("companies",    "dt_after_hours", "FLOAT"),
 ]
 
 
