@@ -82,10 +82,17 @@
         <div class="card-body p-4">
           <div class="row g-3">
             <div class="col-md-3">
-              <label class="form-label">Standard ($/hr)</label>
-              <input type="number" name="rate_standard" class="form-control"
-                     step="0.01" placeholder="0.00"
-                     value="{{ '%.2f'|format(member.rate_standard) if member.rate_standard else '' }}" aria-label="Standard ($/hr)">
+              <label class="form-label">Standard rate</label>
+              <div class="input-group">
+                <input type="number" name="rate_standard" class="form-control"
+                       step="0.01" placeholder="0.00"
+                       value="{{ '%.2f'|format(member.rate_standard) if member.rate_standard else '' }}" aria-label="Standard rate">
+                <select name="rate_unit" class="form-select" style="max-width:9em;"
+                        aria-label="Standard rate is per hour or per 10-hour day">
+                  <option value="hourly" {% if member.rate_unit != 'day' %}selected{% endif %}>$/hr</option>
+                  <option value="day" {% if member.rate_unit == 'day' %}selected{% endif %}>$/10-hr day</option>
+                </select>
+              </div>
             </div>
             <div class="col-md-3">
               <label class="form-label">OT (1.5x) ($/hr)</label>
@@ -128,13 +135,21 @@
                      step="0.5" min="0" placeholder="{{ '%g'|format(inherit_dt) }}"
                      value="{{ '%g'|format(member.dt_after_hours) if member.dt_after_hours else '' }}" aria-label="DT after (hours)">
             </div>
-            <div class="col-md-6 align-self-end">
+            <div class="col-md-3">
+              <label class="form-label">Short turn (hrs off)</label>
+              <input type="number" name="short_turn_hours" class="form-control"
+                     step="0.5" min="0" placeholder="{{ '%g'|format(inherit_short) }}"
+                     value="{{ '%g'|format(member.short_turn_hours) if member.short_turn_hours else '' }}"
+                     aria-label="Short turnaround: hours off before the next shift">
+            </div>
+            <div class="col-md-3 align-self-end">
               <div class="form-text" style="font-size:.76rem;">
                 Standard is hourly for the first {{ '%g'|format(default_ot) }} hours.
                 Blank OT/DT rates are {{ '$%.2f'|format(auto_ot) ~ ' and ' ~ '$%.2f'|format(auto_dt) if auto_ot else '1.5× and 2× of standard' }}.
                 Blank thresholds inherit
                 {% if member.company and (member.company.ot_after_hours or member.company.dt_after_hours) %}{{ member.company.name }}'s terms{% else %}the defaults{% endif %}:
-                OT after {{ '%g'|format(inherit_ot) }}, DT after {{ '%g'|format(inherit_dt) }}.
+                OT after {{ '%g'|format(inherit_ot) }}, DT after {{ '%g'|format(inherit_dt) }},
+                short turn under {{ '%g'|format(inherit_short) }} hours off.
               </div>
             </div>
           </div>

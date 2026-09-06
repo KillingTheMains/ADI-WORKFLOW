@@ -299,10 +299,15 @@ def hours_report(show_id):
     actual is recorded it is what gets split; otherwise the estimate. Hours
     only — no rate is applied on this report (see billing.py).
     """
-    from billing import split_day, split_days, weighted_hours, thresholds_for
+    from billing import (split_day, split_day_flagged, weighted_hours,
+                         thresholds_for, short_turn_for, day_flags,
+                         rates_for, rates_for_local, cost_of)
     from crew_sections import walk
 
     show = Show.query.get_or_404(show_id)
+    # Money is behind a toggle (Jason, 2026-09-06): the report stays an hours
+    # report by default; ?cost=1 prices every line it can.
+    want_cost = request.args.get("cost") == "1"
 
     # Optional filters. Options are collected from the unfiltered data so a
     # filter can always be undone from the page it produced.
@@ -340,6 +345,8 @@ def hours_report(show_id):
                     if key not in local_data:
                         local_data[key] = {
                             "company":  co_name,
+                            "_company": company,
+                            "_position": row.position_ref,
                             "section":  section,
                             "position": position,
                             "dept":     (row.position_ref.department if row.position_ref else "") or "",
@@ -388,6 +395,8 @@ def hours_report(show_id):
                             "type":     row.crew_type or "",
                             "days":     {},
                             "days_billable": {},   # actual where recorded, else estimate
+                            "day_dates": {},
+                            "shifts":   [],        # (date, call time, billable hrs) per row
                             "total":    0.0,
                             "total_actual": 0.0,
                             "actual_recorded": False,
@@ -396,6 +405,8 @@ def hours_report(show_id):
                     entry["days"][day.id] = entry["days"].get(day.id, 0.0) + hrs
                     billable = actual if row.actual_hours is not None else hrs
                     entry["days_billable"][day.id] = entry["days_billable"].get(day.id, 0.0) + billable
+                    entry["day_dates"][day.id] = day.date
+                    entry["shifts"].append((day.date, act.time, billable))
                     entry["total"] += hrs
                     entry["total_actual"] += actual
                     if row.actual_hours is not None:
@@ -453,23 +464,53 @@ def hours_report(show_id):
     # unless the person, or their company, has other terms. Split PER DAY:
     # summing a person's show total and splitting that would invent overtime
     # for eight short days and hide it on one long one.
+    # Short turnaround and 6th/7th day (Jason, 2026-09-06), NAMED CREW ONLY:
+    # a body is per call, so neither rule can follow local labor across
+    # days. A flagged day is all OT (DT still after the person's DT
+    # threshold); an hour is ST, OT or DT, never two of them.
+    short_turn_days = sixth_days = 0
     for entry in sorted_crew:
-        ot_after, dt_after = thresholds_for(entry["member"])
+        member = entry["member"]
+        ot_after, dt_after = thresholds_for(member)
         entry["thresholds"] = (ot_after, dt_after)
-        st, ot, dt = split_days(entry["days_billable"].values(), ot_after, dt_after)
+        entry["short_turn_after"] = short_turn_for(member)
+        flags = day_flags(entry["shifts"], entry["short_turn_after"])
+        entry["day_flags"] = {}
+        st = ot = dt = 0.0
+        for day_id, h in entry["days_billable"].items():
+            f = flags.get(entry["day_dates"].get(day_id), {})
+            all_ot = bool(f.get("short_turn") or f.get("sixth_day"))
+            a, b, c = split_day_flagged(h, ot_after, dt_after, all_ot=all_ot)
+            st += a; ot += b; dt += c
+            if f.get("short_turn"):
+                entry["day_flags"][day_id] = "short"
+                short_turn_days += 1
+            elif f.get("sixth_day"):
+                entry["day_flags"][day_id] = "sixth"
+                sixth_days += 1
         entry["st_hours"], entry["ot_hours"], entry["dt_hours"] = st, ot, dt
         entry["weighted_hours"] = weighted_hours(st, ot, dt)
+        entry["rates"] = rates_for(member)
+        entry["cost"] = cost_of((st, ot, dt), entry["rates"]) if want_cost else None
     for entry in sorted_local:
         entry["weighted_hours"] = weighted_hours(
             entry["st_hours"], entry["ot_hours"], entry["dt_hours"])
+        entry["rates"] = rates_for_local(entry["_company"], entry["_position"])
+        entry["cost"] = (cost_of((entry["st_hours"], entry["ot_hours"], entry["dt_hours"]),
+                                 entry["rates"]) if want_cost else None)
 
     # Company subtotals for the named table (rendered after each group)
     company_totals = {}
     for entry in sorted_crew:
         ct = company_totals.setdefault(entry["company"], {
             "n": 0, "total": 0.0, "total_actual": 0.0,
-            "st": 0.0, "ot": 0.0, "dt": 0.0, "actual_recorded": False})
+            "st": 0.0, "ot": 0.0, "dt": 0.0, "actual_recorded": False,
+            "cost": 0.0, "unpriced": 0})
         ct["n"] += 1
+        if entry.get("cost") is not None:
+            ct["cost"] += entry["cost"]
+        elif want_cost:
+            ct["unpriced"] += 1
         ct["total"] += entry["total"]
         ct["total_actual"] += entry["total_actual"]
         ct["st"] += entry["st_hours"]; ct["ot"] += entry["ot_hours"]; ct["dt"] += entry["dt_hours"]
@@ -492,6 +533,18 @@ def hours_report(show_id):
         f"{e['company']} local labor (OT after {e['thresholds'][0]:g}, DT after {e['thresholds'][1]:g})"
         for e in sorted_local if e["thresholds"] != (OT_AFTER_HOURS, DT_AFTER_HOURS)
     })
+
+    named_cost = sum(e["cost"] for e in sorted_crew if e.get("cost") is not None)
+    named_unpriced = sum(1 for e in sorted_crew if want_cost and e.get("cost") is None)
+    local_cost = sum(e["cost"] for e in sorted_local if e.get("cost") is not None)
+    local_unpriced = sum(1 for e in sorted_local if want_cost and e.get("cost") is None)
+    local_company_cost = {}
+    for e in sorted_local:
+        lc = local_company_cost.setdefault(e["company"], {"cost": 0.0, "unpriced": 0})
+        if e.get("cost") is not None:
+            lc["cost"] += e["cost"]
+        elif want_cost:
+            lc["unpriced"] += 1
 
     grand_total        = sum(e["total"] for e in sorted_crew)
     grand_total_actual = sum(e["total_actual"] for e in sorted_crew)
@@ -525,6 +578,11 @@ def hours_report(show_id):
         dept_options=dept_options, company_options=company_options,
         want_dept=want_dept, want_company=want_company,
         filtered=bool(want_dept or want_company),
+        want_cost=want_cost,
+        named_cost=named_cost, named_unpriced=named_unpriced,
+        local_cost=local_cost, local_unpriced=local_unpriced,
+        local_company_cost=local_company_cost,
+        short_turn_days=short_turn_days, sixth_days=sixth_days,
     )
 
 

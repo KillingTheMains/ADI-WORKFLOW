@@ -38,13 +38,27 @@ def test_no_overtime_means_no_billable_banner(app, client, db):
 
 
 def test_split_is_per_day_not_on_the_total(app, client, db):
-    """Eight 8-hour days is 64 hours with NO overtime. Splitting the total
-    would report a large DT figure."""
+    """Five 8-hour days is 40 hours with NO overtime. Splitting the total
+    would report a large DT figure. (Five, not eight: from the sixth
+    consecutive day the whole day is OT — Jason, 2026-09-06 — which is a
+    different test, below.)"""
     from billing import split_days
-    show, cm = _show_with_hours(db, [8] * 8, code="HRS28")
-    assert split_days([8] * 8) == (64.0, 0.0, 0.0)
+    show, cm = _show_with_hours(db, [8] * 5, code="HRS28")
+    assert split_days([8] * 5) == (40.0, 0.0, 0.0)
     html = client.get("/shows/%d/crew/hours" % show.id).get_data(as_text=True)
     assert "Billable split" not in html
+
+
+def test_the_sixth_and_seventh_consecutive_days_are_all_overtime(app, client, db):
+    """Jason, 2026-09-06: 6th and 7th day all day OT, within one show, any
+    day off resets. Eight straight 8-hour days: five at ST, three at OT."""
+    show, cm = _show_with_hours(db, [8] * 8, code="HRS28B")
+    html = client.get("/shows/%d/crew/hours" % show.id).get_data(as_text=True)
+    assert "Billable split" in html
+    assert "ST <strong>40.0</strong>" in html
+    assert "OT <strong>24.0</strong>" in html
+    assert "3 sixth-or-later days" in html
+    assert html.count(">6+</sup>") == 3
 
 
 def test_a_single_long_day_is_split_correctly(app, client, db):

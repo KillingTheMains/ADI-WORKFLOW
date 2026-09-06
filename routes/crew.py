@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from extensions import db
-from models import CrewMember, Company, Position, find_normalised
+from models import CompanyPositionRate, CrewMember, Company, Position, find_normalised
 
 crew_bp = Blueprint("crew", __name__)
 
@@ -166,16 +166,57 @@ def companies():
     which was fine while the only thing on one was a name. Thresholds gave
     them a second field with nowhere to be edited. This page is that surface,
     and nothing more: contact details still live where they always have."""
-    from billing import OT_AFTER_HOURS, DT_AFTER_HOURS
+    from billing import OT_AFTER_HOURS, DT_AFTER_HOURS, SHORT_TURN_HOURS
     rows = Company.query.order_by(Company.name).all()
+    rated = {}
+    for co_id, n in (db.session.query(CompanyPositionRate.company_id,
+                                      db.func.count(CompanyPositionRate.id))
+                     .filter(CompanyPositionRate.rate_standard.isnot(None))
+                     .group_by(CompanyPositionRate.company_id).all()):
+        rated[co_id] = n
     headcount = {}
     for co_id, n in (db.session.query(CrewMember.company_id,
                                       db.func.count(CrewMember.id))
                      .group_by(CrewMember.company_id).all()):
         headcount[co_id] = n
     return render_template("crew/companies.html", companies=rows,
-                           headcount=headcount,
-                           default_ot=OT_AFTER_HOURS, default_dt=DT_AFTER_HOURS)
+                           headcount=headcount, rated=rated,
+                           default_ot=OT_AFTER_HOURS, default_dt=DT_AFTER_HOURS,
+                           default_short=SHORT_TURN_HOURS)
+
+
+@crew_bp.route("/companies/<int:company_id>/rates")
+def company_rates(company_id):
+    """A company's rate card: one standard hourly rate per local labor
+    position (Jason, 2026-09-06). Every catalogue position is listed so the
+    card can be filled in before a show, not only once a line exists;
+    positions with a rate sort first. Autosaves per cell."""
+    co = Company.query.get_or_404(company_id)
+    positions = (Position.query.filter_by(is_local_labor=True)
+                 .order_by(Position.department, Position.title).all())
+    have = {r.position_id: r for r in co.rate_card}
+    return render_template("crew/company_rates.html", company=co,
+                           positions=positions, have=have)
+
+
+@crew_bp.route("/companies/<int:company_id>/rates/<int:position_id>", methods=["POST"])
+def company_rate_save(company_id, position_id):
+    """Save one cell of the rate card. Blank clears the rate (the row stays,
+    which is harmless and keeps the id stable for the autosave)."""
+    co = Company.query.get_or_404(company_id)
+    pos = Position.query.get_or_404(position_id)
+    rate = _money(request.form, "rate_standard")
+    entry = CompanyPositionRate.query.filter_by(company_id=co.id,
+                                                position_id=pos.id).first()
+    if entry is None:
+        entry = CompanyPositionRate(company_id=co.id, position_id=pos.id)
+        db.session.add(entry)
+    entry.rate_standard = rate if rate and rate > 0 else None
+    db.session.commit()
+    if request.headers.get("X-Autosave"):
+        return ("", 204)
+    flash(f"{co.name}: rate for {pos.title} saved.", "success")
+    return redirect(url_for("crew.company_rates", company_id=co.id))
 
 
 @crew_bp.route("/companies/<int:company_id>/terms", methods=["POST"])
@@ -188,6 +229,8 @@ def company_terms(company_id):
         co.ot_after_hours = _threshold(f, "ot_after_hours")
     if "dt_after_hours" in f:
         co.dt_after_hours = _threshold(f, "dt_after_hours")
+    if "short_turn_hours" in f:
+        co.short_turn_hours = _threshold(f, "short_turn_hours")
     if "code" in f:
         co.code = (f.get("code") or "").strip()[:20] or None
     db.session.commit()
@@ -272,6 +315,13 @@ def _threshold(f, key):
     return v if v and v > 0 else None
 
 
+def _rate_unit(f):
+    """"hourly" unless the form says "day". Never anything else."""
+    from billing import RATE_UNITS, RATE_UNIT_HOURLY
+    v = (f.get("rate_unit") or "").strip().lower()
+    return v if v in RATE_UNITS else RATE_UNIT_HOURLY
+
+
 @crew_bp.route("/add", methods=["GET", "POST"])
 def add():
     companies = Company.query.order_by(Company.name).all()
@@ -287,12 +337,14 @@ def add():
             email         = f.get("email", ""),
             phone         = f.get("phone", ""),
             rate_standard = _money(f, "rate_standard"),
+            rate_unit     = _rate_unit(f),
             rate_ot       = _money(f, "rate_ot"),
             rate_dt       = _money(f, "rate_dt"),
             meal_penalty  = _money(f, "meal_penalty"),
             per_diem      = _money(f, "per_diem"),
             ot_after_hours = _threshold(f, "ot_after_hours"),
             dt_after_hours = _threshold(f, "dt_after_hours"),
+            short_turn_hours = _threshold(f, "short_turn_hours"),
             notes         = f.get("notes", ""),
         )
         db.session.add(member)
@@ -306,9 +358,10 @@ def add():
                   "warning")
         return redirect(url_for("crew.index"))
 
-    from billing import OT_AFTER_HOURS, DT_AFTER_HOURS
+    from billing import OT_AFTER_HOURS, DT_AFTER_HOURS, SHORT_TURN_HOURS
     return render_template("crew/add.html", companies=companies, positions=positions,
-                           default_ot=OT_AFTER_HOURS, default_dt=DT_AFTER_HOURS)
+                           default_ot=OT_AFTER_HOURS, default_dt=DT_AFTER_HOURS,
+                           default_short=SHORT_TURN_HOURS)
 
 
 @crew_bp.route("/<int:member_id>/edit", methods=["GET", "POST"])
@@ -326,12 +379,14 @@ def edit(member_id):
         member.email         = f.get("email", "")
         member.phone         = f.get("phone", "")
         member.rate_standard = _money(f, "rate_standard")
+        member.rate_unit     = _rate_unit(f)
         member.rate_ot       = _money(f, "rate_ot")
         member.rate_dt       = _money(f, "rate_dt")
         member.meal_penalty  = _money(f, "meal_penalty")
         member.per_diem      = _money(f, "per_diem")
         member.ot_after_hours = _threshold(f, "ot_after_hours")
         member.dt_after_hours = _threshold(f, "dt_after_hours")
+        member.short_turn_hours = _threshold(f, "short_turn_hours")
         member.active        = f.get("active") == "1"
         member.notes         = f.get("notes", "")
         db.session.commit()
@@ -344,16 +399,20 @@ def edit(member_id):
                   "warning")
         return redirect(url_for("crew.index"))
 
-    from billing import rates_for, thresholds_for, OT_AFTER_HOURS, DT_AFTER_HOURS
+    from billing import (rates_for, thresholds_for, short_turn_for,
+                         OT_AFTER_HOURS, DT_AFTER_HOURS, SHORT_TURN_HOURS)
     _std, auto_ot, auto_dt = rates_for(member)
     # What this person would inherit if their own thresholds were blank —
     # shown as the placeholder so a blank field says what it means.
     inherit_ot, inherit_dt = thresholds_for(None, member.company)
+    inherit_short = short_turn_for(None, member.company)
     return render_template("crew/edit.html", member=member,
                            companies=companies, positions=positions,
                            auto_ot=auto_ot, auto_dt=auto_dt,
                            inherit_ot=inherit_ot, inherit_dt=inherit_dt,
-                           default_ot=OT_AFTER_HOURS, default_dt=DT_AFTER_HOURS)
+                           inherit_short=inherit_short,
+                           default_ot=OT_AFTER_HOURS, default_dt=DT_AFTER_HOURS,
+                           default_short=SHORT_TURN_HOURS)
 
 
 @crew_bp.route("/<int:member_id>/delete", methods=["POST"])

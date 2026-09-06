@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% import '_icons.html' as ico %}
+{% block title %}{{ company.name }} — Rate Card{% endblock %}
+{% block page_title %}{{ company.name }} rate card{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> /
+  <a href="{{ url_for('crew.index') }}">Crew Database</a> /
+  <a href="{{ url_for('crew.companies') }}">Companies</a> / {{ company.name }}
+{% endblock %}
+
+{% block content %}
+{# 2026-09-06, Jason: local labor money comes from a rate card per position on
+   the company — not from the stand-in crew records the lines hang off. One
+   standard hourly rate per local labor position; OT and DT derive at 1.5×
+   and 2×. Every catalogue position is offered so the card can be filled in
+   before a show exists. Autosaves per cell, like every dense table here. #}
+<p class="text-muted" style="font-size:.85rem;max-width:62em;">
+  The standard <strong>hourly</strong> rate {{ company.name }} charges for
+  each local labor position. OT is 1.5× and DT 2× of it, split on
+  {{ company.name }}'s own terms{% if company.ot_after_hours or company.dt_after_hours %}
+  (OT after {{ '%g'|format(company.ot_after_hours or 10) }}, DT after
+  {{ '%g'|format(company.dt_after_hours or 12) }}){% endif %}. Leave a position
+  blank if {{ company.name }} does not supply it; the Hours Report shows
+  &ldquo;no rate&rdquo; for any line it cannot price.
+</p>
+
+{% if positions %}
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0" style="font-size:.85rem;max-width:56em;">
+      <thead>
+        <tr>
+          <th style="width:30%;">Department</th>
+          <th style="width:45%;">Position</th>
+          <th style="width:25%;">Standard $/hr</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set cur = namespace(dept=none) %}
+        {% for pos in positions %}
+        {% set entry = have.get(pos.id) %}
+        <tr>
+          <td class="text-muted" style="font-size:.78rem;">
+            {% if pos.department != cur.dept %}{% set cur.dept = pos.department %}{{ pos.department or '—' }}{% endif %}
+          </td>
+          <td style="font-weight:600;">{{ pos.title }}</td>
+          <td>
+            <input type="number" name="rate_standard" form="rate-{{ pos.id }}"
+                   step="0.01" min="0" placeholder="—"
+                   value="{{ '%.2f'|format(entry.rate_standard) if entry and entry.rate_standard else '' }}"
+                   class="form-control form-control-sm" style="max-width:9em;"
+                   aria-label="{{ company.name }} standard hourly rate for {{ pos.title }}">
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% for pos in positions %}
+<form id="rate-{{ pos.id }}" method="POST" data-autosave="true"
+      action="{{ url_for('crew.company_rate_save', company_id=company.id, position_id=pos.id) }}"
+      class="d-inline">
+  <button type="submit" class="visually-hidden">Save {{ pos.title }} rate</button>
+</form>
+{% endfor %}
+{% else %}
+<div class="empty-state py-5">
+  <div class="empty-icon">{{ ico.icon('hard-hat', 32) }}</div>
+  <div style="font-size:.95rem;font-weight:600;margin-bottom:6px;">No local labor positions yet</div>
+  <p class="text-muted" style="font-size:.85rem;">
+    Positions come from the <a href="{{ url_for('local_labor.index') }}">Local Labor</a> catalogue.
+  </p>
+</div>
+{% endif %}
+{% endblock %}

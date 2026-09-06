@@ -75,7 +75,15 @@ class Company(db.Model):
     # billing.thresholds_for for the person -> company -> default resolution.
     ot_after_hours = db.Column(db.Float)
     dt_after_hours = db.Column(db.Float)
+    # 2026-09-06 — hours off the clock before the next shift is short
+    # turnaround (whole shift at OT). NULL = default 8. Person overrides.
+    short_turn_hours = db.Column(db.Float)
     crew         = db.relationship("CrewMember", back_populates="company", lazy="dynamic")
+    # 2026-09-06 — the company's rate card: one standard hourly rate per
+    # local labor position. What a local labor line costs, once actuals
+    # are in. See billing.rates_for_local.
+    rate_card    = db.relationship("CompanyPositionRate", back_populates="company",
+                                   cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Company {self.name}>"
@@ -114,6 +122,25 @@ class Position(db.Model):
         return f"<Position {self.title}>"
 
 
+class CompanyPositionRate(db.Model):
+    """One line of a company's rate card: the standard hourly rate that
+    company charges for one local labor position (Jason, 2026-09-06 — local
+    labor money comes from a rate card per position, not from the
+    placeholder crew records the lines hang off). OT/DT derive at 1.5x/2x.
+    """
+    __tablename__ = "company_position_rates"
+    __table_args__ = (db.UniqueConstraint("company_id", "position_id",
+                                          name="ux_company_position_rate"),)
+    id            = db.Column(db.Integer, primary_key=True)
+    company_id    = db.Column(db.Integer, db.ForeignKey("companies.id", ondelete="CASCADE"),
+                              nullable=False)
+    position_id   = db.Column(db.Integer, db.ForeignKey("positions.id"), nullable=False)
+    rate_standard = db.Column(db.Float)
+
+    company  = db.relationship("Company", back_populates="rate_card")
+    position = db.relationship("Position")
+
+
 class CrewMember(db.Model):
     """Global roster of people (named crew)."""
     __tablename__ = "crew_members"
@@ -128,6 +155,9 @@ class CrewMember(db.Model):
     # rate_ot / rate_dt may be left blank: billing.rates_for fills them in at
     # 1.5x and 2x of standard. A value typed here wins over the multiplier.
     rate_standard  = db.Column(db.Float)
+    # 2026-09-06 — "hourly" (default) or "day": how rate_standard was typed.
+    # A day rate is a 10-hour day; billing.rates_for converts.
+    rate_unit      = db.Column(db.String(10), default="hourly")
     rate_ot        = db.Column(db.Float)
     rate_dt        = db.Column(db.Float)
     meal_penalty   = db.Column(db.Float)
@@ -137,6 +167,7 @@ class CrewMember(db.Model):
     # person -> company -> default by billing.thresholds_for.
     ot_after_hours = db.Column(db.Float)
     dt_after_hours = db.Column(db.Float)
+    short_turn_hours = db.Column(db.Float)   # 2026-09-06, NULL = company/default
     active         = db.Column(db.Boolean, default=True)
     notes          = db.Column(db.Text)
     # Phase D wishlist: manual roster ordering — up/down arrows move a

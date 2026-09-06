@@ -11,6 +11,11 @@
 {% block top_actions %}
   <a href="{{ url_for('show_crew.contact_sheet', show_id=show.id) }}"
      class="btn btn-sm btn-outline-secondary" target="_blank">{{ ico.icon('clipboard-list') }} Contact Sheet</a>
+  {# Money is behind a toggle (Jason, 2026-09-06). The address carries it, so
+     a costed report can be printed or sent like a filtered one. #}
+  <a href="{{ url_for('show_crew.hours_report', show_id=show.id, dept=want_dept or None, company=want_company or None, cost=None if want_cost else 1) }}"
+     class="btn btn-sm {% if want_cost %}btn-adi{% else %}btn-outline-secondary{% endif %}"
+     aria-pressed="{{ 'true' if want_cost else 'false' }}">{{ ico.icon('banknote') }} {% if want_cost %}Hide cost{% else %}Show cost{% endif %}</a>
   <button class="btn btn-sm btn-dark" onclick="window.print()">{{ ico.icon('printer') }} Print</button>
 {% endblock %}
 
@@ -79,6 +84,10 @@
   .stat-label { font-size: .7rem; color: var(--adi-muted); text-transform: uppercase;
                 letter-spacing: .08em; margin-top: 4px; }
 
+  .day-flag { font-size:.58rem; font-weight:700; color:var(--adi-warn); margin-left:1px; letter-spacing:.02em; }
+  .day-cell.flagged { background: var(--adi-warn-bg); }
+  .cost-cell { text-align:right !important; font-variant-numeric: tabular-nums; white-space:nowrap; }
+  .no-rate { font-size:.66rem; color:var(--adi-mineral); font-weight:400; }
   /* ── Print ── */
   @media print {
     .no-print { display: none !important; }
@@ -173,9 +182,16 @@
   </span>
   <div style="font-size:.76rem;color:var(--adi-mineral-dk);margin-top:3px;">
     Standard rate is hourly for the first 10 hours; OT after 10, DT after 12,
-    unless a person or their company has other terms. No rates are applied on
-    this report yet. Where an actual is recorded it is what is split;
-    otherwise the estimate.
+    unless a person or their company has other terms. Where an actual is
+    recorded it is what is split; otherwise the estimate.
+    <strong>Short turn</strong> (under 8 hours off before the next day's call)
+    and the <strong>6th and 7th consecutive day</strong> put the whole day at OT
+    for named crew{% if short_turn_days or sixth_days %} —
+    {% if short_turn_days %}{{ short_turn_days }} short-turn day{{ '' if short_turn_days == 1 else 's' }}{% endif %}{% if short_turn_days and sixth_days %}, {% endif %}{% if sixth_days %}{{ sixth_days }} sixth-or-later day{{ '' if sixth_days == 1 else 's' }}{% endif %}
+    on this show, marked in the day cells{% endif %}.
+    {% if want_cost %}Costs are hours × the person's rates (a company's rate card for local
+    labor); &ldquo;no rate&rdquo; means the record has none.{% else %}No dollar figures
+    are shown until you choose <em>Show cost</em>.{% endif %}
     {% if own_terms %}
     <div style="margin-top:2px;">On their own terms: {{ own_terms|join('; ') }}.</div>
     {% endif %}
@@ -195,6 +211,14 @@
     <div class="stat-card">
       <div class="stat-num">{{ "%.0f"|format(totals_ot + totals_dt) }}</div>
       <div class="stat-label">OT + DT Hours</div>
+    </div>
+  </div>
+  {% endif %}
+  {% if want_cost %}
+  <div class="col">
+    <div class="stat-card">
+      <div class="stat-num">${{ "{:,.0f}".format(named_cost + local_cost) }}</div>
+      <div class="stat-label">Labor Cost{% if named_unpriced + local_unpriced %} (excl. {{ named_unpriced + local_unpriced }} no rate){% endif %}</div>
     </div>
   </div>
   {% endif %}
@@ -229,7 +253,7 @@
 </div>
 
 {% set show_ot_col = (totals_ot or totals_dt) and true %}
-{% set ncols = 4 + show_days|length + 1 + (2 if any_actual_recorded else 0) + (1 if show_ot_col else 0) %}
+{% set ncols = 4 + show_days|length + 1 + (2 if any_actual_recorded else 0) + (1 if show_ot_col else 0) + (1 if want_cost else 0) %}
 
 <!-- Hours table -->
 {% if sorted_crew %}
@@ -261,6 +285,9 @@
           {% if show_ot_col %}
           <th style="width:70px;text-align:center;" title="Overtime plus double time hours, on this person's terms">OT+DT</th>
           {% endif %}
+          {% if want_cost %}
+          <th style="width:90px;text-align:right;" title="ST, OT and DT hours at this person's rates">Cost</th>
+          {% endif %}
         </tr>
       </thead>
       <tbody>
@@ -281,8 +308,9 @@
             <td style="font-size:.68rem;color:var(--adi-muted);">{{ entry.type or '—' }}</td>
             {% for day in show_days %}
             {% set hrs = entry.days.get(day.id, 0) %}
-            <td class="day-cell {% if hrs == 0 %}zero{% endif %}">
-              {% if hrs > 0 %}{{ "%.1f"|format(hrs) }}{% else %}·{% endif %}
+            {% set fl = entry.day_flags.get(day.id) %}
+            <td class="day-cell {% if hrs == 0 %}zero{% endif %}{% if fl %} flagged{% endif %}">
+              {% if hrs > 0 %}{{ "%.1f"|format(hrs) }}{% if fl %}<sup class="day-flag" title="{% if fl == 'short' %}Short turnaround — under {{ '%g'|format(entry.short_turn_after) }} hours off before this call; whole day at OT{% else %}Sixth or later consecutive day with a call — whole day at OT{% endif %}">{{ 'ST' if fl == 'short' else '6+' }}</sup>{% endif %}{% else %}·{% endif %}
             </td>
             {% endfor %}
             <td class="total-cell">{{ "%.1f"|format(entry.total) }}</td>
@@ -301,6 +329,11 @@
             {% set ovt = entry.ot_hours + entry.dt_hours %}
             <td class="total-cell" style="color:{% if ovt > 0 %}var(--adi-warn){% else %}var(--adi-border-strong){% endif %};">
               {% if ovt > 0 %}{{ "%.1f"|format(ovt) }}{% else %}—{% endif %}
+            </td>
+            {% endif %}
+            {% if want_cost %}
+            <td class="total-cell cost-cell">
+              {% if entry.cost is not none %}${{ "{:,.2f}".format(entry.cost) }}{% else %}<span class="no-rate" title="No standard rate on this crew record">no rate</span>{% endif %}
             </td>
             {% endif %}
           </tr>
@@ -322,6 +355,9 @@
             {% endif %}
             {% if show_ot_col %}
             <td class="total-cell">{% if ct.ot + ct.dt > 0 %}{{ "%.1f"|format(ct.ot + ct.dt) }}{% else %}—{% endif %}</td>
+            {% endif %}
+            {% if want_cost %}
+            <td class="total-cell cost-cell">${{ "{:,.2f}".format(ct.cost) }}{% if ct.unpriced %}<span class="no-rate" title="{{ ct.unpriced }} without a rate"> +{{ ct.unpriced }} no rate</span>{% endif %}</td>
             {% endif %}
           </tr>
           {% endif %}
@@ -350,6 +386,11 @@
           {% if show_ot_col %}
           <td class="total-cell" style="color:var(--adi-warn-on-dark) !important;">
             {% if named_ot + named_dt > 0 %}{{ "%.1f"|format(named_ot + named_dt) }}{% else %}—{% endif %}
+          </td>
+          {% endif %}
+          {% if want_cost %}
+          <td class="total-cell cost-cell" style="color:var(--adi-gold-lt) !important;">
+            ${{ "{:,.2f}".format(named_cost) }}{% if named_unpriced %} <span style="font-weight:400;opacity:.8;">+{{ named_unpriced }} no rate</span>{% endif %}
           </td>
           {% endif %}
         </tr>
@@ -392,6 +433,9 @@
           {% if show_ot_col %}
           <th style="width:70px;text-align:center;" title="Overtime plus double time hours, per body">OT+DT</th>
           {% endif %}
+          {% if want_cost %}
+          <th style="width:90px;text-align:right;" title="Hours at the company's rate card for this position">Cost</th>
+          {% endif %}
         </tr>
       </thead>
       <tbody>
@@ -400,7 +444,7 @@
           {% if entry.company != cur_local_co.val %}
             {% set cur_local_co.val = entry.company %}
             <tr class="company-divider">
-              <td colspan="{{ 4 + show_days|length + 1 + (2 if local_any_recorded else 0) + (1 if show_ot_col else 0) }}">
+              <td colspan="{{ 4 + show_days|length + 1 + (2 if local_any_recorded else 0) + (1 if show_ot_col else 0) + (1 if want_cost else 0) }}">
                 {{ entry.company or 'No company' }}
               </td>
             </tr>
@@ -439,7 +483,25 @@
               {% if ovt > 0 %}{{ "%.1f"|format(ovt) }}{% else %}—{% endif %}
             </td>
             {% endif %}
+            {% if want_cost %}
+            <td class="total-cell cost-cell">
+              {% if entry.cost is not none %}${{ "{:,.2f}".format(entry.cost) }}{% else %}<span class="no-rate" title="{{ entry.company or 'This company' }} has no rate for {{ entry.position }} on its rate card">no rate</span>{% endif %}
+            </td>
+            {% endif %}
           </tr>
+          {% if loop.last or sorted_local[loop.index0 + 1].company != entry.company %}
+          {% set lc = local_company_cost.get(entry.company) %}
+          <tr class="company-subtotal">
+            <td colspan="4" style="font-size:.7rem;">{{ entry.company or 'No company' }} · local labor</td>
+            <td colspan="{{ show_days|length }}"></td>
+            <td class="total-cell"></td>
+            {% if local_any_recorded %}<td class="total-cell"></td><td class="total-cell"></td>{% endif %}
+            {% if show_ot_col %}<td class="total-cell"></td>{% endif %}
+            {% if want_cost and lc %}
+            <td class="total-cell cost-cell">${{ "{:,.2f}".format(lc.cost) }}{% if lc.unpriced %}<span class="no-rate"> +{{ lc.unpriced }} no rate</span>{% endif %}</td>
+            {% endif %}
+          </tr>
+          {% endif %}
         {% endfor %}
         <tr class="total-row">
           <td colspan="4" style="font-size:.72rem;">LOCAL LABOR TOTALS</td>
@@ -457,10 +519,21 @@
             {% if local_ot + local_dt > 0 %}{{ "%.1f"|format(local_ot + local_dt) }}{% else %}—{% endif %}
           </td>
           {% endif %}
+          {% if want_cost %}
+          <td class="total-cell cost-cell" style="color:var(--adi-gold-lt) !important;">
+            ${{ "{:,.2f}".format(local_cost) }}{% if local_unpriced %} <span style="font-weight:400;opacity:.8;">+{{ local_unpriced }} no rate</span>{% endif %}
+          </td>
+          {% endif %}
         </tr>
       </tbody>
     </table>
   </div>
+  {% if want_cost %}
+  <div class="card-footer" style="font-size:.78rem;">
+    <strong>Show labor cost: ${{ "{:,.2f}".format(named_cost + local_cost) }}</strong>
+    {% if named_unpriced or local_unpriced %}<span class="text-muted"> — excludes {{ named_unpriced + local_unpriced }} line{{ '' if named_unpriced + local_unpriced == 1 else 's' }} with no rate</span>{% endif %}
+  </div>
+  {% endif %}
   {% if local_any_recorded %}
   <div class="card-footer text-muted" style="font-size:.72rem;">
     * some bodies on this line have no recorded actual — the estimate stands in for them in the split.

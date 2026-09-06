@@ -75,6 +75,14 @@ MIGRATIONS = [
     # SQLite reuses row ids. DEFAULT 1, so every existing client stays
     # visible; this migration changes no behaviour on its own.
     ("clients",               "is_active",          "BOOLEAN DEFAULT 1"),
+    # 2026-09-06 — short turnaround threshold (person -> company -> default
+    # 8) and how a person's standard rate was typed (hourly / 10-hour day).
+    # Three ALTERs, no data migration: every existing rate is hourly (the
+    # 13 rated records were checked by hand on the production snapshot),
+    # which is what the column default says.
+    ("crew_members",          "short_turn_hours",   "FLOAT"),
+    ("companies",             "short_turn_hours",   "FLOAT"),
+    ("crew_members",          "rate_unit",          "VARCHAR(10) DEFAULT 'hourly'"),
     ("crew_rows",             "task",               "VARCHAR(120)"),
     # 2026-08-13 — Stage 2 of the OSS unification. An activity can now say
     # which department it belongs to, which is the thing it could never say
