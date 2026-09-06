@@ -108,15 +108,21 @@
   @media print {
     @page { margin: 12mm 12mm 14mm; }
     .print-only { display: block; }
-    .day-side, .day-actions, .act-drag-handle, .act-action-btn, .act-actions,
+    .day-side, .day-actions, .act-drag-handle, .crew-drag-handle,
+    .act-action-btn, .act-actions,
     .day-tools, .btn, button, .add-crew-row, .sect-actions, details,
     .crew-table .btn-link.text-danger, .top-bar, #sidebar, .no-print,
     .flash-region, [role="status"] { display: none !important; }
     .day-main { flex: 0 0 100%; max-width: 100%; }
     .row > .day-main { width: 100%; }
-    .card { break-inside: avoid; page-break-inside: avoid; border: 1px solid #bbb; box-shadow: none; }
-    .act-card { margin-bottom: 4pt; }
-    .crew-table tr { break-inside: avoid; page-break-inside: avoid; }
+    /* A plain activity stays whole; a crew call can be taller than a page,
+       so it breaks between ROWS (the first cut pushed a 60-row call to
+       page two and left page one three-quarters blank). */
+    .card { border: 1px solid #bbb; box-shadow: none; }
+    .act-card { margin-bottom: 4pt; break-inside: auto; }
+    .act-card:not(:has(.crew-table)) { break-inside: avoid; page-break-inside: avoid; }
+    .crew-table tr, .act-head { break-inside: avoid; page-break-inside: avoid; }
+    .crew-table thead { display: table-header-group; }
     /* Inputs read as text, not boxes. The values are what matter. */
     .crew-table input, .crew-table select, .crew-table textarea {
       border: 0 !important; background: transparent !important;
@@ -1880,9 +1886,14 @@
         <span>{{ ico.icon('users') }} Day Call Sheet</span>
         <div class="d-flex gap-2 align-items-center">
           <span class="text-muted" style="font-size:.72rem;font-weight:400;" id="crew-count-label">
-            {% set crew_count = namespace(n=0) %}
-            {% for act in day.activities %}{% for row in act.ordered_crew_rows %}{% if not row.is_group_header %}{% set crew_count.n = crew_count.n + (row.qty or 1) %}{% endif %}{% endfor %}{% endfor %}
-            {{ crew_count.n }} {{ 'person' if crew_count.n == 1 else 'people' }} called
+            {# A HEADCOUNT, through models.count_people — the one definition.
+               This summed qty over every row, so a person on three calls was
+               three people: "77 people called" for a 55-body day (found
+               2026-09-06, the same defect the call sheet's Total Crew had). #}
+            {% set day_rows = [] %}
+            {% for act in day.activities %}{% for row in act.ordered_crew_rows %}{% if not row.is_group_header %}{% set _ = day_rows.append(row) %}{% endif %}{% endfor %}{% endfor %}
+            {% set crew_count = count_people(day_rows) %}
+            {{ crew_count }} {{ 'person' if crew_count == 1 else 'people' }} called
           </span>
           <button type="button" class="btn btn-sm btn-outline-secondary"
                   style="font-size:.7rem;padding:2px 8px;" id="cs-group-btn"

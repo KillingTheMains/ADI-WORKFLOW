@@ -221,6 +221,10 @@ def create_app():
     # a crew call is. One definition, in breaks.py.
     from breaks import is_crew_start as _is_crew_start
     app.jinja_env.globals["is_crew_start"] = _is_crew_start
+    # And the one definition of "how many humans is this" — the day page's
+    # "people called" label summed qty per row until 2026-09-06.
+    from models import count_people as _count_people
+    app.jinja_env.globals["count_people"] = _count_people
 
     # ── Security response headers ────────────────────────────────────────────
     # Fable 5 review: the live site returned no X-Frame-Options,
