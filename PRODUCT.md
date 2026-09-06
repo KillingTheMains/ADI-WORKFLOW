@@ -84,9 +84,9 @@ and anchors; drag-to-reorder crew rows and activities; copy a crew call to
 other days; crew database with spreadsheet import (column mapping, preview,
 open-slot placeholders); crew travel and hotel dates with a bulk editor; hours
 report; OSS master and department tabs with section PDF export and XLSX
-export; call sheets (single and multi-day packet); day templates (currently
-flagged — they write breaks the old way); an in-app request/bug board; audit
-trail with undo.
+export; call sheets (single and multi-day packet); day templates (clean since
+2026-09-06 — breaks live on the crew call); vendor RFQ workbooks per vendor;
+an in-app request/bug board; audit trail with undo.
 
 **Engineering constraints — how the app is built today. Keep unless Jason
 says otherwise.** Jason approved recording these as codebase facts rather
@@ -129,19 +129,50 @@ than as his decisions. **[repo, recording approved by Jason]**
   ("Qty 6 · Lighting Hand · 10 hrs" stays on the call; six actuals hang
   beneath it). A body's identity is per call, not across days.
 - **Overtime terms resolve person → company → default.** A blank OT/DT rate
-  on a person is 1.5× / 2× of standard. Money is still not shown anywhere;
-  the rate column needs cleaning first (intake collected "10-Hour Day Rate"
-  and "ST Hourly" as separate fields).
+  on a person is 1.5× / 2× of standard.
+
+**Decided 2026-09-06 [Jason]:**
+
+- **Short turnaround:** fewer than **8 hours off the clock** between one
+  shift's out time and the next day's call puts the **whole next shift at
+  OT**. The threshold resolves person → company → default 8. Across days
+  only — two calls in one day are one working day. Out time is call time +
+  hours (the recorded actual where there is one). **Named crew only.**
+- **6th/7th day:** from the **sixth consecutive calendar day with a call,
+  within one show, the whole day is at OT**; any day off resets. **Named
+  crew only** — a local labor body is per call, so neither rule can follow
+  it across days. On either kind of day DT still starts at the DT threshold.
+  No stacking: an hour is ST, OT or DT.
+- **A named person wins.** A row that names a real crew member is that
+  person even when the position title is in the local labor catalogue; only
+  a stand-in record ("First Last", "TBD") leaves a row a count.
+- **Crew with no company sit under an "Unassigned" header** on the call.
+- **Rates:** `rate_standard` may be typed per hour or per 10-hour day; the
+  record says which (`rate_unit`) and billing works hourly. **Local labor
+  money comes from a rate card on the company** — one standard hourly rate
+  per catalogue position; OT/DT at 1.5×/2×. **Money shows on the Hours
+  Report behind a "Show cost" toggle**, hours-only by default; a line the
+  app cannot price says "no rate" rather than guessing.
+- **Vendor RFQs** (not RFPs): **one workbook per vendor per show**, in the
+  columns of Larry's `ADI Vendor RFQ — Discipline + Labor Master Template`
+  (tab `03 Labor Schedule`), the GHC26 Local Labor RFQ PDF as the shape;
+  departments as the catalogue names them; a line whose department has no
+  vendor goes to an "Unassigned" workbook. Which vendor supplies a
+  department is set once per show on the show page and read everywhere.
+- **Exports to Google Sheets** go to **Larry's Drive**, via OAuth (Larry
+  connects once), into `01 - RFQs / <show>`, a **new Sheet each time**,
+  shared **anyone-with-the-link can edit**. Built and dormant: it switches
+  on when Larry/ADI create the Google Cloud project and the two OAuth
+  values are set on the host.
+- The day page is printed and, more often, Chrome-printed to PDF and
+  emailed — it carries print rules of its own.
+- Day templates no longer write breaks; breaks live on the crew call.
 
 **Undecided product facts — do not build on assumptions.** **[undecided,
 blocked on Larry]**
 
-- Short-turnaround threshold, and whether it varies by labor provider.
 - Whether one department can have two vendors on a show, and whether a vendor
   changes mid-show.
-- RFQ vs RFP, and whether the crew export fills Larry's template or generates
-  a new document.
-- Whose Drive receives exports and who can see them by default.
 
 ## Brand Commitments
 

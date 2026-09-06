@@ -74,6 +74,21 @@ def _fmt_time(t):
     return t.strftime("%-I:%M %p")
 
 
+def _event_dates(show, dates):
+    """The show's own range when it has one; else the span of the dated
+    calls. MCDC26's show record carries no code and no range, only days."""
+    try:
+        text = show.date_range()
+    except Exception:
+        text = None
+    if text:
+        return text
+    if dates:
+        a, b = dates[0], dates[-1]
+        return f"{a.strftime('%b %-d')} – {b.strftime('%b %-d, %Y')}" if a != b else a.strftime("%b %-d, %Y")
+    return ""
+
+
 def lines_by_vendor(show):
     """``OrderedDict(vendor_key -> {"vendor": Company|None, "lines": [...]})``.
 
@@ -203,7 +218,7 @@ def _setup_sheet(wb, show, bucket, agency, issue_date):
         ("Proposal Due", ""),
         ("Event / Program", show.name),
         ("City / Venue", venue),
-        ("Event Dates", show.date_range() if callable(getattr(show, "date_range", None)) else ""),
+        ("Event Dates", _event_dates(show, dates)),
         ("ADI Contact", getattr(agency, "contact_name", None) or "Larry Kargol"),
         ("Contact Email", getattr(agency, "contact_email", None) or "hello@adiexpgroup.com"),
     ]:
