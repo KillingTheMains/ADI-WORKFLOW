@@ -112,14 +112,50 @@ def test_an_existing_header_is_reused_not_duplicated(client, db):
     assert len(_headers(act)) == 1
 
 
-def test_a_row_with_no_company_makes_no_header(client, db):
-    """Unfilled slots and local labor lines have no company, and inventing an
-    empty section for them would be noise."""
+def test_a_local_labor_line_makes_no_header(client, db):
+    """Local labor lines name nobody, and inventing a section for a count
+    would be noise — they render in their own block anyway."""
     show, day, act, (co,) = _fixture(db)
     client.post(f"/shows/{show.id}/schedule/{day.id}/activities/{act.id}/crew/add",
                 data={"position": "Lighting Hand", "qty": "6",
                       "crew_type": "Local Crew"}, follow_redirects=True)
     assert _headers(act) == []
+
+
+def test_a_named_person_with_no_company_goes_under_unassigned(client, db):
+    """Jason, 2026-09-06, closing the question note 3 left open: yes, an
+    "Unassigned" header. Every row sits under a header, and this one is
+    visibly a gap to fill rather than a person floating outside every
+    section. Two such people share the one header."""
+    show, day, act, (co,) = _fixture(db)
+    for name in ("Ann", "Bob"):
+        cm = CrewMember(first_name=name, last_name="Nobody")
+        db.session.add(cm); db.session.commit()
+        client.post(f"/shows/{show.id}/schedule/{day.id}/activities/{act.id}/crew/add",
+                    data={"crew_member_id": str(cm.id)}, follow_redirects=True)
+    headers = _headers(act)
+    assert [h.group_label for h in headers] == ["Unassigned"]
+    assert headers[0].company_id is None
+    people = [r for r in act.ordered_crew_rows if not r.is_group_header]
+    assert len(people) == 2
+    # and they sit UNDER it, not above it
+    order = [r.group_label if r.is_group_header else r.crew_member.first_name
+             for r in act.ordered_crew_rows]
+    assert order == ["Unassigned", "Ann", "Bob"]
+
+
+def test_a_company_person_never_lands_under_unassigned(client, db):
+    show, day, act, (co,) = _fixture(db)
+    nobody = CrewMember(first_name="Ann", last_name="Nobody")
+    db.session.add(nobody); db.session.commit()
+    client.post(f"/shows/{show.id}/schedule/{day.id}/activities/{act.id}/crew/add",
+                data={"crew_member_id": str(nobody.id)}, follow_redirects=True)
+    cm = _member(db, co, "Bob")
+    client.post(f"/shows/{show.id}/schedule/{day.id}/activities/{act.id}/crew/add",
+                data={"crew_member_id": str(cm.id)}, follow_redirects=True)
+    order = [r.group_label if r.is_group_header else r.crew_member.first_name
+             for r in act.ordered_crew_rows]
+    assert order == ["Unassigned", "Ann", "Encore", "Bob"]
 
 
 def test_the_bulk_path_creates_headers_too(client, db):

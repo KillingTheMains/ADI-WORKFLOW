@@ -21,6 +21,13 @@ def _norm(s):
     return " ".join((s or "").split()).strip().lower()
 
 
+# The section a named person with NO company sits under (Jason, 2026-09-06,
+# closing the question note 3 left open). Every row sits under a header; this
+# one is visibly a gap to fill rather than a person floating outside every
+# section. Matched by label, never bound to a company.
+UNASSIGNED_LABEL = "Unassigned"
+
+
 def walk(rows):
     """Yield ``(row, level1_header, level2_header)`` for every crew row.
 
@@ -50,7 +57,9 @@ def _matches_company(header, crew_member):
     if header.company_id and crew_member.company_id:
         return header.company_id == crew_member.company_id
     if crew_member.company is None:
-        return False
+        # No company: the "Unassigned" section is theirs, and only that one.
+        return (not header.company_id
+                and _norm(header.group_label) == _norm(UNASSIGNED_LABEL))
     label = _norm(header.group_label)
     if not label:
         return False

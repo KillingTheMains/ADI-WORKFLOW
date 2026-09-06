@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from extensions import db
 from crew_ordering import (apply_partial_order, crew_order_by, crew_sort_key,
                            roster_index)
-from crew_sections import company_header_for, insert_index_for, renumber
+from crew_sections import UNASSIGNED_LABEL, company_header_for, insert_index_for, renumber
 from models import Show, ScheduleDay, ScheduleActivity, CrewRow, Position, CrewMember, \
                    PHASES, CREW_TYPES, DayTemplate, PHASE_TYPES, ShowCrewAssignment, Company, \
                    SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break, DayPhase, \
@@ -1070,15 +1070,17 @@ def _ensure_company_header(activity, crew_member):
     """Note 3 — every company with people on a call gets a header, created
     automatically when the first of its people is added.
 
-    Returns the header row, or None when the person has no company (an
-    unfilled slot, or a local labor line). Appended at the end: a NEW company
-    section starts after the sections already there, and existing rows are
-    never moved to make room for it.
+    Returns the header row, or None when there is no person at all (a local
+    labor line). A named person with NO company goes under an "Unassigned"
+    header (Jason, 2026-09-06) — every row sits under a header, and that one
+    is visibly a gap to fill. Appended at the end: a NEW section starts after
+    the sections already there, and existing rows are never moved to make
+    room for it.
 
     The label is the company's own name. Headers render uppercase through CSS,
     so it is stored as written rather than shouted into the database.
     """
-    if crew_member is None or not crew_member.company_id:
+    if crew_member is None:
         return None
     # Queried rather than read off `activity.crew_rows`: that relationship is
     # cached and does NOT see rows flushed since it was loaded, which is how
@@ -1090,12 +1092,16 @@ def _ensure_company_header(activity, crew_member):
     if existing is not None:
         return existing
     last = max([r.sort_order or 0 for r in rows] or [0])
+    if crew_member.company_id:
+        label = (crew_member.company.name or "").strip()
+    else:
+        label = UNASSIGNED_LABEL
     hdr = CrewRow(
         activity_id=activity.id,
         is_group_header=True,
         header_level=1,
-        company_id=crew_member.company_id,
-        group_label=(crew_member.company.name or "").strip(),
+        company_id=crew_member.company_id or None,
+        group_label=label,
         qty=0,
         sort_order=last + 10,
     )

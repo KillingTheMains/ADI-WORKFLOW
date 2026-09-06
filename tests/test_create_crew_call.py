@@ -53,7 +53,9 @@ def test_creates_the_call_with_its_crew_and_its_breaks(app, client, db):
     call = ScheduleActivity.query.filter_by(
         day_id=day.id, description="CREW START").one()
     assert call.time == "08:00"
-    assert len(call.crew_rows) == 2
+    # two people, plus the "Unassigned" header they sit under (they have no
+    # company — Jason, 2026-09-06)
+    assert len([r for r in call.crew_rows if not r.is_group_header]) == 2
 
     breaks = CrewBreak.query.filter_by(crew_call_id=call.id).all()
     # Exactly break_options_for's standard set — nothing invented here.
@@ -169,7 +171,7 @@ def test_crew_are_not_duplicated_when_already_on_a_call(app, client, db):
     added, skipped = _assign_crew_to_activity(call, [people[0].id])
     db.session.commit()
     assert (added, skipped) == (0, 1)
-    assert len(call.crew_rows) == 1
+    assert len([r for r in call.crew_rows if not r.is_group_header]) == 1
 
 
 def test_the_day_page_offers_the_wizard_not_the_old_pop_up(app, client, db):
