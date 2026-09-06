@@ -41,10 +41,14 @@ def _show(db, depts=("Dock", "Security", "Hazer")):
     return show
 
 
-def _text(resp):
+def _pages(resp):
     pypdf = pytest.importorskip("pypdf")
     reader = pypdf.PdfReader(io.BytesIO(resp.data))
-    return "\n".join(p.extract_text() or "" for p in reader.pages)
+    return [p.extract_text() or "" for p in reader.pages]
+
+
+def _text(resp):
+    return "\n".join(_pages(resp))
 
 
 def _export(client, show, depts):
@@ -94,6 +98,18 @@ def test_a_section_pdf_says_it_is_a_section_pdf(client, db):
     assert "Master Schedule" not in text
     assert "Sections" in text
     assert "Dock" in text
+
+
+def test_the_eyebrow_is_on_every_page_not_just_the_cover(client, db):
+    """An assertion over concatenated pages is not an assertion about any
+    page (09-05 finding). A cover that says "Section Schedule" above thirty
+    pages that do not would pass the test above. Every page, separately."""
+    show = _show(db)
+    pages = _pages(_export(client, show, ["Dock"]))
+    assert len(pages) >= 2, "need a cover and at least one content page"
+    for i, page in enumerate(pages):
+        assert "Section Schedule" in page, f"page {i + 1} lacks the eyebrow"
+        assert "Master Schedule" not in page, f"page {i + 1} says Master"
 
 
 def test_the_master_pdf_is_unchanged(client, db):

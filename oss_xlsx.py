@@ -94,13 +94,22 @@ def _fit(ws, widths):
         ws.column_dimensions[get_column_letter(i)].width = w
 
 
-def _print_setup(ws, landscape=False, repeat="1:1"):
+def _print_setup(ws, landscape=False, repeat="1:1", legend=False):
     ws.page_setup.orientation = "landscape" if landscape else "portrait"
     ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 0
     ws.print_title_rows = repeat
     ws.print_options.horizontalCentered = True
+    if legend:
+        # The K column's key, on every printed page — the PDF has carried it
+        # since the row-kind system landed; the workbook did not (2026-09-06).
+        # Printed sheets get handed out a page at a time, so a key on the
+        # cover would be lost with the cover.
+        ws.oddFooter.left.text = brand.KIND_LEGEND
+        ws.oddFooter.left.size = 7
+        ws.oddFooter.right.text = "Page &P of &N"
+        ws.oddFooter.right.size = 7
 
 
 def _cover(wb, show, agency, master_items, logo_file):
@@ -273,12 +282,17 @@ def _master(wb, show, agency, master_items):
                 row += 1
 
     last = row - 1
+    # The legend on the sheet itself too, for the screen and for anyone who
+    # reads the workbook without printing it.
+    legend_cell = ws.cell(row=row + 1, column=1, value=brand.KIND_LEGEND)
+    legend_cell.font = Font(name=FONT, size=8, italic=True, color="59636E")
+    ws.merge_cells(start_row=row + 1, start_column=1, end_row=row + 1, end_column=6)
     # Deliberately NO autofilter here: the day banners are merged across the
     # row and Excel handles a filter over merged cells badly. The flat
     # department sheets carry the filtering instead.
     for r in day_break_rows:
         ws.row_breaks.append(RowBreak(id=r, man=True))
-    _print_setup(ws, repeat="1:2")
+    _print_setup(ws, repeat="1:2", legend=True)
     return ws, last
 
 
@@ -348,7 +362,7 @@ def _department_sheets(wb, show, agency, master_items):
 
         if row > 3:
             ws.auto_filter.ref = f"A2:H{row - 1}"
-        _print_setup(ws, landscape=True, repeat="1:2")
+        _print_setup(ws, landscape=True, repeat="1:2", legend=True)
         made.append((ws.title, dept, len(items)))
     return made
 
