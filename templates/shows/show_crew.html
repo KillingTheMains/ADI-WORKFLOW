@@ -23,6 +23,8 @@
      class="btn btn-sm btn-outline-secondary" target="_blank">{{ ico.icon('clipboard-list') }} Contact Sheet</a>
   <a href="{{ url_for('show_crew.hours_report', show_id=show.id) }}"
      class="btn btn-sm btn-outline-secondary">{{ ico.icon('clock') }} Hours Report</a>
+  <a href="{{ url_for('show_crew.local_labor_hours', show_id=show.id) }}"
+     class="btn btn-sm btn-outline-secondary">{{ ico.icon('hard-hat') }} Local Labor Hours</a>
 {% endblock %}
 
 {% block content %}

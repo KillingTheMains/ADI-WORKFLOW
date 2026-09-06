@@ -39,11 +39,17 @@
   .hours-table td.day-cell {
     text-align: center; color: var(--adi-blue); font-weight: 600;
   }
-  .hours-table td.day-cell.zero { color: #ddd; font-weight: 400; }
+  .hours-table td.day-cell.zero { color: var(--adi-border-strong); font-weight: 400; }
   .hours-table td.total-cell {
     text-align: center; font-weight: 700; background: var(--adi-surface);
   }
-  .hours-table tr:hover td { background: #FFFBF0; }
+  .hours-table tr:hover td { background: var(--adi-band); }
+  .company-subtotal td {
+    background: var(--adi-band) !important;
+    font-size: .72rem; color: var(--adi-mineral-dk);
+    border-bottom: 2px solid var(--adi-border);
+  }
+  .company-subtotal td.total-cell { color: var(--adi-dark); }
   .company-divider td {
     background: var(--adi-surface) !important;
     font-size: .68rem; font-weight: 700;
@@ -56,7 +62,7 @@
     color: #fff !important; font-weight: 700;
     font-size: .78rem;
   }
-  .total-row td.day-cell { color: var(--adi-gold) !important; }
+  .total-row td.day-cell { color: var(--adi-gold-lt) !important; }
 
   /* ── Phase pills in column headers ── */
   .phase-dot {
@@ -102,8 +108,11 @@
         {% if show.code %}<div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;
             text-transform:uppercase;color:var(--adi-blue-lt);">{{ show.code }}</div>{% endif %}
         <div style="font-size:1.05rem;font-weight:700;color:#fff;">{{ show.name }}</div>
-        <div style="font-size:.8rem;color:rgba(255,255,255,.5);">
-          Hours Report · {{ sorted_crew|length }} named crew · {{ show_days|length }} {{ 'day' if show_days|length == 1 else 'days' }}
+        <div style="font-size:.8rem;color:rgba(255,255,255,.72);">
+          Hours Report · {{ sorted_crew|length }} named crew
+          {%- if local_bodies %} · {{ local_bodies }} local labor {{ 'body' if local_bodies == 1 else 'bodies' }}{% endif %}
+          · {{ show_days|length }} {{ 'day' if show_days|length == 1 else 'days' }}
+          {%- if filtered %} · <span style="color:var(--adi-blue-lt);">filtered</span>{% endif %}
         </div>
       </div>
       <div class="col-auto">
@@ -115,8 +124,34 @@
   </div>
 </div>
 
+{# Filters (2026-09-05). GET, so a filtered report has a URL that can be
+   printed or sent. Options come from the whole show, so any filter can be
+   undone from the page it produced. #}
+{% if dept_options or company_options %}
+<form method="GET" class="no-print d-flex align-items-end gap-2 mb-3" style="font-size:.82rem;">
+  <div>
+    <label for="hr-dept" class="form-label mb-1" style="font:700 11px/1 'Barlow',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--adi-mineral-dk);">Department</label>
+    <select id="hr-dept" name="dept" class="form-select form-select-sm" style="width:auto;">
+      <option value="">All departments</option>
+      {% for d in dept_options %}<option value="{{ d }}" {% if d == want_dept %}selected{% endif %}>{{ d }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label for="hr-company" class="form-label mb-1" style="font:700 11px/1 'Barlow',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--adi-mineral-dk);">Company</label>
+    <select id="hr-company" name="company" class="form-select form-select-sm" style="width:auto;">
+      <option value="">All companies</option>
+      {% for c in company_options %}<option value="{{ c }}" {% if c == want_company %}selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="btn btn-sm btn-adi">Apply</button>
+  {% if filtered %}
+  <a href="{{ url_for('show_crew.hours_report', show_id=show.id) }}" class="btn btn-sm btn-outline-secondary">Clear</a>
+  {% endif %}
+</form>
+{% endif %}
+
 <!-- Summary stats -->
-{% if sorted_crew %}
+{% if sorted_crew or sorted_local %}
 {% set total_crew = sorted_crew|length %}
 {% set days_with_crew = namespace(n=0) %}
 {% for day in show_days %}{% if day_totals.get(day.id, 0) > 0 %}{% set days_with_crew.n = days_with_crew.n + 1 %}{% endif %}{% endfor %}
@@ -127,16 +162,23 @@
 <div class="alert mb-3" role="note"
      style="background:#FCFAF4;border:1px solid #E8DCA8;font-size:.82rem;">
   <strong>Billable split</strong> — a 10-hour day; hours 11–12 at OT (1.5×);
-  anything past 12 hours at DT (2×); each day counted on its own.
+  anything past 12 hours at DT (2×); each day, and each body, counted on its own.
   <span style="margin-left:6px;">
     ST <strong>{{ "%.1f"|format(totals_st) }}</strong> ·
     OT <strong>{{ "%.1f"|format(totals_ot) }}</strong> ·
     DT <strong>{{ "%.1f"|format(totals_dt) }}</strong>
+    {% if sorted_local and sorted_crew %}
+    <span style="color:var(--adi-mineral);">(named OT+DT {{ "%.1f"|format(named_ot + named_dt) }} · local labor OT+DT {{ "%.1f"|format(local_ot + local_dt) }})</span>
+    {% endif %}
   </span>
-  <div style="font-size:.74rem;color:#6b7280;margin-top:3px;">
-    Thresholds confirmed 2026-09-05: standard rate is hourly for the first
-    10 hours, OT after 10, DT after 12. No rates are applied on this report
-    yet. Where actual hours are blank, the estimate is used.
+  <div style="font-size:.76rem;color:var(--adi-mineral-dk);margin-top:3px;">
+    Standard rate is hourly for the first 10 hours; OT after 10, DT after 12,
+    unless a person or their company has other terms. No rates are applied on
+    this report yet. Where an actual is recorded it is what is split;
+    otherwise the estimate.
+    {% if own_terms %}
+    <div style="margin-top:2px;">On their own terms: {{ own_terms|join('; ') }}.</div>
+    {% endif %}
   </div>
 </div>
 {% endif %}
@@ -186,10 +228,15 @@
   {% endif %}
 </div>
 
+{% set show_ot_col = (totals_ot or totals_dt) and true %}
+{% set ncols = 4 + show_days|length + 1 + (2 if any_actual_recorded else 0) + (1 if show_ot_col else 0) %}
+
 <!-- Hours table -->
+{% if sorted_crew %}
 <div class="card" style="overflow-x:auto;">
   <div class="card-body p-0">
     <table class="table mb-0 hours-table" style="min-width:600px;">
+      <caption class="visually-hidden">Named crew hours by day</caption>
       <thead>
         <tr>
           <th style="width:160px;">Name</th>
@@ -211,6 +258,9 @@
           <th style="width:70px;text-align:center;" title="Actual hours worked">Actual</th>
           <th style="width:70px;text-align:center;" title="Actual − Estimated">Δ</th>
           {% endif %}
+          {% if show_ot_col %}
+          <th style="width:70px;text-align:center;" title="Overtime plus double time hours, on this person's terms">OT+DT</th>
+          {% endif %}
         </tr>
       </thead>
       <tbody>
@@ -219,7 +269,7 @@
           {% if entry.company != current_company.val %}
             {% set current_company.val = entry.company %}
             <tr class="company-divider">
-              <td colspan="{{ 4 + show_days|length + 1 + (2 if any_actual_recorded else 0) }}">
+              <td colspan="{{ ncols }}">
                 {{ entry.company or 'No Company' }}
               </td>
             </tr>
@@ -247,7 +297,34 @@
               {% if entry.total_actual %}{% if delta > 0 %}+{% endif %}{{ "%.1f"|format(delta) }}{% else %}—{% endif %}
             </td>
             {% endif %}
+            {% if show_ot_col %}
+            {% set ovt = entry.ot_hours + entry.dt_hours %}
+            <td class="total-cell" style="color:{% if ovt > 0 %}var(--adi-warn){% else %}var(--adi-border-strong){% endif %};">
+              {% if ovt > 0 %}{{ "%.1f"|format(ovt) }}{% else %}—{% endif %}
+            </td>
+            {% endif %}
           </tr>
+          {# Company subtotal, after the last person in the group. This is the
+             number a labor invoice is checked against. #}
+          {% if loop.last or sorted_crew[loop.index0 + 1].company != entry.company %}
+          {% set ct = company_totals[entry.company] %}
+          <tr class="company-subtotal">
+            <td colspan="4" style="font-size:.7rem;">
+              {{ entry.company or 'No Company' }} · {{ ct.n }} {{ 'person' if ct.n == 1 else 'people' }}
+            </td>
+            <td colspan="{{ show_days|length }}"></td>
+            <td class="total-cell">{{ "%.1f"|format(ct.total) }}</td>
+            {% if any_actual_recorded %}
+            <td class="total-cell">{% if ct.actual_recorded %}{{ "%.1f"|format(ct.total_actual) }}{% else %}—{% endif %}</td>
+            <td class="total-cell">
+              {% if ct.actual_recorded %}{% set cd = ct.total_actual - ct.total %}{% if cd > 0 %}+{% endif %}{{ "%.1f"|format(cd) }}{% else %}—{% endif %}
+            </td>
+            {% endif %}
+            {% if show_ot_col %}
+            <td class="total-cell">{% if ct.ot + ct.dt > 0 %}{{ "%.1f"|format(ct.ot + ct.dt) }}{% else %}—{% endif %}</td>
+            {% endif %}
+          </tr>
+          {% endif %}
         {% endfor %}
 
         <!-- Day totals row -->
@@ -257,17 +334,22 @@
           {% set dt = day_totals.get(day.id, 0) %}
           <td class="day-cell">{% if dt > 0 %}{{ "%.1f"|format(dt) }}{% else %}·{% endif %}</td>
           {% endfor %}
-          <td class="total-cell" style="color:var(--adi-gold) !important;">
+          <td class="total-cell" style="color:var(--adi-gold-lt) !important;">
             {{ "%.1f"|format(grand_total) }}
           </td>
           {% if any_actual_recorded %}
           {% set g_delta = grand_total_actual - grand_total %}
-          <td class="total-cell" style="color:var(--adi-gold) !important;">
+          <td class="total-cell" style="color:var(--adi-gold-lt) !important;">
             {{ "%.1f"|format(grand_total_actual) }}
           </td>
           <td class="total-cell"
-              style="color:{% if g_delta > 0.05 %}var(--adi-danger){% elif g_delta < -0.05 %}var(--adi-ok){% else %}var(--adi-mineral){% endif %} !important;">
+              style="color:{% if g_delta > 0.05 %}var(--adi-danger-on-dark){% elif g_delta < -0.05 %}var(--adi-gold-lt){% else %}#fff{% endif %} !important;">
             {% if g_delta > 0 %}+{% endif %}{{ "%.1f"|format(g_delta) }}
+          </td>
+          {% endif %}
+          {% if show_ot_col %}
+          <td class="total-cell" style="color:var(--adi-warn-on-dark) !important;">
+            {% if named_ot + named_dt > 0 %}{{ "%.1f"|format(named_ot + named_dt) }}{% else %}—{% endif %}
           </td>
           {% endif %}
         </tr>
@@ -275,6 +357,117 @@
     </table>
   </div>
 </div>
+{% endif %}
+
+{# ── Local labor (2026-09-05, capture log #7) ─────────────────────────────
+   One line per company + position. The count is on the crew row; the actuals
+   are per body (recorded on the Local Labor Hours page), so a cell reads
+   "6 × 10" until someone records hours, then the recorded sum. #}
+{% if sorted_local %}
+<div class="card mt-3" style="overflow-x:auto;">
+  <div class="card-header d-flex align-items-center justify-content-between" style="font-size:.78rem;font-weight:700;">
+    <span>{{ ico.icon('hard-hat') }} Local Labor · {{ local_bodies }} {{ 'body' if local_bodies == 1 else 'bodies' }}</span>
+    <a href="{{ url_for('show_crew.local_labor_hours', show_id=show.id) }}"
+       class="btn btn-sm btn-outline-secondary no-print">Record hours per body</a>
+  </div>
+  <div class="card-body p-0">
+    <table class="table mb-0 hours-table" style="min-width:600px;">
+      <caption class="visually-hidden">Local labor hours by company and position</caption>
+      <thead>
+        <tr>
+          <th style="width:160px;">Company</th>
+          <th style="width:110px;">Position</th>
+          <th style="width:90px;">Dept</th>
+          <th style="width:80px;">Terms</th>
+          {% for day in show_days %}
+          <th class="day-col" title="{{ day.date.strftime('%A, %B %-d') }}">
+            <span>{{ day.date.strftime('%-m/%-d') }}</span>
+          </th>
+          {% endfor %}
+          <th style="width:70px;text-align:center;" title="Estimated: bodies × hours">Est</th>
+          {% if local_any_recorded %}
+          <th style="width:70px;text-align:center;" title="Sum of recorded actuals">Actual</th>
+          <th style="width:70px;text-align:center;" title="Actual − Estimated, for bodies with an actual">Δ</th>
+          {% endif %}
+          {% if show_ot_col %}
+          <th style="width:70px;text-align:center;" title="Overtime plus double time hours, per body">OT+DT</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% set cur_local_co = namespace(val=none) %}
+        {% for entry in sorted_local %}
+          {% if entry.company != cur_local_co.val %}
+            {% set cur_local_co.val = entry.company %}
+            <tr class="company-divider">
+              <td colspan="{{ 4 + show_days|length + 1 + (2 if local_any_recorded else 0) + (1 if show_ot_col else 0) }}">
+                {{ entry.company or 'No company' }}
+              </td>
+            </tr>
+          {% endif %}
+          <tr>
+            <td style="font-weight:600;">{{ entry.company or '—' }}</td>
+            <td style="color:var(--adi-blue);font-size:.72rem;">{{ entry.position }}</td>
+            <td style="color:var(--adi-muted);font-size:.72rem;">{{ entry.dept or '—' }}</td>
+            <td style="font-size:.68rem;color:var(--adi-muted);white-space:nowrap;">
+              OT {{ '%g'|format(entry.thresholds[0]) }} · DT {{ '%g'|format(entry.thresholds[1]) }}
+            </td>
+            {% for day in show_days %}
+            {% set d = entry.days.get(day.id) %}
+            <td class="day-cell {% if not d %}zero{% endif %}" style="white-space:nowrap;">
+              {% if d %}
+                {% if d.recorded %}{{ "%.1f"|format(d.actual) }}{% if d.recorded < d.qty %}<span title="{{ d.recorded }} of {{ d.qty }} recorded" style="color:var(--adi-warn);">*</span>{% endif %}
+                {% else %}<span style="font-weight:400;">{{ d.qty }}×</span>{{ '%g'|format(d.est / d.qty if d.qty else 0) }}{% endif %}
+              {% else %}·{% endif %}
+            </td>
+            {% endfor %}
+            <td class="total-cell">{{ "%.1f"|format(entry.total) }}</td>
+            {% if local_any_recorded %}
+            <td class="total-cell" style="color:{% if entry.actual_recorded %}var(--adi-blue){% else %}var(--adi-border-strong){% endif %};">
+              {% if entry.actual_recorded %}{{ "%.1f"|format(entry.total_actual) }}{% if entry.recorded < entry.bodies %}<span title="{{ entry.recorded }} of {{ entry.bodies }} bodies recorded" style="color:var(--adi-warn);">*</span>{% endif %}{% else %}—{% endif %}
+            </td>
+            <td class="total-cell">
+              {% if entry.actual_recorded and entry.recorded == entry.bodies %}
+                {% set ld = entry.total_actual - entry.total %}
+                <span style="color:{% if ld > 0.05 %}var(--adi-danger){% elif ld < -0.05 %}var(--adi-ok){% else %}var(--adi-mineral){% endif %};">{% if ld > 0 %}+{% endif %}{{ "%.1f"|format(ld) }}</span>
+              {% else %}—{% endif %}
+            </td>
+            {% endif %}
+            {% if show_ot_col %}
+            {% set ovt = entry.ot_hours + entry.dt_hours %}
+            <td class="total-cell" style="color:{% if ovt > 0 %}var(--adi-warn){% else %}var(--adi-border-strong){% endif %};">
+              {% if ovt > 0 %}{{ "%.1f"|format(ovt) }}{% else %}—{% endif %}
+            </td>
+            {% endif %}
+          </tr>
+        {% endfor %}
+        <tr class="total-row">
+          <td colspan="4" style="font-size:.72rem;">LOCAL LABOR TOTALS</td>
+          {% for day in show_days %}
+          {% set lt = local_day_totals.get(day.id, 0) %}
+          <td class="day-cell">{% if lt > 0 %}{{ "%.1f"|format(lt) }}{% else %}·{% endif %}</td>
+          {% endfor %}
+          <td class="total-cell" style="color:var(--adi-gold-lt) !important;">{{ "%.1f"|format(local_total) }}</td>
+          {% if local_any_recorded %}
+          <td class="total-cell" style="color:var(--adi-gold-lt) !important;">{{ "%.1f"|format(local_total_actual) }}</td>
+          <td class="total-cell"></td>
+          {% endif %}
+          {% if show_ot_col %}
+          <td class="total-cell" style="color:var(--adi-warn-on-dark) !important;">
+            {% if local_ot + local_dt > 0 %}{{ "%.1f"|format(local_ot + local_dt) }}{% else %}—{% endif %}
+          </td>
+          {% endif %}
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  {% if local_any_recorded %}
+  <div class="card-footer text-muted" style="font-size:.72rem;">
+    * some bodies on this line have no recorded actual — the estimate stands in for them in the split.
+  </div>
+  {% endif %}
+</div>
+{% endif %}
 
 <!-- Phase breakdown -->
 {% set phase_hours = namespace(data={}) %}

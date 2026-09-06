@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% import '_icons.html' as ico %}
+{% import '_row_kinds.html' as rk %}
+{% block title %}Local Labor Hours — {{ show.name }}{% endblock %}
+{% block page_title %}Local Labor Hours{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> /
+  <a href="{{ url_for('shows.detail', show_id=show.id) }}">{{ show.name }}</a> /
+  <a href="{{ url_for('show_crew.show_crew', show_id=show.id) }}">Crew</a> / Local Labor Hours
+{% endblock %}
+
+{% block top_actions %}
+  <a href="{{ url_for('schedule.overview', show_id=show.id) }}"
+     class="btn btn-sm btn-outline-secondary">{{ ico.icon('calendar') }} Schedule</a>
+  <a href="{{ url_for('show_crew.hours_report', show_id=show.id) }}"
+     class="btn btn-sm btn-outline-secondary">{{ ico.icon('clock') }} Hours Report</a>
+{% endblock %}
+
+{% block content %}
+<style>
+  /* One line of the crew call = one block; its bodies are a wrapped row of
+     small inputs beneath it. A table would put eighteen bodies in eighteen
+     rows and push the next line off the screen. */
+  .ll-day { margin-bottom: 22px; }
+  .ll-day-band {
+    display: flex; align-items: baseline; gap: 12px;
+    background: var(--adi-dark); color: #fff;
+    padding: 7px 12px; border-radius: 6px 6px 0 0;
+    font: 700 12px/1 'Barlow', sans-serif; letter-spacing: .12em; text-transform: uppercase;
+  }
+  .ll-day-band .ll-phase { color: var(--adi-blue-lt); font-weight: 600; letter-spacing: .08em; }
+  .ll-call {
+    border: 1px solid var(--adi-border); border-top: none;
+  }
+  .ll-call-head {
+    display: flex; align-items: baseline; gap: 10px;
+    background: var(--adi-band); padding: 6px 12px;
+    font-size: .8rem; font-weight: 600;
+  }
+  .ll-call-head .act-time { color: var(--adi-blue); font-variant-numeric: tabular-nums; }
+  .ll-line {
+    display: grid; grid-template-columns: minmax(180px, 1.3fr) minmax(0, 1fr) auto;
+    gap: 6px 16px; align-items: start;
+    padding: 8px 12px; border-top: 1px solid var(--adi-border);
+  }
+  .ll-line:target { background: var(--adi-info-bg); }
+  .ll-line-title { font-weight: 600; font-size: .86rem; }
+  .ll-line-meta { color: var(--adi-mineral); font-size: .74rem; margin-top: 2px; }
+  .ll-line-meta .ll-section { color: var(--adi-blue); font-weight: 600; }
+  .ll-bodies { display: flex; flex-wrap: wrap; gap: 6px; grid-column: 1 / -1; }
+  .ll-body { display: flex; flex-direction: column; align-items: stretch; width: 64px; }
+  .ll-body .ll-n {
+    font: 600 10px/1 'Barlow', sans-serif; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--adi-mineral); text-align: center; margin-bottom: 2px;
+  }
+  .ll-body input {
+    width: 100%; text-align: center; font-size: .82rem; padding: 3px 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .ll-body input.over { background: var(--adi-warn-bg); }
+  .ll-fill { white-space: nowrap; }
+  .ll-fill .autosave-flash { display: block; }
+  @media print {
+    .ll-fill, .no-print { display: none !important; }
+    .ll-body input { border: none; }
+  }
+</style>
+
+{% include "_paperwork_header.html" %}
+
+<div class="card mb-3" style="background:var(--adi-dark);border-color:var(--adi-dark);">
+  <div class="card-body p-3">
+    <div class="row align-items-center">
+      <div class="col">
+        {% if show.code %}<div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;
+            text-transform:uppercase;color:var(--adi-blue-lt);">{{ show.code }}</div>{% endif %}
+        <div style="font-size:1.05rem;font-weight:700;color:#fff;">{{ show.name }}</div>
+        <div style="font-size:.8rem;color:rgba(255,255,255,.72);">
+          Local labor hours ·
+          {{ n_lines }} line{{ '' if n_lines == 1 else 's' }} ·
+          {{ n_bodies }} {{ 'body' if n_bodies == 1 else 'bodies' }} ·
+          {{ n_recorded }} recorded
+        </div>
+      </div>
+      <div class="col-auto" style="font-size:.75rem;color:rgba(255,255,255,.72);">
+        {{ show.date_range }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="text-muted no-print" style="font-size:.8rem;max-width:64em;">
+  One box per body. The crew call keeps its count and one estimate; this is
+  where the six who were booked become the six who actually left — four at
+  the estimate, two at thirteen. Blank means not recorded; the estimate shows
+  as the placeholder. <strong>Use estimate</strong> fills the blanks on a line
+  and leaves anything already typed alone. Saves as you type.
+</p>
+
+{% if not days %}
+<div class="empty-state py-5">
+  <div class="empty-icon">{{ ico.icon('hard-hat', 32) }}</div>
+  <div style="font-size:.95rem;font-weight:600;margin-bottom:8px;">No local labor on this show yet</div>
+  <p class="text-muted" style="font-size:.83rem;max-width:400px;margin:0 auto 16px;">
+    Local labor lines are crew rows whose position is in the
+    <a href="{{ url_for('local_labor.index') }}">Local Labor Database</a>, or whose
+    type is Local Crew. Add some to a crew call and they will appear here.
+  </p>
+  <a href="{{ url_for('schedule.overview', show_id=show.id) }}" class="btn btn-sm btn-adi">
+    Open Schedule →
+  </a>
+</div>
+{% endif %}
+
+{% for d in days %}
+{% set day = d.day %}
+<section class="ll-day" aria-label="{{ day.date.strftime('%A, %B %-d') }}">
+  <div class="ll-day-band">
+    <span>{{ day.date.strftime('%a %b %-d') }}</span>
+    {% if day.phase %}<span class="ll-phase">{{ day.phase }}</span>{% endif %}
+    <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=day.id) }}"
+       class="ms-auto no-print" style="color:var(--adi-blue-lt);font-weight:600;letter-spacing:.06em;">Open day</a>
+  </div>
+  {% for c in d.calls %}
+  {% set act = c.activity %}
+  <div class="ll-call">
+    <div class="ll-call-head">
+      <span class="act-time">{{ act.time|to_12hr if act.time else '—' }}</span>
+      <span>{{ act.description }}</span>
+      {% if act.department %}<span class="text-muted" style="font-weight:400;">· {{ act.department }}</span>{% endif %}
+    </div>
+    {% for l in c.lines %}
+    {% set row = l.row %}
+    <div class="ll-line" id="row-{{ row.id }}">
+      <div>
+        <div class="ll-line-title">
+          {{ rk.kind_chip('local') }}
+          {{ row.position or (row.position_ref.title if row.position_ref else 'Local labor') }}
+          <span class="text-muted" style="font-weight:400;">× {{ row.qty or 1 }}</span>
+        </div>
+        <div class="ll-line-meta">
+          {% if l.section %}<span class="ll-section">{{ l.section }}</span> · {% endif %}
+          {% if row.task %}{{ row.task }} · {% endif %}
+          Est {% if row.hours is not none %}{{ '%g'|format(row.hours) }} hrs{% else %}—{% endif %} each
+        </div>
+      </div>
+      <div></div>
+      <div class="ll-fill no-print">
+        <form method="POST" action="{{ url_for('show_crew.local_labor_fill', show_id=show.id, row_id=row.id) }}">
+          <button type="submit" class="btn btn-sm btn-outline-secondary"
+                  {% if row.hours is none %}disabled title="This line has no estimate to copy"{% endif %}
+                  aria-label="Fill blank bodies on this line with the estimate">
+            Use estimate{% if row.hours is not none %} ({{ '%g'|format(row.hours) }}){% endif %}
+          </button>
+        </form>
+      </div>
+      <div class="ll-bodies">
+        {% for b in l.bodies %}
+        <label class="ll-body">
+          <span class="ll-n">#{{ b.index }}</span>
+          <input type="number" name="actual_hours" form="body-{{ b.id }}"
+                 step="0.25" min="0"
+                 value="{{ '%g'|format(b.actual_hours) if b.actual_hours is not none else '' }}"
+                 placeholder="{{ '%g'|format(row.hours) if row.hours is not none else '' }}"
+                 class="form-control form-control-sm{% if b.actual_hours is not none and row.hours and b.actual_hours > row.hours %} over{% endif %}"
+                 aria-label="Actual hours, body {{ b.index }} of {{ row.qty or 1 }}, {{ row.position or 'local labor' }}, {{ day.date.strftime('%-m/%-d') }} {{ act.time|to_12hr if act.time else '' }}">
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</section>
+{% endfor %}
+
+{# One autosave form per body, outside the layout — a <form> per input inside
+   a flex row would fight the grid. The hidden submit gives the save status a
+   home (base.html appends it next to the submit button). #}
+{% for d in days %}{% for c in d.calls %}{% for l in c.lines %}{% for b in l.bodies %}
+<form id="body-{{ b.id }}" method="POST" data-autosave="true"
+      action="{{ url_for('show_crew.local_labor_body', show_id=show.id, body_id=b.id) }}"
+      class="d-inline"><button type="submit" class="visually-hidden">Save body {{ b.index }}</button></form>
+{% endfor %}{% endfor %}{% endfor %}{% endfor %}
+
+<script>
+  // Mark an actual above the estimate as you type — the same amber the day
+  // page uses for a row whose actual beat its estimate.
+  document.addEventListener('input', function (e) {
+    const el = e.target;
+    if (!el.matches || !el.matches('.ll-body input')) return;
+    const est = parseFloat(el.placeholder), v = parseFloat(el.value);
+    el.classList.toggle('over', !isNaN(est) && !isNaN(v) && v > est);
+  });
+</script>
+{% endblock %}

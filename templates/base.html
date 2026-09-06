@@ -90,6 +90,7 @@
         {{ show_page_link('show_crew.show_crew', s.id, 'Crew', _ep == 'show_crew.show_crew') }}
         {{ show_page_link('show_crew.travel', s.id, 'Travel', _ep == 'show_crew.travel') }}
         {{ show_page_link('show_crew.hours_report', s.id, 'Hours', _ep == 'show_crew.hours_report') }}
+        {{ show_page_link('show_crew.local_labor_hours', s.id, 'Local Labor Hours', _ep == 'show_crew.local_labor_hours') }}
       </div>
       {% endif %}
       {% endfor %}
@@ -102,7 +103,7 @@
 
     <div class="nav-section">Setup</div>
     <a href="{{ url_for('crew.index') }}"
-       class="{% if request.endpoint == 'crew.index' or request.endpoint == 'crew.add' or request.endpoint == 'crew.edit' %}active{% endif %}">
+       class="{% if request.endpoint in ('crew.index', 'crew.add', 'crew.edit', 'crew.companies') %}active{% endif %}">
       <span class="nav-icon">{{ ico.icon('users') }}</span> Crew Database
     </a>
     <a href="{{ url_for('local_labor.index') }}"

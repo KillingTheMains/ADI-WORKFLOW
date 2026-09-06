@@ -774,6 +774,7 @@ class CrewRow(db.Model):
     activity        = db.relationship("ScheduleActivity", back_populates="crew_rows")
     crew_member     = db.relationship("CrewMember")
     position_ref    = db.relationship("Position")
+    company         = db.relationship("Company")   # the header's company, if bound
 
     @property
     def display_name(self):
@@ -915,6 +916,61 @@ def find_normalised(rows, value, attr="name", exclude_id=None):
             return row
     return None
 
+
+
+class CrewRowBody(db.Model):
+    """One BODY on a local labor line, for actual hours (2026-09-05).
+
+    A local labor row is a count — "Qty 6, Lighting Hand, 10 hrs" — and that
+    is the right shape for the call: the six are interchangeable when they are
+    booked. They stop being interchangeable at the end of the day, when four
+    left at 10 hours and two stayed to 13. Payroll needs the six figures, not
+    one. So the row keeps its qty and its ONE estimate, and these rows hang
+    underneath it, one per body, holding nothing but the actual.
+
+    Identity is per call, not across days: body #3 on Tuesday's call and body
+    #3 on Wednesday's are not asserted to be the same person, because the
+    labor provider does not promise that either. `index` runs 1..qty and is
+    created lazily by `bodies_for` when the hours page first asks. If qty is
+    later lowered, the extra bodies are ignored by every reader (they filter
+    on index <= qty) rather than deleted, so a fat-fingered qty does not
+    destroy recorded hours.
+    """
+    __tablename__ = "crew_row_bodies"
+    id           = db.Column(db.Integer, primary_key=True)
+    crew_row_id  = db.Column(db.Integer, db.ForeignKey("crew_rows.id"), nullable=False)
+    index        = db.Column(db.Integer, nullable=False)   # 1-based, <= row.qty
+    actual_hours = db.Column(db.Float)
+    __table_args__ = (db.UniqueConstraint("crew_row_id", "index",
+                                          name="uq_crew_row_body"),)
+
+    crew_row = db.relationship("CrewRow", backref=db.backref(
+        "bodies", cascade="all, delete-orphan", order_by="CrewRowBody.index"))
+
+
+def bodies_for(row, create=True):
+    """The bodies of a local labor row, 1..qty, in order.
+
+    Creates the missing ones (flushed, not committed) when `create` is true.
+    Returns only the ones that fit under the current qty, so a lowered qty
+    hides rather than deletes.
+    """
+    qty = max(int(row.qty or 1), 1)
+    have = {b.index: b for b in row.bodies}
+    if create:
+        made = False
+        for n in range(1, qty + 1):
+            if n not in have:
+                # Appended through the relationship, not added by foreign key:
+                # the collection is what the next call reads, and a body added
+                # by id alone is invisible to it until the session expires.
+                b = CrewRowBody(index=n)
+                row.bodies.append(b)
+                have[n] = b
+                made = True
+        if made:
+            db.session.flush()
+    return [have[n] for n in range(1, qty + 1) if n in have]
 
 class PhaseType(db.Model):
     """A production-phase type Larry can manage, shared by every show.

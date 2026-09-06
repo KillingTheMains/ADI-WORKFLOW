@@ -46,6 +46,10 @@
     {{ ico.icon('map') }} OSS
   </a>
   {% if show.days %}
+  <a href="{{ url_for('show_crew.local_labor_hours', show_id=show.id) }}"
+     class="btn btn-sm btn-outline-dark">
+    {{ ico.icon('hard-hat') }} Local Labor Hours
+  </a>
   <a href="{{ url_for('oss.show_book', show_id=show.id) }}" class="btn btn-sm btn-dark"
      target="_blank">
     {{ ico.icon('printer') }} Show Book

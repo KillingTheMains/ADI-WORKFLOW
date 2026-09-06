@@ -284,20 +284,41 @@ def contact_sheet(show_id):
 
 @show_crew_bp.route("/<int:show_id>/crew/hours")
 def hours_report(show_id):
-    """Per-crew-member hours breakdown across all show days."""
+    """Per-crew-member hours breakdown across all show days.
+
+    Three populations, three tables (2026-09-05, capture log #7):
+
+    * NAMED crew — one line per person, hours per day from their crew rows.
+    * LOCAL LABOR — one line per (company, position); the count lives on the
+      crew row, the actuals live on its bodies (`CrewRowBody`), so a line of
+      six can leave at six different times and still be one line here.
+    * TBD — rows with neither a person nor a local labor position.
+
+    The billable split is per DAY and per BODY on each person's own terms:
+    `billing.thresholds_for` resolves person -> company -> default. Where an
+    actual is recorded it is what gets split; otherwise the estimate. Hours
+    only — no rate is applied on this report (see billing.py).
+    """
+    from billing import split_day, split_days, weighted_hours, thresholds_for
+    from crew_sections import walk
+
     show = Show.query.get_or_404(show_id)
 
+    # Optional filters. Options are collected from the unfiltered data so a
+    # filter can always be undone from the page it produced.
+    want_dept    = (request.args.get("dept") or "").strip()
+    want_company = (request.args.get("company") or "").strip()
+
     # Build a lookup: crew_member_id → {member, days: {day_id: hours}, total}
-    crew_data = {}   # keyed by crew_member_id (for named crew)
-    tbd_data  = []   # list of {name, day_id, hours, position, activity} for unnamed rows
+    crew_data  = {}   # keyed by crew_member_id (for named crew)
+    local_data = {}   # keyed by (company, position) for local labor lines
+    tbd_data   = []   # list of {name, day_id, hours, position, activity} for unnamed rows
 
     show_days = show.days  # already ordered by date
 
     for day in show_days:
         for act in day.activities:
-            for row in act.crew_rows:
-                if row.is_group_header:
-                    continue
+            for row, l1, _l2 in walk(list(act.crew_rows)):
                 qty     = row.qty or 1
                 hrs     = (row.hours or 0) * qty
                 actual  = (row.actual_hours or 0) * qty
@@ -311,18 +332,67 @@ def hours_report(show_id):
                             "company":  cm.company.name if cm.company else "",
                             "type":     row.crew_type or "",
                             "days":     {},
+                            "days_billable": {},   # actual where recorded, else estimate
                             "total":    0.0,
                             "total_actual": 0.0,
                             "actual_recorded": False,
                         }
                     entry = crew_data[row.crew_member_id]
                     entry["days"][day.id] = entry["days"].get(day.id, 0.0) + hrs
+                    billable = actual if row.actual_hours is not None else hrs
+                    entry["days_billable"][day.id] = entry["days_billable"].get(day.id, 0.0) + billable
                     entry["total"] += hrs
                     entry["total_actual"] += actual
                     if row.actual_hours is not None:
                         entry["actual_recorded"] = True
+                elif row.is_local_labor:
+                    section = (l1.group_label if l1 is not None else "") or ""
+                    company = l1.company if (l1 is not None and l1.company_id) else None
+                    co_name = company.name if company else (section or "")
+                    position = row.position or (row.position_ref.title if row.position_ref else "Local labor")
+                    key = (co_name, position)
+                    if key not in local_data:
+                        local_data[key] = {
+                            "company":  co_name,
+                            "section":  section,
+                            "position": position,
+                            "dept":     (row.position_ref.department if row.position_ref else "") or "",
+                            "thresholds": thresholds_for(None, company),
+                            "days":     {},     # day_id -> {"qty","est","actual","recorded"}
+                            "total":    0.0,
+                            "total_actual": 0.0,
+                            "bodies":   0,
+                            "recorded": 0,
+                            "actual_recorded": False,
+                            "st_hours": 0.0, "ot_hours": 0.0, "dt_hours": 0.0,
+                        }
+                    entry = local_data[key]
+                    d = entry["days"].setdefault(day.id, {"qty": 0, "est": 0.0,
+                                                          "actual": 0.0, "recorded": 0})
+                    d["qty"] += qty
+                    d["est"] += hrs
+                    entry["total"] += hrs
+                    entry["bodies"] += qty
+                    # Per body: its own actual where recorded, else the line's
+                    # estimate; each body's day is split on its own.
+                    have = {b.index: b for b in row.bodies}
+                    ot_after, dt_after = entry["thresholds"]
+                    for n in range(1, qty + 1):
+                        b = have.get(n)
+                        a = b.actual_hours if b is not None else None
+                        if a is not None:
+                            d["actual"] += a
+                            d["recorded"] += 1
+                            entry["total_actual"] += a
+                            entry["recorded"] += 1
+                            entry["actual_recorded"] = True
+                        st, ot, dt = split_day(a if a is not None else (row.hours or 0),
+                                               ot_after, dt_after)
+                        entry["st_hours"] += st
+                        entry["ot_hours"] += ot
+                        entry["dt_hours"] += dt
                 else:
-                    # TBD / local unnamed row — track separately
+                    # TBD / unnamed row — track separately
                     tbd_data.append({
                         "name":     row.display_name,
                         "position": row.position or "",
@@ -333,10 +403,27 @@ def hours_report(show_id):
                         "activity": act.description,
                     })
 
+    # Filter options, from everything, before anything is dropped
+    dept_options = sorted({e["dept"] for e in crew_data.values() if e["dept"]}
+                          | {e["dept"] for e in local_data.values() if e["dept"]})
+    company_options = sorted({e["company"] for e in crew_data.values() if e["company"]}
+                             | {e["company"] for e in local_data.values() if e["company"]})
+
+    def keep(e):
+        if want_dept and e["dept"] != want_dept:
+            return False
+        if want_company and e["company"] != want_company:
+            return False
+        return True
+
     # Sort named crew: by company, then the canonical Crew Database order (#29)
     sorted_crew = sorted(
-        crew_data.values(),
+        (e for e in crew_data.values() if keep(e)),
         key=lambda x: (x["company"], crew_sort_key(x["member"]))
+    )
+    sorted_local = sorted(
+        (e for e in local_data.values() if keep(e)),
+        key=lambda x: (x["company"], x["dept"], x["position"])
     )
 
     # Day totals (sum of all named crew hours per day)
@@ -344,39 +431,204 @@ def hours_report(show_id):
     for entry in sorted_crew:
         for day_id, hrs in entry["days"].items():
             day_totals[day_id] = day_totals.get(day_id, 0.0) + hrs
+    local_day_totals = {}
+    for entry in sorted_local:
+        for day_id, d in entry["days"].items():
+            local_day_totals[day_id] = local_day_totals.get(day_id, 0.0) + d["est"]
 
-    # Larry's billable day: 10 hours, OT 1.5x for 11-12, DT 2.0x from 13.
-    # Split PER DAY — summing a person's show total and splitting that would
-    # invent overtime for eight short days and hide it on one long one.
-    # Hours only, no money: whether rate_standard is hourly or a 10-hour day
-    # rate is still an open question for Larry.
-    from billing import split_days, weighted_hours
+    # Larry's billable day: 10 hours, OT 1.5x for 11-12, DT 2.0x from 13 —
+    # unless the person, or their company, has other terms. Split PER DAY:
+    # summing a person's show total and splitting that would invent overtime
+    # for eight short days and hide it on one long one.
     for entry in sorted_crew:
-        st, ot, dt = split_days(entry["days"].values())
+        ot_after, dt_after = thresholds_for(entry["member"])
+        entry["thresholds"] = (ot_after, dt_after)
+        st, ot, dt = split_days(entry["days_billable"].values(), ot_after, dt_after)
         entry["st_hours"], entry["ot_hours"], entry["dt_hours"] = st, ot, dt
         entry["weighted_hours"] = weighted_hours(st, ot, dt)
+    for entry in sorted_local:
+        entry["weighted_hours"] = weighted_hours(
+            entry["st_hours"], entry["ot_hours"], entry["dt_hours"])
 
-    totals_st = sum(e["st_hours"] for e in sorted_crew)
-    totals_ot = sum(e["ot_hours"] for e in sorted_crew)
-    totals_dt = sum(e["dt_hours"] for e in sorted_crew)
+    # Company subtotals for the named table (rendered after each group)
+    company_totals = {}
+    for entry in sorted_crew:
+        ct = company_totals.setdefault(entry["company"], {
+            "n": 0, "total": 0.0, "total_actual": 0.0,
+            "st": 0.0, "ot": 0.0, "dt": 0.0, "actual_recorded": False})
+        ct["n"] += 1
+        ct["total"] += entry["total"]
+        ct["total_actual"] += entry["total_actual"]
+        ct["st"] += entry["st_hours"]; ct["ot"] += entry["ot_hours"]; ct["dt"] += entry["dt_hours"]
+        ct["actual_recorded"] = ct["actual_recorded"] or entry["actual_recorded"]
+
+    named_st = sum(e["st_hours"] for e in sorted_crew)
+    named_ot = sum(e["ot_hours"] for e in sorted_crew)
+    named_dt = sum(e["dt_hours"] for e in sorted_crew)
+    local_st = sum(e["st_hours"] for e in sorted_local)
+    local_ot = sum(e["ot_hours"] for e in sorted_local)
+    local_dt = sum(e["dt_hours"] for e in sorted_local)
+    totals_st, totals_ot, totals_dt = named_st + local_st, named_ot + local_ot, named_dt + local_dt
+
+    # Anyone on terms other than the defaults gets a footnote on the banner.
+    from billing import OT_AFTER_HOURS, DT_AFTER_HOURS
+    own_terms = sorted({
+        f"{e['member'].display_label} (OT after {e['thresholds'][0]:g}, DT after {e['thresholds'][1]:g})"
+        for e in sorted_crew if e["thresholds"] != (OT_AFTER_HOURS, DT_AFTER_HOURS)
+    } | {
+        f"{e['company']} local labor (OT after {e['thresholds'][0]:g}, DT after {e['thresholds'][1]:g})"
+        for e in sorted_local if e["thresholds"] != (OT_AFTER_HOURS, DT_AFTER_HOURS)
+    })
 
     grand_total        = sum(e["total"] for e in sorted_crew)
     grand_total_actual = sum(e["total_actual"] for e in sorted_crew)
     any_actual_recorded = any(e.get("actual_recorded") for e in sorted_crew)
+    local_total        = sum(e["total"] for e in sorted_local)
+    local_total_actual = sum(e["total_actual"] for e in sorted_local)
+    local_any_recorded = any(e["actual_recorded"] for e in sorted_local)
+    local_bodies       = sum(e["bodies"] for e in sorted_local)
 
     return render_template(
         "shows/hours_report.html",
         show=show,
         show_days=show_days,
         sorted_crew=sorted_crew,
+        sorted_local=sorted_local,
         tbd_data=tbd_data,
         day_totals=day_totals,
+        local_day_totals=local_day_totals,
+        company_totals=company_totals,
         totals_st=totals_st, totals_ot=totals_ot, totals_dt=totals_dt,
+        named_ot=named_ot, named_dt=named_dt, local_ot=local_ot, local_dt=local_dt,
+        own_terms=own_terms,
         grand_total=grand_total,
         grand_total_actual=grand_total_actual,
         any_actual_recorded=any_actual_recorded,
+        local_total=local_total,
+        local_total_actual=local_total_actual,
+        local_any_recorded=local_any_recorded,
+        local_bodies=local_bodies,
+        dept_options=dept_options, company_options=company_options,
+        want_dept=want_dept, want_company=want_company,
+        filtered=bool(want_dept or want_company),
     )
 
+
+
+# ── Local labor hours, per body (capture log #5, 2026-09-05) ─────────────────
+
+def _local_labor_lines(show, create=True):
+    """Every local labor line on the show, in schedule order, with its bodies.
+
+    Returns ``[{day, calls: [{activity, lines: [{row, section, company,
+    bodies}]}]}]`` — only days and calls that have at least one local labor
+    line. A line's company is its section header's company when the header
+    is bound to one; that is what the hours report uses to resolve OT/DT
+    terms for a nameless line.
+    """
+    from crew_sections import walk
+    from models import bodies_for
+    days = []
+    created = False
+    for day in show.days:
+        calls = []
+        for act in day.activities:
+            lines = []
+            for row, l1, _l2 in walk(list(act.crew_rows)):
+                if not row.is_local_labor:
+                    continue
+                before = len(row.bodies)
+                bodies = bodies_for(row, create=create)
+                created = created or len(row.bodies) != before
+                lines.append({
+                    "row": row,
+                    "section": (l1.group_label if l1 is not None else "") or "",
+                    "company": l1.company if l1 is not None and l1.company_id else None,
+                    "bodies": bodies,
+                })
+            if lines:
+                calls.append({"activity": act, "lines": lines})
+        if calls:
+            days.append({"day": day, "calls": calls})
+    if created:
+        db.session.commit()
+    return days
+
+
+@show_crew_bp.route("/<int:show_id>/crew/local-labor-hours")
+def local_labor_hours(show_id):
+    """Actual hours for local labor, one figure per BODY.
+
+    The crew call keeps "Qty 6 · Lighting Hand · 10 hrs" — six interchangeable
+    slots and one estimate — because that is how they are booked. Payroll
+    needs six actuals, because that is how they leave. This page is the six
+    boxes: every local labor line on the show, in schedule order, with one
+    input per body. Blank means "not recorded"; the estimate is the
+    placeholder, and "Use estimate" fills the blanks on a line in one click
+    so the common case (everyone worked the call) is one click and the
+    exceptions are typed.
+    """
+    show = Show.query.get_or_404(show_id)
+    days = _local_labor_lines(show)
+    n_lines = sum(len(c["lines"]) for d in days for c in d["calls"])
+    n_bodies = sum(len(l["bodies"]) for d in days for c in d["calls"] for l in c["lines"])
+    n_recorded = sum(1 for d in days for c in d["calls"] for l in c["lines"]
+                     for b in l["bodies"] if b.actual_hours is not None)
+    return render_template("shows/local_labor_hours.html", show=show, days=days,
+                           n_lines=n_lines, n_bodies=n_bodies, n_recorded=n_recorded)
+
+
+def _body_in_show(body, show_id):
+    return (body.crew_row is not None and body.crew_row.activity is not None
+            and body.crew_row.activity.day is not None
+            and body.crew_row.activity.day.show_id == show_id)
+
+
+@show_crew_bp.route("/<int:show_id>/crew/local-labor-hours/body/<int:body_id>",
+                    methods=["POST"])
+def local_labor_body(show_id, body_id):
+    """Save one body's actual hours. Blank clears it."""
+    from models import CrewRowBody
+    body = CrewRowBody.query.get_or_404(body_id)
+    if not _body_in_show(body, show_id):
+        return ("", 404)
+    body.actual_hours = _to_float(request.form.get("actual_hours"))
+    db.session.commit()
+    if request.headers.get("X-Autosave"):
+        return ("", 204)
+    return redirect(url_for("show_crew.local_labor_hours", show_id=show_id))
+
+
+@show_crew_bp.route("/<int:show_id>/crew/local-labor-hours/row/<int:row_id>/fill",
+                    methods=["POST"])
+def local_labor_fill(show_id, row_id):
+    """Fill every BLANK body on a line with the line's estimate.
+
+    Only blanks: a body already typed is an exception someone recorded on
+    purpose, and a convenience button must not undo it.
+    """
+    from models import CrewRow, bodies_for
+    row = CrewRow.query.get_or_404(row_id)
+    if row.activity is None or row.activity.day is None \
+            or row.activity.day.show_id != show_id or not row.is_local_labor:
+        return ("", 404)
+    est = row.hours
+    n = 0
+    if est is not None:
+        for b in bodies_for(row):
+            if b.actual_hours is None:
+                b.actual_hours = float(est)
+                n += 1
+    db.session.commit()
+    if request.headers.get("X-Autosave"):
+        return ("", 204)
+    if est is None:
+        flash("That line has no estimated hours to copy.", "warning")
+    else:
+        flash(f"{n} filled with {est:g} hrs." if n else "Every body on that line already had hours.",
+              "success" if n else "info")
+    return redirect(url_for("show_crew.local_labor_hours", show_id=show_id)
+                    + f"#row-{row.id}")
 
 
 # ── Phase A: edit booking info on an existing assignment ─────────────────────
