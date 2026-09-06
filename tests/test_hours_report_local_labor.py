@@ -201,19 +201,21 @@ def test_a_show_with_only_local_labor_still_renders_the_report(app, client, db):
 
 def test_a_local_line_linked_to_a_placeholder_record_is_still_a_count(app, client, db):
     """Show 3 in production links every local labor line to one placeholder
-    crew record per position ("<Company> Lighting Hand"). Before 09-06 the
-    report tested crew_member_id first and claimed those as named people:
-    8 hands x 10 hrs became one person working 80 hours in a day, split
-    10 ST + 2 OT + 68 DT. A local labor row is a count whatever it is
-    linked to."""
+    crew record per position — 42 records all named "First Last" at Sparks,
+    which `display_label` renders as "<Company> Lighting Hand". Before 09-06
+    the report tested crew_member_id first and claimed those as named
+    people: 8 hands x 10 hrs became one person working 80 hours in a day,
+    split 10 ST + 2 OT + 68 DT. A local labor row linked to a STAND-IN record
+    is a count. (A row linked to a real person is that person — see the
+    next test.)"""
     from models import CrewMember, CrewRow, Company
     co = Company(name="Placeholder Labor Co HRL10")
     db.session.add(co); db.session.flush()
     show = _show(db, "HRL10")
     day, act = _day(db, show)
     pos = _local_position(db, "Lighting Hand HRL10")
-    ph = CrewMember(first_name="Placeholder", last_name="Lighting Hand HRL10",
-                    company_id=co.id)
+    ph = CrewMember(first_name="First", last_name="Last", company_id=co.id,
+                    position_id=pos.id)
     db.session.add(ph); db.session.flush()
     db.session.add(CrewRow(activity_id=act.id, crew_member_id=ph.id,
                            position_id=pos.id, position=pos.title, qty=8,
@@ -227,3 +229,29 @@ def test_a_local_line_linked_to_a_placeholder_record_is_still_a_count(app, clien
     assert "80.0" in html
     # not a named person, and no "1 named crew" line for it
     assert "0 named crew" in html
+
+
+def test_a_named_person_on_a_catalogue_position_is_named_crew(app, client, db):
+    """Jason, 2026-09-06: a named person wins. Jason Chrimes and Brian
+    Fugelsang sat on "Scenic Head" — a title the local labor catalogue also
+    carries — for seven days of MCDC26, and the catalogue rule turned them
+    into a two-body local line: names gone, hours split on Sparks' terms.
+    A row that names a real crew member is that person, whatever the title."""
+    from models import CrewMember, CrewRow, Company
+    co = Company(name="Accelerator Scenic HRL11")
+    db.session.add(co); db.session.flush()
+    show = _show(db, "HRL11")
+    day, act = _day(db, show)
+    pos = _local_position(db, "Scenic Head HRL11", dept="Scenic")
+    person = CrewMember(first_name="Jason", last_name="Chrimes HRL11",
+                        company_id=co.id, position_id=pos.id)
+    db.session.add(person); db.session.flush()
+    row = CrewRow(activity_id=act.id, crew_member_id=person.id,
+                  position_id=pos.id, position=pos.title, qty=1,
+                  hours=10, crew_type="Lead Crew", sort_order=2)
+    db.session.add(row); db.session.commit()
+    assert row.is_local_labor is False
+    html = _get(client, show)
+    assert "Chrimes HRL11" in html
+    assert "1 named crew" in html
+    assert "local labor bod" not in html      # no local table at all

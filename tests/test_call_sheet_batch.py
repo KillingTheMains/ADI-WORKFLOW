@@ -79,23 +79,25 @@ def test_local_labor_on_two_calls_the_same_day_is_not_a_conflict(client, db):
     """Jason, 2026-09-05: double-booked means the same NAMED person on two
     calls in one day. A local-labor line is a count of a position, not a
     person — "4 × Lighting Hand" at 08:00 and again at 13:00 is two separate
-    crews, never a conflict. Even a name attached to such a line does not
-    make it one, and the day's headcount counts the line by its qty."""
-    from models import Position
+    crews, never a conflict. A stand-in record ("First Last", the shape
+    MCDC26's lines hang off) attached to such a line does not make it one,
+    and the day's headcount counts the line by its qty."""
+    from models import Position, CrewMember
     show, days = _show(db)
     a1 = _act(db, days[0], time="08:00", description="RIGGING CREW START")
     a2 = _act(db, days[0], time="13:00", description="LOAD OUT CREW",
               sort_order=20)
     pos = Position(title="LL Test Hand", department="Lighting", is_local_labor=True)
     db.session.add(pos); db.session.flush()
-    cm = _person(db, "Named")
+    ph = CrewMember(first_name="First", last_name="Last")
+    db.session.add(ph); db.session.flush()
     db.session.add_all([
         CrewRow(activity_id=a1.id, position_id=pos.id, qty=4, sort_order=10),
         CrewRow(activity_id=a2.id, position_id=pos.id, qty=4, sort_order=10),
-        # a named person attached to a local-labor line is still a line
-        CrewRow(activity_id=a1.id, position_id=pos.id, crew_member_id=cm.id,
+        # a placeholder record attached to a local-labor line is still a line
+        CrewRow(activity_id=a1.id, position_id=pos.id, crew_member_id=ph.id,
                 qty=1, sort_order=20),
-        CrewRow(activity_id=a2.id, position_id=pos.id, crew_member_id=cm.id,
+        CrewRow(activity_id=a2.id, position_id=pos.id, crew_member_id=ph.id,
                 qty=1, sort_order=20),
     ])
     db.session.commit()
@@ -104,6 +106,32 @@ def test_local_labor_on_two_calls_the_same_day_is_not_a_conflict(client, db):
     assert sheet["conflicts"] is False
     assert all(l["conflict"] is False for l in sheet["crew_lines"])
     assert all(l["is_local_labor"] for l in sheet["crew_lines"])
+
+
+def test_a_named_person_on_a_catalogue_position_is_still_a_person(client, db):
+    """Jason, 2026-09-06: a named person wins. Two real people on "Scenic
+    Head" — a title the local labor catalogue also carries — are people,
+    so the same one on two calls in a day IS double-booked, and counts once."""
+    from models import Position
+    show, days = _show(db)
+    a1 = _act(db, days[0], time="08:00", description="RIGGING CREW START")
+    a2 = _act(db, days[0], time="13:00", description="LOAD OUT CREW",
+              sort_order=20)
+    pos = Position(title="Scenic Head CSB", department="Scenic", is_local_labor=True)
+    db.session.add(pos); db.session.flush()
+    cm = _person(db, "Chrimes")
+    db.session.add_all([
+        CrewRow(activity_id=a1.id, position_id=pos.id, crew_member_id=cm.id,
+                qty=1, sort_order=20),
+        CrewRow(activity_id=a2.id, position_id=pos.id, crew_member_id=cm.id,
+                qty=1, sort_order=20),
+    ])
+    db.session.commit()
+
+    sheet = _call_sheet_sheet(days[0])
+    assert sheet["conflicts"] is True
+    assert all(l["is_local_labor"] is False for l in sheet["crew_lines"])
+    assert sheet["total_crew"] == 1
 
 
 def test_total_crew_is_a_headcount_not_a_line_count(client, db):

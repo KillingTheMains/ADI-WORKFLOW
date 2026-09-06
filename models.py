@@ -788,9 +788,21 @@ class CrewRow(db.Model):
 
         Two ways in, because both are true in the data: the row's position is
         in the local labor catalogue, or somebody typed the crew type. The
-        catalogue wins where they disagree — it is the deliberate statement.
+        catalogue wins where they disagree — it is the deliberate statement —
+        EXCEPT that a named, real person is never a count (below).
         """
         if self.is_group_header:
+            return False
+        # 2026-09-06, Jason: A NAMED PERSON WINS. Two real people sat on a
+        # position title the local labor catalogue also carries ("Scenic
+        # Head" on MCDC26) and the catalogue rule counted them as a two-body
+        # local line on the hours report — their names gone, their hours
+        # split on the company's terms. A row that names a real crew member
+        # is that person, whatever the position title says. A placeholder
+        # record ("First Last", "TBD") is not a person (`is_unnamed_slot`,
+        # the strict rule), so the stand-in records MCDC26's local labor
+        # lines hang off still count as bodies.
+        if self.crew_member is not None and not self.crew_member.is_unnamed_slot:
             return False
         if self.position_ref is not None and self.position_ref.is_local_labor:
             return True
