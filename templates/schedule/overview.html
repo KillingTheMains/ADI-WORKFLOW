@@ -41,6 +41,10 @@
      class="btn btn-sm btn-outline-dark">
     {{ ico.icon('hard-hat') }} Local Labor Hours
   </a>
+  <a href="{{ url_for('rfq.picker', show_id=show.id) }}"
+     class="btn btn-sm btn-outline-dark">
+    {{ ico.icon('file-text') }} Vendor RFQs
+  </a>
   <a href="{{ url_for('oss.show_book', show_id=show.id) }}" class="btn btn-sm btn-dark"
      target="_blank">
     {{ ico.icon('printer') }} Show Book

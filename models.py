@@ -122,6 +122,32 @@ class Position(db.Model):
         return f"<Position {self.title}>"
 
 
+class GoogleCredential(db.Model):
+    """The one Google account the app exports to (capture log #13, built
+    2026-09-06, dormant until google_sheets.is_configured()). One row: the
+    refresh token Larry's consent produced, and whose Drive it is. Replaced
+    whole on every connect; deleted on disconnect. No access tokens are
+    stored — they are minted per export from the refresh token.
+    """
+    __tablename__ = "google_credentials"
+    id            = db.Column(db.Integer, primary_key=True)
+    account_email = db.Column(db.String(200))
+    refresh_token = db.Column(db.Text, nullable=False)
+    connected_at  = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @classmethod
+    def current(cls):
+        return cls.query.order_by(cls.id.desc()).first()
+
+    @classmethod
+    def replace(cls, refresh_token, email=""):
+        cls.query.delete()
+        row = cls(refresh_token=refresh_token, account_email=email or None)
+        db.session.add(row)
+        db.session.commit()
+        return row
+
+
 class CompanyPositionRate(db.Model):
     """One line of a company's rate card: the standard hourly rate that
     company charges for one local labor position (Jason, 2026-09-06 — local

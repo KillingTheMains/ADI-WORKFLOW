@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% import '_icons.html' as ico %}
+{% block title %}Vendor RFQs — {{ show.name }}{% endblock %}
+{% block page_title %}Vendor RFQs{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('main.dashboard') }}">Home</a> /
+  <a href="{{ url_for('shows.detail', show_id=show.id) }}">{{ show.name }}</a> /
+  <a href="{{ url_for('schedule.overview', show_id=show.id) }}">Schedule</a> / Vendor RFQs
+{% endblock %}
+{% block top_actions %}
+  <a href="{{ url_for('shows.detail', show_id=show.id) }}#vendors" class="btn btn-sm btn-outline-dark">
+    {{ ico.icon('building-2') }} Local Labor Vendors
+  </a>
+{% endblock %}
+
+{% block content %}
+{# Capture log #12 (Jason, 2026-09-06): one RFQ per vendor per show, from the
+   counts on the crew calls, in the columns of Larry's own RFQ template.
+   Which vendor gets which line comes from the show page's Local Labor
+   Vendors block (note 2) — a department with no vendor lands in
+   "Unassigned" so nothing is silently missing from every workbook. #}
+<p class="text-muted" style="font-size:.85rem;max-width:64em;">
+  One request for quote per vendor, built from every local labor line on this
+  show's crew calls — date, call time, department, position, how many, and
+  the hours split on that vendor's own terms. The workbook is Larry's
+  <em>ADI Vendor RFQ</em> layout: yellow is what we are asking for, the vendor
+  fills the regular rate and the sheet prices itself.
+  {% if google_configured %}
+    {% if google %}
+      Google is connected as <strong>{{ google.account_email or 'Larry' }}</strong>;
+      <em>To Google Sheets</em> puts the workbook in Drive under
+      <code>01 - RFQs / {{ show.code or show.name }}</code> as a live Sheet anyone
+      with the link can fill in.
+    {% else %}
+      <a href="{{ url_for('rfq.google_connect', next=request.path) }}">Connect Google</a>
+      once and the same workbook can go straight into Drive as a Sheet.
+    {% endif %}
+  {% endif %}
+</p>
+
+{% if not cards %}
+<div class="empty-state py-5">
+  <div class="empty-icon">{{ ico.icon('hard-hat', 32) }}</div>
+  <div style="font-size:.95rem;font-weight:600;margin-bottom:6px;">No local labor on this show yet</div>
+  <p class="text-muted" style="font-size:.85rem;">
+    Add local labor lines to the crew calls on the
+    <a href="{{ url_for('schedule.overview', show_id=show.id) }}">schedule</a>
+    and each vendor's RFQ appears here.
+  </p>
+</div>
+{% else %}
+<div class="row g-3">
+  {% for c in cards %}
+  <div class="col-md-6 col-xl-4">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center justify-content-between" style="font-size:.85rem;font-weight:700;">
+        <span>{% if c.vendor %}{{ c.vendor.name }}{% else %}Unassigned vendor{% endif %}</span>
+        {% if c.job_number %}<span class="text-muted" style="font-weight:400;font-size:.72rem;">Job # {{ c.job_number }}</span>{% endif %}
+      </div>
+      <div class="card-body" style="font-size:.82rem;">
+        {% if not c.vendor %}
+        <div class="text-muted mb-2" style="font-size:.76rem;">
+          These departments have no vendor on the show page. Set one under
+          <a href="{{ url_for('shows.detail', show_id=show.id) }}#vendors">Local Labor Vendors</a>
+          and they move to that vendor's RFQ.
+        </div>
+        {% endif %}
+        <div class="d-flex gap-3 mb-2">
+          <div><div style="font-size:1.1rem;font-weight:700;">{{ c.summary.lines }}</div><div class="text-muted" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;">dated call lines</div></div>
+          <div><div style="font-size:1.1rem;font-weight:700;">{{ c.summary.assignments }}</div><div class="text-muted" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;">assignments</div></div>
+          <div><div style="font-size:1.1rem;font-weight:700;">{{ '%g'|format(c.summary.person_hours) }}</div><div class="text-muted" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;">person-hours</div></div>
+          <div><div style="font-size:1.1rem;font-weight:700;">{{ c.summary.days }}</div><div class="text-muted" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;">days</div></div>
+        </div>
+        <div class="text-muted" style="font-size:.76rem;">{{ c.departments|join(' · ') }}</div>
+      </div>
+      <div class="card-footer d-flex gap-2 align-items-center">
+        <a class="btn btn-sm btn-adi" href="{{ url_for('rfq.download', show_id=show.id, key=c.key) }}">
+          {{ ico.icon('download') }} RFQ workbook (.xlsx)
+        </a>
+        {% if google_configured %}
+        <form method="POST" action="{{ url_for('rfq.to_sheet', show_id=show.id, key=c.key) }}" class="d-inline">
+          <button type="submit" class="btn btn-sm btn-outline-dark" {% if not google %}disabled title="Connect Google first"{% endif %}>
+            {{ ico.icon('file-text') }} To Google Sheets
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
