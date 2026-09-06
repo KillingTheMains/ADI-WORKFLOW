@@ -318,6 +318,8 @@
             <tr class="group-hdr">
               <td colspan="6">
                 {{ dept }}
+                {% set sdv = vendors.get(dept) if vendors else none %}
+                {% if sdv and sdv.company %}<span style="font-weight:400;text-transform:none;letter-spacing:0;"> · {{ sdv.company.name }}</span>{% endif %}
                 <span style="font-weight:400;text-transform:none;letter-spacing:0;">
                   · {{ dept_people }} {{ 'person' if dept_people == 1 else 'people' }}
                 </span>

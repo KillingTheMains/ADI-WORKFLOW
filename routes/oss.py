@@ -783,7 +783,9 @@ def show_book(show_id):
     for day in show.days:
         overlay, _missing = overlay_for_day(day)
         recurring[day.id] = place_in_day(day, overlay)
+    from models import vendor_map_for_show
     return render_template("oss/show_book.html", show=show,
+                           vendors=vendor_map_for_show(show.id),
                            recurring=recurring)
 
 

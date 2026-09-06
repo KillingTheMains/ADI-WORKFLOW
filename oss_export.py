@@ -343,6 +343,12 @@ def build_master_items(show, entries, meal_services):
 
     # ── #39: day activities + crew call times. An activity already carried
     # by a linked department row is skipped — it was merged in above.
+    # Note 2, step 5 (2026-09-06): which company supplies each department,
+    # once per show. Read here so the OSS master, the PDF and the XLSX all
+    # carry it on the local labor line without knowing where it came from.
+    from models import vendor_map_for_show
+    _vendors = vendor_map_for_show(show.id)
+
     for d in show.days:
         crew_by_time = {}
         # Local labor is kept in a SEPARATE list from the moment it is read.
@@ -398,11 +404,20 @@ def build_master_items(show, entries, meal_services):
                     if row.position or row.position_id:
                         title = row.position or (row.position_ref.title
                                                  if row.position_ref else None)
+                        _dept = (row.position_ref.department
+                                 if row.position_ref else None) or ""
+                        _sdv = _vendors.get(_dept)
+                        _vendor = (_sdv.company.name if (_sdv is not None and _sdv.company_id
+                                                         and _sdv.company) else "")
+                        _label = line_label(title, row.qty, row.task)
+                        if _vendor:
+                            _label = f"{_label} — {_vendor}"
                         local.append({
-                            "label":    line_label(title, row.qty, row.task),
+                            "label":    _label,
                             "qty":      _qty(row.qty),
                             "position": (title or "Crew"),
                             "task":     (row.task or "").strip(),
+                            "vendor":   _vendor,
                         })
 
         # #47 — one grouped Crew row per distinct call time, not one per person.

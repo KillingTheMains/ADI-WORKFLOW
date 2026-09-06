@@ -1408,6 +1408,11 @@
                    it. §02. #}
                 <td colspan="7" style="font-size:11px;">
                   {{ dept }}
+                  {# Note 2, step 4 (2026-09-06): the department's vendor for
+                     this show, from the show page's Local Labor Vendors block.
+                     One lookup, read at render — change it once, every day. #}
+                  {% set sdv = vendors.get(dept) if vendors else none %}
+                  {% if sdv and sdv.company %}<span style="font-weight:400;"> · {{ sdv.company.name }}</span>{% endif %}
                   <span style="font-weight:400;opacity:.75;">
                     · {{ dept_people }} {{ 'person' if dept_people == 1 else 'people' }}
                   </span>

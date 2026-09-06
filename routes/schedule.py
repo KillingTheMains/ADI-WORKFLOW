@@ -520,7 +520,9 @@ def day_detail(show_id, day_id):
                                ~CrewMember.id.in_(assigned_ids or [-1]))
                        .order_by(*crew_order_by()).all())
 
+    from models import vendor_map_for_show
     return render_template("schedule/day.html", show=show, day=day,
+                           vendors=vendor_map_for_show(show.id),
                            positions=positions, crew_members=crew_members,
                            local_labor_catalogue=local_labor_catalogue,
                            task_options=task_options,

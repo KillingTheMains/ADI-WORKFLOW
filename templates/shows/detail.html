@@ -150,11 +150,15 @@
        department list is local_labor's DEPARTMENT_ORDER, the same ordering the
        Local Labor Database and every crew call already use.
 
-       Reading this on the crew call headers and in the schedule export is
-       steps 4 and 5 of the proposal, deliberately not built yet: both touch
-       the day page and the exporters, and MCDC26 loads in on 2026-09-08. #}
-    <div class="card mt-3">
-      <div class="card-header">Local Labor Vendors</div>
+       Steps 4 and 5 landed 2026-09-06: the vendor shows on each local labor
+       department header (day page, show book), on the local labor lines of
+       the OSS master / PDF / XLSX, and decides which vendor's RFQ a line
+       goes into (Vendor RFQs, from the schedule). #}
+    <div class="card mt-3" id="vendors">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span>Local Labor Vendors</span>
+        <a href="{{ url_for('rfq.picker', show_id=show.id) }}" style="font-size:.74rem;font-weight:400;">Vendor RFQs</a>
+      </div>
       <div class="card-body p-3">
         <form method="POST" action="{{ url_for('shows.save_vendors', show_id=show.id) }}">
           <table style="width:100%;font-size:.8rem;">
