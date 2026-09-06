@@ -125,6 +125,13 @@ than as his decisions. **[repo, recording approved by Jason]**
 - The Requests board stays where it is in the sidebar. The Show Roster and
   the Crew Database remain separate pages.
 - Working on the app during a show week is fine.
+- **Local labor actuals are per body, under a row that keeps its qty**
+  ("Qty 6 · Lighting Hand · 10 hrs" stays on the call; six actuals hang
+  beneath it). A body's identity is per call, not across days.
+- **Overtime terms resolve person → company → default.** A blank OT/DT rate
+  on a person is 1.5× / 2× of standard. Money is still not shown anywhere;
+  the rate column needs cleaning first (intake collected "10-Hour Day Rate"
+  and "ST Hourly" as separate fields).
 
 **Undecided product facts — do not build on assumptions.** **[undecided,
 blocked on Larry]**
