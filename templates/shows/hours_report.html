@@ -154,7 +154,7 @@
 {% if sorted_crew or sorted_local %}
 {% set total_crew = sorted_crew|length %}
 {% set days_with_crew = namespace(n=0) %}
-{% for day in show_days %}{% if day_totals.get(day.id, 0) > 0 %}{% set days_with_crew.n = days_with_crew.n + 1 %}{% endif %}{% endfor %}
+{% for day in show_days %}{% if all_day_totals.get(day.id, 0) > 0 %}{% set days_with_crew.n = days_with_crew.n + 1 %}{% endif %}{% endfor %}
 
 {# Larry's billable day, split per day. Hours only — see billing.py for why
    this stops short of money. #}
@@ -186,8 +186,8 @@
 <div class="row g-3 mb-4 no-print">
   <div class="col">
     <div class="stat-card">
-      <div class="stat-num">{{ "%.0f"|format(grand_total) }}</div>
-      <div class="stat-label">Total Man-Hours</div>
+      <div class="stat-num">{{ "%.0f"|format(grand_total + local_total) }}</div>
+      <div class="stat-label">Total Man-Hours{% if local_total %} (incl. local){% endif %}</div>
     </div>
   </div>
   {% if totals_ot or totals_dt %}
@@ -221,7 +221,7 @@
   {% if grand_total > 0 and total_crew > 0 %}
   <div class="col">
     <div class="stat-card">
-      <div class="stat-num">{{ "%.1f"|format(grand_total / days_with_crew.n) if days_with_crew.n > 0 else '—' }}</div>
+      <div class="stat-num">{{ "%.1f"|format((grand_total + local_total) / days_with_crew.n) if days_with_crew.n > 0 else '—' }}</div>
       <div class="stat-label">Avg Hours/Day</div>
     </div>
   </div>
@@ -527,7 +527,7 @@
               {% for day in show_days %}
                 {% if day.phase == phase %}
                   {% set ph_days.n = ph_days.n + 1 %}
-                  {% set ph_hrs.h = ph_hrs.h + day_totals.get(day.id, 0) %}
+                  {% set ph_hrs.h = ph_hrs.h + all_day_totals.get(day.id, 0) %}
                 {% endif %}
               {% endfor %}
               <tr>
@@ -544,7 +544,7 @@
             <tr style="border-top:2px solid var(--adi-border);">
               <td style="font-weight:700;">TOTAL</td>
               <td class="text-muted">{{ show_days|length }}</td>
-              <td style="font-weight:700;">{{ "%.1f"|format(grand_total) }}</td>
+              <td style="font-weight:700;">{{ "%.1f"|format(grand_total + local_total) }}</td>
             </tr>
           </tbody>
         </table>

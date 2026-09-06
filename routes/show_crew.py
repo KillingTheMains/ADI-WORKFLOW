@@ -322,32 +322,18 @@ def hours_report(show_id):
                 qty     = row.qty or 1
                 hrs     = (row.hours or 0) * qty
                 actual  = (row.actual_hours or 0) * qty
-                if row.crew_member_id:
-                    if row.crew_member_id not in crew_data:
-                        cm = row.crew_member
-                        crew_data[row.crew_member_id] = {
-                            "member":   cm,
-                            "position": row.position or (cm.position.title if cm.position else ""),
-                            "dept":     (cm.position.department if cm.position else "") or "",
-                            "company":  cm.company.name if cm.company else "",
-                            "type":     row.crew_type or "",
-                            "days":     {},
-                            "days_billable": {},   # actual where recorded, else estimate
-                            "total":    0.0,
-                            "total_actual": 0.0,
-                            "actual_recorded": False,
-                        }
-                    entry = crew_data[row.crew_member_id]
-                    entry["days"][day.id] = entry["days"].get(day.id, 0.0) + hrs
-                    billable = actual if row.actual_hours is not None else hrs
-                    entry["days_billable"][day.id] = entry["days_billable"].get(day.id, 0.0) + billable
-                    entry["total"] += hrs
-                    entry["total_actual"] += actual
-                    if row.actual_hours is not None:
-                        entry["actual_recorded"] = True
-                elif row.is_local_labor:
+                # Local labor FIRST. Show 3's local lines are linked to one
+                # placeholder crew record per position ("<Company> Lighting
+                # Hand"), so testing crew_member_id first claimed them as
+                # named people — a line of 8 hands x 10 hrs became one person
+                # working 80 hours in a day, split 10 ST + 2 OT + 68 DT. A row
+                # that IS local labor is a count, whatever it is linked to;
+                # the call sheet's conflict check applies the same rule.
+                if row.is_local_labor:
                     section = (l1.group_label if l1 is not None else "") or ""
                     company = l1.company if (l1 is not None and l1.company_id) else None
+                    if company is None and row.crew_member is not None:
+                        company = row.crew_member.company
                     co_name = company.name if company else (section or "")
                     position = row.position or (row.position_ref.title if row.position_ref else "Local labor")
                     key = (co_name, position)
@@ -391,6 +377,29 @@ def hours_report(show_id):
                         entry["st_hours"] += st
                         entry["ot_hours"] += ot
                         entry["dt_hours"] += dt
+                elif row.crew_member_id:
+                    if row.crew_member_id not in crew_data:
+                        cm = row.crew_member
+                        crew_data[row.crew_member_id] = {
+                            "member":   cm,
+                            "position": row.position or (cm.position.title if cm.position else ""),
+                            "dept":     (cm.position.department if cm.position else "") or "",
+                            "company":  cm.company.name if cm.company else "",
+                            "type":     row.crew_type or "",
+                            "days":     {},
+                            "days_billable": {},   # actual where recorded, else estimate
+                            "total":    0.0,
+                            "total_actual": 0.0,
+                            "actual_recorded": False,
+                        }
+                    entry = crew_data[row.crew_member_id]
+                    entry["days"][day.id] = entry["days"].get(day.id, 0.0) + hrs
+                    billable = actual if row.actual_hours is not None else hrs
+                    entry["days_billable"][day.id] = entry["days_billable"].get(day.id, 0.0) + billable
+                    entry["total"] += hrs
+                    entry["total_actual"] += actual
+                    if row.actual_hours is not None:
+                        entry["actual_recorded"] = True
                 else:
                     # TBD / unnamed row — track separately
                     tbd_data.append({
@@ -435,6 +444,10 @@ def hours_report(show_id):
     for entry in sorted_local:
         for day_id, d in entry["days"].items():
             local_day_totals[day_id] = local_day_totals.get(day_id, 0.0) + d["est"]
+    # Named + local, for the show-level figures (man-hours, hours by phase)
+    all_day_totals = dict(day_totals)
+    for day_id, h in local_day_totals.items():
+        all_day_totals[day_id] = all_day_totals.get(day_id, 0.0) + h
 
     # Larry's billable day: 10 hours, OT 1.5x for 11-12, DT 2.0x from 13 —
     # unless the person, or their company, has other terms. Split PER DAY:
@@ -497,6 +510,7 @@ def hours_report(show_id):
         tbd_data=tbd_data,
         day_totals=day_totals,
         local_day_totals=local_day_totals,
+        all_day_totals=all_day_totals,
         company_totals=company_totals,
         totals_st=totals_st, totals_ot=totals_ot, totals_dt=totals_dt,
         named_ot=named_ot, named_dt=named_dt, local_ot=local_ot, local_dt=local_dt,

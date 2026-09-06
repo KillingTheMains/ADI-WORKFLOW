@@ -197,3 +197,33 @@ def test_a_show_with_only_local_labor_still_renders_the_report(app, client, db):
     html = _get(client, show)
     assert "No hours tracked yet" not in html
     assert "Stagehand HRL9" in html
+
+
+def test_a_local_line_linked_to_a_placeholder_record_is_still_a_count(app, client, db):
+    """Show 3 in production links every local labor line to one placeholder
+    crew record per position ("<Company> Lighting Hand"). Before 09-06 the
+    report tested crew_member_id first and claimed those as named people:
+    8 hands x 10 hrs became one person working 80 hours in a day, split
+    10 ST + 2 OT + 68 DT. A local labor row is a count whatever it is
+    linked to."""
+    from models import CrewMember, CrewRow, Company
+    co = Company(name="Placeholder Labor Co HRL10")
+    db.session.add(co); db.session.flush()
+    show = _show(db, "HRL10")
+    day, act = _day(db, show)
+    pos = _local_position(db, "Lighting Hand HRL10")
+    ph = CrewMember(first_name="Placeholder", last_name="Lighting Hand HRL10",
+                    company_id=co.id)
+    db.session.add(ph); db.session.flush()
+    db.session.add(CrewRow(activity_id=act.id, crew_member_id=ph.id,
+                           position_id=pos.id, position=pos.title, qty=8,
+                           hours=10, crew_type="Local Crew", sort_order=2))
+    db.session.commit()
+    html = _get(client, show)
+    assert "8 bodies" in html
+    assert "8×</span>10" in html
+    assert "Placeholder Labor Co HRL10" in html     # company from the record
+    assert "Billable split" not in html            # 8 x 10 is no overtime
+    assert "80.0" in html
+    # not a named person, and no "1 named crew" line for it
+    assert "0 named crew" in html
