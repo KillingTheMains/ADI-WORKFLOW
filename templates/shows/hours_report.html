@@ -89,10 +89,14 @@
   .cost-cell { text-align:right !important; font-variant-numeric: tabular-nums; white-space:nowrap; }
   .no-rate { font-size:.66rem; color:var(--adi-mineral); font-weight:400; }
   /* ── Print ── */
+  /* Eleven day columns plus totals: portrait cut the report off at 9/16.
+     Landscape holds the whole show; the type scale is the print spec's,
+     from style.css. */
   @media print {
+    @page { size: Letter landscape; margin: 12mm 13mm 11mm; }
     .no-print { display: none !important; }
-    .hours-table { font-size: 8px; }
-    .hours-table th { font-size: 7px; }
+    .hours-table { min-width: 0 !important; width: 100%; }
+    .card[style*="overflow-x"] { overflow: visible !important; }
   }
 </style>
 
@@ -110,14 +114,17 @@
 } %}
 
 <!-- Show header -->
-<div class="card mb-4" style="background:var(--adi-dark);border-color:var(--adi-dark);">
+{# .paperwork-band / .pb-*: Midnight on screen; on paper style.css turns
+   this into the document header of the print spec (eyebrow, condensed
+   title, rule). The inline styles are the screen. #}
+<div class="card mb-4 paperwork-band" style="background:var(--adi-dark);border-color:var(--adi-dark);">
   <div class="card-body p-3">
     <div class="row align-items-center">
       <div class="col">
-        {% if show.code %}<div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;
+        {% if show.code %}<div class="pb-code" style="font-size:.7rem;font-weight:700;letter-spacing:.1em;
             text-transform:uppercase;color:var(--adi-blue-lt);">{{ show.code }}</div>{% endif %}
-        <div style="font-size:1.05rem;font-weight:700;color:#fff;">{{ show.name }}</div>
-        <div style="font-size:.8rem;color:rgba(255,255,255,.72);">
+        <div class="pb-title" style="font-size:1.05rem;font-weight:700;color:#fff;">{{ show.name }}</div>
+        <div class="pb-sub" style="font-size:.8rem;color:rgba(255,255,255,.72);">
           Hours Report · {{ sorted_crew|length }} named crew
           {%- if local_bodies %} · {{ local_bodies }} local labor {{ 'body' if local_bodies == 1 else 'bodies' }}{% endif %}
           · {{ show_days|length }} {{ 'day' if show_days|length == 1 else 'days' }}
@@ -125,7 +132,7 @@
         </div>
       </div>
       <div class="col-auto">
-        <div style="font-size:.75rem;color:rgba(255,255,255,.4);">
+        <div class="pb-meta" style="font-size:.75rem;color:rgba(255,255,255,.4);">
           {{ show.date_range }}
         </div>
       </div>

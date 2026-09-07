@@ -985,3 +985,104 @@ input[type="number"], input[type="time"] { font-variant-numeric: tabular-nums; }
 .empty-state .empty-title { font-size: 0.9rem; font-weight: 600; color: var(--adi-dark);
                             margin-bottom: var(--sp-2); }
 .empty-state .empty-body  { font-size: 0.85rem; max-width: 42em; margin: 0 auto var(--sp-6); }
+
+/* ── Paper, from inside the app (spec of 2026-09-07) ─────────────────────
+   The day page and the Hours Report print from Chrome. On paper they follow
+   the same spec as the PDF and the paper pages (brand.py "Paper",
+   static/css/paper.css, claude/ADI_Print_Design_Spec_2026-09-07.md): Barlow
+   at 9.4pt, section bands on warm white, hairlines between rows, tracked
+   mineral capitals for column headers, no filled header rows. Two things
+   deliberately survive from the screen: the Midnight crew-call plate (the
+   "table of people vs a line" silhouette, Interface Spec §07) and the
+   row-kind fills, because both carry information rather than decoration. */
+@media print {
+  @page { size: Letter; margin: 12mm 13mm 11mm; }
+  html body { font-family: 'Barlow', 'Helvetica Neue', Arial, sans-serif; font-size: 9.4pt;
+              line-height: 1.3; color: #1B2A3F; background: #fff;
+              -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #main-content { margin-left: 0 !important; }
+  .page-body, .container-fluid { padding: 0 !important; }
+  a { color: inherit !important; text-decoration: none !important; }
+  .paperwork-artwork img { max-height: 60pt; }
+
+  /* Cards become paper: no box, no rounded corners; the header is a band. */
+  .card { border: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+  .card-header, .card-header.gold {
+    background: #F7F4EE !important; color: #0B2545 !important; border: 0 !important;
+    border-bottom: .6pt solid #DDD8CE !important; border-radius: 0 !important;
+    font-family: 'Barlow Condensed', 'Barlow', sans-serif; font-weight: 700; font-size: 9.9pt;
+    letter-spacing: .13em; text-transform: uppercase; padding: 3pt 5pt 2.4pt;
+    break-after: avoid;
+  }
+
+  /* The paperwork band (Hours Report, contact sheet…): Midnight on screen,
+     the document header on paper — eyebrow, condensed title, a rule. */
+  .paperwork-band { background: none !important; border: 0 !important; border-bottom: 2pt solid #0B2545 !important;
+                    border-radius: 0 !important; margin-bottom: 8pt !important; }
+  .paperwork-band .card-body { padding: 0 0 5pt !important; }
+  .paperwork-band .pb-code  { color: #0C6B79 !important; font-family: 'Barlow Condensed', sans-serif;
+                              font-weight: 600 !important; font-size: 8.9pt !important; letter-spacing: .14em !important; }
+  .paperwork-band .pb-title { color: #0B2545 !important; font-family: 'Barlow Condensed', sans-serif;
+                              font-weight: 700 !important; font-size: 27pt !important; line-height: 1 !important; }
+  .paperwork-band .pb-sub   { color: #59636E !important; font-size: 9.4pt !important; margin-top: 3pt; }
+  .paperwork-band .pb-sub span { color: #7A5C1E !important; }
+  .paperwork-band .pb-meta  { color: #1B2A3F !important; font-weight: 600; font-size: 8.9pt !important; }
+  .paperwork-band .pb-time  { color: #7A5C1E !important; font-family: 'Barlow Condensed', sans-serif;
+                              font-weight: 700 !important; font-size: 12.7pt !important; }
+  .paperwork-band .card-body [style*="rgba(255,255,255"] { color: #59636E !important; }
+  .paperwork-band .card-body [style*="255,255,255"] .badge, .paperwork-band .badge { background: none !important; color: #59636E !important; border: .6pt solid #DDD8CE; }
+  .pb-eyebrow { color: #0C6B79 !important; font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
+                font-size: 8.9pt !important; letter-spacing: .14em !important; margin-bottom: 2pt !important; }
+  .crew-table input, .crew-table select, .crew-table textarea { font: inherit !important; color: #1B2A3F !important; }
+
+  /* Tables: column headers as tracked mineral capitals, hairlines below. */
+  table th, .table th, .crew-table th, .hours-table th {
+    background: none !important; color: #59636E !important; font-weight: 500 !important;
+    font-size: 7.5pt !important; letter-spacing: .12em; text-transform: uppercase;
+    border: 0 !important; border-bottom: .6pt solid #DDD8CE !important; padding: 4pt 6pt 2pt !important;
+    position: static !important;
+  }
+  table td, .table td, .crew-table td, .hours-table td {
+    border: 0 !important; border-bottom: .6pt solid #DDD8CE !important; padding: 3pt 6pt !important;
+    font-size: 9.4pt; vertical-align: top;
+  }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  table, .table, .crew-table, .hours-table { font-size: 9.4pt !important; }
+
+  /* Group headers inside a table (company sections on a crew call, company
+     dividers on the Hours Report): the section band. */
+  .crew-table .group-header td, .crew-table .group-header[data-level="2"] td,
+  .hours-table .company-divider td {
+    background: #F7F4EE !important; color: #0B2545 !important;
+    font-family: 'Barlow Condensed', 'Barlow', sans-serif; font-weight: 700 !important;
+    font-size: 9.9pt !important; letter-spacing: .06em !important; text-transform: none !important;
+    padding: 3pt 6pt 2.4pt !important; border-top: 0 !important; border-bottom: .6pt solid #DDD8CE !important;
+    break-after: avoid;
+  }
+  .hours-table .company-subtotal td { background: none !important; color: #59636E !important;
+                                      border-bottom: .6pt solid #DDD8CE !important; font-size: 8.5pt !important; }
+  .hours-table .company-subtotal td.total-cell { color: #1B2A3F !important; font-weight: 600; }
+  .hours-table .total-row td { background: #F7F4EE !important; color: #0B2545 !important;
+                               border-top: 2pt solid #0B2545 !important; font-weight: 700; }
+  .hours-table .total-row td.day-cell { color: #0B2545 !important; }
+  .hours-table td.total-cell { background: none !important; }
+  .hours-table td.day-cell { color: #1B2A3F !important; font-weight: 500; }
+  .hours-table td.day-cell.zero { color: #DDD8CE !important; }
+  .hours-table td.day-cell.flagged { background: #FBF3DF !important; }
+  .hours-table th.day-col { font-size: 7pt !important; height: 48pt; }
+  .hours-table tr:hover td { background: none !important; }
+  .hours-report-print .card { overflow: visible !important; }
+
+  /* Activity header on the day page: the plain-activity band takes the
+     stripe; the crew-call plate keeps Midnight (see above). Times in the
+     gold condensed numeral. */
+  .act-head-act { background: #F7F4EE !important; }
+  .act-head-act .act-time { color: #7A5C1E !important; font-family: 'Barlow Condensed', sans-serif;
+                            font-weight: 700; font-size: 10.8pt; }
+  .day-card .day-header-bar { background: none !important; color: #0B2545 !important;
+                              border-bottom: 2pt solid #0B2545 !important; }
+}
+@media print {
+  .day-card .day-time, .day-card .phase-pill { color: #7A5C1E !important; background: none !important; }
+}
