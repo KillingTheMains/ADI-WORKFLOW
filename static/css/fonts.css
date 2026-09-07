@@ -1,0 +1,20 @@
+/* ── Barlow, served from here ─────────────────────────────────────────────
+   The app has loaded Barlow from Google Fonts since the 2026-08 redesign.
+   These faces are the same files (latin subset), bundled so that a print
+   engine, an offline laptop at the venue, or a browser with third-party
+   fonts blocked still sets the paperwork in the face the spec calls for.
+   SIL Open Font License — see static/fonts/OFL.txt. Loaded BEFORE the
+   Google Fonts link where both exist, so a local file wins and the network
+   request is a no-op. */
+@font-face { font-family: 'Barlow'; font-style: normal; font-weight: 400; font-display: swap;
+             src: url('../fonts/Barlow-Regular.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow'; font-style: normal; font-weight: 500; font-display: swap;
+             src: url('../fonts/Barlow-Medium.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow'; font-style: normal; font-weight: 600; font-display: swap;
+             src: url('../fonts/Barlow-SemiBold.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow'; font-style: normal; font-weight: 700; font-display: swap;
+             src: url('../fonts/Barlow-Bold.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 600; font-display: swap;
+             src: url('../fonts/BarlowCondensed-SemiBold.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 700; font-display: swap;
+             src: url('../fonts/BarlowCondensed-Bold.woff2') format('woff2'); }

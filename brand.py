@@ -194,11 +194,14 @@ def row_code(kind, dept=None):
 # double rail against a dashed one; on paper that job belongs entirely to BV
 # against BR, and giving them two near-identical greys would only suggest a
 # distinction the reader cannot actually resolve.
+# Warmed 2026-09-07 with the paper spec: the cool blue-greys sat on the
+# warm-white bands like a form on a letter. Same three tiers, same
+# greyscale separation (≈236 / 232 / 228), now on the paper's own cast.
 KIND_FILL = {
-    "break": "#E9ECF1",
-    "bev":   "#E9ECF1",
-    "local": "#E7EBF0",
-    "recur": "#EFE7D6",
+    "break": "#EDEAE3",
+    "bev":   "#EDEAE3",
+    "local": "#E8E4DC",
+    "recur": "#F3EBDB",
 }
 
 KIND_LEGEND = "CC crew call · AC activity · BR break · BV beverage · LL local labor · RC recurring · SD/ED day anchors"
@@ -216,3 +219,59 @@ LEGAL_ENTITY = "Allure Designs, Inc."
 def as_openpyxl(hex_value):
     """openpyxl wants a bare RRGGBB with no leading hash."""
     return (hex_value or "").lstrip("#").upper()
+
+
+# ── Paper, 2026-09-07 ──────────────────────────────────────────────────────
+# The look of "Notes from the week" (the 2026-09-06 list for Larry), which
+# Jason asked to become the look of every printed document the app makes.
+# Recorded in full in claude/ADI_Print_Design_Spec_2026-09-07.md. These are
+# the tokens; the exporters and paper.css read them so no two surfaces can
+# drift.
+#
+# Two rules the palette above did not need on screen but paper does:
+#   * Gold and cyan are TEXT here only in their ink forms (GOLD_INK,
+#     CYAN_INK). The brand's true gold (#C9A45C) is 2.35:1 on white and is
+#     never set as type; it stays a rail colour.
+#   * Fills are warm (WARM_WHITE), rules are warm (LINE). Cool greys read as
+#     "form" against Barlow; warm ones read as paper.
+
+INK        = "#1B2A3F"      # body text
+LINE       = "#DDD8CE"      # hairlines between rows, under column headers
+STRIPE     = WARM_WHITE     # section/group band fill
+CYAN_INK   = "#0C6B79"      # eyebrow, links — cyan as TEXT on white (6.0:1)
+GOLD_INK   = "#7A5C1E"      # item numbers, row codes — gold as TEXT (6.2:1)
+OK_BG, OK_INK     = "#E6F2EC", "#1F6B45"   # "Live" pill
+WAIT_BG, WAIT_INK = "#FBF3DF", "#7A5C1E"   # "Waiting" pill
+
+# Typeface. Barlow (text) and Barlow Condensed (display), SIL OFL, bundled
+# in static/fonts so PDFs embed them and a print engine without web fonts
+# still gets them. Before this the PDF was Helvetica and the screen Barlow.
+FONT_TEXT    = "Barlow"
+FONT_DISPLAY = "BarlowCondensed"
+
+# Page: Letter, tight margins — 12mm top, 13mm sides, 11mm bottom. The
+# 1in margins above are Larry's .docx templates and still govern anything
+# built to drop into one of those; a schedule that has to hold six columns
+# gets the width.
+PAPER_MARGIN_TOP_MM    = 12
+PAPER_MARGIN_SIDE_MM   = 13
+PAPER_MARGIN_BOTTOM_MM = 11
+PAPER_CONTENT_WIDTH_IN = round(PAGE_WIDTH_IN - 2 * PAPER_MARGIN_SIDE_MM / 25.4, 3)  # 7.476
+
+# Type scale, points. Body is the base; everything else is a ratio of it so
+# the whole sheet scales together (9.4 was the size that held the Larry
+# list at two pages with room).
+PAPER_PT_BODY     = 9.4
+PAPER_PT_SMALL    = 7.5    # column headers, footer      (0.80×)
+PAPER_PT_EYEBROW  = 8.9    # "ADI WORKFLOW" line        (0.95×)
+PAPER_PT_GROUP    = 9.9    # section band               (1.05×)
+PAPER_PT_NUMBER   = 12.7   # item number / row code     (1.35×)
+PAPER_PT_TITLE    = 27.0   # document title             (2.9×)
+PAPER_LEADING     = 1.3    # line-height on body text
+PAPER_RULE_PT     = 2.0    # the midnight rule under the document header
+PAPER_HAIRLINE_PT = 0.6
+
+# Column headers: uppercase, tracked, MINERAL, no fill, hairline below.
+# Section bands: uppercase condensed bold, MIDNIGHT on STRIPE.
+# Rows: hairline LINE below; never a zebra.
+# Numbers and codes: condensed bold GOLD_INK, right-aligned in their column.

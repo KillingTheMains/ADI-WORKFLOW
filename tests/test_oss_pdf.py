@@ -90,7 +90,7 @@ def test_column_headers_repeat_on_every_continuation_page(app, db):
     pages = _pages(show, SubScheduleEntry.query.all())
     for i, text in enumerate(pages, 1):
         if "Mon 19 Jan 2026" in text:
-            assert "Dept" in text and "Item" in text, \
+            assert "dept" in text.lower() and "item" in text.lower(), \
                 f"page {i} carries schedule rows but no column header"
 
 
@@ -101,7 +101,7 @@ def test_a_short_day_is_never_split(app, db):
     pages = _pages(show, SubScheduleEntry.query.all())
     # Skip the cover — it carries the date span "Mon 19 Jan – Tue 20 Jan 2026"
     # and would otherwise match.
-    start = next(i for i, t in enumerate(pages) if "Schedule by day" in t)
+    start = next(i for i, t in enumerate(pages) if "schedule by day" in t.lower())
     body = pages[start:]
     hits = [i for i, t in enumerate(body) if "QUIET DAY ONLY ITEM" in t]
     quiet_header = [i for i, t in enumerate(body) if "Tue 20 Jan 2026" in t]
@@ -130,9 +130,10 @@ def test_document_has_cover_glance_days_and_departments(app, db):
     body = "\n".join(pages)
     assert "Master Schedule" in pages[0] and "Main Hall" in pages[0]
     assert "DEPARTMENT KEY" in pages[0]
-    assert "At a glance" in body
-    assert "Schedule by day" in body
-    assert "Schedule by department" in body
+    # Section headings print as capitals (paper spec 2026-09-07).
+    assert "at a glance" in body.lower()
+    assert "schedule by day" in body.lower()
+    assert "schedule by department" in body.lower()
 
 
 def test_empty_show_still_renders(app, db):

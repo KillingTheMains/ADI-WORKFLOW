@@ -96,7 +96,7 @@ def test_a_section_pdf_says_it_is_a_section_pdf(client, db):
     text = _text(_export(client, show, ["Dock"]))
     assert "Section Schedule" in text
     assert "Master Schedule" not in text
-    assert "Sections" in text
+    assert "sections" in text.lower()     # the cover label prints in capitals
     assert "Dock" in text
 
 
