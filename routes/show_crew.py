@@ -395,10 +395,12 @@ def hours_report(show_id):
                             "type":     row.crew_type or "",
                             "days":     {},
                             "days_billable": {},   # actual where recorded, else estimate
+                            "cells":    {},        # day_id -> {"rows","est","actual","multi"}
                             "day_dates": {},
                             "shifts":   [],        # (date, call time, billable hrs) per row
                             "total":    0.0,
                             "total_actual": 0.0,
+                            "est_recorded": 0.0,   # estimate of the days with an actual
                             "actual_recorded": False,
                         }
                     entry = crew_data[row.crew_member_id]
@@ -411,6 +413,21 @@ def hours_report(show_id):
                     entry["total_actual"] += actual
                     if row.actual_hours is not None:
                         entry["actual_recorded"] = True
+                        # Δ compares like with like: the actual against the
+                        # estimate of the days that HAVE an actual, so two
+                        # recorded days out of seven read +1.5, not -48.5.
+                        entry["est_recorded"] += hrs
+                    # The cell (Jason, 09-07): the actual is typed on this
+                    # report. One row on the day -> the cell edits that row;
+                    # two calls on one day -> read-only, the actual belongs
+                    # to a shift and is typed on the day page.
+                    cell = entry["cells"].setdefault(day.id, {
+                        "rows": [], "est": 0.0, "actual": None, "multi": False})
+                    cell["rows"].append(row.id)
+                    cell["est"] += hrs
+                    if row.actual_hours is not None:
+                        cell["actual"] = (cell["actual"] or 0.0) + actual
+                    cell["multi"] = len(cell["rows"]) > 1
                 else:
                     # TBD / unnamed row — track separately
                     tbd_data.append({
@@ -446,7 +463,11 @@ def hours_report(show_id):
         key=lambda x: (x["company"], x["dept"], x["position"])
     )
 
-    # Day totals (sum of all named crew hours per day)
+    # Day totals (sum of all named crew hours per day). Estimates, as the
+    # stat cards are; the per-day figures Larry reads in the table are the
+    # BILLABLE ones below (actual where recorded, else estimate), each
+    # marked when any estimate is inside it — the "*" convention (Jason,
+    # 09-07: the estimate carries a star, the actual does not).
     day_totals = {}
     for entry in sorted_crew:
         for day_id, hrs in entry["days"].items():
@@ -455,6 +476,35 @@ def hours_report(show_id):
     for entry in sorted_local:
         for day_id, d in entry["days"].items():
             local_day_totals[day_id] = local_day_totals.get(day_id, 0.0) + d["est"]
+
+    def _bucket(store, key, day_id):
+        return store.setdefault(key, {}).setdefault(
+            day_id, {"hours": 0.0, "est_in": False, "n": 0})
+
+    # Named crew: per company per day, and the show per day.
+    company_day = {}
+    named_day = {}
+    for entry in sorted_crew:
+        for day_id, cell in entry["cells"].items():
+            billable = cell["actual"] if cell["actual"] is not None else cell["est"]
+            for b in (_bucket(company_day, entry["company"], day_id),
+                      _bucket(named_day, "", day_id)):
+                b["hours"] += billable
+                b["n"] += 1
+                if cell["actual"] is None:
+                    b["est_in"] = True
+    named_day = named_day.get("", {})
+    # Local labor: per company per day (bodies x hours; actuals per body).
+    local_company_day = {}
+    for entry in sorted_local:
+        for day_id, d in entry["days"].items():
+            b = _bucket(local_company_day, entry["company"], day_id)
+            # Recorded bodies count their actual; the rest their estimate.
+            per_body_est = (d["est"] / d["qty"]) if d["qty"] else 0.0
+            b["hours"] += d["actual"] + per_body_est * (d["qty"] - d["recorded"])
+            b["n"] += d["qty"]
+            if d["recorded"] < d["qty"]:
+                b["est_in"] = True
     # Named + local, for the show-level figures (man-hours, hours by phase)
     all_day_totals = dict(day_totals)
     for day_id, h in local_day_totals.items():
@@ -504,7 +554,7 @@ def hours_report(show_id):
     company_totals = {}
     for entry in sorted_crew:
         ct = company_totals.setdefault(entry["company"], {
-            "n": 0, "total": 0.0, "total_actual": 0.0,
+            "n": 0, "total": 0.0, "total_actual": 0.0, "est_recorded": 0.0,
             "st": 0.0, "ot": 0.0, "dt": 0.0, "actual_recorded": False,
             "cost": 0.0, "unpriced": 0})
         ct["n"] += 1
@@ -514,6 +564,7 @@ def hours_report(show_id):
             ct["unpriced"] += 1
         ct["total"] += entry["total"]
         ct["total_actual"] += entry["total_actual"]
+        ct["est_recorded"] += entry["est_recorded"]
         ct["st"] += entry["st_hours"]; ct["ot"] += entry["ot_hours"]; ct["dt"] += entry["dt_hours"]
         ct["actual_recorded"] = ct["actual_recorded"] or entry["actual_recorded"]
 
@@ -549,6 +600,7 @@ def hours_report(show_id):
 
     grand_total        = sum(e["total"] for e in sorted_crew)
     grand_total_actual = sum(e["total_actual"] for e in sorted_crew)
+    grand_est_recorded = sum(e["est_recorded"] for e in sorted_crew)
     any_actual_recorded = any(e.get("actual_recorded") for e in sorted_crew)
     local_total        = sum(e["total"] for e in sorted_local)
     local_total_actual = sum(e["total_actual"] for e in sorted_local)
@@ -564,6 +616,9 @@ def hours_report(show_id):
         tbd_data=tbd_data,
         day_totals=day_totals,
         local_day_totals=local_day_totals,
+        company_day=company_day, named_day=named_day,
+        local_company_day=local_company_day,
+        today=date_cls.today(),
         all_day_totals=all_day_totals,
         company_totals=company_totals,
         totals_st=totals_st, totals_ot=totals_ot, totals_dt=totals_dt,
@@ -571,6 +626,7 @@ def hours_report(show_id):
         own_terms=own_terms,
         grand_total=grand_total,
         grand_total_actual=grand_total_actual,
+        grand_est_recorded=grand_est_recorded,
         any_actual_recorded=any_actual_recorded,
         local_total=local_total,
         local_total_actual=local_total_actual,
@@ -702,6 +758,64 @@ def local_labor_fill(show_id, row_id):
               "success" if n else "info")
     return redirect(url_for("show_crew.local_labor_hours", show_id=show_id)
                     + f"#row-{row.id}")
+
+
+# ── Named crew actuals, typed on the Hours Report (Jason, 2026-09-07) ────────
+#
+# The report showed estimates and had nowhere to type what happened. Each day
+# cell of the named table is now the input; it edits the same
+# CrewRow.actual_hours the day page edits, so the two never disagree.
+
+def _named_row_in_show(row, show_id):
+    return (row is not None and row.activity is not None
+            and row.activity.day is not None
+            and row.activity.day.show_id == show_id
+            and bool(row.crew_member_id) and not row.is_local_labor)
+
+
+@show_crew_bp.route("/<int:show_id>/crew/hours/row/<int:row_id>", methods=["POST"])
+def hours_row_actual(show_id, row_id):
+    """Save one named-crew row's actual hours from the report. Blank clears."""
+    from models import CrewRow
+    row = CrewRow.query.get_or_404(row_id)
+    if not _named_row_in_show(row, show_id):
+        return ("", 404)
+    row.actual_hours = _to_float(request.form.get("actual_hours"))
+    db.session.commit()
+    if request.headers.get("X-Autosave"):
+        return ("", 204)
+    return redirect(url_for("show_crew.hours_report", show_id=show_id))
+
+
+@show_crew_bp.route("/<int:show_id>/crew/hours/company/fill", methods=["POST"])
+def hours_company_fill(show_id):
+    """Fill every BLANK named-crew cell in one company with its estimate.
+
+    Only blanks — a typed actual is an exception someone recorded on
+    purpose. ``company`` is the name as the report groups it; "" is the
+    people with no company.
+    """
+    from crew_sections import walk
+    show = Show.query.get_or_404(show_id)
+    want = (request.form.get("company") or "").strip()
+    n = 0
+    for day in show.days:
+        for act in day.activities:
+            for row, _l1, _l2 in walk(list(act.crew_rows)):
+                if row.is_local_labor or not row.crew_member_id:
+                    continue
+                cm = row.crew_member
+                co = cm.company.name if (cm is not None and cm.company) else ""
+                if co != want or row.actual_hours is not None or row.hours is None:
+                    continue
+                row.actual_hours = float(row.hours)
+                n += 1
+    db.session.commit()
+    if request.headers.get("X-Autosave"):
+        return jsonify({"filled": n})
+    flash(f"{n} filled from the estimate." if n else "Nothing to fill — every day already has an actual.",
+          "success" if n else "info")
+    return redirect(url_for("show_crew.hours_report", show_id=show_id))
 
 
 # ── Phase A: edit booking info on an existing assignment ─────────────────────

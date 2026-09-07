@@ -31,20 +31,47 @@
     padding: 7px 8px; border: none;
     white-space: nowrap;
   }
+  /* Day columns (Jason, 09-07): the dates used to stand on end in 10px
+     type. Now two short lines, upright — weekday over the date — in the
+     same size as the other headings, one fixed width per day. */
   .hours-table th.day-col {
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    height: 64px; text-align: center;
-    padding: 6px 4px;
+    width: 54px; min-width: 54px; text-align: center;
+    padding: 5px 2px; line-height: 1.15; letter-spacing: .02em;
   }
+  .hours-table th.day-col .dow {
+    display: block; font-size: .7rem; font-weight: 600;
+    color: rgba(255,255,255,.62); letter-spacing: .08em;
+  }
+  .hours-table th.day-col .dnum { display: block; font-size: .74rem; white-space: nowrap; }
+  .hours-table th.day-col.today .dnum { box-shadow: inset 0 -2px 0 var(--adi-blue-lt); padding-bottom: 1px; }
   .hours-table td {
     padding: 6px 8px; border-bottom: 1px solid var(--adi-border);
     vertical-align: middle;
   }
   .hours-table td.day-cell {
     text-align: center; color: var(--adi-blue); font-weight: 600;
+    padding: 3px 2px; font-variant-numeric: tabular-nums;
   }
   .hours-table td.day-cell.zero { color: var(--adi-border-strong); font-weight: 400; }
+  /* The cell is the input. Estimate = placeholder with a star; a typed
+     actual is ink, no star. Over the estimate turns amber like the day
+     page and the Local Labor Hours page. */
+  .hours-table .hr-in {
+    width: 48px; height: 26px; padding: 0 3px; text-align: center;
+    font: 600 .78rem/1 inherit; font-family: inherit; color: var(--adi-text);
+    background: #fff; border: 1px solid var(--adi-border); border-radius: 4px;
+    -moz-appearance: textfield; appearance: textfield;
+  }
+  .hours-table .hr-in::-webkit-outer-spin-button,
+  .hours-table .hr-in::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .hours-table .hr-in::placeholder { color: var(--adi-blue); opacity: .75; font-weight: 600; }
+  .hours-table .hr-in:focus { outline: none; border-color: var(--adi-blue); box-shadow: 0 0 0 2px rgba(53,196,216,.25); }
+  .hours-table .hr-in.over { background: var(--adi-warn-bg); border-color: var(--adi-warn); }
+  .hours-table .hr-print { display: none; }
+  .est-star { color: var(--adi-mineral); font-weight: 400; }
+  .use-est { font-size: .7rem; padding: 2px 8px; line-height: 1.4; margin-left: 8px; vertical-align: baseline; }
+  .company-subtotal td.day-cell { color: var(--adi-mineral-dk); font-weight: 600; }
+  .company-subtotal td.day-cell .est-star { color: var(--adi-mineral); }
   .hours-table td.total-cell {
     text-align: center; font-weight: 700; background: var(--adi-surface);
   }
@@ -97,6 +124,9 @@
     .no-print { display: none !important; }
     .hours-table { min-width: 0 !important; width: 100%; }
     .card[style*="overflow-x"] { overflow: visible !important; }
+    /* Inputs do not print; the figure beside each one does. */
+    .hours-table .hr-in, .hours-table form.hr-form { display: none !important; }
+    .hours-table .hr-print { display: inline; }
   }
 </style>
 
@@ -189,8 +219,10 @@
   </span>
   <div style="font-size:.76rem;color:var(--adi-mineral-dk);margin-top:3px;">
     Standard rate is hourly for the first 10 hours; OT after 10, DT after 12,
-    unless a person or their company has other terms. Where an actual is
-    recorded it is what is split; otherwise the estimate.
+    unless a person or their company has other terms. <span class="no-print"><strong>Type each
+    person's actual hours in the day cells</strong>; a</span><span class="d-none d-print-inline">A</span> figure with a star
+    (10*) is still the estimate, a figure without one is what was recorded.
+    Where an actual is recorded it is what is split; otherwise the estimate.
     <strong>Short turn</strong> (under 8 hours off before the next day's call)
     and the <strong>6th and 7th consecutive day</strong> (the week resets every
     Monday) put the whole day at OT for named crew{% if short_turn_days or sixth_days %} —
@@ -260,7 +292,23 @@
 </div>
 
 {% set show_ot_col = (totals_ot or totals_dt) and true %}
-{% set ncols = 4 + show_days|length + 1 + (2 if any_actual_recorded else 0) + (1 if show_ot_col else 0) + (1 if want_cost else 0) %}
+{# The named table always carries Actual and Δ now that actuals are typed
+   here (Jason, 09-07); the local table still shows them once any exist. #}
+{% set ncols = 4 + show_days|length + 3 + (1 if show_ot_col else 0) + (1 if want_cost else 0) %}
+
+{% macro day_head(day) -%}
+  <th class="day-col{% if day.date == today %} today{% endif %}"
+      title="{{ day.date.strftime('%A, %B %-d') }}{% if day.phase %} — {{ day.phase }}{% endif %}">
+    <span class="dow">{{ day.date.strftime('%a') }}</span>
+    <span class="dnum">{% if day.phase %}<span class="phase-dot" style="background:{{ phase_colors.get(day.phase, '#94A3B8') }};"></span>{% endif %}{{ day.date.strftime('%-m/%-d') }}</span>
+  </th>
+{%- endmacro %}
+
+{% macro sub_cell(b) -%}
+  {%- if b and b.hours > 0 -%}
+    {{ "%.1f"|format(b.hours) }}{% if b.est_in %}<span class="est-star">*</span>{% endif %}
+  {%- else %}·{% endif -%}
+{%- endmacro %}
 
 <!-- Hours table -->
 {% if sorted_crew %}
@@ -270,25 +318,14 @@
       <caption class="visually-hidden">Named crew hours by day</caption>
       <thead>
         <tr>
-          <th style="width:160px;">Name</th>
-          <th style="width:110px;">Position</th>
+          <th style="width:150px;">Name</th>
+          <th style="width:100px;">Position</th>
           <th style="width:90px;">Company</th>
-          <th style="width:80px;">Type</th>
-          {% for day in show_days %}
-          <th class="day-col" title="{{ day.date.strftime('%A, %B %-d') }}{% if day.phase %} — {{ day.phase }}{% endif %}">
-            <span>
-              {% if day.phase %}
-              <span class="phase-dot" style="background:{{ phase_colors.get(day.phase, '#94A3B8') }};"></span>
-              {% endif %}
-              {{ day.date.strftime('%-m/%-d') }}
-            </span>
-          </th>
-          {% endfor %}
-          <th style="width:70px;text-align:center;" title="Estimated / planned">Est</th>
-          {% if any_actual_recorded %}
-          <th style="width:70px;text-align:center;" title="Actual hours worked">Actual</th>
-          <th style="width:70px;text-align:center;" title="Actual − Estimated">Δ</th>
-          {% endif %}
+          <th style="width:70px;">Type</th>
+          {% for day in show_days %}{{ day_head(day) }}{% endfor %}
+          <th style="width:62px;text-align:center;" title="Estimated / planned">Est</th>
+          <th style="width:62px;text-align:center;" title="Actual hours recorded">Actual</th>
+          <th style="width:62px;text-align:center;" title="Actual − Estimated, for days with an actual">Δ</th>
           {% if show_ot_col %}
           <th style="width:70px;text-align:center;" title="Overtime plus double time hours, on this person's terms">OT+DT</th>
           {% endif %}
@@ -314,24 +351,37 @@
             <td style="color:var(--adi-muted);font-size:.72rem;">{{ entry.company or '—' }}</td>
             <td style="font-size:.68rem;color:var(--adi-muted);">{{ entry.type or '—' }}</td>
             {% for day in show_days %}
-            {% set hrs = entry.days.get(day.id, 0) %}
+            {% set cell = entry.cells.get(day.id) %}
             {% set fl = entry.day_flags.get(day.id) %}
-            <td class="day-cell {% if hrs == 0 %}zero{% endif %}{% if fl %} flagged{% endif %}">
-              {% if hrs > 0 %}{{ "%.1f"|format(hrs) }}{% if fl %}<sup class="day-flag" title="{% if fl == 'short' %}Short turnaround — under {{ '%g'|format(entry.short_turn_after) }} hours off before this call; whole day at OT{% else %}Sixth or seventh consecutive day with a call this week (Mon–Sun) — whole day at OT{% endif %}">{{ 'ST' if fl == 'short' else '6+' }}</sup>{% endif %}{% else %}·{% endif %}
+            {% set flag_title %}{% if fl == 'short' %}Short turnaround — under {{ '%g'|format(entry.short_turn_after) }} hours off before this call; whole day at OT{% elif fl %}Sixth or seventh consecutive day with a call this week (Mon–Sun) — whole day at OT{% endif %}{% endset %}
+            <td class="day-cell {% if not cell %}zero{% endif %}{% if fl %} flagged{% endif %}">
+              {%- if not cell -%}
+                ·
+              {%- elif cell.multi -%}
+                {# Two calls on one day: the actual belongs to a shift. #}
+                <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=day.id) }}" style="color:inherit;text-decoration:none;"
+                   title="Two calls this day — record actuals on the day page">{{ "%.1f"|format(cell.actual if cell.actual is not none else cell.est) }}{% if cell.actual is none %}<span class="est-star">*</span>{% endif %}</a>
+              {%- else -%}
+                <input type="number" step="0.25" min="0" name="actual_hours"
+                       form="hr-{{ cell.rows[0] }}" class="hr-in{% if cell.actual is not none and cell.est < cell.actual %} over{% endif %}"
+                       value="{{ '%g'|format(cell.actual) if cell.actual is not none else '' }}"
+                       placeholder="{{ '%g'|format(cell.est) }}*" data-est="{{ '%g'|format(cell.est) }}"
+                       aria-label="Actual hours, {{ entry.member.display_label }}, {{ day.date.strftime('%a %-m/%-d') }} (estimate {{ '%g'|format(cell.est) }})">
+                <span class="hr-print">{{ "%.1f"|format(cell.actual if cell.actual is not none else cell.est) }}{% if cell.actual is none %}<span class="est-star">*</span>{% endif %}</span>
+              {%- endif -%}
+              {%- if fl %}<sup class="day-flag" title="{{ flag_title }}">{{ 'ST' if fl == 'short' else '6+' }}</sup>{% endif -%}
             </td>
             {% endfor %}
             <td class="total-cell">{{ "%.1f"|format(entry.total) }}</td>
-            {% if any_actual_recorded %}
-            {% set delta = entry.total_actual - entry.total %}
-            <td class="total-cell"
-                style="color:{% if entry.total_actual %}var(--adi-blue){% else %}var(--adi-border-strong){% endif %};">
-              {% if entry.total_actual %}{{ "%.1f"|format(entry.total_actual) }}{% else %}—{% endif %}
+            {% set delta = entry.total_actual - entry.est_recorded %}
+            <td class="total-cell hr-row-actual"
+                style="color:{% if entry.actual_recorded %}var(--adi-blue){% else %}var(--adi-border-strong){% endif %};">
+              {% if entry.actual_recorded %}{{ "%.1f"|format(entry.total_actual) }}{% else %}—{% endif %}
             </td>
-            <td class="total-cell"
+            <td class="total-cell hr-row-delta"
                 style="color:{% if delta > 0.05 %}var(--adi-danger){% elif delta < -0.05 %}var(--adi-ok){% else %}var(--adi-mineral){% endif %};">
-              {% if entry.total_actual %}{% if delta > 0 %}+{% endif %}{{ "%.1f"|format(delta) }}{% else %}—{% endif %}
+              {% if entry.actual_recorded %}{% if delta > 0 %}+{% endif %}{{ "%.1f"|format(delta) }}{% else %}—{% endif %}
             </td>
-            {% endif %}
             {% if show_ot_col %}
             {% set ovt = entry.ot_hours + entry.dt_hours %}
             <td class="total-cell" style="color:{% if ovt > 0 %}var(--adi-warn){% else %}var(--adi-border-strong){% endif %};">
@@ -351,15 +401,23 @@
           <tr class="company-subtotal">
             <td colspan="4" style="font-size:.7rem;">
               {{ entry.company or 'No Company' }} · {{ ct.n }} {{ 'person' if ct.n == 1 else 'people' }}
+              {# One click for the common case: everyone worked the call.
+                 Fills only the blanks in this company. #}
+              <form method="POST" class="d-inline no-print"
+                    action="{{ url_for('show_crew.hours_company_fill', show_id=show.id) }}">
+                <input type="hidden" name="company" value="{{ entry.company }}">
+                <button type="submit" class="btn btn-outline-secondary use-est"
+                        title="Fill every blank day for {{ entry.company or 'these people' }} with its estimate">Use estimate</button>
+              </form>
             </td>
-            <td colspan="{{ show_days|length }}"></td>
+            {% for day in show_days %}
+            <td class="day-cell">{{ sub_cell(company_day.get(entry.company, {}).get(day.id)) }}</td>
+            {% endfor %}
             <td class="total-cell">{{ "%.1f"|format(ct.total) }}</td>
-            {% if any_actual_recorded %}
             <td class="total-cell">{% if ct.actual_recorded %}{{ "%.1f"|format(ct.total_actual) }}{% else %}—{% endif %}</td>
             <td class="total-cell">
-              {% if ct.actual_recorded %}{% set cd = ct.total_actual - ct.total %}{% if cd > 0 %}+{% endif %}{{ "%.1f"|format(cd) }}{% else %}—{% endif %}
+              {% if ct.actual_recorded %}{% set cd = ct.total_actual - ct.est_recorded %}{% if cd > 0 %}+{% endif %}{{ "%.1f"|format(cd) }}{% else %}—{% endif %}
             </td>
-            {% endif %}
             {% if show_ot_col %}
             <td class="total-cell">{% if ct.ot + ct.dt > 0 %}{{ "%.1f"|format(ct.ot + ct.dt) }}{% else %}—{% endif %}</td>
             {% endif %}
@@ -372,24 +430,21 @@
 
         <!-- Day totals row -->
         <tr class="total-row">
-          <td colspan="4" style="font-size:.72rem;">DAILY TOTALS</td>
+          <td colspan="4" style="font-size:.72rem;">DAILY TOTALS <span style="font-weight:400;opacity:.7;">· named crew · * includes estimates</span></td>
           {% for day in show_days %}
-          {% set dt = day_totals.get(day.id, 0) %}
-          <td class="day-cell">{% if dt > 0 %}{{ "%.1f"|format(dt) }}{% else %}·{% endif %}</td>
+          <td class="day-cell">{{ sub_cell(named_day.get(day.id)) }}</td>
           {% endfor %}
           <td class="total-cell" style="color:var(--adi-gold-lt) !important;">
             {{ "%.1f"|format(grand_total) }}
           </td>
-          {% if any_actual_recorded %}
-          {% set g_delta = grand_total_actual - grand_total %}
+          {% set g_delta = grand_total_actual - grand_est_recorded %}
           <td class="total-cell" style="color:var(--adi-gold-lt) !important;">
-            {{ "%.1f"|format(grand_total_actual) }}
+            {% if any_actual_recorded %}{{ "%.1f"|format(grand_total_actual) }}{% else %}—{% endif %}
           </td>
           <td class="total-cell"
               style="color:{% if g_delta > 0.05 %}var(--adi-danger-on-dark){% elif g_delta < -0.05 %}var(--adi-gold-lt){% else %}#fff{% endif %} !important;">
-            {% if g_delta > 0 %}+{% endif %}{{ "%.1f"|format(g_delta) }}
+            {% if any_actual_recorded %}{% if g_delta > 0 %}+{% endif %}{{ "%.1f"|format(g_delta) }}{% else %}—{% endif %}
           </td>
-          {% endif %}
           {% if show_ot_col %}
           <td class="total-cell" style="color:var(--adi-warn-on-dark) !important;">
             {% if named_ot + named_dt > 0 %}{{ "%.1f"|format(named_ot + named_dt) }}{% else %}—{% endif %}
@@ -427,11 +482,7 @@
           <th style="width:110px;">Position</th>
           <th style="width:90px;">Dept</th>
           <th style="width:80px;">Terms</th>
-          {% for day in show_days %}
-          <th class="day-col" title="{{ day.date.strftime('%A, %B %-d') }}">
-            <span>{{ day.date.strftime('%-m/%-d') }}</span>
-          </th>
-          {% endfor %}
+          {% for day in show_days %}{{ day_head(day) }}{% endfor %}
           <th style="width:70px;text-align:center;" title="Estimated: bodies × hours">Est</th>
           {% if local_any_recorded %}
           <th style="width:70px;text-align:center;" title="Sum of recorded actuals">Actual</th>
@@ -499,8 +550,10 @@
           {% if loop.last or sorted_local[loop.index0 + 1].company != entry.company %}
           {% set lc = local_company_cost.get(entry.company) %}
           <tr class="company-subtotal">
-            <td colspan="4" style="font-size:.7rem;">{{ entry.company or 'No company' }} · local labor</td>
-            <td colspan="{{ show_days|length }}"></td>
+            <td colspan="4" style="font-size:.7rem;">{{ entry.company or 'No company' }} · local labor · hours per day</td>
+            {% for day in show_days %}
+            <td class="day-cell">{{ sub_cell(local_company_day.get(entry.company, {}).get(day.id)) }}</td>
+            {% endfor %}
             <td class="total-cell"></td>
             {% if local_any_recorded %}<td class="total-cell"></td><td class="total-cell"></td>{% endif %}
             {% if show_ot_col %}<td class="total-cell"></td>{% endif %}
@@ -722,4 +775,70 @@
 </div>
 {% endif %}
 
+{# One autosave form per editable cell, outside the table — a <form> inside
+   a <td> would be fine, but keeping them here mirrors the Local Labor Hours
+   page, and base.html's autosave (debounce, saved / failed status,
+   beforeunload guard) drives them. The hidden submit gives the status a
+   home. #}
+{% for entry in sorted_crew %}{% for day_id, cell in entry.cells.items() %}{% if not cell.multi %}
+<form id="hr-{{ cell.rows[0] }}" method="POST" data-autosave="true" class="hr-form d-inline"
+      action="{{ url_for('show_crew.hours_row_actual', show_id=show.id, row_id=cell.rows[0]) }}"><button type="submit" class="visually-hidden">Save {{ entry.member.display_label }}</button></form>
+{% endif %}{% endfor %}{% endfor %}
+
+<div id="hr-reload" class="no-print" hidden
+     style="position:fixed;right:24px;bottom:24px;z-index:1040;background:var(--adi-dark);color:#fff;
+            padding:10px 14px;border-radius:8px;box-shadow:0 6px 24px rgba(11,37,69,.3);font-size:.8rem;">
+  Actuals saved. Subtotals and overtime update when the page reloads.
+  <a href="#" onclick="location.reload();return false;" style="color:var(--adi-blue-lt);font-weight:700;margin-left:8px;">Reload</a>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Hours Report actuals (Jason, 2026-09-07). base.html autosaves each cell;
+  // this script does what can be done without the billing rules: amber when
+  // an actual beats its estimate, and the row's Actual and Δ as you type.
+  // Company rows, daily totals and OT+DT need the split rules, so they wait
+  // for a reload — the pill says so after the first save.
+  (function () {
+    function fmt(n) { return (Math.round(n * 10) / 10).toFixed(1); }
+    function rowUpdate(tr) {
+      var ins = tr.querySelectorAll('.hr-in'), actual = 0, est = 0, any = false;
+      ins.forEach(function (el) {
+        var e = parseFloat(el.dataset.est) || 0, v = parseFloat(el.value);
+        if (!isNaN(v)) { actual += v; est += e; any = true; }
+      });
+      var a = tr.querySelector('.hr-row-actual'), d = tr.querySelector('.hr-row-delta');
+      if (!a || !d) return;
+      if (!any) { a.textContent = '—'; d.textContent = '—'; a.style.color = 'var(--adi-border-strong)'; d.style.color = 'var(--adi-mineral)'; return; }
+      var delta = actual - est;
+      a.textContent = fmt(actual); a.style.color = 'var(--adi-blue)';
+      d.textContent = (delta > 0 ? '+' : '') + fmt(delta);
+      d.style.color = delta > 0.05 ? 'var(--adi-danger)' : delta < -0.05 ? 'var(--adi-ok)' : 'var(--adi-mineral)';
+    }
+    document.addEventListener('input', function (e) {
+      var el = e.target;
+      if (!el.matches || !el.matches('.hr-in')) return;
+      var est = parseFloat(el.dataset.est), v = parseFloat(el.value);
+      el.classList.toggle('over', !isNaN(est) && !isNaN(v) && v > est);
+      var tr = el.closest('tr');
+      if (tr) rowUpdate(tr);
+      var pill = document.getElementById('hr-reload');
+      if (pill) pill.hidden = false;
+    });
+    // Enter moves down the column, like a spreadsheet; Tab already moves along the row.
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' || !e.target.matches || !e.target.matches('.hr-in')) return;
+      e.preventDefault();
+      var td = e.target.closest('td'), tr = td && td.closest('tr');
+      if (!tr) return;
+      var col = Array.prototype.indexOf.call(tr.children, td), next = tr.nextElementSibling;
+      while (next) {
+        var cell = next.children[col], inp = cell && cell.querySelector('.hr-in');
+        if (inp) { inp.focus(); inp.select(); return; }
+        next = next.nextElementSibling;
+      }
+    });
+  })();
+</script>
 {% endblock %}
