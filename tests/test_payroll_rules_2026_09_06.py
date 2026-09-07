@@ -5,7 +5,8 @@ Hours Report's cost toggle — Jason's answers of 2026-09-06.
     day's call -> the whole next shift at OT. Threshold person -> company
     -> default 8. Across days only. Named crew only.
     6th/7th day: from the sixth consecutive calendar day with a call, within
-    one show, all day at OT; any day off resets. Named crew only.
+    one show, all day at OT; any day off resets, and so does Monday
+    (Jason, 09-07: the week is Mon–Sun). Named crew only.
     DT still after the DT threshold on a flagged day. No stacking.
     Out time = call time + hours (actual where recorded, else estimate).
     A standard rate may be typed as a 10-hour day rate; billing converts.
@@ -64,12 +65,64 @@ def test_a_day_off_breaks_both_rules():
     assert f[_d(4)]["streak"] == 1
 
 
-def test_sixth_day_and_after_are_flagged_any_day_off_resets():
+def test_sixth_day_is_flagged_and_a_day_off_resets():
+    """D0 is a Tuesday: Tue..Sun is six straight days, Sunday the 6th.
+    The Monday after (index 6) is a new week — see the Monday tests below.
+    Skip Tuesday (index 7); Wednesday and Thursday restart at 1, 2."""
     shifts = [(_d(i), "08:00", 8) for i in range(7)] + [(_d(8), "08:00", 8), (_d(9), "08:00", 8)]
     f = billing.day_flags(shifts)
-    assert [f[_d(i)]["sixth_day"] for i in range(7)] == [False] * 5 + [True, True]
+    assert [f[_d(i)]["sixth_day"] for i in range(6)] == [False] * 5 + [True]
     assert f[_d(8)]["streak"] == 1 and f[_d(8)]["sixth_day"] is False
     assert f[_d(9)]["streak"] == 2
+
+
+# ── the week resets on Monday (Jason, 2026-09-07) ───────────────────────────
+#
+# "It is consecutive days for sure" — and the week runs Monday to Sunday, so
+# Monday starts the count over even with no day off. The 7th day is OT, the
+# same as the 6th.
+
+MON = dt.date(2026, 9, 7)
+assert MON.weekday() == 0
+
+
+def _week(*offsets):
+    return [(MON + dt.timedelta(days=i), "08:00", 8) for i in offsets]
+
+
+def test_monday_to_sunday_flags_saturday_and_sunday_then_monday_is_normal():
+    f = billing.day_flags(_week(*range(8)))            # Mon..Sun, next Mon
+    flagged = [f[MON + dt.timedelta(days=i)]["sixth_day"] for i in range(8)]
+    assert flagged == [False] * 5 + [True, True, False]
+    assert f[MON + dt.timedelta(days=7)]["streak"] == 1
+
+
+def test_tuesday_to_sunday_flags_sunday_only():
+    f = billing.day_flags(_week(*range(1, 8)))         # Tue..Sun, next Mon
+    assert f[MON + dt.timedelta(days=6)]["sixth_day"] is True     # Sunday
+    assert f[MON + dt.timedelta(days=5)]["sixth_day"] is False    # Saturday
+    assert f[MON + dt.timedelta(days=7)]["sixth_day"] is False    # Monday
+
+
+def test_monday_then_wednesday_to_sunday_flags_nothing():
+    """Rule B: the Tuesday off resets, so Wed..Sun is a run of five and
+    Sunday is a normal day even though six days were worked that week."""
+    f = billing.day_flags(_week(0, 2, 3, 4, 5, 6))
+    assert not any(v["sixth_day"] for v in f.values())
+    assert f[MON + dt.timedelta(days=6)]["streak"] == 5
+
+
+def test_a_streak_never_passes_seven():
+    f = billing.day_flags(_week(*range(21)))           # three straight weeks
+    assert max(v["streak"] for v in f.values()) == 7
+    assert sum(v["sixth_day"] for v in f.values()) == 6   # Sat+Sun x 3
+
+
+def test_short_turn_still_looks_across_a_monday():
+    sun, mon = MON + dt.timedelta(days=6), MON + dt.timedelta(days=7)
+    f = billing.day_flags([(sun, "08:00", 18), (mon, "07:00", 10)])
+    assert f[mon]["short_turn"] is True
+    assert f[mon]["streak"] == 1
 
 
 def test_a_row_with_no_call_time_still_counts_toward_the_streak():

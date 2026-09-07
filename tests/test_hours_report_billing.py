@@ -51,14 +51,32 @@ def test_split_is_per_day_not_on_the_total(app, client, db):
 
 def test_the_sixth_and_seventh_consecutive_days_are_all_overtime(app, client, db):
     """Jason, 2026-09-06: 6th and 7th day all day OT, within one show, any
-    day off resets. Eight straight 8-hour days: five at ST, three at OT."""
+    day off resets. Jason, 2026-09-07: and the week resets on Monday.
+    The fixture starts Tuesday 2026-09-01, so eight straight 8-hour days
+    run Tue..Tue: Sunday the 6th is the one flagged day, Monday is day one
+    again. Seven days at ST, one at OT."""
     show, cm = _show_with_hours(db, [8] * 8, code="HRS28B")
     html = client.get("/shows/%d/crew/hours" % show.id).get_data(as_text=True)
     assert "Billable split" in html
-    assert "ST <strong>40.0</strong>" in html
-    assert "OT <strong>24.0</strong>" in html
-    assert "3 sixth-or-later days" in html
-    assert html.count(">6+</sup>") == 3
+    assert "ST <strong>56.0</strong>" in html
+    assert "OT <strong>8.0</strong>" in html
+    assert "1 sixth-or-later day" in html and "sixth-or-later days" not in html
+    assert html.count(">6+</sup>") == 1
+
+
+def test_monday_to_sunday_flags_the_weekend_and_the_next_monday_is_normal(app, client, db):
+    """Jason, 2026-09-07. Start on Monday 2026-09-07: Sat and Sun are the
+    6th/7th day, the following Monday is normal."""
+    from models import ScheduleDay
+    show, cm = _show_with_hours(db, [8] * 8, code="HRS28C")
+    for day in ScheduleDay.query.filter_by(show_id=show.id):
+        day.date = day.date + dt.timedelta(days=6)      # 09-01 -> 09-07
+    db.session.commit()
+    html = client.get("/shows/%d/crew/hours" % show.id).get_data(as_text=True)
+    assert "ST <strong>48.0</strong>" in html
+    assert "OT <strong>16.0</strong>" in html
+    assert "2 sixth-or-later days" in html
+    assert html.count(">6+</sup>") == 2
 
 
 def test_a_single_long_day_is_split_correctly(app, client, db):

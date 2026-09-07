@@ -138,8 +138,10 @@ than as his decisions. **[repo, recording approved by Jason]**
   OT**. The threshold resolves person → company → default 8. Across days
   only — two calls in one day are one working day. Out time is call time +
   hours (the recorded actual where there is one). **Named crew only.**
-- **6th/7th day:** from the **sixth consecutive calendar day with a call,
-  within one show, the whole day is at OT**; any day off resets. **Named
+- **6th/7th day:** the **sixth and seventh consecutive calendar day with a
+  call, within one show, are all at OT**; any day off resets, and so does
+  Monday regardless — the week runs Mon–Sun, so Mon–Sun straight flags Sat
+  and Sun and the next Monday is day one; Mon + Wed–Sun flags nothing. **Named
   crew only** — a local labor body is per call, so neither rule can follow
   it across days. On either kind of day DT still starts at the DT threshold.
   No stacking: an hour is ST, OT or DT.

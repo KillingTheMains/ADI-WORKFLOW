@@ -192,8 +192,8 @@
     unless a person or their company has other terms. Where an actual is
     recorded it is what is split; otherwise the estimate.
     <strong>Short turn</strong> (under 8 hours off before the next day's call)
-    and the <strong>6th and 7th consecutive day</strong> put the whole day at OT
-    for named crew{% if short_turn_days or sixth_days %} —
+    and the <strong>6th and 7th consecutive day</strong> (the week resets every
+    Monday) put the whole day at OT for named crew{% if short_turn_days or sixth_days %} —
     {% if short_turn_days %}{{ short_turn_days }} short-turn day{{ '' if short_turn_days == 1 else 's' }}{% endif %}{% if short_turn_days and sixth_days %}, {% endif %}{% if sixth_days %}{{ sixth_days }} sixth-or-later day{{ '' if sixth_days == 1 else 's' }}{% endif %}
     on this show, marked in the day cells{% endif %}.
     {% if want_cost %}Costs are hours × the person's rates (a company's rate card for local
@@ -317,7 +317,7 @@
             {% set hrs = entry.days.get(day.id, 0) %}
             {% set fl = entry.day_flags.get(day.id) %}
             <td class="day-cell {% if hrs == 0 %}zero{% endif %}{% if fl %} flagged{% endif %}">
-              {% if hrs > 0 %}{{ "%.1f"|format(hrs) }}{% if fl %}<sup class="day-flag" title="{% if fl == 'short' %}Short turnaround — under {{ '%g'|format(entry.short_turn_after) }} hours off before this call; whole day at OT{% else %}Sixth or later consecutive day with a call — whole day at OT{% endif %}">{{ 'ST' if fl == 'short' else '6+' }}</sup>{% endif %}{% else %}·{% endif %}
+              {% if hrs > 0 %}{{ "%.1f"|format(hrs) }}{% if fl %}<sup class="day-flag" title="{% if fl == 'short' %}Short turnaround — under {{ '%g'|format(entry.short_turn_after) }} hours off before this call; whole day at OT{% else %}Sixth or seventh consecutive day with a call this week (Mon–Sun) — whole day at OT{% endif %}">{{ 'ST' if fl == 'short' else '6+' }}</sup>{% endif %}{% else %}·{% endif %}
             </td>
             {% endfor %}
             <td class="total-cell">{{ "%.1f"|format(entry.total) }}</td>

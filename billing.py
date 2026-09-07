@@ -177,8 +177,12 @@ def billable_days(hours_by_day, standard_day=STANDARD_DAY_HOURS):
 #   Across days only — two calls in one day are one working day.
 #   The threshold resolves person -> company -> default 8, like OT/DT.
 #
-#   6th/7th day: the sixth and every later day of consecutive calendar days
-#   with a call, within one show. All day at OT. Any day off resets.
+#   6th/7th day: the sixth and seventh of consecutive calendar days with a
+#   call, within one show. All day at OT (the 7th is OT, same as the 6th).
+#   Any day off resets — and so does Monday, regardless (Jason, 09-07): the
+#   week runs Monday to Sunday, so Mon–Sun straight makes Saturday and
+#   Sunday the 6th/7th day and the next Monday is day one again; Tuesday
+#   to Sunday makes Sunday the 6th. A streak can never pass seven.
 #
 #   On either kind of day DT still starts after the person's DT threshold.
 #   No stacking: an hour is ST, OT or DT, and the flags only raise the floor.
@@ -245,7 +249,10 @@ def day_flags(shifts, short_turn_after=SHORT_TURN_HOURS):
     streak = 0
     for date in sorted(by_date):
         d = by_date[date]
-        if prev_date is not None and (date - prev_date).days == 1:
+        # Consecutive days extend the streak; a gap or a Monday starts it
+        # over. Short turnaround below still looks across the Monday.
+        if (prev_date is not None and (date - prev_date).days == 1
+                and date.weekday() != 0):
             streak += 1
         else:
             streak = 1

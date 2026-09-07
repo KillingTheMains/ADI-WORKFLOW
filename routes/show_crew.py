@@ -464,7 +464,8 @@ def hours_report(show_id):
     # unless the person, or their company, has other terms. Split PER DAY:
     # summing a person's show total and splitting that would invent overtime
     # for eight short days and hide it on one long one.
-    # Short turnaround and 6th/7th day (Jason, 2026-09-06), NAMED CREW ONLY:
+    # Short turnaround and 6th/7th day (Jason, 2026-09-06; the week resets
+    # on Monday, 2026-09-07), NAMED CREW ONLY:
     # a body is per call, so neither rule can follow local labor across
     # days. A flagged day is all OT (DT still after the person's DT
     # threshold); an hour is ST, OT or DT, never two of them.
