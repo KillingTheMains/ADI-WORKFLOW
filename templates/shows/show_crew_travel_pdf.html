@@ -2,6 +2,7 @@
 <html><head><meta charset="UTF-8">
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/paper.css') }}">
+  <link rel="stylesheet" href="{{ url_for('agency.theme_css') }}?v={{ theme_v }}">
 <title>{{ show.name }} — Travel</title>
 <style>
   @page { size: letter landscape; margin: 0.4in; }

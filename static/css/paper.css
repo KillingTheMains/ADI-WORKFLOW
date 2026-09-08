@@ -70,8 +70,8 @@ td, th { font-variant-numeric: tabular-nums; }
                  text-align: right; }
 .paper-pill    { display: inline-block; font-size: 6.8pt; font-weight: 600; letter-spacing: .07em;
                  text-transform: uppercase; padding: 1.2pt 4.5pt; border-radius: 2.5pt; white-space: nowrap; }
-.paper-pill.ok   { background: #E6F2EC; color: #1F6B45; }
-.paper-pill.wait { background: #FBF3DF; color: #7A5C1E; }
+.paper-pill.ok   { background: var(--ok-bg); color: var(--ok); }
+.paper-pill.wait { background: var(--warn-bg); color: var(--gold); }
 
 @media print {
   @page { size: Letter; margin: 12mm 13mm 11mm; }

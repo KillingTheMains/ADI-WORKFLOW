@@ -38,13 +38,37 @@ from oss_export import (build_master_items, count_label, department_style,
                         master_label, time_range_text)
 
 
-MIDNIGHT = colors.HexColor(brand.MIDNIGHT)
-INK = colors.HexColor(brand.INK)
-STRIPE = colors.HexColor(brand.STRIPE)
-MINERAL = colors.HexColor(brand.MINERAL)
-LINE = colors.HexColor(brand.LINE)
-CYAN_INK = colors.HexColor(brand.CYAN_INK)
-GOLD_INK = colors.HexColor(brand.GOLD_INK)
+# The seven paper colours, plus the row-kind fills, as ReportLab wants them.
+#
+# These used to be evaluated HERE, at import — so the palette a worker process
+# happened to import was the palette every PDF it ever built used, and a
+# colour changed on the Branding page would not have appeared until
+# PythonAnywhere recycled the process. #21 makes them per render.
+#
+# Module-level and rebound rather than threaded through the eleven functions
+# that read them, because AgencySetting is a SINGLETON: there is exactly one
+# palette in this app, so it is process state and not request state. If a
+# second agency ever exists, this has to become a parameter — and that is the
+# only thing that would make this shape wrong.
+MIDNIGHT = INK = STRIPE = MINERAL = LINE = CYAN_INK = GOLD_INK = None
+KIND_FILL = {}
+
+
+def _use_palette(agency=None):
+    """Bind the module's colours to this agency's palette for this render."""
+    global MIDNIGHT, INK, STRIPE, MINERAL, LINE, CYAN_INK, GOLD_INK, KIND_FILL
+    role = brand.roles(agency)
+    MIDNIGHT = colors.HexColor(role["midnight"])
+    INK = colors.HexColor(role["ink"])
+    STRIPE = colors.HexColor(role["stripe"])
+    MINERAL = colors.HexColor(role["mineral"])
+    LINE = colors.HexColor(role["line"])
+    CYAN_INK = colors.HexColor(role["cyan_ink"])
+    GOLD_INK = colors.HexColor(role["gold_ink"])
+    KIND_FILL = brand.kind_fill(agency)
+
+
+_use_palette()          # the ADI defaults, until a render says otherwise
 
 PT = brand.PAPER_PT_BODY
 LEAD = PT * brand.PAPER_LEADING
@@ -536,7 +560,7 @@ def _day_rows(day, items, st):
         # No zebra: it alternated by POSITION and carried no information. The
         # fill carries KIND — three tiers, from brand.KIND_FILL — while the
         # code column carries the seven-way distinction.
-        fill = brand.KIND_FILL.get(kind)
+        fill = KIND_FILL.get(kind)
         if fill:
             style.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor(fill)))
         i += 1
@@ -565,7 +589,7 @@ def _day_rows(day, items, st):
                 Paragraph(count_label("Crew", line.get("qty")) or "", st["cell_dim"]),
                 "",
             ])
-            local_fill = brand.KIND_FILL.get("local")
+            local_fill = KIND_FILL.get("local")
             if local_fill:
                 style.append(("BACKGROUND", (0, i), (-1, i),
                               colors.HexColor(local_fill)))
@@ -628,7 +652,7 @@ def _department_sections(master_items, st):
                 Paragraph(_detail(item), st["cell_dim"]),
                 Paragraph(escape(item["notes"] or ""), st["cell_dim"]),
             ])
-            fill = brand.KIND_FILL.get(kind)
+            fill = KIND_FILL.get(kind)
             if fill:
                 style.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor(fill)))
             i += 1
@@ -653,7 +677,7 @@ def _department_sections(master_items, st):
                              Paragraph(count_label("Crew", line.get("qty")) or "",
                                        st["cell_dim"]),
                              ""])
-                local_fill = brand.KIND_FILL.get("local")
+                local_fill = KIND_FILL.get("local")
                 if local_fill:
                     style.append(("BACKGROUND", (0, i), (-1, i),
                                   colors.HexColor(local_fill)))
@@ -685,6 +709,10 @@ def build_pdf(buf, show, entries, meal_services, agency=None, logo_file=None,
     export that silently produced an empty PDF for one of them would be a very
     quiet way to hand somebody a blank schedule.
     """
+    # Before anything is styled: _styles() bakes colours into ParagraphStyles,
+    # so the palette has to be bound first.
+    _use_palette(agency)
+
     master_items, _hardcoded = build_master_items(show, entries, meal_services)
 
     sections = None

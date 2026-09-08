@@ -38,8 +38,21 @@ DEFAULT_NAVY = brand.as_openpyxl(brand.PRIMARY)
 # The kind code leads every timeline-shaped sheet, exactly as it leads the
 # PDF's tables and the day page's rows. Interface Spec §07/§09.
 MASTER_HEADERS = ["K", "Time", "Department", "Item", "Detail", "Notes"]
-KIND_FILLS = {k: PatternFill("solid", fgColor=v.lstrip("#"))
-              for k, v in brand.KIND_FILL.items()}
+# Rebound per render by _use_palette(), for the reason set out at the top of
+# oss_pdf.py: a fill frozen at import is a fill that ignores the palette until
+# the process restarts. RULE and BAND above are the SHEET's own greys and are
+# deliberately left alone — the workbook is not one of the paper surfaces the
+# #20 spec covers, so recolouring it is a separate decision.
+KIND_FILLS = {}
+
+
+def _use_palette(agency=None):
+    global KIND_FILLS
+    KIND_FILLS = {k: PatternFill("solid", fgColor=v.lstrip("#"))
+                  for k, v in brand.kind_fill(agency).items()}
+
+
+_use_palette()
 DEPT_HEADERS = ["Day", "Date", "Time", "Item", "Detail", "Count", "Hrs", "Notes"]
 
 _thin = Side(style="thin", color=RULE)
@@ -47,7 +60,12 @@ BORDER = Border(bottom=_thin)
 
 
 def _navy(agency):
-    """Brand colour as a bare RRGGBB, which is what openpyxl wants."""
+    """Brand colour as a bare RRGGBB, which is what openpyxl wants.
+
+    Still primary_hex and not the palette's Midnight role directly: since #21
+    the Branding page writes the Midnight role into primary_hex on every save,
+    so the two cannot diverge, and reading it here keeps a colour set before
+    the palette existed working exactly as it did."""
     raw = (getattr(agency, "primary_hex", None) or "").lstrip("#")
     return raw.upper() if len(raw) == 6 else DEFAULT_NAVY
 
@@ -415,6 +433,7 @@ def _summary(wb, show, agency, master_items, master_last_row):
 def build_workbook(show, entries, meal_services, agency=None, logo_file=None):
     """The finished workbook. Caller supplies the already-queried collections
     so this stays a pure formatting layer over oss_export."""
+    _use_palette(agency)
     master_items, _hardcoded = build_master_items(show, entries, meal_services)
 
     wb = openpyxl.Workbook()

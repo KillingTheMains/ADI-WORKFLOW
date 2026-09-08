@@ -10,12 +10,14 @@ right and ~38% at the bottom — dropped into a document unmodified it reads as
 a navy block with the mark shoved in a corner. Normalising on upload means
 that can't recur when someone swaps the asset later.
 """
+import json
 import os
 
 from flask import (Blueprint, render_template, request, redirect, url_for,
-                   flash, send_file, abort)
+                   flash, send_file, abort, make_response)
 from werkzeug.utils import secure_filename
 
+import brand
 from extensions import db
 from models import AgencySetting
 
@@ -70,11 +72,92 @@ def _autotrim(path):
         return
 
 
+class _Proposed:
+    """A stand-in agency carrying a palette that has NOT been saved.
+
+    brand.audit() reads `palette_json` off whatever it is given, so checking a
+    submitted palette is a matter of handing it one of these. The check
+    therefore runs on exactly the same code path as a stored palette — there
+    is no second implementation to disagree with the first.
+    """
+
+    def __init__(self, chosen):
+        self.palette_json = json.dumps(chosen) if chosen else None
+
+
+def _page(setting, **extra):
+    """The Branding page's context, in one place — the save routes re-render
+    it on a refusal rather than redirecting, so the colours somebody just
+    picked are still on screen next to the reason they were rejected."""
+    context = dict(setting=setting,
+                   has_logo=logo_path(setting) is not None,
+                   role_rows=brand.ROLE_ROWS,
+                   defaults=brand.ROLE_DEFAULTS,
+                   roles=brand.roles(setting),
+                   is_custom=bool(setting.palette_json),
+                   attempted=None, failures=None)
+    context.update(extra)
+    return render_template("agency/index.html", **context)
+
+
 @agency_bp.route("/agency")
 def agency_settings():
+    return _page(AgencySetting.get())
+
+
+@agency_bp.route("/agency/palette/save", methods=["POST"])
+def palette_save():
+    """Save the palette, or refuse it and say which pair failed.
+
+    Only roles that DIFFER from the ADI default are stored, so the blob stays
+    small and a role we add later picks up its new default automatically
+    instead of being pinned to whatever it was the day someone last pressed
+    Save.
+    """
     setting = AgencySetting.get()
-    return render_template("agency/index.html", setting=setting,
-                           has_logo=logo_path(setting) is not None)
+    chosen, malformed = {}, []
+    for key, default in brand.ROLE_DEFAULTS.items():
+        raw = (request.form.get(key) or "").strip()
+        if not raw:
+            continue
+        if not brand.is_hex(raw):
+            malformed.append(key)
+            continue
+        if raw.upper() != default.upper():
+            chosen[key] = raw.upper()
+
+    attempted = dict(brand.ROLE_DEFAULTS, **chosen)
+    if malformed:
+        flash("Every colour has to be a six-digit hex value like #0B2545. "
+              "Not saved.", "danger")
+        return _page(setting, attempted=attempted)
+
+    failures = brand.audit(_Proposed(chosen))
+    if failures:
+        flash("That palette would make something unreadable, so nothing was "
+              "saved. Fix the colours below and save again.", "danger")
+        return _page(setting, attempted=attempted, failures=failures)
+
+    setting.palette_json = json.dumps(chosen, sort_keys=True) if chosen else None
+    # primary_hex IS the Midnight role now. Kept in step here so the workbook
+    # cover and the logo preview, which have read it since long before the
+    # palette existed, cannot end up on a different navy from everything else.
+    setting.primary_hex = attempted["midnight"]
+    db.session.commit()
+    flash("Palette saved — the app, the printed pages and the exports all "
+          "follow it." if chosen else
+          "Palette is back to the ADI defaults.", "success")
+    return redirect(url_for("agency.agency_settings"))
+
+
+@agency_bp.route("/agency/palette/reset", methods=["POST"])
+def palette_reset():
+    setting = AgencySetting.get()
+    setting.palette_json = None
+    setting.primary_hex = brand.PRIMARY
+    db.session.commit()
+    flash("Palette reset to the ADI defaults.", "success")
+    return redirect(url_for("agency.agency_settings"))
 
 
 @agency_bp.route("/agency/logo/upload", methods=["POST"])
@@ -151,3 +234,24 @@ def agency_save():
     db.session.commit()
     flash("Agency details saved.", "success")
     return redirect(url_for("agency.agency_settings"))
+
+
+@agency_bp.route("/agency/theme.css")
+def theme_css():
+    """The agency palette as one stylesheet, for every surface.
+
+    Loaded after style.css on app pages and after paper.css on the four
+    standalone paper templates, so it carries BOTH token namespaces and one
+    file serves the lot. The stylesheets keep their own :root declarations,
+    which means a failure here degrades to the ADI defaults rather than to an
+    unstyled page.
+
+    Cached hard and busted by ?v=<updated_at>, which the context processor
+    puts on every link — the palette changes about once a year, and this is
+    on every page load.
+    """
+    setting = AgencySetting.get()
+    resp = make_response(brand.theme_css(setting))
+    resp.headers["Content-Type"] = "text/css; charset=utf-8"
+    resp.headers["Cache-Control"] = "private, max-age=31536000"
+    return resp

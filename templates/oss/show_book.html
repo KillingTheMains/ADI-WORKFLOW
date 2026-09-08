@@ -4,6 +4,7 @@
 <head>
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/paper.css') }}">
+  <link rel="stylesheet" href="{{ url_for('agency.theme_css') }}?v={{ theme_v }}">
   <meta charset="UTF-8">
   <title>{{ show.name }} — OSS {{ show.version_label }}</title>
   <style>

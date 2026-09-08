@@ -253,9 +253,19 @@ def create_app():
             all_shows = Show.query.order_by(Show.name).all()
         except Exception:
             all_shows = []
+        # #21 — cache-buster for /agency/theme.css. Same defensive shape as
+        # all_shows above: a database that cannot answer must not stop a page
+        # rendering, and 0 simply serves the palette uncached-by-version.
+        try:
+            from models import AgencySetting
+            stamp = AgencySetting.get().updated_at
+            theme_v = int(stamp.timestamp()) if stamp else 0
+        except Exception:
+            theme_v = 0
         return {
             "now": datetime.utcnow(),
             "logo_exists": os.path.exists(logo_path),
+            "theme_v": theme_v,
             "all_shows": all_shows,
             "migration_error": app.config.get("MIGRATION_ERROR"),
             "blueprint_errors": app.config.get("BLUEPRINT_ERRORS") or {},

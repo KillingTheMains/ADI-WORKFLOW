@@ -56,6 +56,11 @@
 
   /* New */
   --adi-card:          #FFFFFF;
+  /* #21: the paper spec's Ink and Line had no --adi-* name, so the print
+     block below spelled them as literals. Named here so it can say what it
+     means, and so the page still has them if theme.css never arrives. */
+  --adi-ink:           #1B2A3F;
+  --adi-line:          #DDD8CE;
   --adi-border-strong: #7E8794;   /* form controls: 3.63:1, meets WCAG 1.4.11 */
   --adi-rail-neutral:  #C3CAD3;
 
@@ -525,7 +530,7 @@ h1, h2, h3, h4, h5, h6,
   border: 1px solid transparent;
 }
 
-.status-Planning  { background: #E6F7FA; color: #0C6B79; border-color: #B9E4EC; }
+.status-Planning  { background: #E6F7FA; color: var(--adi-blue); border-color: #B9E4EC; }
 .status-Active    { background: var(--adi-ok-bg);     color: var(--adi-ok);     border-color: #A7E3BF; }
 .status-Closed    { background: #EDEFF1;              color: #4B5563;           border-color: #D5D9DE; }
 .status-Cancelled { background: var(--adi-danger-bg); color: var(--adi-danger); border-color: #F3C2BE; }
@@ -717,7 +722,7 @@ h1, h2, h3, h4, h5, h6,
   text-transform: uppercase;
   letter-spacing: .08em;
   font-weight: 700;
-  color: var(--adi-mineral, #59636E);
+  color: var(--adi-mineral, var(--adi-mineral));
   border: 1px solid var(--adi-border, #D8DDE3);
   border-radius: 3px;
   padding: 1px 5px;
@@ -998,7 +1003,7 @@ input[type="number"], input[type="time"] { font-variant-numeric: tabular-nums; }
 @media print {
   @page { size: Letter; margin: 12mm 13mm 11mm; }
   html body { font-family: 'Barlow', 'Helvetica Neue', Arial, sans-serif; font-size: 9.4pt;
-              line-height: 1.3; color: #1B2A3F; background: #fff;
+              line-height: 1.3; color: var(--adi-ink); background: #fff;
               -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   #main-content { margin-left: 0 !important; }
   .page-body, .container-fluid { padding: 0 !important; }
@@ -1008,8 +1013,8 @@ input[type="number"], input[type="time"] { font-variant-numeric: tabular-nums; }
   /* Cards become paper: no box, no rounded corners; the header is a band. */
   .card { border: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
   .card-header, .card-header.gold {
-    background: #F7F4EE !important; color: #0B2545 !important; border: 0 !important;
-    border-bottom: .6pt solid #DDD8CE !important; border-radius: 0 !important;
+    background: var(--adi-warm-white) !important; color: var(--adi-midnight) !important; border: 0 !important;
+    border-bottom: .6pt solid var(--adi-line) !important; border-radius: 0 !important;
     font-family: 'Barlow Condensed', 'Barlow', sans-serif; font-weight: 700; font-size: 9.9pt;
     letter-spacing: .13em; text-transform: uppercase; padding: 3pt 5pt 2.4pt;
     break-after: avoid;
@@ -1017,33 +1022,33 @@ input[type="number"], input[type="time"] { font-variant-numeric: tabular-nums; }
 
   /* The paperwork band (Hours Report, contact sheet…): Midnight on screen,
      the document header on paper — eyebrow, condensed title, a rule. */
-  .paperwork-band { background: none !important; border: 0 !important; border-bottom: 2pt solid #0B2545 !important;
+  .paperwork-band { background: none !important; border: 0 !important; border-bottom: 2pt solid var(--adi-midnight) !important;
                     border-radius: 0 !important; margin-bottom: 8pt !important; }
   .paperwork-band .card-body { padding: 0 0 5pt !important; }
-  .paperwork-band .pb-code  { color: #0C6B79 !important; font-family: 'Barlow Condensed', sans-serif;
+  .paperwork-band .pb-code  { color: var(--adi-blue) !important; font-family: 'Barlow Condensed', sans-serif;
                               font-weight: 600 !important; font-size: 8.9pt !important; letter-spacing: .14em !important; }
-  .paperwork-band .pb-title { color: #0B2545 !important; font-family: 'Barlow Condensed', sans-serif;
+  .paperwork-band .pb-title { color: var(--adi-midnight) !important; font-family: 'Barlow Condensed', sans-serif;
                               font-weight: 700 !important; font-size: 27pt !important; line-height: 1 !important; }
-  .paperwork-band .pb-sub   { color: #59636E !important; font-size: 9.4pt !important; margin-top: 3pt; }
-  .paperwork-band .pb-sub span { color: #7A5C1E !important; }
-  .paperwork-band .pb-meta  { color: #1B2A3F !important; font-weight: 600; font-size: 8.9pt !important; }
-  .paperwork-band .pb-time  { color: #7A5C1E !important; font-family: 'Barlow Condensed', sans-serif;
+  .paperwork-band .pb-sub   { color: var(--adi-mineral) !important; font-size: 9.4pt !important; margin-top: 3pt; }
+  .paperwork-band .pb-sub span { color: var(--adi-gold) !important; }
+  .paperwork-band .pb-meta  { color: var(--adi-ink) !important; font-weight: 600; font-size: 8.9pt !important; }
+  .paperwork-band .pb-time  { color: var(--adi-gold) !important; font-family: 'Barlow Condensed', sans-serif;
                               font-weight: 700 !important; font-size: 12.7pt !important; }
-  .paperwork-band .card-body [style*="rgba(255,255,255"] { color: #59636E !important; }
-  .paperwork-band .card-body [style*="255,255,255"] .badge, .paperwork-band .badge { background: none !important; color: #59636E !important; border: .6pt solid #DDD8CE; }
-  .pb-eyebrow { color: #0C6B79 !important; font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
+  .paperwork-band .card-body [style*="rgba(255,255,255"] { color: var(--adi-mineral) !important; }
+  .paperwork-band .card-body [style*="255,255,255"] .badge, .paperwork-band .badge { background: none !important; color: var(--adi-mineral) !important; border: .6pt solid var(--adi-line); }
+  .pb-eyebrow { color: var(--adi-blue) !important; font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
                 font-size: 8.9pt !important; letter-spacing: .14em !important; margin-bottom: 2pt !important; }
-  .crew-table input, .crew-table select, .crew-table textarea { font: inherit !important; color: #1B2A3F !important; }
+  .crew-table input, .crew-table select, .crew-table textarea { font: inherit !important; color: var(--adi-ink) !important; }
 
   /* Tables: column headers as tracked mineral capitals, hairlines below. */
   table th, .table th, .crew-table th, .hours-table th {
-    background: none !important; color: #59636E !important; font-weight: 500 !important;
+    background: none !important; color: var(--adi-mineral) !important; font-weight: 500 !important;
     font-size: 7.5pt !important; letter-spacing: .12em; text-transform: uppercase;
-    border: 0 !important; border-bottom: .6pt solid #DDD8CE !important; padding: 4pt 6pt 2pt !important;
+    border: 0 !important; border-bottom: .6pt solid var(--adi-line) !important; padding: 4pt 6pt 2pt !important;
     position: static !important;
   }
   table td, .table td, .crew-table td, .hours-table td {
-    border: 0 !important; border-bottom: .6pt solid #DDD8CE !important; padding: 3pt 6pt !important;
+    border: 0 !important; border-bottom: .6pt solid var(--adi-line) !important; padding: 3pt 6pt !important;
     font-size: 9.4pt; vertical-align: top;
   }
   thead { display: table-header-group; }
@@ -1054,22 +1059,22 @@ input[type="number"], input[type="time"] { font-variant-numeric: tabular-nums; }
      dividers on the Hours Report): the section band. */
   .crew-table .group-header td, .crew-table .group-header[data-level="2"] td,
   .hours-table .company-divider td {
-    background: #F7F4EE !important; color: #0B2545 !important;
+    background: var(--adi-warm-white) !important; color: var(--adi-midnight) !important;
     font-family: 'Barlow Condensed', 'Barlow', sans-serif; font-weight: 700 !important;
     font-size: 9.9pt !important; letter-spacing: .06em !important; text-transform: none !important;
-    padding: 3pt 6pt 2.4pt !important; border-top: 0 !important; border-bottom: .6pt solid #DDD8CE !important;
+    padding: 3pt 6pt 2.4pt !important; border-top: 0 !important; border-bottom: .6pt solid var(--adi-line) !important;
     break-after: avoid;
   }
-  .hours-table .company-subtotal td { background: none !important; color: #59636E !important;
-                                      border-bottom: .6pt solid #DDD8CE !important; font-size: 8.5pt !important; }
-  .hours-table .company-subtotal td.total-cell { color: #1B2A3F !important; font-weight: 600; }
-  .hours-table .total-row td { background: #F7F4EE !important; color: #0B2545 !important;
-                               border-top: 2pt solid #0B2545 !important; font-weight: 700; }
-  .hours-table .total-row td.day-cell { color: #0B2545 !important; }
+  .hours-table .company-subtotal td { background: none !important; color: var(--adi-mineral) !important;
+                                      border-bottom: .6pt solid var(--adi-line) !important; font-size: 8.5pt !important; }
+  .hours-table .company-subtotal td.total-cell { color: var(--adi-ink) !important; font-weight: 600; }
+  .hours-table .total-row td { background: var(--adi-warm-white) !important; color: var(--adi-midnight) !important;
+                               border-top: 2pt solid var(--adi-midnight) !important; font-weight: 700; }
+  .hours-table .total-row td.day-cell { color: var(--adi-midnight) !important; }
   .hours-table td.total-cell { background: none !important; }
-  .hours-table td.day-cell { color: #1B2A3F !important; font-weight: 500; }
-  .hours-table td.day-cell.zero { color: #DDD8CE !important; }
-  .hours-table td.day-cell.flagged { background: #FBF3DF !important; }
+  .hours-table td.day-cell { color: var(--adi-ink) !important; font-weight: 500; }
+  .hours-table td.day-cell.zero { color: var(--adi-line) !important; }
+  .hours-table td.day-cell.flagged { background: var(--adi-warn-bg) !important; }
   .hours-table th.day-col { font-size: 7pt !important; height: 48pt; }
   .hours-table tr:hover td { background: none !important; }
   .hours-report-print .card { overflow: visible !important; }
@@ -1077,12 +1082,12 @@ input[type="number"], input[type="time"] { font-variant-numeric: tabular-nums; }
   /* Activity header on the day page: the plain-activity band takes the
      stripe; the crew-call plate keeps Midnight (see above). Times in the
      gold condensed numeral. */
-  .act-head-act { background: #F7F4EE !important; }
-  .act-head-act .act-time { color: #7A5C1E !important; font-family: 'Barlow Condensed', sans-serif;
+  .act-head-act { background: var(--adi-warm-white) !important; }
+  .act-head-act .act-time { color: var(--adi-gold) !important; font-family: 'Barlow Condensed', sans-serif;
                             font-weight: 700; font-size: 10.8pt; }
-  .day-card .day-header-bar { background: none !important; color: #0B2545 !important;
-                              border-bottom: 2pt solid #0B2545 !important; }
+  .day-card .day-header-bar { background: none !important; color: var(--adi-midnight) !important;
+                              border-bottom: 2pt solid var(--adi-midnight) !important; }
 }
 @media print {
-  .day-card .day-time, .day-card .phase-pill { color: #7A5C1E !important; background: none !important; }
+  .day-card .day-time, .day-card .phase-pill { color: var(--adi-gold) !important; background: none !important; }
 }
