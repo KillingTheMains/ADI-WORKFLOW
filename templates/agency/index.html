@@ -1,5 +1,67 @@
 {% extends "base.html" %}
 {% block title %}Agency Branding{% endblock %}
+{% block extra_css %}
+<style>
+/* #21 — the palette editor. Scoped to this page; the preview draws itself
+   from --pv-* custom properties so the script can repaint it by setting
+   thirteen properties on one element rather than touching thirty nodes. */
+.pal-row { display:flex; gap:16px; align-items:flex-start;
+           padding:9px 0; border-bottom:1px solid var(--adi-line); }
+.pal-row:last-of-type { border-bottom:0; }
+.pal-text { flex:1 1 auto; min-width:0; max-width:38rem; }
+.pal-name { font-family:'Barlow Condensed', sans-serif; font-weight:700;
+            font-size:1rem; color:var(--adi-midnight); line-height:1.15; }
+.pal-drives { font-size:.76rem; color:var(--adi-mineral); margin-top:2px; }
+.pal-fields { display:flex; gap:14px; flex:0 0 auto; justify-content:flex-end;
+              min-width:132px; }
+.pal-field { display:flex; flex-direction:column; align-items:flex-start; gap:3px; }
+.pal-sub { font-size:.66rem; letter-spacing:.10em; text-transform:uppercase;
+           color:var(--adi-mineral); font-weight:500; margin:0; }
+.pal-input { width:46px; height:30px; padding:2px; border:1px solid var(--adi-border-strong);
+             border-radius:var(--r-sm); background:var(--adi-card); cursor:pointer; }
+.pal-hex { font-size:.7rem; color:var(--adi-mineral); font-variant-numeric:tabular-nums; }
+.pal-changed { font-size:.6rem; letter-spacing:.07em; text-transform:uppercase;
+               color:var(--adi-warn); background:var(--adi-warn-bg);
+               padding:1px 5px; border-radius:var(--r-pill); }
+.pal-preview-wrap { position:sticky; top:calc(var(--adi-topbar-h) + 16px); }
+
+.pal-preview { --pv-midnight:#0B2545; --pv-ink:#1B2A3F; --pv-mineral:#59636E;
+               --pv-line:#DDD8CE; --pv-stripe:#F7F4EE; --pv-cyan_ink:#0C6B79;
+               --pv-gold_ink:#7A5C1E; --pv-cyan:#35C4D8; --pv-gold:#C9A45C;
+               --pv-ok_ink:#1F6B45; --pv-ok_bg:#E6F2EC;
+               --pv-wait_ink:#7A5C1E; --pv-wait_bg:#FBF3DF;
+               background:#fff; border:1px solid var(--adi-line);
+               padding:16px 16px 12px; font-size:.78rem; color:var(--pv-ink); }
+.pv-eyebrow { font-family:'Barlow Condensed', sans-serif; font-weight:600;
+              font-size:.68rem; letter-spacing:.14em; text-transform:uppercase;
+              color:var(--pv-cyan_ink); }
+.pv-title { font-family:'Barlow Condensed', sans-serif; font-weight:700;
+            font-size:1.5rem; line-height:1; color:var(--pv-midnight); margin-top:2px; }
+.pv-rule { border-bottom:2px solid var(--pv-midnight); margin:6px 0 10px; }
+.pv-band { font-family:'Barlow Condensed', sans-serif; font-weight:700;
+           font-size:.78rem; letter-spacing:.13em; text-transform:uppercase;
+           color:var(--pv-midnight); background:var(--pv-stripe);
+           padding:3px 6px 2px; border-bottom:1px solid var(--pv-line); }
+.pv-table { width:100%; border-collapse:collapse; }
+.pv-table th { font-weight:500; font-size:.62rem; letter-spacing:.12em;
+               text-transform:uppercase; color:var(--pv-mineral);
+               text-align:left; padding:5px 6px 3px;
+               border-bottom:1px solid var(--pv-line); }
+.pv-table td { padding:5px 6px; border-bottom:1px solid var(--pv-line);
+               font-variant-numeric:tabular-nums; }
+.pv-num { font-family:'Barlow Condensed', sans-serif; font-weight:700;
+          color:var(--pv-gold_ink); }
+.pv-quiet { color:var(--pv-mineral); }
+.pv-recur td { background:var(--pv-stripe); box-shadow:inset 3px 0 0 var(--pv-gold); }
+.pv-pill { display:inline-block; font-size:.6rem; font-weight:600;
+           letter-spacing:.07em; text-transform:uppercase; padding:1px 5px;
+           border-radius:2px; }
+.pv-ok   { background:var(--pv-ok_bg);   color:var(--pv-ok_ink); }
+.pv-wait { background:var(--pv-wait_bg); color:var(--pv-wait_ink); }
+.pv-foot { font-size:.62rem; color:var(--pv-mineral); margin-top:8px; }
+</style>
+{% endblock %}
+
 {% block content %}
 <h2 style="margin-bottom:4px;">Agency Branding</h2>
 <p class="text-muted" style="font-size:.85rem;max-width:56rem;">
@@ -56,21 +118,138 @@
         <input type="text" name="name" value="{{ setting.name or '' }}"
                class="form-control form-control-sm" maxlength="200" aria-label="Agency name">
 
-        <label class="form-label" style="font-size:.78rem;margin-top:12px;">
+        <div class="form-label" style="font-size:.78rem;margin-top:12px;">
           Brand colour
-        </label>
+        </div>
         <div style="display:flex;gap:8px;align-items:center;">
-          <input type="color" name="primary_hex"
-                 value="{{ setting.primary_hex or '#0B2545' }}"
-                 class="form-control form-control-sm" style="width:56px;padding:2px;" aria-label="Brand colour">
-          <code style="font-size:.78rem;">{{ setting.primary_hex }}</code>
+          <span style="width:26px;height:26px;border:1px solid var(--adi-line);
+                       background:{{ roles.midnight }};"></span>
+          <code style="font-size:.78rem;">{{ roles.midnight }}</code>
         </div>
         <div class="text-muted" style="font-size:.72rem;margin:6px 0 10px;">
-          Used for cover panels and section headers on the exports.
+          This is the Midnight colour from the palette below — set it there,
+          so the exports and the printed pages cannot end up on a different
+          navy from the app.
         </div>
         <button class="btn btn-sm btn-dark">Save details</button>
       </form>
     </div></div>
   </div>
 </div>
+
+<div class="card" style="margin-top:22px;"><div class="card-body">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;
+              gap:16px;flex-wrap:wrap;">
+    <div>
+      <h2 style="font-size:1rem;margin-bottom:4px;">Palette</h2>
+      <p class="text-muted" style="font-size:.85rem;max-width:44rem;margin-bottom:0;">
+        Eleven colours the whole app follows — every screen, every printed
+        page, the PDFs and the spreadsheets. Each one says what it drives.
+        A colour combination that would be hard to read is refused rather
+        than saved, so nothing here can quietly make a call sheet unreadable.
+      </p>
+    </div>
+    {% if is_custom %}
+      <form method="POST" action="{{ url_for('agency.palette_reset') }}"
+            onsubmit="return confirm('Put every colour back to the ADI defaults?');">
+        <button class="btn btn-sm btn-outline-secondary">Reset to ADI defaults</button>
+      </form>
+    {% endif %}
+  </div>
+
+  {% if failures %}
+    <div class="alert alert-danger" style="margin-top:14px;font-size:.85rem;">
+      <strong>Nothing was saved.</strong> These would be too faint to read:
+      <ul style="margin:8px 0 0;padding-left:20px;">
+        {% for what, fg, bg, got, need in failures %}
+          <li><strong>{{ what }}</strong> — {{ fg }} on {{ bg }} is
+              {{ got }}:1, and needs {{ need }}:1.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <form method="POST" action="{{ url_for('agency.palette_save') }}"
+        class="row g-4" style="margin-top:6px;">
+    <div class="col-lg-7">
+      {% for name, fields, drives in role_rows %}
+        <div class="pal-row">
+          <div class="pal-text">
+            <div class="pal-name">{{ name }}</div>
+            <div class="pal-drives">{{ drives }}</div>
+          </div>
+          <div class="pal-fields">
+            {% for key, sub in fields %}
+              {% set value = (attempted or roles)[key] %}
+              <div class="pal-field">
+                <label class="pal-sub{% if not sub %} visually-hidden{% endif %}"
+                       for="pal-{{ key }}">{{ sub or name }}</label>
+                <input type="color" id="pal-{{ key }}" name="{{ key }}"
+                       value="{{ value }}" data-role="{{ key }}" class="pal-input">
+                <code class="pal-hex" data-hex-for="{{ key }}">{{ value }}</code>
+                {% if value|upper != defaults[key]|upper %}
+                  <span class="pal-changed" title="Different from the ADI default">changed</span>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+      <button class="btn btn-sm btn-dark" style="margin-top:16px;">Save palette</button>
+      <span class="text-muted" style="font-size:.72rem;margin-left:10px;">
+        Checked for readability before it is stored.
+      </span>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="pal-preview-wrap">
+        <div class="pal-sub" style="margin-bottom:6px;">Preview</div>
+        <div class="pal-preview" id="palettePreview">
+          <div class="pv-eyebrow">ADI WORKFLOW · MCDC26</div>
+          <div class="pv-title">Wednesday 9 September</div>
+          <div class="pv-rule"></div>
+          <div class="pv-band">Load-In</div>
+          <table class="pv-table">
+            <tr><th>Code</th><th>Time</th><th>Item</th><th>Status</th></tr>
+            <tr><td class="pv-num">CC</td><td>07:00</td><td>Lighting call</td>
+                <td><span class="pv-pill pv-ok">Live</span></td></tr>
+            <tr><td class="pv-num">DK</td><td>08:30</td><td>Truck 2 in</td>
+                <td><span class="pv-pill pv-wait">Waiting</span></td></tr>
+            <tr class="pv-recur"><td class="pv-num">RC</td><td>12:00</td>
+                <td>Lunch</td><td class="pv-quiet">every day</td></tr>
+          </table>
+          <div class="pv-foot">ADI · MCDC26 · Day schedule · 1</div>
+        </div>
+        <div class="text-muted" style="font-size:.72rem;margin-top:8px;">
+          A day sheet, roughly. The real pages carry more, but every colour
+          on this sample is one you set above.
+        </div>
+      </div>
+    </div>
+  </form>
+</div></div>
+
+<script>
+// Repaint the preview as colours change. No fetch, no storage: the preview is
+// the thirteen values currently in the form, and the SERVER still decides
+// whether they are allowed -- this is a look, not a check.
+(function () {
+  var preview = document.getElementById('palettePreview');
+  if (!preview) { return; }
+  var inputs = document.querySelectorAll('.pal-input');
+
+  function paint(input) {
+    var role = input.dataset.role;
+    var value = input.value.toUpperCase();
+    preview.style.setProperty('--pv-' + role, value);
+    var code = document.querySelector('[data-hex-for="' + role + '"]');
+    if (code) { code.textContent = value; }
+  }
+
+  inputs.forEach(function (input) {
+    paint(input);
+    input.addEventListener('input', function () { paint(input); });
+  });
+})();
+</script>
 {% endblock %}
