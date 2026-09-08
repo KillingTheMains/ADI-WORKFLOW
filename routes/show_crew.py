@@ -690,21 +690,138 @@ def local_labor_hours(show_id):
 
     The crew call keeps "Qty 6 · Lighting Hand · 10 hrs" — six interchangeable
     slots and one estimate — because that is how they are booked. Payroll
-    needs six actuals, because that is how they leave. This page is the six
-    boxes: every local labor line on the show, in schedule order, with one
-    input per body. Blank means "not recorded"; the estimate is the
-    placeholder, and "Use estimate" fills the blanks on a line in one click
-    so the common case (everyone worked the call) is one click and the
-    exceptions are typed.
+    needs six actuals, because that is how they leave.
+
+    Laid out as a table in the Hours Report's language (Jason, 2026-09-08):
+    one row per LINE, with that line's bodies as a strip of boxes inside one
+    cell. One row per BODY would be the more obvious table and is the wrong
+    one — MCDC26 would be 344 rows, and the line is the unit the crew is
+    actually booked and invoiced in.
+
+    Filters, options and the company/department a line belongs to are
+    resolved exactly as `hours_report` resolves them, so the same filter
+    means the same thing on both pages.
     """
     show = Show.query.get_or_404(show_id)
-    days = _local_labor_lines(show)
-    n_lines = sum(len(c["lines"]) for d in days for c in d["calls"])
-    n_bodies = sum(len(l["bodies"]) for d in days for c in d["calls"] for l in c["lines"])
-    n_recorded = sum(1 for d in days for c in d["calls"] for l in c["lines"]
-                     for b in l["bodies"] if b.actual_hours is not None)
-    return render_template("shows/local_labor_hours.html", show=show, days=days,
-                           n_lines=n_lines, n_bodies=n_bodies, n_recorded=n_recorded)
+    nested = _local_labor_lines(show)
+
+    want_dept    = (request.args.get("dept") or "").strip()
+    want_company = (request.args.get("company") or "").strip()
+
+    days, opts_dept, opts_company = [], set(), set()
+    n_lines = n_bodies = n_recorded = 0
+    est_total = actual_total = delta_total = 0.0
+
+    for entry in nested:
+        day, lines = entry["day"], []
+        d_est = d_actual = d_delta = 0.0
+        d_bodies = d_recorded = 0
+        for call in entry["calls"]:
+            act = call["activity"]
+            for line in call["lines"]:
+                row = line["row"]
+                company = line["company"]
+                # Same resolution as the report: the section header's company,
+                # else the section label — a line with neither is "Unassigned"
+                # there and reads the same here.
+                co_name = company.name if company else (line["section"] or "")
+                dept = (row.position_ref.department if row.position_ref else "") or ""
+                if dept:
+                    opts_dept.add(dept)
+                if co_name:
+                    opts_company.add(co_name)
+                if want_dept and dept != want_dept:
+                    continue
+                if want_company and co_name != want_company:
+                    continue
+
+                bodies = line["bodies"]
+                est_each = row.hours
+                recorded = [b for b in bodies if b.actual_hours is not None]
+                line_est = (est_each or 0) * len(bodies)
+                line_actual = sum(b.actual_hours for b in recorded)
+                # Δ against the bodies that HAVE a figure, never the whole
+                # line — the same rule the Hours Report's Δ column follows,
+                # so two recorded out of six reads +1.5 and not −38.5.
+                line_delta = (line_actual - (est_each or 0) * len(recorded)
+                              if recorded and est_each is not None else None)
+
+                lines.append({
+                    "row": row, "activity": act, "bodies": bodies,
+                    "section": line["section"], "company": co_name, "dept": dept,
+                    "est_each": est_each, "qty": len(bodies),
+                    "est_total": line_est, "actual_total": line_actual,
+                    "recorded": len(recorded), "delta": line_delta,
+                })
+                d_est += line_est
+                d_actual += line_actual
+                d_delta += line_delta or 0
+                d_bodies += len(bodies)
+                d_recorded += len(recorded)
+
+        if lines:
+            days.append({"day": day, "lines": lines, "est_total": d_est,
+                         "actual_total": d_actual, "bodies": d_bodies,
+                         "recorded": d_recorded, "delta": d_delta,
+                         "blank": d_bodies - d_recorded})
+            n_lines += len(lines)
+            n_bodies += d_bodies
+            n_recorded += d_recorded
+            est_total += d_est
+            actual_total += d_actual
+            delta_total += d_delta
+
+    return render_template(
+        "shows/local_labor_hours.html", show=show, days=days,
+        n_lines=n_lines, n_bodies=n_bodies, n_recorded=n_recorded,
+        n_blank=n_bodies - n_recorded,
+        est_total=est_total, actual_total=actual_total, delta_total=delta_total,
+        avg_recorded=(actual_total / n_recorded) if n_recorded else None,
+        dept_options=sorted(opts_dept), company_options=sorted(opts_company),
+        want_dept=want_dept, want_company=want_company,
+        filtered=bool(want_dept or want_company))
+
+
+@show_crew_bp.route("/<int:show_id>/crew/local-labor-hours/day/<int:day_id>/fill",
+                    methods=["POST"])
+def local_labor_fill_day(show_id, day_id):
+    """Fill every BLANK body on one day with its own line's estimate.
+
+    The per-line button was the only way to do this, and a load-in day is
+    twenty lines. Blanks only, for the same reason the line button is blanks
+    only: a typed figure is an exception somebody recorded on purpose.
+    """
+    from models import ScheduleDay, bodies_for
+    day = ScheduleDay.query.get_or_404(day_id)
+    if day.show_id != show_id:
+        return ("", 404)
+    filled, skipped = 0, 0
+    for act in day.activities:
+        for row in act.crew_rows:
+            if not row.is_local_labor:
+                continue
+            if row.hours is None:
+                skipped += 1
+                continue
+            for b in bodies_for(row):
+                if b.actual_hours is None:
+                    b.actual_hours = float(row.hours)
+                    filled += 1
+    db.session.commit()
+    if filled:
+        flash(f"{filled} filled from the estimate on "
+              f"{day.date.strftime('%a %b %-d') if day.date else 'that day'}."
+              + (f" {skipped} line(s) had no estimate to copy." if skipped else ""),
+              "success")
+    else:
+        flash("Nothing to fill — every body on that day already has hours."
+              if not skipped else
+              f"{skipped} line(s) on that day have no estimate to copy.",
+              "info" if not skipped else "warning")
+    return redirect(url_for("show_crew.local_labor_hours", show_id=show_id,
+                            dept=request.form.get("dept") or None,
+                            company=request.form.get("company") or None)
+                    + f"#day-{day.id}")
 
 
 def _body_in_show(body, show_id):

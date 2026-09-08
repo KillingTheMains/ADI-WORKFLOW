@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% import '_icons.html' as ico %}
-{% import '_row_kinds.html' as rk %}
 {% block title %}Local Labor Hours — {{ show.name }}{% endblock %}
 {% block page_title %}Local Labor Hours{% endblock %}
 {% block breadcrumb %}
@@ -14,183 +13,427 @@
      class="btn btn-sm btn-outline-secondary">{{ ico.icon('calendar') }} Schedule</a>
   <a href="{{ url_for('show_crew.hours_report', show_id=show.id) }}"
      class="btn btn-sm btn-outline-secondary">{{ ico.icon('clock') }} Hours Report</a>
+  <button class="btn btn-sm btn-dark" onclick="window.print()">{{ ico.icon('printer') }} Print</button>
 {% endblock %}
 
 {% block content %}
 <style>
-  /* One line of the crew call = one block; its bodies are a wrapped row of
-     small inputs beneath it. A table would put eighteen bodies in eighteen
-     rows and push the next line off the screen. */
-  .ll-day { margin-bottom: 22px; }
-  .ll-day-band {
-    display: flex; align-items: baseline; gap: 12px;
+  /* The Hours Report's table dialect, on local labor's shape (Jason,
+     2026-09-08). One row per LINE — the unit the crew is booked and invoiced
+     in — with that line's bodies as a strip of boxes inside one cell. One row
+     per body would be 344 rows on MCDC26 and would bury the line.
+
+     Everything here that has a twin on the Hours Report is deliberately the
+     same value: Midnight column heads, the .ll-in box, the amber over-estimate,
+     the day divider, the subtotal band and the Midnight total with gold
+     figures. */
+  .ll-table { font-size: .78rem; }
+  .ll-table th {
     background: var(--adi-dark); color: #fff;
-    padding: 7px 12px; border-radius: 6px 6px 0 0;
-    font: 700 12px/1 'Barlow', sans-serif; letter-spacing: .12em; text-transform: uppercase;
+    font-size: .68rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .06em;
+    padding: 7px 8px; border: none; white-space: nowrap;
   }
-  .ll-day-band .ll-phase { color: var(--adi-blue-lt); font-weight: 600; letter-spacing: .08em; }
-  .ll-call {
-    border: 1px solid var(--adi-border); border-top: none;
+  .ll-table td {
+    padding: 6px 8px; border-bottom: 1px solid var(--adi-border);
+    vertical-align: middle;
   }
-  .ll-call-head {
-    display: flex; align-items: baseline; gap: 10px;
-    background: var(--adi-band); padding: 6px 12px;
-    font-size: .8rem; font-weight: 600;
+  .ll-table tr:hover td { background: var(--adi-band); }
+  .ll-table td.num {
+    text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap;
   }
-  .ll-call-head .act-time { color: var(--adi-blue); font-variant-numeric: tabular-nums; }
-  .ll-line {
-    display: grid; grid-template-columns: minmax(180px, 1.3fr) minmax(0, 1fr) auto;
-    gap: 6px 16px; align-items: start;
-    padding: 8px 12px; border-top: 1px solid var(--adi-border);
+  .ll-table td.est { color: var(--adi-blue); font-weight: 600; }
+  .ll-table td.total-cell { text-align: center; font-weight: 700; background: var(--adi-surface); }
+  .ll-time { color: var(--adi-blue); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ll-pos { font-weight: 600; }
+  .ll-sub { color: var(--adi-mineral); font-size: .72rem; }
+  .ll-delta.up { color: var(--adi-warn); font-weight: 700; }
+  .ll-delta.down { color: var(--adi-mineral-dk); }
+
+  /* The day group header and its subtotal — .company-divider / .company-subtotal
+     on the Hours Report, by another name. */
+  .ll-day-divider td {
+    background: var(--adi-surface) !important;
+    font-size: .68rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .08em;
+    color: var(--adi-dark); padding: 5px 8px;
+    border-top: 2px solid var(--adi-border);
   }
-  .ll-line:target { background: var(--adi-info-bg); }
-  .ll-line-title { font-weight: 600; font-size: .86rem; }
-  .ll-line-meta { color: var(--adi-mineral); font-size: .74rem; margin-top: 2px; }
-  .ll-line-meta .ll-section { color: var(--adi-blue); font-weight: 600; }
-  .ll-bodies { display: flex; flex-wrap: wrap; gap: 6px; grid-column: 1 / -1; }
-  .ll-body { display: flex; flex-direction: column; align-items: stretch; width: 64px; }
+  .ll-day-divider .ll-phase { color: var(--adi-blue); letter-spacing: .06em; }
+  .ll-day-divider a { color: var(--adi-blue); font-weight: 600; }
+  .ll-day-subtotal td {
+    background: var(--adi-band) !important;
+    font-size: .72rem; color: var(--adi-mineral-dk);
+    border-bottom: 2px solid var(--adi-border);
+  }
+  .ll-day-subtotal td.total-cell { color: var(--adi-dark); background: var(--adi-band) !important; }
+  .total-row td {
+    background: var(--adi-dark) !important; color: #fff !important;
+    font-weight: 700; font-size: .78rem;
+  }
+  .total-row td.num { color: var(--adi-gold-lt) !important; }
+
+  /* The bodies strip. Same box as the report's day cell. */
+  .ll-bodies { display: flex; flex-wrap: wrap; gap: 5px; }
+  .ll-body { display: flex; flex-direction: column; align-items: stretch; width: 52px; }
   .ll-body .ll-n {
-    font: 600 10px/1 'Barlow', sans-serif; letter-spacing: .08em; text-transform: uppercase;
+    font: 600 9px/1 'Barlow', sans-serif; letter-spacing: .08em; text-transform: uppercase;
     color: var(--adi-mineral); text-align: center; margin-bottom: 2px;
   }
-  .ll-body input {
-    width: 100%; text-align: center; font-size: .82rem; padding: 3px 4px;
-    font-variant-numeric: tabular-nums;
+  .ll-in {
+    width: 100%; height: 26px; padding: 0 3px; text-align: center;
+    font: 600 .78rem/1 inherit; font-family: inherit; color: var(--adi-text);
+    background: #fff; border: 1px solid var(--adi-border); border-radius: 4px;
+    -moz-appearance: textfield; appearance: textfield;
   }
-  .ll-body input.over { background: var(--adi-warn-bg); }
-  .ll-fill { white-space: nowrap; }
-  .ll-fill .autosave-flash { display: block; }
+  .ll-in::-webkit-outer-spin-button,
+  .ll-in::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .ll-in::placeholder { color: var(--adi-blue); opacity: .75; font-weight: 600; }
+  .ll-in:focus { outline: none; border-color: var(--adi-blue); box-shadow: 0 0 0 2px rgba(53,196,216,.25); }
+  .ll-in.over { background: var(--adi-warn-bg); border-color: var(--adi-warn); }
+  .ll-print { display: none; }
+  .est-star { color: var(--adi-mineral); font-weight: 400; }
+  .use-est { font-size: .7rem; padding: 2px 8px; line-height: 1.4; }
+
+  /* Stat cards — the Hours Report's, unchanged. */
+  .stat-card {
+    background: var(--adi-surface); border: 1px solid var(--adi-border);
+    border-radius: 8px; padding: 14px 18px; text-align: center;
+  }
+  .stat-num { font-size: 1.6rem; font-weight: 700; color: var(--adi-dark); line-height: 1; }
+  .stat-label { font-size: .7rem; color: var(--adi-muted); text-transform: uppercase;
+                letter-spacing: .08em; margin-top: 4px; }
+
+  /* Print: landscape, like the Hours Report — the bodies strip is wide. The
+     inputs vanish and the figure each one holds prints in its place. */
   @media print {
-    .ll-fill, .no-print { display: none !important; }
-    .ll-body input { border: none; }
+    @page { size: Letter landscape; margin: 12mm 13mm 11mm; }
+    .no-print { display: none !important; }
+    .ll-table { min-width: 0 !important; width: 100%; }
+    .card[style*="overflow-x"] { overflow: visible !important; }
+    .ll-in, .ll-body-form { display: none !important; }
+    .ll-print { display: inline; font-variant-numeric: tabular-nums; }
+    .ll-body { width: auto; }
+    .ll-bodies { gap: 0 8px; }
+    .ll-table tr { break-inside: avoid; }
+    thead { display: table-header-group; }
   }
 </style>
 
 {% include "_paperwork_header.html" %}
 
-<div class="card mb-3" style="background:var(--adi-dark);border-color:var(--adi-dark);">
+<div class="card mb-3 paperwork-band" style="background:var(--adi-dark);border-color:var(--adi-dark);">
   <div class="card-body p-3">
     <div class="row align-items-center">
       <div class="col">
-        {% if show.code %}<div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;
+        {% if show.code %}<div class="pb-code" style="font-size:.7rem;font-weight:700;letter-spacing:.1em;
             text-transform:uppercase;color:var(--adi-blue-lt);">{{ show.code }}</div>{% endif %}
-        <div style="font-size:1.05rem;font-weight:700;color:#fff;">{{ show.name }}</div>
-        <div style="font-size:.8rem;color:rgba(255,255,255,.72);">
+        <div class="pb-title" style="font-size:1.05rem;font-weight:700;color:#fff;">{{ show.name }}</div>
+        <div class="pb-sub" style="font-size:.8rem;color:rgba(255,255,255,.72);">
           Local labor hours ·
           {{ n_lines }} line{{ '' if n_lines == 1 else 's' }} ·
           {{ n_bodies }} {{ 'body' if n_bodies == 1 else 'bodies' }} ·
           {{ n_recorded }} recorded
+          {%- if filtered %} · <span style="color:var(--adi-blue-lt);">filtered</span>{% endif %}
         </div>
       </div>
-      <div class="col-auto" style="font-size:.75rem;color:rgba(255,255,255,.72);">
-        {{ show.date_range }}
+      <div class="col-auto">
+        <div class="pb-meta" style="font-size:.75rem;color:rgba(255,255,255,.72);">
+          {{ show.date_range }}
+        </div>
       </div>
     </div>
   </div>
 </div>
 
-<p class="text-muted no-print" style="font-size:.8rem;max-width:64em;">
-  One box per body. The crew call keeps its count and one estimate; this is
-  where the six who were booked become the six who actually left — four at
-  the estimate, two at thirteen. Blank means not recorded; the estimate shows
-  as the placeholder. <strong>Use estimate</strong> fills the blanks on a line
-  and leaves anything already typed alone. Saves as you type.
-</p>
+{# Filters. GET, so a filtered page has a URL that can be printed or sent —
+   the same pattern and the same options as the Hours Report. #}
+{% if dept_options or company_options %}
+<form method="GET" class="no-print d-flex align-items-end gap-2 mb-3" style="font-size:.82rem;">
+  <div>
+    <label for="ll-dept" class="form-label mb-1" style="font:700 11px/1 'Barlow',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--adi-mineral-dk);">Department</label>
+    <select id="ll-dept" name="dept" class="form-select form-select-sm" style="width:auto;">
+      <option value="">All departments</option>
+      {% for d in dept_options %}
+      <option value="{{ d }}"{% if d == want_dept %} selected{% endif %}>{{ d }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label for="ll-company" class="form-label mb-1" style="font:700 11px/1 'Barlow',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--adi-mineral-dk);">Company</label>
+    <select id="ll-company" name="company" class="form-select form-select-sm" style="width:auto;">
+      <option value="">All companies</option>
+      {% for c in company_options %}
+      <option value="{{ c }}"{% if c == want_company %} selected{% endif %}>{{ c }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="btn btn-sm btn-adi">Apply</button>
+  {% if filtered %}
+  <a href="{{ url_for('show_crew.local_labor_hours', show_id=show.id) }}"
+     class="btn btn-sm btn-outline-secondary">Clear</a>
+  {% endif %}
+</form>
+{% endif %}
+
+<div class="alert mb-3" role="note"
+     style="background:var(--adi-band);border:1px solid var(--adi-border);font-size:.78rem;">
+  <strong>One box per body.</strong> The crew call keeps its count and one
+  estimate; this is where the six who were booked become the six who actually
+  left. A box showing a figure with a star (<span class="est-star">9*</span>)
+  is still the estimate; a figure without one was recorded.
+  <span class="no-print"><strong>Use estimate</strong> fills the blanks — on one
+  line, or on a whole day from its heading — and leaves anything already typed
+  alone. Saves as you type.</span>
+  A box above its estimate turns amber.
+</div>
+
+<div class="row g-3 mb-4 no-print">
+  <div class="col">
+    <div class="stat-card">
+      <div class="stat-num">{{ n_lines }}</div>
+      <div class="stat-label">Local Labor Lines</div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="stat-card">
+      <div class="stat-num">{{ n_bodies }}</div>
+      <div class="stat-label">Bodies</div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="stat-card">
+      <div class="stat-num">{{ "%.0f"|format(est_total) }}</div>
+      <div class="stat-label">Estimated Hours</div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="stat-card">
+      <div class="stat-num">{{ n_recorded }}</div>
+      <div class="stat-label">Recorded</div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="stat-card">
+      <div class="stat-num">{{ n_blank }}</div>
+      <div class="stat-label">Still Blank</div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="stat-card">
+      {% if avg_recorded is not none %}
+      <div class="stat-num">{{ "%.1f"|format(avg_recorded) }}</div>
+      {% else %}<div class="stat-num">—</div>{% endif %}
+      <div class="stat-label">Avg Hours/Body</div>
+    </div>
+  </div>
+</div>
 
 {% if not days %}
 <div class="empty-state py-5">
   <div class="empty-icon">{{ ico.icon('hard-hat', 32) }}</div>
-  <div style="font-size:.95rem;font-weight:600;margin-bottom:8px;">No local labor on this show yet</div>
+  <div style="font-size:.95rem;font-weight:600;margin-bottom:8px;">
+    {% if filtered %}Nothing matches that filter{% else %}No local labor on this show yet{% endif %}
+  </div>
   <p class="text-muted" style="font-size:.83rem;max-width:400px;margin:0 auto 16px;">
-    Local labor lines are crew rows whose position is in the
-    <a href="{{ url_for('local_labor.index') }}">Local Labor Database</a>, or whose
-    type is Local Crew. Add some to a crew call and they will appear here.
+    {% if filtered %}
+      No local labor lines on this show match the department and company you picked.
+    {% else %}
+      Local labor lines are crew rows whose position is in the
+      <a href="{{ url_for('local_labor.index') }}">Local Labor Database</a>, or whose
+      type is Local Crew. Add some to a crew call and they will appear here.
+    {% endif %}
   </p>
-  <a href="{{ url_for('schedule.overview', show_id=show.id) }}" class="btn btn-sm btn-adi">
-    Open Schedule →
-  </a>
+  {% if filtered %}
+  <a href="{{ url_for('show_crew.local_labor_hours', show_id=show.id) }}" class="btn btn-sm btn-adi">Clear the filter</a>
+  {% else %}
+  <a href="{{ url_for('schedule.overview', show_id=show.id) }}" class="btn btn-sm btn-adi">Open Schedule →</a>
+  {% endif %}
 </div>
+{% else %}
+
+<div class="card" style="overflow-x:auto;">
+<table class="table table-sm mb-0 ll-table" style="min-width:1080px;">
+  <thead>
+    <tr>
+      <th style="width:78px;">Time</th>
+      <th style="min-width:150px;">Position</th>
+      <th style="min-width:120px;">Company</th>
+      <th style="min-width:130px;">Activity</th>
+      <th style="width:42px;" class="text-center">Qty</th>
+      <th style="width:56px;" class="text-center">Est</th>
+      <th style="min-width:240px;">Hours per body</th>
+      <th style="width:62px;" class="text-center">Actual</th>
+      <th style="width:52px;" class="text-center">&Delta;</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for d in days %}
+    {% set day = d.day %}
+    <tr class="ll-day-divider" id="day-{{ day.id }}">
+      <td colspan="9">
+        {{ day.date.strftime('%a %b %-d') if day.date else '—' }}
+        {% if day.phase %}<span class="ll-phase">· {{ day.phase }}</span>{% endif %}
+        <span class="ll-sub" style="font-weight:400;text-transform:none;letter-spacing:0;">
+          · {{ d.bodies }} {{ 'body' if d.bodies == 1 else 'bodies' }},
+          {{ d.recorded }} recorded
+        </span>
+        <span class="no-print" style="float:right;text-transform:none;letter-spacing:0;font-weight:400;">
+          {% if d.blank %}
+          <form method="POST" class="d-inline"
+                action="{{ url_for('show_crew.local_labor_fill_day', show_id=show.id, day_id=day.id) }}">
+            <input type="hidden" name="dept" value="{{ want_dept }}">
+            <input type="hidden" name="company" value="{{ want_company }}">
+            <button type="submit" class="btn btn-sm btn-outline-secondary use-est"
+                    aria-label="Fill every blank body on {{ day.date.strftime('%A %B %-d') if day.date else 'this day' }} with its line's estimate">
+              Use estimate ({{ d.blank }})
+            </button>
+          </form>
+          {% endif %}
+          <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=day.id) }}"
+             style="margin-left:10px;">Open day</a>
+        </span>
+      </td>
+    </tr>
+
+    {% for l in d.lines %}
+    {% set row = l.row %}
+    <tr id="row-{{ row.id }}">
+      <td class="ll-time">{{ l.activity.time|to_12hr if l.activity.time else '—' }}</td>
+      <td>
+        {# No row-kind chip. Every row on this page is local labor, so an LL
+           chip on all 161 of them says nothing — and the Hours Report, which
+           this page is meant to match, carries no chips at all. #}
+        <div class="ll-pos">{{ row.position or (row.position_ref.title if row.position_ref else 'Local labor') }}</div>
+        {% if row.task %}<div class="ll-sub">{{ row.task }}</div>{% endif %}
+      </td>
+      <td>
+        {{ l.company or '—' }}
+        {% if l.dept %}<div class="ll-sub">{{ l.dept }}</div>{% endif %}
+      </td>
+      <td class="ll-sub" style="font-size:.75rem;">{{ l.activity.description }}</td>
+      <td class="num">{{ l.qty }}</td>
+      <td class="num est">
+        {% if l.est_each is not none %}{{ '%g'|format(l.est_each) }}{% else %}—{% endif %}
+      </td>
+      <td>
+        <div class="ll-bodies">
+          {% for b in l.bodies %}
+          <label class="ll-body">
+            <span class="ll-n">#{{ b.index }}</span>
+            <input type="number" name="actual_hours" form="body-{{ b.id }}"
+                   step="0.25" min="0"
+                   value="{{ '%g'|format(b.actual_hours) if b.actual_hours is not none else '' }}"
+                   placeholder="{{ '%g'|format(l.est_each) if l.est_each is not none else '' }}"
+                   class="ll-in{% if b.actual_hours is not none and l.est_each and b.actual_hours > l.est_each %} over{% endif %}"
+                   aria-label="Actual hours, body {{ b.index }} of {{ l.qty }}, {{ row.position or 'local labor' }}, {{ day.date.strftime('%-m/%-d') if day.date else '' }} {{ l.activity.time|to_12hr if l.activity.time else '' }}">
+            <span class="ll-print">
+              {%- if b.actual_hours is not none -%}
+                {{ '%g'|format(b.actual_hours) }}
+              {%- elif l.est_each is not none -%}
+                {{ '%g'|format(l.est_each) }}<span class="est-star">*</span>
+              {%- else -%}—{%- endif -%}
+            </span>
+          </label>
+          {% endfor %}
+          {% if l.est_each is not none and l.recorded < l.qty %}
+          <form method="POST" class="d-inline no-print align-self-end"
+                action="{{ url_for('show_crew.local_labor_fill', show_id=show.id, row_id=row.id) }}">
+            <button type="submit" class="btn btn-sm btn-outline-secondary use-est"
+                    aria-label="Fill blank bodies on this line with the estimate">
+              Use estimate ({{ '%g'|format(l.est_each) }})
+            </button>
+          </form>
+          {% endif %}
+        </div>
+      </td>
+      <td class="num total-cell">
+        {%- if l.recorded -%}
+          {{ '%g'|format(l.actual_total) }}
+          {%- if l.recorded < l.qty %}<span class="est-star" title="{{ l.qty - l.recorded }} still blank">*</span>{% endif -%}
+        {%- else -%}<span class="ll-sub">—</span>{%- endif -%}
+      </td>
+      <td class="num">
+        {%- if l.delta is not none and l.delta -%}
+          <span class="ll-delta {{ 'up' if 0 < l.delta else 'down' }}">
+            {{ '+' if 0 < l.delta else '' }}{{ '%g'|format(l.delta) }}</span>
+        {%- elif l.delta is not none -%}<span class="ll-sub">0</span>
+        {%- else -%}<span class="ll-sub">—</span>{%- endif -%}
+      </td>
+    </tr>
+    {% endfor %}
+
+    <tr class="ll-day-subtotal">
+      <td colspan="4">{{ day.date.strftime('%a %b %-d') if day.date else '—' }} subtotal</td>
+      <td class="num">{{ d.bodies }}</td>
+      <td class="num">{{ '%g'|format(d.est_total) }}</td>
+      <td class="ll-sub">
+        {{ d.recorded }} of {{ d.bodies }} recorded
+        {%- if d.blank %} · {{ d.blank }} blank{% endif %}
+      </td>
+      <td class="num total-cell">
+        {%- if d.recorded -%}{{ '%g'|format(d.actual_total) }}
+        {%- if d.blank %}<span class="est-star">*</span>{% endif -%}
+        {%- else -%}—{%- endif -%}
+      </td>
+      <td class="num total-cell">
+        {%- if d.recorded and d.delta -%}
+          <span class="ll-delta {{ 'up' if 0 < d.delta else 'down' }}">
+            {{ '+' if 0 < d.delta else '' }}{{ '%g'|format(d.delta) }}</span>
+        {%- elif d.recorded -%}0{%- else -%}—{%- endif -%}
+      </td>
+    </tr>
+  {% endfor %}
+
+    <tr class="total-row">
+      <td colspan="4">Show total</td>
+      <td class="num">{{ n_bodies }}</td>
+      <td class="num">{{ '%g'|format(est_total) }}</td>
+      <td>{{ n_recorded }} of {{ n_bodies }} recorded{% if n_blank %} · {{ n_blank }} blank{% endif %}</td>
+      <td class="num">
+        {%- if n_recorded -%}{{ '%g'|format(actual_total) }}
+        {%- if n_blank %}<span class="est-star" style="color:rgba(255,255,255,.55);">*</span>{% endif -%}
+        {%- else -%}—{%- endif -%}
+      </td>
+      <td class="num">
+        {%- if n_recorded and delta_total -%}
+          {{ '+' if 0 < delta_total else '' }}{{ '%g'|format(delta_total) }}
+        {%- elif n_recorded -%}0{%- else -%}—{%- endif -%}
+      </td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+{# One autosave form per body, outside the table — a <form> inside a <tr>
+   is invalid markup and browsers hoist it out, which silently breaks the
+   save. The hidden submit gives the save status a home. #}
+{% for d in days %}{% for l in d.lines %}{% for b in l.bodies %}
+<form id="body-{{ b.id }}" method="POST" data-autosave="true" class="ll-body-form d-inline"
+      action="{{ url_for('show_crew.local_labor_body', show_id=show.id, body_id=b.id) }}"
+      ><button type="submit" class="visually-hidden">Save body {{ b.index }}</button></form>
+{% endfor %}{% endfor %}{% endfor %}
 {% endif %}
 
-{% for d in days %}
-{% set day = d.day %}
-<section class="ll-day" aria-label="{{ day.date.strftime('%A, %B %-d') }}">
-  <div class="ll-day-band">
-    <span>{{ day.date.strftime('%a %b %-d') }}</span>
-    {% if day.phase %}<span class="ll-phase">{{ day.phase }}</span>{% endif %}
-    <a href="{{ url_for('schedule.day_detail', show_id=show.id, day_id=day.id) }}"
-       class="ms-auto no-print" style="color:var(--adi-blue-lt);font-weight:600;letter-spacing:.06em;">Open day</a>
-  </div>
-  {% for c in d.calls %}
-  {% set act = c.activity %}
-  <div class="ll-call">
-    <div class="ll-call-head">
-      <span class="act-time">{{ act.time|to_12hr if act.time else '—' }}</span>
-      <span>{{ act.description }}</span>
-      {% if act.department %}<span class="text-muted" style="font-weight:400;">· {{ act.department }}</span>{% endif %}
-    </div>
-    {% for l in c.lines %}
-    {% set row = l.row %}
-    <div class="ll-line" id="row-{{ row.id }}">
-      <div>
-        <div class="ll-line-title">
-          {{ rk.kind_chip('local') }}
-          {{ row.position or (row.position_ref.title if row.position_ref else 'Local labor') }}
-          <span class="text-muted" style="font-weight:400;">× {{ row.qty or 1 }}</span>
-        </div>
-        <div class="ll-line-meta">
-          {% if l.section %}<span class="ll-section">{{ l.section }}</span> · {% endif %}
-          {% if row.task %}{{ row.task }} · {% endif %}
-          Est {% if row.hours is not none %}{{ '%g'|format(row.hours) }} hrs{% else %}—{% endif %} each
-        </div>
-      </div>
-      <div></div>
-      <div class="ll-fill no-print">
-        <form method="POST" action="{{ url_for('show_crew.local_labor_fill', show_id=show.id, row_id=row.id) }}">
-          <button type="submit" class="btn btn-sm btn-outline-secondary"
-                  {% if row.hours is none %}disabled title="This line has no estimate to copy"{% endif %}
-                  aria-label="Fill blank bodies on this line with the estimate">
-            Use estimate{% if row.hours is not none %} ({{ '%g'|format(row.hours) }}){% endif %}
-          </button>
-        </form>
-      </div>
-      <div class="ll-bodies">
-        {% for b in l.bodies %}
-        <label class="ll-body">
-          <span class="ll-n">#{{ b.index }}</span>
-          <input type="number" name="actual_hours" form="body-{{ b.id }}"
-                 step="0.25" min="0"
-                 value="{{ '%g'|format(b.actual_hours) if b.actual_hours is not none else '' }}"
-                 placeholder="{{ '%g'|format(row.hours) if row.hours is not none else '' }}"
-                 class="form-control form-control-sm{% if b.actual_hours is not none and row.hours and b.actual_hours > row.hours %} over{% endif %}"
-                 aria-label="Actual hours, body {{ b.index }} of {{ row.qty or 1 }}, {{ row.position or 'local labor' }}, {{ day.date.strftime('%-m/%-d') }} {{ act.time|to_12hr if act.time else '' }}">
-        </label>
-        {% endfor %}
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-  {% endfor %}
-</section>
-{% endfor %}
-
-{# One autosave form per body, outside the layout — a <form> per input inside
-   a flex row would fight the grid. The hidden submit gives the save status a
-   home (base.html appends it next to the submit button). #}
-{% for d in days %}{% for c in d.calls %}{% for l in c.lines %}{% for b in l.bodies %}
-<form id="body-{{ b.id }}" method="POST" data-autosave="true"
-      action="{{ url_for('show_crew.local_labor_body', show_id=show.id, body_id=b.id) }}"
-      class="d-inline"><button type="submit" class="visually-hidden">Save body {{ b.index }}</button></form>
-{% endfor %}{% endfor %}{% endfor %}{% endfor %}
-
 <script>
-  // Mark an actual above the estimate as you type — the same amber the day
-  // page uses for a row whose actual beat its estimate.
+  // Amber as you type when an actual beats its estimate — the same rule the
+  // day page and the Hours Report use.
   document.addEventListener('input', function (e) {
     const el = e.target;
-    if (!el.matches || !el.matches('.ll-body input')) return;
+    if (!el.matches || !el.matches('.ll-in')) return;
     const est = parseFloat(el.placeholder), v = parseFloat(el.value);
-    el.classList.toggle('over', !isNaN(est) && !isNaN(v) && v > est);
+    el.classList.toggle('over', !isNaN(est) && !isNaN(v) && est < v);
+  });
+
+  // Enter moves down the column, like the Hours Report's day cells.
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    const el = e.target;
+    if (!el.matches || !el.matches('.ll-in')) return;
+    e.preventDefault();
+    const all = Array.from(document.querySelectorAll('.ll-in'));
+    const next = all[all.indexOf(el) + 1];
+    if (next) { next.focus(); next.select(); }
   });
 </script>
 {% endblock %}
