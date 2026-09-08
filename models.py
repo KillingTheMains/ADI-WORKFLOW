@@ -2348,6 +2348,12 @@ class AgencySetting(db.Model):
     # Midnight, the ADI primary. See brand.py — sourced from Larry's brand
     # token file, not sampled from artwork as the previous default was.
     primary_hex   = db.Column(db.String(7), default=brand.PRIMARY)
+    # #21 — the settable palette. Only the roles that have been CHANGED are
+    # stored; a missing key means the ADI default, so NULL here is "the app
+    # as shipped". Read it through brand.roles() / brand.palette(), never
+    # directly — those tolerate a malformed blob, and every surface in the
+    # app depends on this parsing.
+    palette_json  = db.Column(db.Text)
     updated_at    = db.Column(db.DateTime, default=datetime.utcnow,
                               onupdate=datetime.utcnow)
 

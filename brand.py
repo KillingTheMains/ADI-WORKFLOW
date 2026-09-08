@@ -18,6 +18,10 @@ and guidelines. Everything here is provisional and will need revisiting once
 the designer lands.
 """
 
+import json
+import re
+
+
 # ── Palette ─────────────────────────────────────────────────────────────────
 # Role descriptions are verbatim from the token file.
 
@@ -275,3 +279,342 @@ PAPER_HAIRLINE_PT = 0.6
 # Section bands: uppercase condensed bold, MIDNIGHT on STRIPE.
 # Rows: hairline LINE below; never a zebra.
 # Numbers and codes: condensed bold GOLD_INK, right-aligned in their column.
+
+
+# ── Settable palette (#21, 2026-09-08) ─────────────────────────────────────
+#
+# Eleven roles, thirteen values, and every other colour token in the app
+# derived from them by a fixed rule.
+#
+# The rules were not chosen. They were FITTED to the values already sitting in
+# style.css and paper.css, which is why palette() with no agency reproduces
+# both stylesheets as they stand — fifteen of eighteen derivations land within
+# two units out of 255, three of them exactly. That property is the safety
+# net: tests/test_palette.py asserts it token by token, so "make the palette
+# settable" cannot quietly restyle the app.
+#
+# FOUR tokens change on purpose (Jason, 2026-09-08): the screen's ok/warn
+# statuses collapse onto the two paper pill roles, so there is one status
+# colour app-wide instead of two sets that nearly matched. They are named in
+# STATUS_COLLAPSED and excepted by name in the test.
+#
+# Danger is deliberately NOT settable, on screen or on paper. The print spec
+# is explicit that paperwork gets no red ("a problem is a sentence in the
+# cell, not a colour"), and on screen a danger colour is a safety signal
+# rather than branding — the same reason the two *-on-dark tokens stay fixed.
+#
+# Why eleven roles and not the print spec's nine: SIGNAL_CYAN and
+# MILESTONE_GOLD are not paper colours by design (never set as type there),
+# but on screen they are the beverage rail, the recurring rail, the focus
+# ring and the active signal on Midnight — and three tints derive from
+# nothing else.
+
+ROLE_DEFAULTS = {
+    "midnight": MIDNIGHT,   "ink":      INK,       "mineral":  MINERAL,
+    "line":     LINE,       "stripe":   STRIPE,    "cyan_ink": CYAN_INK,
+    "gold_ink": GOLD_INK,   "cyan":     SIGNAL_CYAN,
+    "gold":     MILESTONE_GOLD,
+    "ok_ink":   OK_INK,     "ok_bg":    OK_BG,
+    "wait_ink": WAIT_INK,   "wait_bg":  WAIT_BG,
+}
+
+# What the Agency Branding page shows: eleven labelled rows, thirteen inputs.
+# The prose is the point — a colour picker with no statement of what it drives
+# is a guess, and this page exists so nobody has to guess.
+ROLE_ROWS = [
+    ("Midnight", (("midnight", None),),
+     "Document titles, section-band text, the rule under a document header, "
+     "the crew-call plate and the crew and break rails."),
+    ("Ink", (("ink", None),),
+     "Body text, on screen and on paper."),
+    ("Mineral", (("mineral", None),),
+     "Column headers, labels, meta lines, footers, secondary cells such as "
+     "notes and detail, and the activity rail."),
+    ("Line", (("line", None),),
+     "Every hairline — between rows, under column headers, under the running "
+     "head — and the borders on form controls."),
+    ("Stripe", (("stripe", None),),
+     "The fill behind a section band, and the app's own ground."),
+    ("Cyan ink", (("cyan_ink", None),),
+     "Eyebrows, links, primary buttons and the information state. This is "
+     "cyan as TEXT; it has to stay readable on white."),
+    ("Gold ink", (("gold_ink", None),),
+     "Item numbers, the two-letter row codes and call times. Gold as TEXT; "
+     "it has to stay readable on white."),
+    ("Signal cyan", (("cyan", None),),
+     "Screen only: the beverage rail, the focus ring, and the active signal "
+     "on Midnight. Never set as type on paper."),
+    ("Milestone gold", (("gold", None),),
+     "Screen only: the recurring rail and its fill. Kept rare by design."),
+    ("Live pill", (("ok_ink", "Text"), ("ok_bg", "Fill")),
+     "Live or done, on screen and on paper."),
+    ("Waiting pill", (("wait_ink", "Text"), ("wait_bg", "Fill")),
+     "Waiting on something, on screen and on paper."),
+]
+
+# The four the collapse moves. Named here so the safety-net test excepts them
+# by name rather than by a tolerance wide enough to hide a real regression.
+STATUS_COLLAPSED = {
+    "--adi-ok": "#1A6B3C", "--adi-ok-bg": "#DCFCE7",
+    "--adi-warn": "#8A5A00", "--adi-warn-bg": "#FDF3D8",
+    "--ok": "#1A6B3C", "--ok-bg": "#DCFCE7",
+    "--warn": "#8A5A00", "--warn-bg": "#FDF3D8",
+}
+
+WHITE = "#FFFFFF"
+
+
+def _R(key):            return ("role", key)
+def _M(key, to, pct):   return ("mix", key, to, pct)
+def _A(key, alpha):     return ("alpha", key, alpha)
+def _F(value):          return ("fix", value)
+def _RGB(spec):         return ("csv", spec)     # "11,37,69" — Bootstrap's shape
+
+
+# (css names, rule). Names that share a rule share a line — which is also the
+# reconciliation of the two namespaces made visible: --adi-border and paper's
+# --border were always the same colour typed twice.
+#
+# Every percentage below reproduces the value in the comment. "±n" is the
+# largest single-channel miss out of 255.
+TOKEN_SPECS = [
+    # ── the five brand names, verbatim ──────────────────────────────────
+    (("--adi-midnight", "--adi-dark", "--adi-kind-crew",
+      "--adi-kind-break", "--navy"),            _R("midnight")),
+    (("--adi-warm-white", "--adi-surface",
+      "--surface", "--paper-stripe",
+      "--bs-body-bg"),                          _R("stripe")),
+    (("--adi-cyan", "--adi-blue-lt", "--blue-lt"),  _R("cyan")),
+    (("--adi-mineral", "--adi-muted", "--adi-kind-act",
+      "--adi-kind-anchor", "--muted",
+      "--bs-secondary-color"),                  _R("mineral")),
+    (("--adi-gold-brand", "--adi-gold-lt",
+      "--adi-kind-recur", "--gold-lt"),         _R("gold")),
+
+    # ── the ink pair and the hairline ───────────────────────────────────
+    (("--adi-blue", "--adi-info", "--blue"),    _R("cyan_ink")),
+    (("--adi-gold", "--gold"),                  _R("gold_ink")),
+    (("--paper-ink", "--adi-ink"),              _R("ink")),
+    (("--paper-line", "--adi-line"),            _R("line")),
+
+    # ── derived: measured against the tree, not invented ────────────────
+    (("--adi-dark-2",),        _M("midnight", "white", .06)),   # #143055 ±6
+    (("--adi-kind-local",),    _M("midnight", "white", .12)),   # #24405F ±4
+    (("--adi-rail-neutral",),  _M("midnight", "white", .76)),   # #C3CAD3 ±1
+    (("--adi-tint-local",),    _M("midnight", "white", .93)),   # #EDF0F4 ±2
+    (("--adi-tint-anchor",),   _M("midnight", "white", .93)),   # #EDEFF1 ±1
+    (("--adi-tint-break",),    _M("midnight", "white", .94)),   # #EEF1F6 ±2
+    (("--adi-text", "--text",
+      "--bs-body-color"),      _M("ink", "black", .24)),        # #16202E ±2
+    (("--adi-border-strong",
+      "--border-strong"),      _M("ink", "white", .44)),        # #7E8794 ±1
+    (("--adi-mineral-dk",
+      "--muted-dk"),           _M("mineral", "black", .25)),    # #414A54 ±2
+    (("--adi-border", "--border",
+      "--bs-border-color"),    _M("line", "white", .11)),      # #E2DDD3 ±1
+    (("--adi-row-rule",),      _M("line", "stripe", .60)),      # #EDE9E1 exact
+    (("--adi-band",),          _M("line", "stripe", .88)),      # #F4F1EA exact
+    (("--adi-hover",),         _M("cyan_ink", "white", .92)),   # #EAF4F6 ±2
+    (("--adi-tint-bev",
+      "--adi-info-bg"),        _M("cyan", "white", .87)),       # #E6F7FA ±1
+    (("--adi-tint-recur",),    _M("gold", "white", .83)),       # #F7F1E4 ±1
+    (("--adi-blue-dim",),      _A("cyan", .14)),
+
+    # ── status: the two pills are settable, red is not ──────────────────
+    (("--adi-ok", "--ok"),          _R("ok_ink")),      # was #1A6B3C
+    (("--adi-ok-bg", "--ok-bg"),    _R("ok_bg")),       # was #DCFCE7
+    (("--adi-warn", "--warn"),      _R("wait_ink")),    # was #8A5A00
+    (("--adi-warn-bg", "--warn-bg"), _R("wait_bg")),    # was #FDF3D8
+    (("--adi-danger", "--danger"),       _F("#B3261E")),
+    (("--adi-danger-bg", "--danger-bg"), _F("#FDECEA")),
+    (("--adi-warn-on-dark",),            _F("#FBBF24")),
+    (("--adi-danger-on-dark",),          _F("#F87171")),
+
+    # ── the Bootstrap 5.3 bridge ────────────────────────────────────────
+    # Bootstrap reads these at runtime, so alerts, badges, .btn-outline-*,
+    # .form-check, .table and focus rings all rebrand from here rather than
+    # component by component. They were eight more literal copies of colours
+    # already in this table — and --bs-body-bg IS the app's ground, so a
+    # palette that did not reach them would recolour everything except the
+    # page behind it.
+    (("--bs-link-color-rgb",),       _RGB(_R("cyan_ink"))),
+    (("--bs-link-hover-color-rgb",), _RGB(_M("cyan_ink", "black", .306))), # 8,74,84 exact
+    (("--bs-emphasis-color-rgb",),   _RGB(_R("midnight"))),
+    (("--bs-focus-ring-color",),     _A("cyan_ink", .35)),
+
+    # ── not a brand decision: paper is white ────────────────────────────
+    (("--adi-card",),                    _F(WHITE)),
+]
+
+
+def _rgb(value):
+    h = (value or "").strip().lstrip("#")
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
+    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def _hex(triple):
+    return "#%02X%02X%02X" % tuple(
+        max(0, min(255, int(round(c)))) for c in triple)
+
+
+def mix(a, b, pct):
+    """`pct` of the way from colour a to colour b, in sRGB."""
+    x, y = _rgb(a), _rgb(b)
+    return _hex(tuple(x[i] + (y[i] - x[i]) * pct for i in range(3)))
+
+
+_HEX_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
+
+
+def is_hex(value):
+    """A settable colour is exactly #RRGGBB. Nothing else is accepted —
+    a three-digit shorthand or a named colour would store fine and then
+    disagree with the contrast check that read it."""
+    return bool(_HEX_RE.match((value or "").strip()))
+
+
+def roles(agency=None):
+    """The thirteen role values: the agency's overrides on top of the ADI
+    defaults. A missing, unparseable or invalid entry falls back rather than
+    failing — a bad row in the database must not take the app down."""
+    out = dict(ROLE_DEFAULTS)
+    raw = getattr(agency, "palette_json", None) if agency is not None else None
+    if not raw:
+        return out
+    try:
+        stored = json.loads(raw)
+    except (TypeError, ValueError):
+        return out
+    if not isinstance(stored, dict):
+        return out
+    for key, value in stored.items():
+        if key in out and is_hex(value):
+            out[key] = value.upper()
+    return out
+
+
+def palette(agency=None):
+    """Every colour token in the app, as {css-var-name: value}.
+
+    One call site for all four namespaces — style.css, paper.css, the print
+    block's literals and the exporters — which is the whole point: before
+    this, the same colour was typed in up to four places and nothing stopped
+    them drifting.
+    """
+    role = roles(agency)
+    toward = dict(role)
+    toward["white"], toward["black"] = WHITE, "#000000"
+
+    def resolve(spec):
+        kind = spec[0]
+        if kind == "role":
+            return role[spec[1]]
+        if kind == "mix":
+            return mix(role[spec[1]], toward[spec[2]], spec[3])
+        if kind == "alpha":
+            r, g, b = _rgb(role[spec[1]])
+            return f"rgba({r},{g},{b},{spec[2]})"
+        if kind == "csv":
+            return "%d,%d,%d" % _rgb(resolve(spec[1]))
+        return spec[1]
+
+    out = {}
+    for names, spec in TOKEN_SPECS:
+        value = resolve(spec)
+        for name in names:
+            out[name] = value
+    return out
+
+
+def theme_css(agency=None):
+    """The palette as one :root block, carrying BOTH namespaces so a single
+    file serves base.html and the four standalone paper templates."""
+    pal = palette(agency)
+    pad = max(len(n) for n in pal) + 1
+    body = "\n".join(f"  {n}:{' ' * (pad - len(n))}{v};" for n, v in pal.items())
+    return ("/* Generated from the agency palette. Edit it on the Agency\n"
+            "   Branding page, not here — brand.palette() is the source. */\n"
+            ":root {\n" + body + "\n}\n")
+
+
+def kind_fill(agency=None):
+    """The row-kind fills on paper, derived from the palette.
+
+    Three tiers, not seven — see KIND_FILL above for why. The greyscale
+    ladder (≈236 / 232 / 228) is what has to survive a mono laser, and it
+    does: these are mixes of Line and Gold, so a re-coloured palette moves
+    the cast without collapsing the separation.
+    """
+    role = roles(agency)
+    quiet = mix(role["line"], WHITE, .43)                    # #EDEAE3 ±1
+    return {"break": quiet, "bev": quiet,
+            "local": mix(role["line"], role["stripe"], .43),  # #E8E4DC exact
+            "recur": mix(role["gold"], WHITE, .78)}           # #F3EBDB exact
+
+
+# ── Contrast, one implementation ───────────────────────────────────────────
+# Lifted out of tests/test_contrast_audit.py, which now imports it. The
+# save-time check and the audit test have to be the same arithmetic or the
+# page will accept a palette the suite then fails on.
+
+def _lin(channel):
+    c = channel / 255
+    return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+
+def _lum(value):
+    r, g, b = _rgb(value)
+    return .2126 * _lin(r) + .7152 * _lin(g) + .0722 * _lin(b)
+
+
+def contrast_ratio(fg, bg):
+    """WCAG 2.1 relative-luminance ratio, 1.0 to 21.0."""
+    a, b = _lum(fg), _lum(bg)
+    hi, lo = max(a, b), min(a, b)
+    return (hi + .05) / (lo + .05)
+
+
+# Checked on the DERIVED tokens, not the thirteen roles — what a reader's eye
+# meets is the derived value. Thresholds are Interface Spec §10's: 4.5 for
+# text, 3.0 for non-text (WCAG 1.4.11).
+#
+# Hairlines are deliberately absent. --adi-border is 1.3:1 on white and always
+# has been; style.css calls it a "decorative hairline ONLY" and points form
+# controls at --adi-border-strong, which IS audited. Auditing the hairline
+# would fail the shipped palette, which would make the check worthless.
+AUDIT_PAIRS = [
+    ("--paper-ink",      WHITE,              "body text on paper",              4.5),
+    ("--adi-text",       "--adi-surface",    "body text on the app ground",     4.5),
+    ("--adi-muted",      WHITE,              "column headers on white",         4.5),
+    ("--adi-muted",      "--adi-surface",    "column headers on a band",        4.5),
+    ("--adi-blue",       WHITE,              "eyebrows and links",              4.5),
+    ("--adi-gold",       WHITE,              "item numbers and row codes",      4.5),
+    ("--adi-midnight",   "--adi-surface",    "section-band text",               4.5),
+    ("--adi-ok",         "--adi-ok-bg",      "the Live pill",                   4.5),
+    ("--adi-warn",       "--adi-warn-bg",    "the Waiting pill",                4.5),
+    ("--adi-mineral-dk", "--adi-tint-break", "secondary text on a break row",   4.5),
+    ("--adi-mineral-dk", "--adi-tint-recur", "secondary text on a recurring row", 4.5),
+    ("--adi-border-strong", WHITE,           "borders on form controls",        3.0),
+    ("--adi-kind-crew",  "--adi-tint-break", "a row's rail against its fill",   3.0),
+    ("--adi-blue",       "--adi-tint-bev",   "the beverage rail against its fill", 3.0),
+    ("--adi-blue-lt",    "--adi-midnight",   "the active signal on the crew plate", 3.0),
+]
+
+
+def audit(agency=None):
+    """Every pair that has to hold, checked on the derived palette.
+
+    Returns the failures as (what, foreground, background, ratio, needed).
+    Empty means the palette is safe to save. This is what stops a light
+    "text" colour quietly making a printed call sheet unreadable.
+    """
+    pal = palette(agency)
+    bad = []
+    for fg, bg, what, need in AUDIT_PAIRS:
+        f, b = pal.get(fg, fg), pal.get(bg, bg)
+        got = contrast_ratio(f, b)
+        if round(got, 2) < need:
+            bad.append((what, f, b, round(got, 2), need))
+    return bad

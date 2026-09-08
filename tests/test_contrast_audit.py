@@ -17,26 +17,16 @@ import re
 
 import pytest
 
+# One implementation, in brand.py, since #21 (2026-09-08). The Agency
+# Branding page refuses a palette on these ratios, so the check that gates a
+# save and the audit that gates the suite have to be the same arithmetic --
+# two copies would let the page accept a palette the suite then fails on.
+from brand import contrast_ratio as ratio
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CSS = os.path.join(ROOT, "static", "css", "style.css")
 TEMPLATES = os.path.join(ROOT, "templates")
 
-
-def _lin(c):
-    c = c / 255
-    return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
-
-
-def _lum(hexv):
-    h = hexv.lstrip("#")
-    r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
-    return 0.2126 * _lin(r) + 0.7152 * _lin(g) + 0.0722 * _lin(b)
-
-
-def ratio(fg, bg):
-    a, b = _lum(fg), _lum(bg)
-    hi, lo = max(a, b), min(a, b)
-    return (hi + 0.05) / (lo + 0.05)
 
 
 def tokens():

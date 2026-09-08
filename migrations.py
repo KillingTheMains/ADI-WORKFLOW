@@ -108,6 +108,14 @@ MIGRATIONS = [
     # 2026-07-13 — Start of Day / End of Day anchors (replace Call/Wrap in Day Settings)
     ("schedule_days", "sod", "VARCHAR(20)"),
     ("schedule_days", "eod", "VARCHAR(20)"),
+    # 2026-09-08 — #21, the settable palette. ONE column, and deliberately a
+    # JSON blob rather than thirteen columns: a role that is absent means
+    # "use the ADI default", so an untouched installation renders exactly as
+    # it does today and adding a role later needs no migration. NULL on
+    # every existing row — nothing is rewritten. primary_hex stays where it
+    # is and is kept in step with the Midnight role on save, so oss_xlsx and
+    # the logo preview carry on unchanged.
+    ("agency_settings",       "palette_json",       "TEXT"),
     # 2026-07-18 — #31 designated travel window on the show
     ("shows", "travel_window_start", "DATE"),
     ("shows", "travel_window_end", "DATE"),
