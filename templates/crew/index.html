@@ -20,6 +20,86 @@
 {% block content %}
 {% if members %}
 
+{# ── Possible duplicates ───────────────────────────────────────────────────
+   2026-09-09. REPORT ONLY — nothing here merges or deletes anything.
+
+   Two records for one person is not untidiness, it is missing overtime: the
+   6th/7th-consecutive-day rule and the short-turnaround rule both resolve per
+   crew_member_id, so a person split across two records is two short weeks to
+   the payroll rules and never one long one. Two records can also hold two
+   different rates.
+
+   Closed by default and absent entirely when there are none, so it costs a
+   clean database nothing. Warn colour, not danger: this is something to look
+   at, not something broken. #}
+{% if duplicates %}
+<details class="card mb-3" style="border-left:3px solid var(--adi-warn);">
+  <summary style="cursor:pointer;padding:12px 16px;list-style:none;
+                  display:flex;align-items:center;gap:8px;">
+    <span style="color:var(--adi-warn);display:inline-flex;">{{ ico.icon('alert-triangle') }}</span>
+    <span style="font:600 13px/1.2 'Barlow Condensed',sans-serif;letter-spacing:.07em;
+                 text-transform:uppercase;color:var(--adi-dark);">
+      {{ duplicates|length }} name{{ '' if duplicates|length == 1 else 's' }} on more than one record
+    </span>
+    <span style="font-size:.78rem;color:var(--adi-mineral);margin-left:auto;">
+      Overtime and rates resolve per record — show me
+    </span>
+  </summary>
+
+  <div style="padding:0 16px 14px;">
+    <p style="font-size:.8rem;color:var(--adi-mineral-dk);max-width:74ch;margin:0 0 12px;">
+      Each of these names sits on two or more crew records. The consecutive-day
+      and short-turnaround rules count per record, so a person split in two
+      never trips them, and a rate set on one record does not price a day booked
+      against the other. Nothing here is changed automatically — open the
+      records, move any bookings onto the one you are keeping, then mark the
+      other inactive.
+    </p>
+
+    <table class="table table-sm" style="font-size:.82rem;margin:0;">
+      <thead>
+        <tr>
+          <th style="width:24%;">Name</th>
+          <th>Company</th>
+          <th>Position</th>
+          <th class="text-end" style="width:9%;">Shows</th>
+          <th class="text-end" style="width:9%;">Rows</th>
+          <th class="text-end" style="width:11%;">Est hours</th>
+          <th class="text-end" style="width:10%;">Rate</th>
+          <th style="width:8%;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for group in duplicates %}
+        {% for rec in group.records %}
+        <tr {% if loop.first %}style="border-top:1px solid var(--adi-border-strong);"{% endif %}>
+          <td>
+            {% if loop.first %}
+            <strong>{{ group.name }}</strong>
+            <span style="color:var(--adi-mineral);font-size:.75rem;">×{{ group.count }}</span>
+            {% endif %}
+          </td>
+          <td>{{ rec.company or '—' }}</td>
+          <td>{{ rec.position or '—' }}</td>
+          <td class="text-end">{{ rec.shows or '—' }}</td>
+          <td class="text-end">{{ rec.rows or '—' }}</td>
+          <td class="text-end">{{ '%.1f'|format(rec.hours) if rec.hours else '—' }}</td>
+          <td class="text-end">
+            {% if rec.member.rate_standard %}{{ '%.2f'|format(rec.member.rate_standard) }}{% else %}—{% endif %}
+          </td>
+          <td class="text-end">
+            <a href="{{ url_for('crew.edit', member_id=rec.member.id) }}"
+               style="font-size:.78rem;">Open</a>
+          </td>
+        </tr>
+        {% endfor %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</details>
+{% endif %}
+
 <!-- ── Toolbar ──────────────────────────────────────────────────────────── -->
 <div class="card mb-3 p-3">
   <div class="row g-2 align-items-center">
@@ -420,7 +500,13 @@
 </script>
 
 <!-- ── Drag-and-drop reorder (SortableJS via CDN) ────────────────────────── -->
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+{# Sortable is SERVED FROM HERE, not from a CDN. Drag-to-reorder is a
+   primary interaction on this page, and the app is used on a laptop in a
+   venue — behind a captive portal or on a bad hotel connection the CDN copy
+   silently failed to load, the handles were still drawn, and dragging did
+   nothing with no error anyone would see. Vendored 2026-09-09, MIT licence
+   alongside it in static/js/vendor. #}
+<script src="{{ url_for('static', filename='js/vendor/sortable-1.15.0.min.js') }}"></script>
 <script>
 (function () {
   const tbody = document.getElementById('crew-tbody');

@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from extensions import db
 from models import CompanyPositionRate, CrewMember, Company, Position, find_normalised
+from crew_duplicates import find_duplicates
 
 crew_bp = Blueprint("crew", __name__)
 
@@ -33,8 +34,14 @@ def index():
                  .all())
     companies = Company.query.order_by(Company.name).all()
     positions = Position.query.order_by(Position.department, Position.title).all()
+    # 2026-09-09 — report only, never a merge. Seven names existed twice on
+    # production and it costs real overtime: the 6th-day and short-turnaround
+    # rules both resolve per crew_member_id, so a person split across two
+    # records can never trip either. See crew_duplicates for the whole story.
+    duplicates = find_duplicates(members)
     return render_template("crew/index.html", members=members,
-                           companies=companies, positions=positions)
+                           companies=companies, positions=positions,
+                           duplicates=duplicates)
 
 
 # ── Wishlist #3: reorder + inline edit ───────────────────────────────────────
