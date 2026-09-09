@@ -143,14 +143,20 @@ def add_day(show_id):
             flash("Invalid date.", "danger")
             return redirect(url_for("schedule.add_day", show_id=show_id))
 
+        # Every time field goes through hhmm_or_blank, the same as Day
+        # Settings does. This route wrote them RAW until 2026-09-09, which is
+        # how production ended up with a day whose Start of Day was the string
+        # "0600 AM" — printed verbatim on the show book beside ten days
+        # reading "07:00 - 18:00", and rendered as an empty box by every
+        # <input type="time"> that touched it.
         day = ScheduleDay(
             show_id    = show_id,
             date       = day_date,
             label      = f.get("label", ""),
-            call_time  = f.get("call_time", ""),
-            wrap_time  = f.get("wrap_time", ""),
-            sod        = f.get("sod", ""),
-            eod        = f.get("eod", ""),
+            call_time  = hhmm_or_blank(f.get("call_time", "")),
+            wrap_time  = hhmm_or_blank(f.get("wrap_time", "")),
+            sod        = hhmm_or_blank(f.get("sod", "")),
+            eod        = hhmm_or_blank(f.get("eod", "")),
             phase      = f.get("phase", ""),
             milestones = f.get("milestones", ""),
             notes      = f.get("notes", ""),

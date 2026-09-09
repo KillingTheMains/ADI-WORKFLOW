@@ -2408,3 +2408,75 @@ class AgencySetting(db.Model):
 
     def __repr__(self):
         return f"<AgencySetting {self.name} logo={self.logo_filename}>"
+
+
+# ── Stored strings carry no leading or trailing whitespace ───────────────────
+#
+# 2026-09-09. Found on production, in three places at once:
+#
+#   * venue 2 is 'CAESARS FORUM ' — so every call sheet printed
+#     "CAESARS FORUM , Las Vegas, NV", with a space before the comma;
+#   * venues 4 and 5 are both 'Hilton Midtown NY ' with city 'New York City ',
+#     a duplicate that a name comparison would not have caught;
+#   * day 25's label ends in a space, and it prints on the show book.
+#
+# None of that is a bug in any one route — it is forty routes each doing
+# `f.get("name", "")` and none of them stripping. Fixing it route by route
+# fixes today's forty and not the forty-first, so it belongs at the one place
+# every write already passes through.
+#
+# STRIP ONLY, never collapse. A run of spaces INSIDE a value is left exactly
+# as typed: rewriting the middle of somebody's text is more surprising than
+# the stray space, and it would quietly mangle an address or a note. The
+# leading/trailing case has no such ambiguity — nobody means it.
+#
+# Filenames are excluded. They are generated, not typed, and a stored name
+# must keep matching the bytes on disk.
+#
+# THE AUDIT LOG IS EXCLUDED TOO, and for a different reason. It is a record of
+# what happened, not a value anyone typed: its `label` and its before/after
+# payloads are supposed to say what the data WAS, trailing space and all.
+# Tidying them would make the log disagree with the change it is describing.
+# Measured when this landed: 484 of the 555 values the first pass would have
+# rewritten were audit rows.
+from sqlalchemy import event as _sa_event
+from sqlalchemy import String as _SAString, Text as _SAText
+
+_NEVER_STRIP = ("logo_filename", "artwork_filename")
+_NEVER_STRIP_TABLES = ("audit_log",)
+
+
+def _strippable_columns(mapper):
+    """The String/Text columns of one mapper, worked out once and cached."""
+    cached = getattr(mapper, "_adi_strippable", None)
+    if cached is None:
+        table = getattr(mapper.local_table, "name", "")
+        if table in _NEVER_STRIP_TABLES:
+            cached = ()
+        else:
+            cached = tuple(
+                attr.key for attr in mapper.column_attrs
+                if len(attr.columns) == 1
+                and isinstance(attr.columns[0].type, (_SAString, _SAText))
+                and attr.key not in _NEVER_STRIP
+            )
+        mapper._adi_strippable = cached
+    return cached
+
+
+@_sa_event.listens_for(db.session, "before_flush")
+def _strip_stored_strings(session, flush_context, instances):
+    """Trim every String/Text value on its way to the database."""
+    from sqlalchemy import inspect as _sa_inspect
+
+    for obj in list(session.new) + list(session.dirty):
+        try:
+            mapper = _sa_inspect(type(obj)).mapper
+        except Exception:
+            continue
+        for key in _strippable_columns(mapper):
+            value = getattr(obj, key, None)
+            if isinstance(value, str):
+                trimmed = value.strip()
+                if trimmed != value:
+                    setattr(obj, key, trimmed)

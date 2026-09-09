@@ -22,6 +22,19 @@ _STRICT_RE = re.compile(
     re.I,
 )
 
+# "0600", "600", "1830", "0600 AM" — four-digit military time, with no colon.
+# This is how a call time gets typed by someone who says it out loud as "oh
+# six hundred", and it went in unparsed until 2026-09-09: production carried a
+# day whose Start of Day was the literal string "0600 AM", printed verbatim on
+# the show book beside ten days reading "07:00 - 18:00".
+#
+# Tried AFTER the strict pattern and only on an anchored 3-4 digit run, so it
+# cannot reinterpret anything that already parses: "8" and "8:00" are matched
+# by the strict pattern first, and "830" could never have been a valid strict
+# value. The meridiem is honoured when given, which is what makes "0600 AM"
+# and "600 PM" work.
+_MILITARY_RE = re.compile(r'^\s*(\d{3,4})\s*(?:([AP])\.?M\.?)?\s*$', re.I)
+
 # Legacy-tolerant fallback: same shape but allows trailing text, e.g.
 # "6:00 PM (doors)". Preserves the behaviour of the old hardcoded_service
 # parser, which was unanchored.
@@ -57,6 +70,23 @@ def parse_minutes(value):
     m = _STRICT_RE.match(text)
     if m:
         return _from_match(m)
+    m = _MILITARY_RE.match(text)
+    if m:
+        digits = m.group(1)
+        hour, minute = int(digits[:-2]), int(digits[-2:])
+        meridiem = (m.group(2) or "").upper()
+        if minute > 59:
+            return None
+        if meridiem:
+            if not 1 <= hour <= 12:
+                return None
+            if meridiem == "P" and hour != 12:
+                hour += 12
+            elif meridiem == "A" and hour == 12:
+                hour = 0
+        elif hour > 23:
+            return None
+        return hour * 60 + minute
     m = _LOOSE_RE.search(text)
     return _from_match(m) if m else None
 

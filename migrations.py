@@ -385,6 +385,7 @@ def _tidy_crew_name_whitespace(session):
               "manually): " + ", ".join(flagged))
 
 
+
 def _punctuation_only_crew_names_to_tbd(session):
     """Rename crew records whose name is punctuation to a stand-in that reads.
 
@@ -427,6 +428,52 @@ def _punctuation_only_crew_names_to_tbd(session):
         more = f" (+{len(renamed) - 6} more)" if len(renamed) > 6 else ""
         print(f"[migration]   {preview}{more}")
 
+
+
+def _strip_whitespace_from_stored_strings(session):
+    """Trim leading/trailing whitespace out of every stored String/Text value.
+
+    The one-off companion to the `before_flush` listener in models.py, which
+    stops any MORE of this arriving. Found on production 2026-09-09:
+
+      * venue 2 is 'CAESARS FORUM ', so every call sheet printed
+        "CAESARS FORUM , Las Vegas, NV" — a space before the comma, on the
+        document Larry emails to a client;
+      * venues 4 and 5 are both 'Hilton Midtown NY ', city 'New York City ';
+      * day 25's label ends in a space and it prints on the show book.
+
+    Strip only, never collapse — the same rule as the listener, for the same
+    reason. A run of spaces inside a value ("Show Day 1  - Show") is left as
+    typed; rewriting the middle of somebody's text is a bigger surprise than
+    the stray space it fixes.
+
+    Walks every mapped model rather than a hand-written table list, so a model
+    added next month is covered without anyone remembering to come back here.
+    """
+    from sqlalchemy import inspect as sa_inspect_orm
+    from models import _strippable_columns
+
+    changed = 0
+    touched = []
+    for mapper in db.Model.registry.mappers:
+        model = mapper.class_
+        keys = _strippable_columns(mapper)
+        if not keys:
+            continue
+        rows_changed = 0
+        for obj in session.query(model).all():
+            for key in keys:
+                value = getattr(obj, key, None)
+                if isinstance(value, str) and value.strip() != value:
+                    setattr(obj, key, value.strip())
+                    changed += 1
+                    rows_changed += 1
+        if rows_changed:
+            touched.append(f"{mapper.local_table.name} {rows_changed}")
+    session.commit()
+    print(f"[migration] stripped whitespace from {changed} stored value(s)")
+    if touched:
+        print("[migration]   " + ", ".join(sorted(touched)))
 
 
 def _unlink_breaks_from_standing_services(session):
@@ -1314,6 +1361,21 @@ DATA_MIGRATIONS = [
     # the 09-06 production snapshot: 43 renamed (32 ENCORE, 11 GES).
     ("2026-09-09-punctuation-only-crew-names-to-tbd",
      _punctuation_only_crew_names_to_tbd),
+    # 2026-09-09 — the one-off half of the whitespace fix; models.py stops any
+    # more arriving. Measured on the 09-06 production snapshot: 71 values —
+    # schedule_activities 41, schedule_days 14, venues 5, crew_members 5,
+    # crew_rows 4, clients 1, shows 1. The audit log is deliberately not
+    # touched (see _strippable_columns); it held another 484.
+    ("2026-09-09-strip-whitespace-from-stored-strings",
+     _strip_whitespace_from_stored_strings),
+    # 2026-09-09 — same function as the 08-07 pass, NEW KEY so it re-runs now
+    # that time_utils understands four-digit military time. The 08-07 run left
+    # "0600 AM" alone because it did not parse, and the show book printed it
+    # verbatim. Runs AFTER the strip so a trailing space cannot stop a value
+    # parsing. Measured: 7 — schedule_days.sod on 2026-09-18 ("0600 AM" ->
+    # "06:00") plus six day-template payload times.
+    ("2026-09-09-normalise-times-including-military",
+     _normalise_stored_times_to_24h),
 ]
 
 
