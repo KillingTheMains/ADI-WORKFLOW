@@ -385,6 +385,50 @@ def _tidy_crew_name_whitespace(session):
               "manually): " + ", ".join(flagged))
 
 
+def _punctuation_only_crew_names_to_tbd(session):
+    """Rename crew records whose name is punctuation to a stand-in that reads.
+
+    Found 2026-09-09. Production carried 43 crew records named ". ." — 32 at
+    ENCORE, 11 at GES — and they are the stand-ins GHC26's union labor lines
+    hang off. `name_is_unnamed_slot` now recognises them (a name part with no
+    letter and no digit is not a name), which is the half of this that
+    matters: those rows go back to being counted as bodies rather than as 43
+    real people.
+
+    This is the other half, and it is cosmetic. The rule alone leaves the Crew
+    Database opening on 43 rows of dots, sorted to the top of the alphabet,
+    with nothing to read. Renaming them to TBD costs nothing: they are already
+    stand-ins by the rule, `display_label` renders them from their company and
+    position ("ENCORE Rigger High") on every schedule and export either way,
+    and nothing keys on the name.
+
+    Deliberately narrow — ONLY records where both halves are non-alphanumeric,
+    so it cannot touch a real person. A record already reading "TBD" is left
+    alone. Predicted on the 09-06 production snapshot: 43 renamed.
+    """
+    from models import CrewMember
+
+    renamed = []
+    for member in CrewMember.query.all():
+        first = (member.first_name or "").strip()
+        last = (member.last_name or "").strip()
+        if not (first or last):
+            continue
+        parts = [p for p in (first, last) if p]
+        if not all(not any(ch.isalnum() for ch in p) for p in parts):
+            continue
+        renamed.append(f"#{member.id} {member.full_name!r}")
+        member.first_name = "TBD"
+        member.last_name = ""
+    session.commit()
+    print(f"[migration] punctuation-only crew names -> TBD: {len(renamed)} renamed")
+    if renamed:
+        preview = ", ".join(renamed[:6])
+        more = f" (+{len(renamed) - 6} more)" if len(renamed) > 6 else ""
+        print(f"[migration]   {preview}{more}")
+
+
+
 def _unlink_breaks_from_standing_services(session):
     """A crew break is never fed BY a standing beverage service.
 
@@ -1265,6 +1309,11 @@ DATA_MIGRATIONS = [
     # 0 renamed, 2 phase hints. A fresh seed reports 13 / 1 / 2.
     ("2026-09-06-strip-legacy-break-rows-from-day-templates",
      _strip_legacy_break_rows_from_day_templates),
+    # 2026-09-09 — the ". ." records. The RULE change in models is what fixes
+    # the counting; this only makes the Crew Database readable. Predicted on
+    # the 09-06 production snapshot: 43 renamed (32 ENCORE, 11 GES).
+    ("2026-09-09-punctuation-only-crew-names-to-tbd",
+     _punctuation_only_crew_names_to_tbd),
 ]
 
 

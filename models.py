@@ -226,8 +226,8 @@ class CrewMember(db.Model):
         """
         first = (self.first_name or "").strip().lower()
         last = (self.last_name or "").strip().lower()
-        return (first in self.PLACEHOLDER_NAMES
-                or last in self.PLACEHOLDER_NAMES
+        return (_placeholder_token(first)
+                or _placeholder_token(last)
                 or f"{first} {last}".strip() in self.PLACEHOLDER_NAMES)
 
     @property
@@ -273,6 +273,45 @@ class CrewMember(db.Model):
         return f"<CrewMember {self.full_name}>"
 
 
+def _placeholder_token(part):
+    """Is ONE half of a name a stand-in rather than part of a person's name?
+
+    Two ways in, and the second was missing until 2026-09-09.
+
+    1. A known stand-in word — the ``PLACEHOLDER_NAMES`` list: TBD, TBA,
+       Unknown, N/A, XXX, First, Last, Test, Name.
+
+    2. NOTHING ALPHANUMERIC IN IT AT ALL — ".", "-", "--", "?", "...".
+       Nobody is called that. It is what a spreadsheet cell holds when
+       somebody needed the row to be non-empty and had nothing to put in it,
+       and it arrives here through the crew importer in exactly the same way
+       "TBD" does.
+
+    Why (2) exists: production carried **43 crew records named ". ."** — 32 at
+    ENCORE, 11 at GES — and they were the stand-ins GHC26's union labor lines
+    hang off. Because the list did not know that spelling, every one of them
+    read as a real named individual. The knock-on, measured before the fix:
+    GHC26 reported **140 local labor bodies when the true figure was 206** —
+    66 bodies, 47% of the show's local labor, booked as 18 people. Those 18
+    then had per-person overtime, DT, short-turnaround and 6th/7th-consecutive
+    day rules applied to multi-body hours.
+
+    That is the same failure the list was written for, in a different
+    spelling. Enumerating "." would have left "-" and "?" to be found the same
+    way in a month, so the rule is the shape of the thing instead: a name part
+    with no letter and no digit is not a name.
+
+    ``isalnum`` is Unicode-aware, so accented and non-Latin names are letters
+    and pass through untouched.
+    """
+    part = (part or "").strip().lower()
+    if not part:
+        return False
+    if part in CrewMember.PLACEHOLDER_NAMES:
+        return True
+    return not any(ch.isalnum() for ch in part)
+
+
 def name_is_unnamed_slot(first, last):
     """Is this first/last pair a stand-in rather than a person?
 
@@ -302,8 +341,8 @@ def name_is_unnamed_slot(first, last):
     both = f"{first} {last}".strip()
     if both in CrewMember.PLACEHOLDER_NAMES:
         return True
-    first_ph = (not first) or first in CrewMember.PLACEHOLDER_NAMES
-    last_ph = (not last) or last in CrewMember.PLACEHOLDER_NAMES
+    first_ph = (not first) or _placeholder_token(first)
+    last_ph = (not last) or _placeholder_token(last)
     return first_ph and last_ph and bool(both)
 
 
