@@ -7,7 +7,7 @@ from models import Show, ScheduleDay, ScheduleActivity, CrewRow, Position, CrewM
                    PHASES, CREW_TYPES, DayTemplate, PHASE_TYPES, ShowCrewAssignment, Company, \
                    SubScheduleEntry, SUB_SCHEDULE_TYPES, SUB_SCHEDULE_META, is_meal_break, DayPhase, \
                    MealService, MealServiceLocation, HardCodedEventDayOff, \
-                   MEAL_KINDS, phase_type_names, PhaseType, DayItem
+                   MEAL_KINDS, phase_type_names, PhaseType, DayItem, count_people
 from datetime import date, timedelta
 from time_utils import sort_minutes, parse_minutes, hhmm_or_blank
 import re, json
@@ -1680,6 +1680,7 @@ def _call_sheet_sheet(day):
     from collections import defaultdict
 
     crew_lines = []
+    crew_rows  = []   # the CrewRow objects behind the lines, for the headcount
     seen_ids   = {}   # crew_member_id → first activity description
     conflicts  = set()
 
@@ -1687,6 +1688,7 @@ def _call_sheet_sheet(day):
         for row in act.ordered_crew_rows:
             if row.is_group_header:
                 continue
+            crew_rows.append(row)
             crew_lines.append({
                 "act_time":       act.time or "",
                 "act_desc":       act.description,
@@ -1721,25 +1723,28 @@ def _call_sheet_sheet(day):
     for line in crew_lines:
         by_dept[line["dept"] or "General"].append(line)
 
-    # Total Crew is a HEADCOUNT — bodies in the building — not a count of
-    # lines. It used to sum qty over every activity, so a person on three
-    # crew calls counted three times and a 40-person day printed "96 people"
-    # on the document the venue caters from. A named person counts once
-    # however many calls they are on; an open slot (no crew_member_id)
-    # counts by its qty because each is a separate body. Found 09-05.
-    people = set()
-    placeholders = 0
-    for line in crew_lines:
-        if line["crew_member_id"]:
-            people.add(line["crew_member_id"])
-        else:
-            placeholders += line["qty"]
-
+    # Total Crew is a HEADCOUNT — bodies in the building — and there is exactly
+    # ONE definition of that: models.count_people. Do not write a second one
+    # here, however obvious it looks.
+    #
+    # This route did, on 09-05, and it was wrong for four days. The version it
+    # replaced summed qty over every activity, so a person on three calls
+    # counted three times; the fix for that counted `crew_member_id` as one
+    # person — which is right for a real person and WRONG for a local-labor
+    # line, because an unfilled slot also carries a crew_member_id, pointing
+    # at a stand-in record like "Sparks Lighting Hand". So `7 × Lighting Hand`
+    # went back to counting as 1, which is the exact failure count_people's
+    # docstring was written about: MCDC26 day 26 has 43 people on its calls and
+    # this sheet printed 18. Measured across that show on 2026-09-09, the
+    # printed sheets were 421 against a true 601.
+    #
+    # The venue caters from this document. It gets the same number as the day
+    # page, the OSS master and break coverage, or it is a bug.
     return {
         "day":        day,
         "crew_lines": crew_lines,
         "by_dept":    dict(sorted(by_dept.items())),
-        "total_crew": len(people) + placeholders,
+        "total_crew": count_people(crew_rows),
         "total_lines": sum(l["qty"] for l in crew_lines),
         "conflicts":  len(conflicts) > 0,
     }
