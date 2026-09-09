@@ -9,6 +9,9 @@ from models import Show, CrewMember, ShowCrewAssignment, Company, Position, \
     ScheduleActivity, CrewRow, ShowOpenSlot
 from datetime import date as date_cls
 from crew_ordering import crew_order_by, crew_sort_key
+# One word for 'this person has no company', shared with the day page's section
+# headers so the two surfaces cannot drift apart. (2026-09-09)
+from crew_sections import UNASSIGNED_LABEL
 
 show_crew_bp = Blueprint("show_crew", __name__)
 
@@ -37,7 +40,7 @@ def show_crew(show_id):
     # Group crew by company for display
     companies = {}
     for cm in all_crew:
-        co_name = cm.company.name if cm.company else "No Company"
+        co_name = cm.company.name if cm.company else UNASSIGNED_LABEL
         co_id   = cm.company_id or 0
         if co_id not in companies:
             companies[co_id] = {"name": co_name, "crew": []}
@@ -61,7 +64,7 @@ def show_crew(show_id):
     for a in assignments:
         cm = a.crew_member
         co_id = (cm.company_id if cm else None) or 0
-        co_name = cm.company.name if cm and cm.company else "No Company"
+        co_name = cm.company.name if cm and cm.company else UNASSIGNED_LABEL
         g = roster_map.setdefault(co_id, {"name": co_name, "assignments": [],
                                           "slots": [], "rows": []})
         g["assignments"].append(a)
@@ -264,7 +267,7 @@ def contact_sheet(show_id):
     companies = {}
     for a in assignments:
         cm = a.crew_member
-        co_name = cm.company.name if cm.company else "No Company"
+        co_name = cm.company.name if cm.company else UNASSIGNED_LABEL
         co_id   = cm.company_id or 0
         if co_id not in companies:
             companies[co_id] = {"name": co_name, "crew": []}
@@ -1136,9 +1139,9 @@ def _travel_assignments_sorted(show_id, sort_by="check_in"):
 
 
 def _company_name(a):
-    """Display name of an assignment's company ('No Company' when unset)."""
+    """Display name of an assignment's company ('Unassigned' when unset)."""
     cm = a.crew_member
-    return cm.company.name if cm and cm.company else "No Company"
+    return cm.company.name if cm and cm.company else UNASSIGNED_LABEL
 
 
 def _company_counts(assignments):
@@ -1311,7 +1314,7 @@ def contact_sheet_xlsx(show_id):
     companies = {}
     for a in assignments:
         cm = a.crew_member
-        co_name = cm.company.name if cm.company else "No Company"
+        co_name = cm.company.name if cm.company else UNASSIGNED_LABEL
         co_id   = cm.company_id or 0
         companies.setdefault(co_id, {"name": co_name, "crew": []})["crew"].append(cm)
     sorted_companies = sorted(companies.values(), key=lambda c: c["name"])

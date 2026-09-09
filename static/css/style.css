@@ -960,6 +960,20 @@ input[type="number"], input[type="time"] { font-variant-numeric: tabular-nums; }
 }
 #sidebar :where(a, button):focus-visible { outline-color: var(--adi-blue-lt); }
 
+/* Inline code — a hex value, a path, an offset expression. Bootstrap ships
+   `code { color: var(--bs-code-color) }`, which is #d63384, a pink that
+   belongs to no palette role. It was the ONLY colour on screen that
+   brand.palette() did not set, and — found 2026-09-09 — it was rendering the
+   brand hex on the Agency Branding page: one pink value on the page whose
+   whole subject is the palette.
+   #21's guard reads the app's own stylesheets, so a colour arriving from the
+   CDN was never in scope for it. This puts the role back under the palette
+   where the guard can see it. Mineral: it is secondary text. */
+code {
+  color: var(--adi-mineral-dk);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── OSS Print Styles ────────────────────────────────────────────────────── */
 @media print {
   #sidebar, .top-bar, .no-print { display: none !important; }

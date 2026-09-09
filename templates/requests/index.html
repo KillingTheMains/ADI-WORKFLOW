@@ -401,7 +401,13 @@
 </div>
 
 <!-- ── Drag-to-reorder (SortableJS) — one Sortable per status group ──────── -->
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+{# Sortable is SERVED FROM HERE, not from a CDN. Drag-to-reorder is a
+   primary interaction on this page, and the app is used on a laptop in a
+   venue — behind a captive portal or on a bad hotel connection the CDN copy
+   silently failed to load, the handles were still drawn, and dragging did
+   nothing with no error anyone would see. Vendored 2026-09-09, MIT licence
+   alongside it in static/js/vendor. #}
+<script src="{{ url_for('static', filename='js/vendor/sortable-1.15.0.min.js') }}"></script>
 <script>
   (function () {
     async function persist(orderedIds) {

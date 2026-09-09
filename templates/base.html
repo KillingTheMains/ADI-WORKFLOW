@@ -5,13 +5,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}ADI Workflow{% endblock %}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   {# Barlow Condensed for display, Barlow for text and data. Both SIL OFL, so
      no licence exposure while the brand package is still pre-approval. Playfair
      Display is gone — it was never a brand decision. #}
+{# Barlow is SELF-HOSTED — static/fonts, declared in css/fonts.css, which
+   paper.css @imports. The <link> to fonts.googleapis.com that used to sit here
+   fetched faces the page already had: a third-party round trip on every load,
+   on a laptop in a venue. Removed 2026-09-09. #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
-  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="stylesheet" href="{{ url_for('agency.theme_css') }}?v={{ theme_v }}">

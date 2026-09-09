@@ -163,7 +163,7 @@
       </div>
       <div class="col-auto">
         <div class="pb-meta" style="font-size:.75rem;color:rgba(255,255,255,.4);">
-          {{ show.date_range }}
+          {{ show.scheduled_range }}
         </div>
       </div>
     </div>
@@ -269,10 +269,16 @@
   </div>
   <div class="col">
     <div class="stat-card">
-      {% if total_crew > 0 %}
+      {# NAMED CREW ONLY — grand_total over total_crew, neither of which
+         includes local labor. The two tiles beside it (Total Man-Hours and
+         Avg Hours/Day) DO include it, so an unqualified "per person" invited
+         the wrong multiplication: 70.9 x 39 is 2,766, not the 5,948 in the
+         first tile. Both figures were always right; the label was not saying
+         which population it was over. (2026-09-09) #}
+      {% if 0 < total_crew %}
       <div class="stat-num">{{ "%.1f"|format(grand_total / total_crew) }}</div>
       {% else %}<div class="stat-num">—</div>{% endif %}
-      <div class="stat-label">Avg Hours/Person</div>
+      <div class="stat-label">Avg Hours/Person{% if local_total %} (named){% endif %}</div>
     </div>
   </div>
   <div class="col">
@@ -341,7 +347,7 @@
             {% set current_company.val = entry.company %}
             <tr class="company-divider">
               <td colspan="{{ ncols }}">
-                {{ entry.company or 'No Company' }}
+                {{ entry.company or 'Unassigned' }}
               </td>
             </tr>
           {% endif %}
@@ -384,7 +390,7 @@
             </td>
             {% if show_ot_col %}
             {% set ovt = entry.ot_hours + entry.dt_hours %}
-            <td class="total-cell" style="color:{% if ovt > 0 %}var(--adi-warn){% else %}var(--adi-border-strong){% endif %};">
+            <td class="total-cell" style="color:{% if 0 < ovt %}var(--adi-warn){% else %}var(--adi-border-strong){% endif %};">
               {% if ovt > 0 %}{{ "%.1f"|format(ovt) }}{% else %}—{% endif %}
             </td>
             {% endif %}
@@ -400,7 +406,7 @@
           {% set ct = company_totals[entry.company] %}
           <tr class="company-subtotal">
             <td colspan="4" style="font-size:.7rem;">
-              {{ entry.company or 'No Company' }} · {{ ct.n }} {{ 'person' if ct.n == 1 else 'people' }}
+              {{ entry.company or 'Unassigned' }} · {{ ct.n }} {{ 'person' if ct.n == 1 else 'people' }}
               {# One click for the common case: everyone worked the call.
                  Fills only the blanks in this company. #}
               <form method="POST" class="d-inline no-print"
@@ -531,13 +537,13 @@
             <td class="total-cell">
               {% if entry.actual_recorded and entry.recorded == entry.bodies %}
                 {% set ld = entry.total_actual - entry.total %}
-                <span style="color:{% if ld > 0.05 %}var(--adi-danger){% elif ld < -0.05 %}var(--adi-ok){% else %}var(--adi-mineral){% endif %};">{% if ld > 0 %}+{% endif %}{{ "%.1f"|format(ld) }}</span>
+                <span style="color:{% if 0.05 < ld %}var(--adi-danger){% elif ld < -0.05 %}var(--adi-ok){% else %}var(--adi-mineral){% endif %};">{% if 0 < ld %}+{% endif %}{{ "%.1f"|format(ld) }}</span>
               {% else %}—{% endif %}
             </td>
             {% endif %}
             {% if show_ot_col %}
             {% set ovt = entry.ot_hours + entry.dt_hours %}
-            <td class="total-cell" style="color:{% if ovt > 0 %}var(--adi-warn){% else %}var(--adi-border-strong){% endif %};">
+            <td class="total-cell" style="color:{% if 0 < ovt %}var(--adi-warn){% else %}var(--adi-border-strong){% endif %};">
               {% if ovt > 0 %}{{ "%.1f"|format(ovt) }}{% else %}—{% endif %}
             </td>
             {% endif %}

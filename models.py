@@ -442,6 +442,39 @@ class Show(db.Model):
             return f"{self.load_in_date.strftime('%b %-d')} – {self.strike_date.strftime('%b %-d, %Y')}"
         return "Dates TBD"
 
+    @property
+    def scheduled_range(self):
+        """The span of the days this show actually HAS, for pages made of them.
+
+        `date_range` derives from production phases, which are a plan. On a
+        page whose entire content is the show's days, the plan and the days
+        can disagree — and on 2026-09-09 they did, in three places at once:
+
+          * the show book cover read "Sep 8 - Sep 17, 2026" directly above a
+            table whose last row was Friday, September 18;
+          * the Hours Report and Local Labor Hours plates said the same thing
+            above eleven day columns ending 9/18;
+          * GHC26's plate read "Oct 17 - Nov 1" above columns starting 10/19.
+
+        MCDC26's phases end on the 17th and it has a day on the 18th. Neither
+        is wrong — a heavy-equipment pickup after strike is a real day that no
+        phase covers — but a header contradicting the table underneath it is.
+
+        So: pages built FROM the days say what the days say. `date_range`
+        stays exactly as it is for pages about the show as a whole (the show
+        list, the show card), where the planned span is the right answer.
+
+        Falls back to `date_range` when the show has no days yet, so a fresh
+        show still reads "Dates TBD" rather than blank.
+        """
+        dates = sorted(d.date for d in (self.days or []) if d.date)
+        if not dates:
+            return self.date_range
+        first, last = dates[0], dates[-1]
+        if first == last:
+            return first.strftime("%b %-d, %Y")
+        return f"{first.strftime('%b %-d')} – {last.strftime('%b %-d, %Y')}"
+
     def _phase_date(self, phase_type, attr):
         """Helper to pull a date from a specific phase type."""
         for p in (self.phases or []):

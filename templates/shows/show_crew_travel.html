@@ -292,7 +292,7 @@
         {% for a in assignments %}
         {% set fid = 'travel-row-' ~ a.id %}
         {% if sort_by == 'company' %}
-          {% set co_name = a.crew_member.company.name if a.crew_member.company else 'No Company' %}
+          {% set co_name = a.crew_member.company.name if a.crew_member.company else 'Unassigned' %}
           {% if co_name != ns.cur %}
             {% set ns.cur = co_name %}
           {% set cnt = company_counts.get(co_name, 0) %}

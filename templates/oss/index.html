@@ -400,22 +400,12 @@
     {% elif t == 'F&B' %}
       {% include 'oss/_fb_tab.html' %}
     {% else %}
-    {% if t == 'F&B' and missing_fb %}
-    <div class="alert alert-warning py-2 px-3" style="font-size:.82rem;">
-      <strong>{{ ico.icon('alert-triangle') }} {{ missing_fb|length }} meal break{% if missing_fb|length != 1 %}s{% endif %}
-      with no F&B entry.</strong>
-      The schedule has meal-related activities (LUNCH, DINNER, BREAKFAST, MEAL) that
-      aren't linked to any F&B OSS entry yet:
-      <ul class="mb-0 mt-1" style="font-size:.78rem;">
-        {% for w in missing_fb %}
-        <li>
-          <a href="{{ w.day_url }}">{{ w.day.date.strftime('%a %-m/%-d') }}</a>
-          · {{ w.activity.time or '—' }} · {{ w.activity.description }}
-        </li>
-        {% endfor %}
-      </ul>
-    </div>
-    {% endif %}
+    {# The "N meal breaks with no F&B entry" warning used to be duplicated
+       here. It was unreachable — this is the {% else %} of {% elif t == 'F&B' %}
+       above, so `t == 'F&B'` is False by construction — and the live copy is
+       in _fb_tab.html, which is what the {% elif %} renders. Removed
+       2026-09-09; the tab badge and the block it explains now have exactly
+       one source between them. #}
 
     <div class="oss-section-help">
       {{ ico.icon(m.icon) }} <strong>{{ m.label }}</strong> entries for this show.

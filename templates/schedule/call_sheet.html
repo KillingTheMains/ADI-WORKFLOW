@@ -11,7 +11,6 @@
     {%- if sheets|length == 1 %} {{ sheets[0].day.date.strftime('%b %-d, %Y') }}
     {%- else %} {{ sheets[0].day.date.strftime('%b %-d') }}–{{ sheets[-1].day.date.strftime('%b %-d, %Y') }} ({{ sheets|length }} {{ 'day' if sheets|length == 1 else 'days' }})
     {%- endif %} — {{ show.name }}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/paper.css') }}">
   <link rel="stylesheet" href="{{ url_for('agency.theme_css') }}?v={{ theme_v }}">
   <style>
@@ -284,7 +283,7 @@
     }
   </style>
 </head>
-<body{% if sheets|length > 1 %} class="packet"{% endif %}>
+<body{% if 1 < sheets|length %} class="packet"{% endif %}>
 
 <div class="screen-wrapper">
 

@@ -413,7 +413,7 @@ def day_detail(show_id, day_id):
     _roster_idx = roster_index(show.id)
     crew_by_company, _first_seen = {}, {}
     for pos, cm in enumerate(crew_members):
-        key = cm.company.name if cm.company else "No Company"
+        key = cm.company.name if cm.company else UNASSIGNED_LABEL
         crew_by_company.setdefault(key, []).append(cm)
         _first_seen.setdefault(key, _roster_idx.get(cm.id, 10 ** 9 + pos))
     crew_by_company = sorted(crew_by_company.items(),

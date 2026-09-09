@@ -2,7 +2,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/paper.css') }}">
   <link rel="stylesheet" href="{{ url_for('agency.theme_css') }}?v={{ theme_v }}">
   <meta charset="UTF-8">
@@ -149,7 +148,6 @@
   <a href="{{ url_for('oss.oss_hub', show_id=show.id) }}">← Back to OSS</a>
 </div>
 
-{% set filename = (show.code or 'ADI') ~ '_' ~ show.name|replace(' ','_') ~ '_OSS_v' ~ show.version %}
 {% set today_str = now.strftime('%m/%d/%y') if now else '' %}
 
 <!-- ═══ COVER PAGE ═══ -->
@@ -166,7 +164,7 @@
     {% if show.room_name %}
     <div class="cover-dates">{{ show.room_name }}</div>
     {% endif %}
-    <div class="cover-dates">{{ show.date_range }}</div>
+    <div class="cover-dates">{{ show.scheduled_range }}</div>
     <div class="cover-version">{{ show.version_label }}</div>
   </div>
 
@@ -175,8 +173,11 @@
   <table class="overview-table">
     <thead>
       <tr>
-        <th style="width:80pt;">Day</th>
-        <th style="width:80pt;">Date</th>
+        {# 80pt is not enough for "September 10, 2026", so every row of the
+           cover wrapped the year onto a second line. Widened and pinned to
+           one line — this is the first page of the book. (2026-09-09) #}
+        <th style="width:72pt;">Day</th>
+        <th style="width:104pt;white-space:nowrap;">Date</th>
         <th>Activity</th>
       </tr>
     </thead>
@@ -184,7 +185,7 @@
       {% for day in show.days %}
       <tr>
         <td>{{ day.date.strftime('%A') }}</td>
-        <td>{{ day.date.strftime('%B %-d, %Y') }}</td>
+        <td style="white-space:nowrap;">{{ day.date.strftime('%B %-d, %Y') }}</td>
         <td>
           {{ day.label or day.phase or '' }}
           {% if day.time_window %} ({{ day.time_window }}){% endif %}
@@ -203,7 +204,7 @@
   {% endif %}
 
   <div class="page-footer">
-    <span>{{ filename }}.xlsx</span>
+    <span>{{ show.code or show.name }} · Show Book</span>
     <span>Page 1 of {{ show.days|length + 1 }}</span>
     <span>Printed {{ today_str }}</span>
   </div>
@@ -366,7 +367,7 @@
   {% endif %}
 
   <div class="page-footer">
-    <span>{{ filename }}.xlsx</span>
+    <span>{{ show.code or show.name }} · Show Book</span>
     <span>Page {{ loop.index + 1 }} of {{ show.days|length + 1 }}</span>
     <span>Printed {{ today_str }}</span>
   </div>
