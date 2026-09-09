@@ -2291,10 +2291,10 @@
 (function () {
   const modal = document.getElementById('createCrewCallModal');
   if (!modal) return;
-  const countEl = modal.querySelector('var(--adi-border-strong)-count');
-  const timeEl  = modal.querySelector('var(--adi-border-strong)-time');
-  const hoursEl = modal.querySelector('var(--adi-border-strong)-hours');
-  const prevEl  = modal.querySelector('var(--adi-border-strong)-break-preview');
+  const countEl = modal.querySelector('#ccc-count');
+  const timeEl  = modal.querySelector('#ccc-time');
+  const hoursEl = modal.querySelector('#ccc-hours');
+  const prevEl  = modal.querySelector('#ccc-break-preview');
 
   function pad(n) { return String(n).padStart(2, '0'); }
   function plus(hhmm, mins) {
